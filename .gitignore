@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+*.pyc
+
+# Environnement virtuel
+venv/
+.env
+.venv/
+env/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Secrets
+.env
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Node (Tailwind build)
+node_modules/
+package-lock.json
+
+# Migrations (on les garde dans git pour prod)
+# Ne pas ignorer les migrations !
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/

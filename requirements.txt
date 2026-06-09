@@ -1,0 +1,6 @@
+Django==6.0.6
+psycopg2-binary==2.9.12
+python-decouple==3.8
+Pillow==12.2.0
+django-htmx==1.27.0
+whitenoise==6.12.0
