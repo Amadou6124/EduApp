@@ -1,0 +1,90 @@
+{% extends "superadmin/base_superadmin.html" %}
+{% load humanize %}
+
+{% block title %}Dashboard Superadmin{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-brand-blue">Tableau de bord</h1>
+  <a href="{% url 'superadmin:school-create' %}"
+     class="inline-flex items-center gap-2 bg-brand-blue hover:bg-blue-900 text-white font-semibold px-4 py-2 rounded-lg transition text-sm">
+    + Nouvelle école
+  </a>
+</div>
+
+<!-- Stats globales -->
+<div class="grid grid-cols-3 gap-4 mb-8">
+  <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+    <p class="text-xs text-gray-500 uppercase tracking-wide">Écoles actives</p>
+    <p class="text-4xl font-bold text-brand-blue mt-1">{{ total_schools }}</p>
+  </div>
+  <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+    <p class="text-xs text-gray-500 uppercase tracking-wide">Total classes</p>
+    <p class="text-4xl font-bold text-brand-blue mt-1">{{ total_classes }}</p>
+  </div>
+  <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+    <p class="text-xs text-gray-500 uppercase tracking-wide">Total élèves</p>
+    <p class="text-4xl font-bold text-brand-blue mt-1">{{ total_students }}</p>
+  </div>
+</div>
+
+<!-- Liste des écoles -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+  <div class="px-5 py-4 border-b border-gray-100">
+    <h2 class="font-semibold text-gray-800">Écoles actives</h2>
+  </div>
+
+  {% if school_data %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+        <tr>
+          <th class="px-5 py-3 text-left">École</th>
+          <th class="px-5 py-3 text-left">Ville</th>
+          <th class="px-5 py-3 text-left">Directeur</th>
+          <th class="px-5 py-3 text-right">Classes</th>
+          <th class="px-5 py-3 text-right">Élèves</th>
+          <th class="px-5 py-3 text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for item in school_data %}
+          <tr class="hover:bg-gray-50 transition">
+            <td class="px-5 py-3 font-medium">{{ item.school.name }}</td>
+            <td class="px-5 py-3 text-gray-500">{{ item.school.city }}</td>
+            <td class="px-5 py-3">
+              {% if item.director %}
+                <span class="font-medium">{{ item.director.full_name }}</span>
+                <br><span class="text-xs text-gray-400">{{ item.director.phone_number }}</span>
+              {% else %}
+                <a href="{% url 'superadmin:director-create' item.school.id %}"
+                   class="text-orange-600 hover:underline text-xs font-medium">
+                  ⚠ Créer directeur
+                </a>
+              {% endif %}
+            </td>
+            <td class="px-5 py-3 text-right font-semibold">{{ item.classes_count }}</td>
+            <td class="px-5 py-3 text-right font-semibold">{{ item.students_count }}</td>
+            <td class="px-5 py-3 text-center">
+              {% if not item.director %}
+                <a href="{% url 'superadmin:director-create' item.school.id %}"
+                   class="text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 px-2 py-1 rounded font-medium transition">
+                  + Directeur
+                </a>
+              {% else %}
+                <span class="text-xs text-green-600 font-medium">✓ Complet</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="px-5 py-10 text-center text-gray-400">
+      <p class="text-lg mb-2">Aucune école</p>
+      <a href="{% url 'superadmin:school-create' %}" class="text-brand-blue hover:underline text-sm font-medium">
+        Créer la première école →
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

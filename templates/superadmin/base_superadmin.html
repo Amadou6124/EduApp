@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Superadmin{% endblock %} — EduApp</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { brand: { blue: '#1E3A5F', gold: '#F5A623' } } } }
+    }
+  </script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+
+  <!-- Barre de navigation -->
+  <nav class="bg-brand-blue text-white px-6 py-3 flex items-center justify-between shadow">
+    <div class="flex items-center gap-3">
+      <span class="text-xs font-bold uppercase tracking-widest bg-brand-gold text-white px-2 py-0.5 rounded">SUPERADMIN</span>
+      <span class="font-semibold text-sm">EduApp</span>
+    </div>
+    <div class="flex items-center gap-4 text-sm">
+      <a href="{% url 'superadmin:dashboard' %}" class="hover:text-brand-gold transition">Dashboard</a>
+      <a href="{% url 'superadmin:school-create' %}" class="hover:text-brand-gold transition">Nouvelle école</a>
+      <a href="{% url 'schools:class-list' %}" class="text-gray-400 hover:text-white transition text-xs">← App</a>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>

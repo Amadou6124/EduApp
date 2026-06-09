@@ -1,0 +1,77 @@
+{% load i18n humanize %}
+
+{% if parse_errors %}
+  <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
+    <p class="mb-2 font-semibold text-red-700 text-sm">
+      ⚠ {{ parse_errors|length }} ligne(s) avec erreurs (ignorées) :
+    </p>
+    <ul class="space-y-1">
+      {% for err in parse_errors %}
+        <li class="text-red-600 text-xs">
+          Ligne {{ err.line }} — <strong>{{ err.name }}</strong> : {{ err.errors|join:", " }}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+{% if rows %}
+  <p class="mb-3 text-sm text-gray-600">
+    <strong>{{ rows|length }}</strong> classe(s) prête(s) à importer :
+    {% if duplicates %}
+      <span class="text-orange-600 ml-1">⚠ {{ duplicates|length }} doublon(s) — sera ignoré(s)</span>
+    {% endif %}
+  </p>
+
+  <div class="overflow-x-auto rounded-lg border border-gray-200 mb-4">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+        <tr>
+          <th class="px-3 py-2 text-left">Nom</th>
+          <th class="px-3 py-2 text-left">Niveau</th>
+          <th class="px-3 py-2 text-right">Frais FCFA</th>
+          <th class="px-3 py-2 text-right">Capacité</th>
+          <th class="px-3 py-2 text-center">Statut</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for row in rows %}
+          <tr class="{% if row.name in duplicates %}bg-orange-50{% endif %}">
+            <td class="px-3 py-2 font-medium">{{ row.name }}</td>
+            <td class="px-3 py-2">{{ row.level_display }}</td>
+            <td class="px-3 py-2 text-right">{{ row.annual_fee|intcomma }}</td>
+            <td class="px-3 py-2 text-right">{{ row.max_capacity|default:"—" }}</td>
+            <td class="px-3 py-2 text-center">
+              {% if row.name in duplicates %}
+                <span class="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs">Doublon</span>
+              {% else %}
+                <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">✓ OK</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form hx-post="{% url 'schools:class-import-confirm' %}"
+        hx-target="#classes-table"
+        hx-swap="innerHTML"
+        hx-on::after-request="if(event.detail.successful) { $data.showImportModal = false; }"
+        class="flex gap-3">
+    {% csrf_token %}
+    <input type="hidden" name="rows_data" value="{{ rows_json }}">
+    <button type="submit"
+            class="flex-1 bg-brand-blue hover:bg-blue-900 text-white font-semibold py-2.5 rounded-lg transition text-sm">
+      Confirmer l'import ({{ rows|length }} classe{% if rows|length > 1 %}s{% endif %})
+    </button>
+    <button type="button"
+            @click="showImportModal = false"
+            class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-lg transition text-sm">
+      Annuler
+    </button>
+  </form>
+
+{% elif not parse_errors %}
+  <p class="text-center text-gray-500 py-4 text-sm">Aucune classe valide détectée dans le fichier.</p>
+{% endif %}
