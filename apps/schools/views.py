@@ -96,6 +96,25 @@ def class_update(request, class_id):
     })
 
 
+def class_search(request):
+    school = get_demo_school()
+    query = request.GET.get('q', '').strip()
+
+    classes = list(
+        SchoolClass.objects.filter(
+            school=school,
+            is_active=True,
+            name__icontains=query,
+        ).select_related('school')
+        if query else
+        SchoolClass.objects.filter(school=school, is_active=True).select_related('school')
+    )
+
+    return render(request, 'schools/partials/class_table_body.html', {
+        'classes': classes,
+    })
+
+
 def class_edit_modal(request, class_id):
     school_class = get_object_or_404(SchoolClass, id=class_id)
     form = SchoolClassForm(instance=school_class)

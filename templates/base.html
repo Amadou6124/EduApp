@@ -29,6 +29,15 @@
   <!-- Alpine.js -->
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
+  <style>
+    /* Indicateur de chargement HTMX */
+    .htmx-indicator          { opacity: 0; transition: opacity 200ms ease-in; }
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator { opacity: 1; }
+    /* Masquer les éléments Alpine avant initialisation */
+    [x-cloak] { display: none !important; }
+  </style>
+
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-brand-light min-h-screen font-sans text-gray-800"
