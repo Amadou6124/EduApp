@@ -73,11 +73,9 @@
   </div>
 
   <!-- ── Barre de recherche ───────────────────────────────────── -->
+  {% url 'schools:class-search' as class_search_url %}
   <div class="mb-4">
-    {% include "includes/search_bar.html" with
-       placeholder="Rechercher une classe..."
-       target="classes-table"
-       url="/classes/search/" %}
+    {% include "includes/search_bar.html" with placeholder="Rechercher une classe..." target="classes-table" url=class_search_url %}
   </div>
 
   <!-- ── Contenu (cards ou tableau) — cible HTMX ───────────────── -->
