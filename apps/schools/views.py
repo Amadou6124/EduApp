@@ -15,10 +15,7 @@ def get_demo_school():
     return School.objects.filter(id=DEMO_SCHOOL_ID).first()
 
 
-def class_list(request):
-    school = get_demo_school()
-    classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
-
+def compute_class_stats(classes):
     total_students = sum(c.get_student_count() for c in classes)
     classes_with_capacity = [c for c in classes if c.max_capacity]
     avg_fill_rate = 0
@@ -27,6 +24,13 @@ def class_list(request):
             sum(min(c.get_student_count() / c.max_capacity * 100, 100) for c in classes_with_capacity)
             / len(classes_with_capacity)
         )
+    return total_students, avg_fill_rate
+
+
+def class_list(request):
+    school = get_demo_school()
+    classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
+    total_students, avg_fill_rate = compute_class_stats(classes)
 
     form = SchoolClassForm()
     return render(request, 'schools/class_list.html', {
@@ -50,11 +54,14 @@ def class_create(request):
 
         # Réponse HTMX : retourne la nouvelle ligne + réinitialise le formulaire
         if request.htmx:
-            classes = SchoolClass.objects.filter(school=school, is_active=True)
-            return render(request, 'schools/partials/class_table_body.html', {
+            classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
+            total_students, avg_fill_rate = compute_class_stats(classes)
+            return render(request, 'schools/partials/class_list_refresh.html', {
                 'classes': classes,
                 'form': SchoolClassForm(),
                 'success_message': _('Classe créée avec succès.'),
+                'total_students': total_students,
+                'avg_fill_rate': avg_fill_rate,
             })
 
     if request.htmx:

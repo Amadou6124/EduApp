@@ -52,24 +52,8 @@
   </div>
 
   <!-- ── 3 Stats ────────────────────────────────────────────────── -->
-  <div class="grid grid-cols-3 gap-3 mb-6">
-    <div class="bg-white rounded-xl p-4 shadow-sm">
-      <p class="text-xs text-gray-500 uppercase tracking-wide leading-tight">{% trans "Classes actives" %}</p>
-      <p class="text-3xl font-bold text-brand-blue mt-1">{{ classes|length }}</p>
-    </div>
-    <div class="bg-white rounded-xl p-4 shadow-sm">
-      <p class="text-xs text-gray-500 uppercase tracking-wide leading-tight">{% trans "Élèves inscrits" %}</p>
-      <p class="text-3xl font-bold text-brand-blue mt-1">{{ total_students }}</p>
-    </div>
-    <div class="bg-white rounded-xl p-4 shadow-sm">
-      <p class="text-xs text-gray-500 uppercase tracking-wide leading-tight">{% trans "Taux remplissage" %}</p>
-      <p class="text-3xl font-bold mt-1
-                {% if avg_fill_rate >= 90 %}text-red-600
-                {% elif avg_fill_rate >= 70 %}text-orange-500
-                {% else %}text-green-600{% endif %}">
-        {{ avg_fill_rate }}%
-      </p>
-    </div>
+  <div id="class-stats" class="grid grid-cols-3 gap-3 mb-6">
+    {% include "schools/partials/class_stats.html" %}
   </div>
 
   <!-- ── Barre de recherche ───────────────────────────────────── -->
