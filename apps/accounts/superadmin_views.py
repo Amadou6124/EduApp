@@ -2,7 +2,6 @@ from functools import wraps
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseForbidden
-from django.contrib.auth.decorators import login_required
 from django.utils.translation import gettext_lazy as _
 
 from apps.schools.models import School, SchoolClass
@@ -13,8 +12,9 @@ from .superadmin_forms import SchoolCreateForm, DirectorCreateForm
 
 def superadmin_required(view_func):
     @wraps(view_func)
-    @login_required(login_url='/login/')
     def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect(f'/admin/login/?next={request.path}')
         if not request.user.is_superuser:
             return HttpResponseForbidden(
                 '<h1 style="font-family:sans-serif;padding:40px">403 — Accès réservé aux superadmins.</h1>'
