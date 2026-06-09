@@ -18,8 +18,8 @@
   <!-- ── En-tête : toggle + bouton ─────────────────────────────── -->
   <div class="flex items-center justify-between mb-6">
 
-    <!-- Switch vue (icônes) -->
-    <div class="flex items-center bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
+    <!-- Switch vue (icônes) — masqué sur mobile, tableau non disponible -->
+    <div class="hidden lg:flex items-center bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
       <button @click="setView('cards')"
               :class="view === 'cards' ? 'bg-brand-blue text-white' : 'text-gray-400 hover:text-gray-600'"
               class="p-2 rounded-md transition min-h-[44px] min-w-[44px] flex items-center justify-center"
