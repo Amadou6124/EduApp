@@ -17,12 +17,24 @@ def get_demo_school():
 
 def class_list(request):
     school = get_demo_school()
-    classes = SchoolClass.objects.filter(school=school, is_active=True).select_related('school')
+    classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
+
+    total_students = sum(c.get_student_count() for c in classes)
+    classes_with_capacity = [c for c in classes if c.max_capacity]
+    avg_fill_rate = 0
+    if classes_with_capacity:
+        avg_fill_rate = round(
+            sum(min(c.get_student_count() / c.max_capacity * 100, 100) for c in classes_with_capacity)
+            / len(classes_with_capacity)
+        )
+
     form = SchoolClassForm()
     return render(request, 'schools/class_list.html', {
         'classes': classes,
         'form': form,
         'school': school,
+        'total_students': total_students,
+        'avg_fill_rate': avg_fill_rate,
     })
 
 
@@ -79,6 +91,15 @@ def class_update(request, class_id):
         })
 
     return render(request, 'schools/partials/class_edit_row.html', {
+        'form': form,
+        'school_class': school_class,
+    })
+
+
+def class_edit_modal(request, class_id):
+    school_class = get_object_or_404(SchoolClass, id=class_id)
+    form = SchoolClassForm(instance=school_class)
+    return render(request, 'schools/partials/class_edit_modal.html', {
         'form': form,
         'school_class': school_class,
     })

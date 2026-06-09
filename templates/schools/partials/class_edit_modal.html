@@ -1,0 +1,31 @@
+{% load i18n %}
+<div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+  <h3 class="font-semibold text-lg text-brand-blue">
+    {% trans "Modifier" %} — {{ school_class.name }}
+  </h3>
+  <button @click="showEditModal = false"
+          class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+  </button>
+</div>
+
+<form hx-post="{% url 'schools:class-update' school_class.id %}"
+      hx-target="#classes-table"
+      hx-swap="innerHTML"
+      hx-on::after-request="if(event.detail.successful) { $data.showEditModal = false; }"
+      class="px-6 py-6 space-y-4">
+  {% csrf_token %}
+  {% include "schools/partials/class_form_fields.html" %}
+  <div class="flex gap-3 pt-2">
+    <button type="submit"
+            class="flex-1 bg-brand-blue hover:bg-blue-900 text-white font-semibold py-3 rounded-lg transition">
+      {% trans "Enregistrer" %}
+    </button>
+    <button type="button" @click="showEditModal = false"
+            class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg transition">
+      {% trans "Annuler" %}
+    </button>
+  </div>
+</form>
