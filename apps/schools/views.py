@@ -6,6 +6,8 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from django.contrib import messages
@@ -40,6 +42,15 @@ def get_demo_school():
     return School.objects.filter(id=DEMO_SCHOOL_ID).first()
 
 
+def _classes_qs(school):
+    return (
+        SchoolClass.objects
+        .filter(school=school, is_active=True)
+        .select_related('school')
+        .annotate(student_count=Count('students', filter=Q(students__is_active=True)))
+    )
+
+
 def compute_class_stats(classes):
     total_students = sum(c.get_student_count() for c in classes)
     classes_with_capacity = [c for c in classes if c.max_capacity]
@@ -52,9 +63,10 @@ def compute_class_stats(classes):
     return total_students, avg_fill_rate
 
 
+@login_required(login_url='/admin/login/')
 def class_list(request):
     school = get_demo_school()
-    classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
+    classes = list(_classes_qs(school))
     total_students, avg_fill_rate = compute_class_stats(classes)
 
     form = SchoolClassForm()
@@ -67,6 +79,7 @@ def class_list(request):
     })
 
 
+@login_required(login_url='/admin/login/')
 @require_http_methods(['POST'])
 def class_create(request):
     school = get_demo_school()
@@ -79,7 +92,7 @@ def class_create(request):
 
         # Réponse HTMX : retourne la nouvelle ligne + réinitialise le formulaire
         if request.htmx:
-            classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
+            classes = list(_classes_qs(school))
             total_students, avg_fill_rate = compute_class_stats(classes)
             return render(request, 'schools/partials/class_list_refresh.html', {
                 'classes': classes,
@@ -97,12 +110,14 @@ def class_create(request):
     return render(request, 'schools/class_list.html', {
         'form': form,
         'school': school,
-        'classes': SchoolClass.objects.filter(school=school, is_active=True),
+        'classes': list(_classes_qs(school)),
     })
 
 
+@login_required(login_url='/admin/login/')
 def class_edit_form(request, class_id):
-    school_class = get_object_or_404(SchoolClass, id=class_id)
+    school = get_demo_school()
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     form = SchoolClassForm(instance=school_class)
     return render(request, 'schools/partials/class_edit_row.html', {
         'form': form,
@@ -110,9 +125,11 @@ def class_edit_form(request, class_id):
     })
 
 
+@login_required(login_url='/admin/login/')
 @require_http_methods(['POST'])
 def class_update(request, class_id):
-    school_class = get_object_or_404(SchoolClass, id=class_id)
+    school = get_demo_school()
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     form = SchoolClassForm(request.POST, instance=school_class)
 
     if form.is_valid():
@@ -128,18 +145,14 @@ def class_update(request, class_id):
     })
 
 
+@login_required(login_url='/admin/login/')
 def class_search(request):
     school = get_demo_school()
     query = request.GET.get('q', '').strip()
-
     classes = list(
-        SchoolClass.objects.filter(
-            school=school,
-            is_active=True,
-            name__icontains=query,
-        ).select_related('school')
+        _classes_qs(school).filter(name__icontains=query)
         if query else
-        SchoolClass.objects.filter(school=school, is_active=True).select_related('school')
+        _classes_qs(school)
     )
 
     return render(request, 'schools/partials/class_table_body.html', {
@@ -147,8 +160,10 @@ def class_search(request):
     })
 
 
+@login_required(login_url='/admin/login/')
 def class_edit_modal(request, class_id):
-    school_class = get_object_or_404(SchoolClass, id=class_id)
+    school = get_demo_school()
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     form = SchoolClassForm(instance=school_class)
     return render(request, 'schools/partials/class_edit_modal.html', {
         'form': form,
@@ -156,13 +171,16 @@ def class_edit_modal(request, class_id):
     })
 
 
+@login_required(login_url='/admin/login/')
 def class_row(request, class_id):
-    school_class = get_object_or_404(SchoolClass, id=class_id)
+    school = get_demo_school()
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     return render(request, 'schools/partials/class_row.html', {
         'school_class': school_class,
     })
 
 
+@login_required(login_url='/admin/login/')
 def class_import_template(request):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -263,6 +281,7 @@ def _parse_import_rows(file_obj, filename):
     return rows, errors
 
 
+@login_required(login_url='/admin/login/')
 @require_http_methods(['POST'])
 def class_import_preview(request):
     file_obj = request.FILES.get('import_file')
@@ -286,6 +305,7 @@ def class_import_preview(request):
     })
 
 
+@login_required(login_url='/admin/login/')
 @require_http_methods(['POST'])
 def class_import_confirm(request):
     school = get_demo_school()
@@ -327,9 +347,11 @@ def class_import_confirm(request):
     })
 
 
+@login_required(login_url='/admin/login/')
 @require_http_methods(['DELETE'])
 def class_delete(request, class_id):
-    school_class = get_object_or_404(SchoolClass, id=class_id)
+    school = get_demo_school()
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     # Désactivation douce : on ne supprime pas si des élèves sont inscrits
     if school_class.get_student_count() > 0:
         return HttpResponse(

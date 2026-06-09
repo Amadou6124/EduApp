@@ -1,5 +1,6 @@
 from functools import wraps
 
+from django.db.models import Count, Q, Prefetch
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseForbidden
 from django.utils.translation import gettext_lazy as _
@@ -37,18 +38,27 @@ def dashboard(request):
         School.objects
         .filter(is_active=True)
         .order_by('-created_at')
+        .annotate(
+            classes_count=Count('classes', filter=Q(classes__is_active=True), distinct=True),
+            students_count=Count('students', filter=Q(students__is_active=True), distinct=True),
+        )
+        .prefetch_related(
+            Prefetch(
+                'users',
+                queryset=User.objects.filter(role=UserRole.DIRECTOR),
+                to_attr='directors',
+            )
+        )
     )
-    school_data = []
-    for school in schools:
-        classes_count = school.classes.filter(is_active=True).count()
-        students_count = Student.objects.filter(school=school, is_active=True).count()
-        director = User.objects.filter(school=school, role=UserRole.DIRECTOR).first()
-        school_data.append({
-            'school': school,
-            'classes_count': classes_count,
-            'students_count': students_count,
-            'director': director,
-        })
+    school_data = [
+        {
+            'school': s,
+            'classes_count': s.classes_count,
+            'students_count': s.students_count,
+            'director': s.directors[0] if s.directors else None,
+        }
+        for s in schools
+    ]
 
     return render(request, 'superadmin/dashboard.html', {
         **_global_stats(),

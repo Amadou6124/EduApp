@@ -108,3 +108,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Modèle utilisateur personnalisé
 AUTH_USER_MODEL = 'accounts.User'
+
+# URL de login (remplacer par 'accounts:login' quand la page de login sera créée)
+LOGIN_URL = '/admin/login/'
+LOGIN_REDIRECT_URL = '/classes/'

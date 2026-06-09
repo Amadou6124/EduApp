@@ -70,6 +70,8 @@ class SchoolClass(models.Model):
         return f'{self.name} — {self.school.name}'
 
     def get_student_count(self):
+        if hasattr(self, 'student_count'):
+            return self.student_count
         return self.students.filter(is_active=True).count()
 
     def is_full(self):
