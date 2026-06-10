@@ -27,7 +27,9 @@ Contexte : bulletins, school_class, period
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for bul in bulletins %}
-          <tr class="hover:bg-gray-50/50 transition-colors
+          <tr x-data="{ sname: '{{ bul.student.full_name|escapejs }}' }"
+              x-show="!$store.search.q.trim() || sname.toLowerCase().includes($store.search.q.toLowerCase().trim())"
+              class="hover:bg-gray-50/50 transition-colors
                      {% if forloop.counter == 1 %}bg-amber-50/60{% endif %}
                      {% if forloop.counter == 2 %}bg-gray-50/40{% endif %}
                      {% if forloop.counter == 3 %}bg-orange-50/30{% endif %}
