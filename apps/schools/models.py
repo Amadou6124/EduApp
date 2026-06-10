@@ -361,6 +361,10 @@ class Note(models.Model):
         choices=NoteType.choices,
         default=NoteType.SIMPLE,
     )
+    # Position dans la séquence : 1=première note, 2=deuxième…
+    # DEVOIRS_COMPO → position 1 = devoir, position 2 = composition
+    # MOYENNE_SIMPLE → position 1, 2, 3… (colonnes dynamiques)
+    position = models.PositiveSmallIntegerField(_('position'), default=1)
     # La valeur ne peut jamais dépasser max_grade de la ClassSubject (validé dans clean())
     value = models.DecimalField(
         _('valeur'),
@@ -390,7 +394,8 @@ class Note(models.Model):
     class Meta:
         verbose_name        = _('note')
         verbose_name_plural = _('notes')
-        ordering            = ['-entered_at']
+        ordering            = ['student__full_name', 'position']
+        unique_together     = [('student', 'class_subject', 'period', 'position')]
         indexes = [
             models.Index(fields=['student', 'period'],       name='note_student_period_idx'),
             models.Index(fields=['class_subject', 'period'], name='note_cs_period_idx'),

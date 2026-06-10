@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% comment %}
+Page de saisie des notes pour une classe et une période.
+Contexte attendu :
+  - school         : School
+  - school_class   : SchoolClass
+  - period         : Period
+  - class_subjects : list[ClassSubject]
+  - active_cs      : ClassSubject | None
+  - can_enter      : bool
+  - reason         : str | None
+  - positions      : list[int]
+  - rows           : list[dict]
+  - class_stats    : dict
+  - active_section : str
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}{{ school_class.name }} — Notes{% endblock %}
+
+{% block page_title %}
+  <div class="flex items-center gap-3 flex-wrap">
+    <a href="{% url 'notes:dashboard' %}?year={{ period.school_year.pk }}&period={{ period.pk }}"
+       class="text-gray-400 hover:text-brand-blue transition"
+       title="{% trans 'Retour au tableau de bord' %}">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    <span class="text-brand-blue">{{ school_class.name }}</span>
+    <span class="text-gray-300">·</span>
+    <span class="text-gray-500 font-normal text-sm">{{ period.name }}</span>
+  </div>
+{% endblock %}
+
+{% block header_actions %}
+  {% if period.is_notes_open %}
+    <span class="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
+      <span class="w-2 h-2 rounded-full bg-green-400"></span>
+      {% trans "Saisie ouverte" %}
+    </span>
+  {% else %}
+    <span class="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 px-2.5 py-1 rounded-full">
+      <span class="w-2 h-2 rounded-full bg-red-400"></span>
+      {% trans "Saisie fermée" %}
+    </span>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ── Fil d'Ariane période ──────────────────────────────────────── #}
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+  <span>{{ period.school_year.name }}</span>
+  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+  </svg>
+  <span class="text-gray-700 font-medium">{{ period.name }}</span>
+  <span class="text-xs text-gray-400 ml-1">
+    {{ period.start_date|date:"j M" }} – {{ period.end_date|date:"j M Y" }}
+  </span>
+</div>
+
+{# ── Sélecteur de matière (onglets) avec état Alpine ───────────── #}
+{% if class_subjects %}
+  <div x-data="{ activeTab: '{{ active_cs.pk|default:'' }}' }"
+       class="flex gap-2 mb-6 overflow-x-auto pb-1">
+    {% for cs in class_subjects %}
+      <button type="button"
+              x-on:click="activeTab = '{{ cs.pk }}'"
+              x-bind:class="activeTab === '{{ cs.pk }}'
+                ? 'bg-brand-blue text-white shadow border border-brand-blue'
+                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'"
+              class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition min-h-[44px]"
+              hx-get="{% url 'notes:subject-table' school_class.pk period.pk cs.pk %}"
+              hx-target="#notes-table-container"
+              hx-swap="innerHTML"
+              hx-push-url="?subject={{ cs.pk }}">
+        {# Pastille couleur matière #}
+        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              style="background-color: {{ cs.subject.color|default:'#1E3A5F' }}"></span>
+        <span>{{ cs.subject.short_name|default:cs.subject.name }}</span>
+        <span class="text-[10px] opacity-60">coeff. {{ cs.coefficient|floatformat:'1' }}</span>
+      </button>
+    {% endfor %}
+  </div>
+
+  {# ── Conteneur du tableau HTMX ───────────────────────────────── #}
+  <div id="notes-table-container">
+    {% if active_cs %}
+      {% include "notes/partials/notes_table.html" with cs=active_cs period=period school_class=school_class positions=positions rows=rows class_stats=class_stats can_enter=can_enter reason=reason %}
+    {% endif %}
+  </div>
+
+{% else %}
+  {# ── Aucune matière assignée ──────────────────────────────────── #}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+    <div class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+    </div>
+    <h2 class="text-lg font-semibold text-gray-700 mb-2">Aucune matière assignée</h2>
+    <p class="text-sm text-gray-400 mb-4">
+      Cette classe n'a aucune matière configurée pour la saisie des notes.
+    </p>
+    <a href="{% url 'settings:subjects' %}"
+       class="inline-block px-4 py-2 bg-brand-gold text-white rounded-lg text-sm font-medium hover:bg-amber-500 transition">
+      Configurer les matières
+    </a>
+  </div>
+{% endif %}
+
+{% endblock %}

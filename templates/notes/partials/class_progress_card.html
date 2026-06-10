@@ -1,0 +1,83 @@
+{% comment %}
+Carte de progression par classe — affichée sur le dashboard notes.
+Contexte attendu :
+  - item   : dict {class, subjects, student_count, all_complete}
+  - period : Period (actif)
+{% endcomment %}
+{% load i18n %}
+
+{% with sc=item.class %}
+<a href="{% url 'notes:class' sc.pk period.pk %}"
+   class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-brand-gold/30 transition group block">
+
+  {# ── En-tête : nom classe + niveau ───────────────────────────── #}
+  <div class="flex items-start justify-between mb-3">
+    <div class="min-w-0 flex-1">
+      <h3 class="text-sm font-semibold text-gray-800 truncate group-hover:text-brand-blue transition">
+        {{ sc.name }}
+      </h3>
+      <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium
+                   {% if sc.level == 'primary' %}bg-[#EAF3DE] text-[#27500A]
+                   {% elif sc.level == 'middle' %}bg-[#E6F1FB] text-[#0C447C]
+                   {% elif sc.level == 'high' %}bg-[#FAEEDA] text-[#633806]
+                   {% else %}bg-gray-100 text-gray-600{% endif %}">
+        {{ sc.get_level_display }}
+      </span>
+    </div>
+    {# Badge complet/disponible #}
+    {% if item.all_complete %}
+      <span class="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+        {% trans "Complet" %}
+      </span>
+    {% else %}
+      <span class="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">
+        {% trans "En cours" %}
+      </span>
+    {% endif %}
+  </div>
+
+  {# ── Compteur élèves ─────────────────────────────────────────── #}
+  <div class="flex items-center gap-2 mb-3 text-xs text-gray-500">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+    </svg>
+    <span>{{ item.student_count }} élève{{ item.student_count|pluralize }}</span>
+  </div>
+
+  {# ── Barres de progression par matière ───────────────────────── #}
+  {% if item.subjects %}
+    <div class="space-y-2">
+      {% for sub in item.subjects %}
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] text-gray-600 w-20 truncate flex-shrink-0"
+                title="{{ sub.cs.subject.name }}">
+            {{ sub.cs.subject.short_name|default:sub.cs.subject.name }}
+          </span>
+          <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500
+                        {% if sub.done %}bg-green-400{% elif sub.pct > 0 %}bg-brand-gold{% else %}bg-gray-200{% endif %}"
+                 style="width: {% if sub.total > 0 %}{{ sub.pct }}{% else %}0{% endif %}%">
+            </div>
+          </div>
+          <span class="text-[10px] text-gray-400 w-12 text-right flex-shrink-0">
+            {{ sub.noted }}/{{ sub.total }}
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-xs text-gray-400 italic">Aucune matière assignée</p>
+  {% endif %}
+
+  {# ── Flèche hover ────────────────────────────────────────────── #}
+  <div class="flex justify-end mt-3 opacity-0 group-hover:opacity-100 transition">
+    <span class="text-xs text-brand-blue flex items-center gap-1">
+      {% trans "Saisir les notes" %}
+      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </span>
+  </div>
+</a>
+{% endwith %}

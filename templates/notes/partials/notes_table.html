@@ -1,0 +1,203 @@
+{% comment %}
+Tableau de saisie de notes pour une matière — partial HTMX.
+Contexte attendu :
+  - cs           : ClassSubject
+  - period       : Period
+  - school_class : SchoolClass
+  - positions    : list[int]
+  - rows         : list[dict] {student, cells, note_list, avg, notes_js}
+  - class_stats  : dict {avg, best, worst}
+  - can_enter    : bool
+  - reason       : str | None
+{% endcomment %}
+{% load i18n %}
+
+{% if not can_enter %}
+  {# ── Bloqué : pas les droits ─────────────────────────────────── #}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+    <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
+      <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 15v2m0 0v2m0-2h2m-2 0H10m9.364-7.364A9 9 0 1112 3a9 9 0 017.364 14.636z"/>
+      </svg>
+    </div>
+    <p class="text-gray-600 font-medium mb-1">Saisie non disponible</p>
+    <p class="text-sm text-gray-400">{{ reason|default:"Votre rôle ne permet pas la saisie des notes." }}</p>
+  </div>
+{% elif not rows %}
+  {# ── Vide : aucun élève ──────────────────────────────────────── #}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+    <p class="text-sm text-gray-400">Aucun élève dans cette classe.</p>
+  </div>
+{% else %}
+  {# ── Tableau de saisie ────────────────────────────────────────── #}
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('notesTable', () => ({
+        rows: [
+          {% for r in rows %}
+            { id: {{ r.student.pk }}, avg: {{ r.avg|default:'null' }}, notes: {{ r.notes_js|safe }} }{% if not forloop.last %},{% endif %}
+          {% endfor %}
+        ],
+        positions: {{ positions|length }},
+
+        recalcAll() {
+          this.rows = this.rows.map(r => {
+            let vals = [];
+            for (let i = 1; i <= this.positions; i++) {
+              let v = r.notes[String(i)];
+              if (v !== undefined && v !== '') vals.push(parseFloat(v));
+            }
+            r.avg = vals.length > 0 ? parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2)) : null;
+            return r;
+          });
+        },
+
+        onNoteSaved(detail) {
+          let row = this.rows.find(r => r.id === detail.studentId);
+          if (row) {
+            if (detail.value === '' || detail.value === null) {
+              delete row.notes[String(detail.position)];
+            } else {
+              row.notes[String(detail.position)] = String(detail.value);
+            }
+            this.recalcAll();
+          }
+        },
+
+        onNoteCancelled(detail) {
+          let row = this.rows.find(r => r.id === detail.studentId);
+          if (row) {
+            delete row.notes[String(detail.position)];
+            this.recalcAll();
+          }
+        },
+
+        getStudentAvg(studentId) {
+          let row = this.rows.find(r => r.id === studentId);
+          return row ? row.avg : null;
+        }
+      }));
+    });
+  </script>
+
+  <div x-data="notesTable"
+       x-on:note-saved.window="onNoteSaved($event.detail)"
+       x-on:note-cancelled.window="onNoteCancelled($event.detail)">
+
+    {# ── Stats de la classe ────────────────────────────────────── #}
+    {% if class_stats.avg is not None %}
+      <div class="flex flex-wrap gap-3 mb-4">
+        <div class="bg-white rounded-lg border border-gray-100 px-3 py-1.5 text-xs text-gray-500 shadow-sm">
+          <span class="font-semibold text-gray-700">Moy. classe</span>
+          <span class="ml-1 text-brand-blue font-bold">{{ class_stats.avg }}/{{ cs.max_grade|floatformat:'0' }}</span>
+        </div>
+        {% if class_stats.best %}
+          <div class="bg-white rounded-lg border border-green-100 px-3 py-1.5 text-xs text-gray-500 shadow-sm">
+            <span class="font-semibold text-gray-700">Meilleur</span>
+            <span class="ml-1 text-green-600 font-bold">{{ class_stats.best.value }}/{{ cs.max_grade|floatformat:'0' }}</span>
+            <span class="ml-1 text-gray-400">{{ class_stats.best.student.full_name }}</span>
+          </div>
+        {% endif %}
+        {% if class_stats.worst %}
+          <div class="bg-white rounded-lg border border-red-100 px-3 py-1.5 text-xs text-gray-500 shadow-sm">
+            <span class="font-semibold text-gray-700">Faible</span>
+            <span class="ml-1 text-red-500 font-bold">{{ class_stats.worst.value }}/{{ cs.max_grade|floatformat:'0' }}</span>
+            <span class="ml-1 text-gray-400">{{ class_stats.worst.student.full_name }}</span>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {# ── Tableau scrollable horizontal ──────────────────────────── #}
+    <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+      <table class="min-w-full text-sm">
+        {# En-tête #}
+        <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+          <tr>
+            <th class="sticky left-0 bg-gray-50 z-10 text-left px-3 py-3 font-semibold min-w-[180px] border-b border-gray-200">
+              {% trans "Élève" %}
+            </th>
+            {% for pos in positions %}
+              <th class="text-center px-2 py-3 font-medium min-w-[68px] border-b border-gray-200">
+                {% if cs.note_system == 'devoirs_compo' %}
+                  {% if pos == 1 %}{% trans "Devoir" %}{% else %}{% trans "Composition" %}{% endif %}
+                {% else %}
+                  N°{{ pos }}
+                {% endif %}
+              </th>
+            {% endfor %}
+            <th class="text-center px-3 py-3 font-semibold min-w-[72px] border-b border-gray-200 text-brand-blue">
+              {% trans "Moy." %}
+            </th>
+          </tr>
+        </thead>
+
+        {# Corps #}
+        <tbody class="divide-y divide-gray-100">
+          {% for r in rows %}
+            <tr class="hover:bg-gray-50/50 transition-colors {% cycle '' 'bg-gray-50/30' %}">
+              {# Nom élève — sticky gauche #}
+              <td class="sticky left-0 bg-inherit z-10 px-3 py-1.5 border-r border-gray-100 min-w-[180px]">
+                <div class="flex items-center gap-2">
+                  <span class="w-6 h-6 rounded-full bg-brand-blue/10 flex items-center justify-center text-[10px] font-bold text-brand-blue flex-shrink-0">
+                    {{ forloop.counter }}
+                  </span>
+                  <span class="text-sm font-medium text-gray-700 truncate">
+                    {{ r.student.full_name }}
+                  </span>
+                </div>
+              </td>
+
+              {# Cellules de notes #}
+              {% for cell in r.cells %}
+                {% include "notes/partials/note_cell.html" with cs=cs student=r.student period=period position=cell.pos note=cell.note can_enter=can_enter %}
+              {% endfor %}
+
+              {# Colonne moyenne — réactive via getStudentAvg() #}
+              <td class="text-center px-2 py-1.5 min-w-[72px]">
+                <span x-text="getStudentAvg({{ r.student.pk }}) !== null ? getStudentAvg({{ r.student.pk }}) : '—'"
+                      x-bind:class="{
+                        'text-sm font-bold': true,
+                        'text-green-600': getStudentAvg({{ r.student.pk }}) !== null && getStudentAvg({{ r.student.pk }}) >= {{ cs.max_grade|floatformat:'0' }} / 2,
+                        'text-red-500': getStudentAvg({{ r.student.pk }}) !== null && getStudentAvg({{ r.student.pk }}) < {{ cs.max_grade|floatformat:'0' }} / 2,
+                        'text-gray-300 text-xs font-normal': getStudentAvg({{ r.student.pk }}) === null
+                      }">
+                  {% if r.avg is not None %}{{ r.avg }}{% else %}—{% endif %}
+                </span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# ── Footer actions ─────────────────────────────────────────── #}
+    <div class="flex items-center justify-between mt-3">
+      <p class="text-xs text-gray-400">
+        {{ rows|length }} élève{{ rows|length|pluralize }} —
+        {% if can_enter %}
+          Saisie : <kbd class="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Tab</kbd> cellule suivante,
+          sauvegarde automatique
+        {% else %}
+          Consultation uniquement
+        {% endif %}
+      </p>
+      {% if can_enter and cs.note_system == 'moyenne_simple' %}
+        {# Bouton ajouter une colonne #}
+        <button type="button"
+                class="text-xs text-brand-blue hover:text-brand-gold transition flex items-center gap-1 min-h-[44px] px-3 py-1.5 rounded-lg hover:bg-brand-blue/5"
+                hx-post="{% url 'notes:add-column' school_class.pk period.pk cs.pk %}"
+                hx-vals='{"current_columns": {{ positions|length }}}'
+                hx-target="closest [x-data]"
+                hx-swap="outerHTML"
+                hx-indicator="closest button">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Ajouter une évaluation
+        </button>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
