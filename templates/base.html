@@ -38,6 +38,7 @@
     [x-cloak] { display: none !important; }
   </style>
 
+
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-brand-light min-h-screen font-sans text-gray-800"
@@ -234,5 +235,13 @@
     </a>
   </nav>
 
+  {# ── Alpine store global pour recherche multicomposant ── #}
+  <script>
+    document.addEventListener('alpine:init', function() {
+      if (!Alpine.store('search')) {
+        Alpine.store('search', { q: '' });
+      }
+    });
+  </script>
 </body>
 </html>

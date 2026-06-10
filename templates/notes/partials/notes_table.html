@@ -34,12 +34,19 @@ Contexte attendu :
   <script>
     document.addEventListener('alpine:init', () => {
       Alpine.data('notesTable', () => ({
+        search: '',
         rows: [
           {% for r in rows %}
-            { id: {{ r.student.pk }}, avg: {{ r.avg|default:'null' }}, notes: {{ r.notes_js|safe }} }{% if not forloop.last %},{% endif %}
+            { id: {{ r.student.pk }}, studentName: '{{ r.student.full_name|escapejs }}', avg: {{ r.avg|default:'null' }}, notes: {{ r.notes_js|safe }} }{% if not forloop.last %},{% endif %}
           {% endfor %}
         ],
         positions: {{ positions|length }},
+
+        get filteredRows() {
+          if (!this.search.trim()) return this.rows;
+          const q = this.search.toLowerCase().trim();
+          return this.rows.filter(r => r.studentName && r.studentName.toLowerCase().includes(q));
+        },
 
         recalcAll() {
           this.rows = this.rows.map(r => {
@@ -84,6 +91,16 @@ Contexte attendu :
   <div x-data="notesTable"
        x-on:note-saved.window="onNoteSaved($event.detail)"
        x-on:note-cancelled.window="onNoteCancelled($event.detail)">
+
+    {# ── Barre recherche élève ─────────────────────────────────── #}
+    <div class="relative max-w-xs mb-4">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <input type="text" x-model="search"
+             class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-gold/40"
+             placeholder="Rechercher un élève...">
+    </div>
 
     {# ── Stats de la classe ────────────────────────────────────── #}
     {% if class_stats.avg is not None %}
@@ -136,7 +153,8 @@ Contexte attendu :
         {# Corps #}
         <tbody class="divide-y divide-gray-100">
           {% for r in rows %}
-            <tr class="hover:bg-gray-50/50 transition-colors {% cycle '' 'bg-gray-50/30' %}">
+            <tr x-show="!search.trim() || '{{ r.student.full_name|escapejs }}'.toLowerCase().includes(search.toLowerCase().trim())"
+                class="hover:bg-gray-50/50 transition-colors {% cycle '' 'bg-gray-50/30' %}">
               {# Nom élève — sticky gauche #}
               <td class="sticky left-0 bg-inherit z-10 px-3 py-1.5 border-r border-gray-100 min-w-[180px]">
                 <div class="flex items-center gap-2">
@@ -175,7 +193,7 @@ Contexte attendu :
     {# ── Footer actions ─────────────────────────────────────────── #}
     <div class="flex items-center justify-between mt-3">
       <p class="text-xs text-gray-400">
-        {{ rows|length }} élève{{ rows|length|pluralize }} —
+        <span x-text="filteredRows.length"></span> / {{ rows|length }} élève{{ rows|length|pluralize }} —
         {% if can_enter %}
           Saisie : <kbd class="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Tab</kbd> cellule suivante,
           sauvegarde automatique

@@ -85,7 +85,7 @@ Contexte attendu :
     {% endfor %}
   </div>
 
-  {# ── Conteneur du tableau HTMX ───────────────────────────────── #}
+  {# ── Conteneur du tableau HTMX (la barre recherche est dans le partial) ── #}
   <div id="notes-table-container">
     {% if active_cs %}
       {% include "notes/partials/notes_table.html" with cs=active_cs period=period school_class=school_class positions=positions rows=rows class_stats=class_stats can_enter=can_enter reason=reason %}
