@@ -1,0 +1,125 @@
+{% load humanize %}
+<form id="general-form"
+      hx-post="{% url 'settings:general' %}"
+      hx-target="#general-form"
+      hx-swap="outerHTML"
+      hx-indicator="#general-saving">
+  {% csrf_token %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+
+    <!-- Colonne 1 -->
+    <div class="space-y-5">
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+          Nom de l'établissement <span class="text-red-500">*</span>
+        </label>
+        {{ form.name }}
+        {% if form.name.errors %}
+          <p class="text-xs text-red-600 mt-1">{{ form.name.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+          Téléphone principal <span class="text-red-500">*</span>
+        </label>
+        {{ form.phone_number }}
+        {% if form.phone_number.errors %}
+          <p class="text-xs text-red-600 mt-1">{{ form.phone_number.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+          Email
+          <span class="text-xs text-gray-400 font-normal ml-1">optionnel</span>
+        </label>
+        {{ form.email }}
+        {% if form.email.errors %}
+          <p class="text-xs text-red-600 mt-1">{{ form.email.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Colonne 2 -->
+    <div class="space-y-5">
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Adresse complète</label>
+        {{ form.address }}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Ville</label>
+        {{ form.city }}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Pays</label>
+        {{ form.country }}
+        <datalist id="countries-list">
+          <option value="Côte d'Ivoire">
+          <option value="Sénégal">
+          <option value="Mali">
+          <option value="Burkina Faso">
+          <option value="Niger">
+          <option value="Guinée">
+          <option value="Togo">
+          <option value="Bénin">
+          <option value="Cameroun">
+          <option value="Gabon">
+          <option value="Congo">
+          <option value="RD Congo">
+          <option value="Madagascar">
+          <option value="Mauritanie">
+          <option value="Djibouti">
+          <option value="France">
+        </datalist>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Ligne basse : année scolaire + type -->
+  <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">
+        Année scolaire en cours
+        <span class="text-xs text-gray-400 font-normal ml-1">optionnel</span>
+      </label>
+      {{ form.current_school_year }}
+      <p class="text-xs text-gray-400 mt-1">Ex : 2024-2025</p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">
+        Type d'établissement
+        <span class="text-xs text-gray-400 font-normal ml-1">optionnel</span>
+      </label>
+      {{ form.school_type }}
+    </div>
+
+  </div>
+
+  <!-- Séparateur + bouton -->
+  <div class="mt-8 pt-6 border-t border-gray-100 flex items-center justify-end gap-3">
+    <span id="general-saving"
+          class="htmx-indicator inline-flex items-center gap-1.5 text-sm text-gray-400">
+      <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      Enregistrement…
+    </span>
+    <button type="submit"
+            class="bg-brand-blue hover:bg-[#16304F] text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]">
+      Enregistrer les modifications
+    </button>
+  </div>
+
+</form>

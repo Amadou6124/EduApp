@@ -4,20 +4,67 @@ from django.utils.translation import gettext_lazy as _
 
 
 class EducationLevel(models.TextChoices):
-    PRIMARY = 'primary', _('Primaire')
-    MIDDLE_SCHOOL = 'middle', _('Collège')
-    HIGH_SCHOOL = 'high', _('Lycée')
+    PRIMARY    = 'primary',    _('Primaire')
+    MIDDLE_SCHOOL = 'middle',  _('Collège')
+    HIGH_SCHOOL   = 'high',    _('Lycée')
+    UNIVERSITY    = 'university', _('Université')
+
+
+class SchoolType(models.TextChoices):
+    PRIMARY    = 'primary',    _('Primaire')
+    COLLEGE    = 'college',    _('Collège')
+    LYCEE      = 'lycee',      _('Lycée')
+    MIXED      = 'mixte',      _('Mixte (primaire + collège)')
     UNIVERSITY = 'university', _('Université')
+    TRAINING   = 'formation',  _('Centre de formation')
+
+
+class ReceiptMode(models.TextChoices):
+    STANDARD = 'standard', _('Reçu standard EduApp')
+    CUSTOM   = 'custom',   _('Reçu personnalisé')
 
 
 class School(models.Model):
-    name = models.CharField(_('nom de l\'école'), max_length=200)
-    city = models.CharField(_('ville'), max_length=100)
-    country = models.CharField(_('pays'), max_length=100, default='Côte d\'Ivoire')
+    # ── Informations générales ─────────────────────────────────────
+    name         = models.CharField(_('nom de l\'école'), max_length=200)
+    address      = models.CharField(_('adresse'), max_length=300, blank=True)
+    city         = models.CharField(_('ville'), max_length=100)
+    country      = models.CharField(_('pays'), max_length=100, default='Côte d\'Ivoire')
     phone_number = models.CharField(_('téléphone'), max_length=20, blank=True)
-    email = models.EmailField(_('email'), blank=True)
-    logo = models.ImageField(_('logo'), upload_to='schools/logos/', blank=True)
-    is_active = models.BooleanField(_('active'), default=True)
+    email        = models.EmailField(_('email'), blank=True)
+    current_school_year = models.CharField(
+        _('année scolaire en cours'), max_length=20, blank=True,
+        help_text=_('Ex : 2024-2025'),
+    )
+    school_type = models.CharField(
+        _('type d\'établissement'), max_length=20,
+        choices=SchoolType.choices, blank=True, default='',
+    )
+
+    # ── Apparence ──────────────────────────────────────────────────
+    logo          = models.ImageField(_('logo'), upload_to='schools/logos/', blank=True)
+    primary_color = models.CharField(
+        _('couleur principale'), max_length=7, default='#1E3A5F',
+        help_text=_('Code hexadécimal, ex : #1E3A5F'),
+    )
+
+    # ── Modèle de reçu ─────────────────────────────────────────────
+    receipt_mode = models.CharField(
+        _('mode de reçu'), max_length=10,
+        choices=ReceiptMode.choices, default=ReceiptMode.STANDARD,
+    )
+    receipt_template_pdf = models.FileField(
+        _('template reçu PDF'), upload_to='schools/receipts/', blank=True,
+    )
+    receipt_mapping = models.JSONField(
+        _('mapping variables reçu'), default=dict, blank=True,
+    )
+    receipt_configured_at = models.DateTimeField(
+        _('reçu configuré le'), null=True, blank=True,
+    )
+
+    # ── Métadonnées ────────────────────────────────────────────────
+    is_active  = models.BooleanField(_('active'), default=True)
     created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
 
     class Meta:

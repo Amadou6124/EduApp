@@ -1,0 +1,208 @@
+{% if custom_step == 'configured' %}
+
+  <!-- ── État : modèle configuré ──────────────────────────────── -->
+  <div class="rounded-xl border border-green-200 bg-green-50 p-5">
+    <div class="flex items-start gap-4">
+      <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <p class="font-semibold text-green-800 text-sm">Modèle personnalisé actif</p>
+        <p class="text-xs text-green-600 mt-0.5">
+          Configuré le {{ school.receipt_configured_at|date:"d/m/Y à H:i" }} —
+          {{ school.receipt_mapping|length }} zone{% if school.receipt_mapping|length > 1 %}s{% endif %} mappée{% if school.receipt_mapping|length > 1 %}s{% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="mt-4 flex gap-3">
+      <button type="button"
+              hx-post="{% url 'settings:receipt' %}"
+              hx-vals='{"action": "analyze"}'
+              hx-target="#receipt-section"
+              hx-swap="outerHTML"
+              class="text-xs font-medium text-green-700 hover:text-green-800 underline">
+        Reconfigurer le mapping
+      </button>
+    </div>
+  </div>
+
+{% elif custom_step == 'mapping' %}
+
+  <!-- ── État : tableau de mapping IA ─────────────────────────── -->
+  <div class="rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-brand-blue/10 flex items-center justify-center">
+        <svg class="w-4 h-4 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-gray-800">Analyse terminée</p>
+        <p class="text-xs text-gray-500">Vérifiez et corrigez le mapping avant de valider</p>
+      </div>
+    </div>
+
+    <form hx-post="{% url 'settings:receipt' %}"
+          hx-vals='{"action": "save_mapping"}'
+          hx-target="#receipt-section"
+          hx-swap="outerHTML">
+      {% csrf_token %}
+
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100">
+            <th class="px-5 py-3 text-left font-medium">Zone détectée</th>
+            <th class="px-5 py-3 text-left font-medium">Variable assignée</th>
+            <th class="px-3 py-3 text-center font-medium">Confiance</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for row in mapping %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-5 py-3 text-gray-700 font-medium">{{ row.zone }}</td>
+              <td class="px-5 py-3">
+                <select name="var_{{ forloop.counter }}"
+                        class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue w-full max-w-[200px]">
+                  {% for val, label in variables %}
+                    <option value="{{ val }}" {% if val == row.variable %}selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="px-3 py-3 text-center">
+                {% if row.confidence == 'high' %}
+                  <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Haute
+                  </span>
+                {% elif row.confidence == 'medium' %}
+                  <span class="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">
+                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span> Moyenne
+                  </span>
+                {% else %}
+                  <span class="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span> Faible
+                  </span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="px-5 py-4 border-t border-gray-100 flex justify-end gap-3">
+        <button type="submit"
+                class="bg-brand-blue hover:bg-[#16304F] text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]">
+          Valider ce modèle
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+{% elif custom_step == 'uploaded' %}
+
+  <!-- ── État : PDF uploadé, analyser ─────────────────────────── -->
+  <div class="rounded-xl border border-gray-200 p-6">
+    <div class="flex items-center gap-4 mb-5">
+      <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+        <svg class="w-5 h-5 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-gray-800">PDF chargé avec succès</p>
+        <p class="text-xs text-gray-500">Lancez l'analyse pour détecter les zones du reçu</p>
+      </div>
+    </div>
+
+    <button type="button"
+            hx-post="{% url 'settings:receipt' %}"
+            hx-vals='{"action": "analyze"}'
+            hx-target="#receipt-section"
+            hx-swap="outerHTML"
+            hx-indicator="#analyze-indicator"
+            class="w-full flex items-center justify-center gap-2 bg-brand-blue hover:bg-[#16304F] text-white font-semibold py-3 rounded-lg text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+      </svg>
+      Analyser avec l'IA
+    </button>
+    <span id="analyze-indicator" class="htmx-indicator block text-center text-xs text-gray-400 mt-2">
+      Analyse de la structure en cours…
+    </span>
+  </div>
+
+{% else %}
+
+  <!-- ── État : vide — upload zone ────────────────────────────── -->
+  <div class="rounded-xl border-2 border-dashed border-gray-200 p-1">
+
+    {% if upload_error %}
+      <div class="mx-4 mt-4 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700">
+        {{ upload_error }}
+      </div>
+    {% endif %}
+
+    <form hx-post="{% url 'settings:receipt' %}"
+          hx-vals='{"action": "upload_pdf"}'
+          hx-target="#receipt-section"
+          hx-swap="outerHTML"
+          hx-encoding="multipart/form-data"
+          hx-indicator="#upload-indicator"
+          x-data="{ fileName: '', dragOver: false }"
+          class="p-6">
+      {% csrf_token %}
+
+      <div class="text-center mb-5">
+        <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+          <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-gray-700">Uploadez un exemplaire de votre reçu</p>
+        <p class="text-xs text-gray-400 mt-1">PDF natif uniquement (créé sur Word, Excel, Canva) — max 10 Mo</p>
+
+        <div class="mt-2 inline-flex items-center gap-1.5 text-xs text-brand-blue cursor-pointer group"
+             title="PDF natif = créé numériquement, pas une photo ou un scan">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          C'est quoi un PDF natif ?
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <label class="block border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors"
+             :class="dragOver ? 'border-brand-blue bg-blue-50' : 'border-gray-200 hover:border-gray-300'"
+             @dragover.prevent="dragOver = true"
+             @dragleave="dragOver = false"
+             @drop.prevent="dragOver = false; const f = $event.dataTransfer.files[0]; if(f){ $refs.pdfInput.files = $event.dataTransfer.files; fileName = f.name; }">
+        <span x-show="!fileName" class="text-sm text-gray-400">
+          Glissez le PDF ici ou <span class="text-brand-blue font-medium">parcourir</span>
+        </span>
+        <span x-show="fileName" class="text-sm text-gray-700 font-medium" x-text="fileName"></span>
+        <input x-ref="pdfInput" type="file" name="receipt_template_pdf" accept="application/pdf"
+               class="hidden" @change="fileName = $event.target.files[0]?.name || ''">
+      </label>
+
+      <button type="submit"
+              x-show="fileName"
+              class="mt-4 w-full bg-brand-blue hover:bg-[#16304F] text-white font-semibold py-3 rounded-lg text-sm transition-colors min-h-[44px]">
+        Charger ce PDF
+      </button>
+      <span id="upload-indicator" class="htmx-indicator block text-center text-xs text-gray-400 mt-2">
+        Upload en cours…
+      </span>
+
+    </form>
+  </div>
+
+{% endif %}
