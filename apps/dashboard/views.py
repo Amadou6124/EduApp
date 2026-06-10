@@ -221,33 +221,47 @@ def _compute_class_health(school, active_period):
     return rows
 
 
+from datetime import datetime, time
+
 def _compute_activity(school):
     activity = []
     for p in Payment.objects.filter(student__school=school, is_cancelled=False).select_related('student', 'collected_by').order_by('-payment_date')[:5]:
+        dt = p.payment_date
+        if not hasattr(dt, 'hour'):
+            dt = datetime.combine(dt, time.min)
         activity.append({
             'type': 'payment', 'icon': chr(0x1f4b3),
-            'time': p.payment_date,
+            'time': dt,
             'text': f'{p.student.full_name} -- {int(p.amount):,} FCFA ({p.get_payment_method_display()})',
             'url': '/payments/',
         })
     for b in Bulletin.objects.filter(school_class__school=school, is_cancelled=False).select_related('student', 'school_class', 'period').order_by('-generated_at')[:5]:
+        dt = b.generated_at
+        if not hasattr(dt, 'hour'):
+            dt = datetime.combine(dt, time.min)
         activity.append({
             'type': 'bulletin', 'icon': chr(0x1f4c4),
-            'time': b.generated_at,
+            'time': dt,
             'text': f'{b.school_class.name} -- {b.period.name} -- {b.student.full_name}',
             'url': '/bulletins/',
         })
     for n in Note.objects.filter(class_subject__school_class__school=school).select_related('student', 'class_subject__subject', 'class_subject__school_class', 'entered_by').order_by('-entered_at')[:5]:
+        dt = n.entered_at
+        if not hasattr(dt, 'hour'):
+            dt = datetime.combine(dt, time.min)
         activity.append({
             'type': 'note', 'icon': chr(0x1f4dd),
-            'time': n.entered_at,
+            'time': dt,
             'text': f'{n.entered_by.full_name} -- {n.class_subject.subject.name} ({n.class_subject.school_class.name})',
             'url': f'/notes/{n.class_subject.school_class_id}/{n.period_id}/',
         })
     for s in Student.objects.filter(school=school).order_by('-enrolled_at')[:5]:
+        dt = s.enrolled_at
+        if not hasattr(dt, 'hour'):
+            dt = datetime.combine(dt, time.min)
         activity.append({
             'type': 'student', 'icon': chr(0x1f464),
-            'time': s.enrolled_at,
+            'time': dt,
             'text': f'{s.full_name} -- {s.school_class.name if s.school_class else "Aucune classe"}',
             'url': '/students/',
         })
