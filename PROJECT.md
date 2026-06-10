@@ -291,6 +291,29 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - Bouton "Ajouter une évaluation" en mode moyenne simple
 - Annulation soft des notes (directeur/staff)
 - Stats classe temps réel (moy. classe, meilleur, faible)
+- **Recherche instantanée** Alpine.js dans le tableau de saisie (filtrage local, zéro requête serveur)
+
+### Module Bulletins (`/bulletins/`)
+- **4 nouveaux modèles** : `AppreciationScale`, `BulletinConfig` (1:1 école), `Bulletin`, `BulletinLine`
+- **Migration** `0005_bulletins` — appliquée
+- **Calcul automatique** des moyennes matière et générales avec `BulletinCalculator`
+- Support **devoirs+composition** (pondération 40/60) et **moyenne simple**
+- **Cas limites gérés** : matière sans note exclue du total des coefficients
+- **Génération PDF WeasyPrint** au format officiel malien
+  - En-tête ministériel configurable (texte gauche/droite, logo)
+  - "RELEVÉ DE NOTES DU...", tableau colonnes N.Classe/Comp×2/Moy(1+2)
+  - Format **pleine page A4** ou **2 par page A4** avec ligne pointillée de découpe
+  - Signatures bas de page (Le Parent / Le Directeur)
+- **3 onglets interactifs** :
+  - 📊 **Santé éducative** : 4 stats (moy. classe, taux réussite, admis, difficulté), Top 3 podium, alertes élèves <10, bouton génération
+  - 📋 **Bulletins** : liste des élèves avec statut (généré/prêt/notes manquantes), génération individuelle ou en masse, preview modal, téléchargement PDF/ZIP
+  - 🏆 **Classements** : tableau trié par moyenne, médailles podium, statistiques récapitulatives (moy. classe, premier, dernier, effectif)
+- **Barème appréciations** personnalisable via `AppreciationScale.get_appreciation()`
+- **Génération optimisée** : 1 requête notes, `bulk_create` Bulletin + BulletinLines, calcul rangs en 1 passe
+- **Recherche instantanée** Alpine.js avec `$store.search` (onglets Bulletins et Classements)
+- **Sécurité** : isolation école, generation director/staff uniquement, aperçu et download contrôlés
+- **Multi-format** : téléchargement PDF individuel ou ZIP classe complète
+- **URL** : `/bulletins/` — lien activé dans la sidebar
 
 ### Interface Classes (`/classes/`)
 - Liste avec vue **cards** (défaut) et **tableau** triable — switch persisté localStorage
