@@ -54,7 +54,8 @@
         <p class="text-[11px] uppercase tracking-widest font-semibold text-gray-400 px-3 mb-1">École</p>
         {% include "settings/partials/nav_item.html" with section="general"      url_name="settings:general"      label="Général"           available=True  icon="building"     %}
         {% include "settings/partials/nav_item.html" with section="appearance"   url_name="settings:appearance"   label="Apparence"         available=True  icon="palette"      %}
-        {% include "settings/partials/nav_item.html" with section="school-years" url_name="settings:school-years" label="Années scolaires"  available=False icon="calendar"     %}
+        {% include "settings/partials/nav_item.html" with section="school-years" url_name="settings:school-years" label="Années scolaires"  available=True icon="calendar"     %}
+        {% include "settings/partials/nav_item.html" with section="subjects"     url_name="settings:subjects"     label="Matières"           available=True icon="document"     %}
       </div>
 
       <div>
@@ -108,7 +109,8 @@
         <optgroup label="École">
           <option value="{% url 'settings:general' %}"      {% if active_section == 'general'      %}selected{% endif %}>Général</option>
           <option value="{% url 'settings:appearance' %}"   {% if active_section == 'appearance'   %}selected{% endif %}>Apparence</option>
-          <option value="{% url 'settings:school-years' %}" disabled>Années scolaires (bientôt)</option>
+          <option value="{% url 'settings:school-years' %}" {% if active_section == 'school-years' %}selected{% endif %}>Années scolaires</option>
+          <option value="{% url 'settings:subjects' %}"     {% if active_section == 'subjects'     %}selected{% endif %}>Matières</option>
         </optgroup>
         <optgroup label="Finances">
           <option value="{% url 'settings:receipt' %}"         {% if active_section == 'receipt'         %}selected{% endif %}>Modèle de reçu</option>

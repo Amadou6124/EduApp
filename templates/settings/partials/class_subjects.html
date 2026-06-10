@@ -1,0 +1,156 @@
+{% load i18n %}
+{% comment %}
+Panneau matières d'une classe.
+Contexte : school_class, class_subjects, available_subjects, teachers
+{% endcomment %}
+
+<div class="border border-gray-200 rounded-xl overflow-hidden">
+
+  <!-- En-tête classe -->
+  <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+    <div>
+      <p class="text-sm font-semibold text-gray-900">{{ school_class.name }}</p>
+      <p class="text-xs text-gray-500">{{ school_class.get_level_display }}</p>
+    </div>
+    <span class="text-xs text-gray-400">{{ class_subjects|length }} matière{{ class_subjects|length|pluralize }}</span>
+  </div>
+
+  <!-- Liste matières assignées -->
+  {% if class_subjects %}
+  <div class="divide-y divide-gray-100">
+    {% for cs in class_subjects %}
+    <div x-data="{ editing: false }" class="px-4 py-3">
+      <!-- Vue normale -->
+      <div x-show="!editing" class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <span class="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold text-white"
+                style="background-color: {{ cs.subject.color }};">
+            {{ cs.subject.short_name|truncatechars:2 }}
+          </span>
+          <div class="min-w-0">
+            <p class="text-xs font-semibold text-gray-900 truncate">{{ cs.subject.name }}</p>
+            <p class="text-xs text-gray-400">
+              Coeff. {{ cs.coefficient }}
+              · /{{ cs.max_grade }}
+              {% if cs.teacher %}· {{ cs.teacher }}{% endif %}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <button @click="editing = true"
+                  class="p-1.5 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+          <button hx-delete="{% url 'settings:class-subject-remove' cs.id %}"
+                  hx-target="#class-subjects-panel"
+                  hx-swap="innerHTML"
+                  hx-confirm="Retirer {{ cs.subject.name }} de {{ school_class.name }} ?"
+                  class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Formulaire édition inline -->
+      <div x-show="editing" x-cloak>
+        <form hx-post="{% url 'settings:class-subject-update' cs.id %}"
+              hx-target="#class-subjects-panel"
+              hx-swap="innerHTML"
+              class="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+          {% csrf_token %}
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Coeff.</label>
+            <input type="number" name="coefficient" value="{{ cs.coefficient }}"
+                   step="0.1" min="0.1"
+                   class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-blue">
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Note max</label>
+            <input type="number" name="max_grade" value="{{ cs.max_grade }}"
+                   step="0.01" min="1"
+                   class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-blue">
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Système</label>
+            <select name="note_system"
+                    class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue">
+              <option value="moyenne_simple" {% if cs.note_system == 'moyenne_simple' %}selected{% endif %}>Moy. simple</option>
+              <option value="devoirs_compo"  {% if cs.note_system == 'devoirs_compo'  %}selected{% endif %}>Dev. + Compo</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Enseignant</label>
+            <select name="teacher"
+                    class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue">
+              <option value="">— Aucun —</option>
+              {% for teacher in teachers %}
+              <option value="{{ teacher.id }}" {% if cs.teacher_id == teacher.id %}selected{% endif %}>
+                {{ teacher }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <!-- Champs cachés requis par le formulaire complet -->
+          <input type="hidden" name="subject"       value="{{ cs.subject_id }}">
+          <input type="hidden" name="order"         value="{{ cs.order }}">
+          <input type="hidden" name="coeff_devoirs" value="{{ cs.coeff_devoirs }}">
+          <input type="hidden" name="coeff_compo"   value="{{ cs.coeff_compo }}">
+          <div class="col-span-2 sm:col-span-4 flex gap-2 justify-end mt-1">
+            <button type="button" @click="editing = false"
+                    class="px-3 py-1.5 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-50 transition">
+              Annuler
+            </button>
+            <button type="submit"
+                    class="px-3 py-1.5 text-xs font-semibold bg-brand-blue text-white rounded hover:bg-blue-900 transition">
+              Enregistrer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="px-4 py-6 text-center text-gray-400 text-xs">
+    Aucune matière assignée à cette classe.
+  </div>
+  {% endif %}
+
+  <!-- Ajouter une matière -->
+  {% if available_subjects %}
+  <div class="px-4 py-3 bg-gray-50 border-t border-gray-200">
+    <form hx-post="{% url 'settings:class-subject-add' school_class.id %}"
+          hx-target="#class-subjects-panel"
+          hx-swap="innerHTML"
+          class="flex gap-2 items-end">
+      {% csrf_token %}
+      <div class="flex-1">
+        <label class="block text-[10px] font-semibold text-gray-500 mb-1">Ajouter une matière</label>
+        <select name="subject"
+                class="w-full border border-gray-300 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue">
+          <option value="">— Sélectionner —</option>
+          {% for subj in available_subjects %}
+          <option value="{{ subj.id }}">{{ subj.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <!-- Defaults pour les champs requis -->
+      <input type="hidden" name="coefficient"   value="1.0">
+      <input type="hidden" name="note_system"   value="moyenne_simple">
+      <input type="hidden" name="coeff_devoirs" value="0.40">
+      <input type="hidden" name="coeff_compo"   value="0.60">
+      <input type="hidden" name="max_grade"     value="20.00">
+      <input type="hidden" name="order"         value="{{ class_subjects|length }}">
+      <button type="submit"
+              class="px-3 py-2 text-xs font-semibold bg-brand-gold text-white rounded-lg hover:bg-amber-500 transition flex-shrink-0">
+        Ajouter
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+</div>

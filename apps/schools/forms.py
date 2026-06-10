@@ -3,7 +3,11 @@ import re
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from .models import School, SchoolClass, SchoolType
+from .models import (
+    School, SchoolClass, SchoolType,
+    SchoolYear, Period, PeriodType,
+    Subject, ClassSubject, NoteSystem,
+)
 
 
 class SchoolClassForm(forms.ModelForm):
@@ -137,3 +141,101 @@ class ReceiptUploadForm(forms.ModelForm):
             if pdf.size > 10 * 1024 * 1024:
                 raise forms.ValidationError('Le fichier ne doit pas dépasser 10 Mo.')
         return pdf
+
+
+# ── Années scolaires + Périodes ────────────────────────────────────────────
+
+class SchoolYearForm(forms.ModelForm):
+
+    class Meta:
+        model  = SchoolYear
+        fields = ['name', 'start_date', 'end_date', 'is_active']
+        widgets = {
+            'name':       forms.TextInput(attrs={'class': _F, 'placeholder': '2025-2026'}),
+            'start_date': forms.DateInput(attrs={'type': 'date', 'class': _F}),
+            'end_date':   forms.DateInput(attrs={'type': 'date', 'class': _F}),
+            'is_active':  forms.CheckboxInput(attrs={'class': 'w-4 h-4 accent-brand-blue'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['is_active'].required = False
+
+
+class PeriodForm(forms.ModelForm):
+
+    class Meta:
+        model  = Period
+        fields = ['name', 'period_type', 'start_date', 'end_date', 'order']
+        widgets = {
+            'name':        forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Trimestre 1'}),
+            'period_type': forms.Select(attrs={'class': _S}),
+            'start_date':  forms.DateInput(attrs={'type': 'date', 'class': _F}),
+            'end_date':    forms.DateInput(attrs={'type': 'date', 'class': _F}),
+            'order':       forms.NumberInput(attrs={'class': _F, 'min': '1'}),
+        }
+
+
+# ── Matières ──────────────────────────────────────────────────────────────
+
+class SubjectForm(forms.ModelForm):
+
+    class Meta:
+        model  = Subject
+        fields = ['name', 'short_name', 'color']
+        widgets = {
+            'name':       forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Mathématiques'}),
+            'short_name': forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Maths', 'maxlength': '10'}),
+            'color':      forms.TextInput(attrs={
+                'class': _F, 'placeholder': '#1E3A5F', 'maxlength': '7',
+                'x-bind:style': "'background-color:'+$el.value",
+            }),
+        }
+
+    def clean_color(self):
+        color = self.cleaned_data.get('color', '').strip()
+        if color and not re.match(r'^#[0-9A-Fa-f]{6}$', color):
+            raise forms.ValidationError('Format invalide. Utilisez #RRGGBB.')
+        return color or '#1E3A5F'
+
+
+class ClassSubjectForm(forms.ModelForm):
+
+    class Meta:
+        model  = ClassSubject
+        fields = [
+            'subject', 'coefficient', 'note_system',
+            'coeff_devoirs', 'coeff_compo', 'max_grade',
+            'teacher', 'order',
+        ]
+        widgets = {
+            'subject':       forms.Select(attrs={'class': _S}),
+            'coefficient':   forms.NumberInput(attrs={'class': _F, 'step': '0.1', 'min': '0.1'}),
+            'note_system':   forms.Select(attrs={'class': _S}),
+            'coeff_devoirs': forms.NumberInput(attrs={'class': _F, 'step': '0.01', 'min': '0', 'max': '1'}),
+            'coeff_compo':   forms.NumberInput(attrs={'class': _F, 'step': '0.01', 'min': '0', 'max': '1'}),
+            'max_grade':     forms.NumberInput(attrs={'class': _F, 'step': '0.01', 'min': '1'}),
+            'teacher':       forms.Select(attrs={'class': _S}),
+            'order':         forms.NumberInput(attrs={'class': _F, 'min': '0'}),
+        }
+
+    def __init__(self, school, school_class, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.accounts.models import User
+
+        # Matières disponibles (pas encore assignées à cette classe)
+        excluded = ClassSubject.objects.filter(school_class=school_class)
+        if self.instance and self.instance.pk:
+            excluded = excluded.exclude(pk=self.instance.pk)
+        excluded_ids = excluded.values_list('subject_id', flat=True)
+
+        self.fields['subject'].queryset = Subject.objects.filter(
+            school=school, is_active=True,
+        ).exclude(id__in=excluded_ids)
+
+        # Enseignants de l'école
+        self.fields['teacher'].queryset = User.objects.filter(
+            school=school, is_active=True,
+        ).order_by('full_name' if hasattr(User, 'full_name') else 'phone_number')
+        self.fields['teacher'].empty_label = '— Aucun —'
+        self.fields['teacher'].required    = False

@@ -10,21 +10,44 @@ urlpatterns = [
     path('', RedirectView.as_view(pattern_name='settings:general', permanent=False), name='settings-home'),
 
     # ── ÉCOLE ─────────────────────────────────────────────────────────
-    path('general/',      settings_views.general,     name='general'),
-    path('appearance/',   settings_views.appearance,  name='appearance'),
-    path('school-years/', settings_views.coming_soon, {'section': 'school-years'}, name='school-years'),
+    path('general/',    settings_views.general,    name='general'),
+    path('appearance/', settings_views.appearance, name='appearance'),
+
+    # Années scolaires
+    path('school-years/',                         settings_views.school_years,        name='school-years'),
+    path('school-years/create/',                  settings_views.school_year_create,  name='school-year-create'),
+    path('school-years/<int:year_id>/toggle/',    settings_views.school_year_toggle,  name='school-year-toggle'),
+    path('school-years/<int:year_id>/periods/',   settings_views.school_year_periods, name='school-year-periods'),
+    path('school-years/<int:year_id>/periods/generate/', settings_views.period_generate, name='period-generate'),
+    path('school-years/<int:year_id>/periods/add/',      settings_views.period_create,   name='period-create'),
+
+    # Périodes
+    path('periods/<int:period_id>/toggle-notes/', settings_views.period_toggle_notes, name='period-toggle-notes'),
+    path('periods/<int:period_id>/delete/',       settings_views.period_delete,       name='period-delete'),
+
+    # Matières
+    path('subjects/',                       settings_views.subjects,       name='subjects'),
+    path('subjects/create/',                settings_views.subject_create, name='subject-create'),
+    path('subjects/<int:subject_id>/delete/', settings_views.subject_delete, name='subject-delete'),
+
+    # Matières par classe
+    path('class-subjects/search/',                  settings_views.class_subjects_search, name='class-subjects-search'),
+    path('classes/<int:class_id>/subjects/',        settings_views.class_subjects_panel, name='class-subjects'),
+    path('classes/<int:class_id>/subjects/add/',    settings_views.class_subject_add,    name='class-subject-add'),
+    path('class-subjects/<int:cs_id>/update/',      settings_views.class_subject_update, name='class-subject-update'),
+    path('class-subjects/<int:cs_id>/remove/',      settings_views.class_subject_remove, name='class-subject-remove'),
 
     # ── FINANCES ──────────────────────────────────────────────────────
-    path('receipt/',         settings_views.receipt,      name='receipt'),
-    path('payment-methods/', settings_views.coming_soon,  {'section': 'payment-methods'}, name='payment-methods'),
+    path('receipt/',         settings_views.receipt,     name='receipt'),
+    path('payment-methods/', settings_views.coming_soon, {'section': 'payment-methods'}, name='payment-methods'),
 
     # ── DOCUMENTS ─────────────────────────────────────────────────────
     path('bulletin/', settings_views.coming_soon, {'section': 'bulletin'}, name='bulletin'),
     path('headers/',  settings_views.coming_soon, {'section': 'headers'},  name='headers'),
 
     # ── COMMUNICATION ─────────────────────────────────────────────────
-    path('sms/',       settings_views.coming_soon, {'section': 'sms'},       name='sms'),
-    path('whatsapp/',  settings_views.coming_soon, {'section': 'whatsapp'},  name='whatsapp'),
+    path('sms/',      settings_views.coming_soon, {'section': 'sms'},      name='sms'),
+    path('whatsapp/', settings_views.coming_soon, {'section': 'whatsapp'}, name='whatsapp'),
 
     # ── COMPTE ────────────────────────────────────────────────────────
     path('profile/',  settings_views.coming_soon, {'section': 'profile'},  name='profile'),

@@ -33,7 +33,9 @@ Couvre la gestion des classes, l'inscription des élèves, les paiements, les bu
 EduApp/
 ├── apps/
 │   ├── accounts/       → User custom, rôles, auth, superadmin
-│   ├── schools/        → School, SchoolClass
+│   ├── core/           → get_school(), SchoolMixin, SchoolMiddleware
+│   ├── schools/        → School, SchoolClass, SchoolYear, Period,
+│   │                     Subject, ClassSubject, Note + settings_views
 │   ├── students/       → Student
 │   └── payments/       → Payment
 ├── config/
@@ -45,6 +47,9 @@ EduApp/
 │   ├── schools/
 │   │   ├── class_list.html
 │   │   └── partials/   → class_row, class_table_body, class_stats, class_import_preview…
+│   ├── settings/       → school_years, school_year_periods, subjects
+│   │   └── partials/   → school_year_form/list, period_card/form/list,
+│   │                     subject_form/list, class_subjects, toast, nav_item…
 │   └── superadmin/     → dashboard, school_create, director_create
 ├── PROJECT.md
 └── requirements.txt
@@ -147,11 +152,72 @@ EduApp/
 | `level` | CharField choices `EducationLevel` : primary/middle/high/university |
 | `annual_fee` | DecimalField(FCFA, validators≥0) |
 | `max_capacity` | PositiveSmallIntegerField(null, blank) |
+| `notes_delegates` | M2M → User (enseignants autorisés à saisir les notes) |
 | `is_active` | BooleanField(default=True) |
 | `created_at` / `updated_at` | DateTimeField |
 
 Méthodes : `get_student_count()` (utilise annotation `student_count` si disponible → évite N+1), `is_full()`
 Contrainte : `unique_together = [('school', 'name')]`
+
+### `SchoolYear` (`apps/schools`)
+| Champ | Type |
+|---|---|
+| `school` | FK → School |
+| `name` | CharField(20) — ex : `2025-2026` |
+| `start_date` / `end_date` | DateField |
+| `is_active` | BooleanField |
+
+`clean()` : une seule année active par école. `unique_together = [('school', 'name')]`
+
+### `Period` (`apps/schools`)
+| Champ | Type |
+|---|---|
+| `school_year` | FK → SchoolYear |
+| `name` | CharField(100) — ex : `Trimestre 1` |
+| `period_type` | TextChoices : `trimester` / `semester` / `custom` |
+| `start_date` / `end_date` | DateField |
+| `order` | PositiveSmallIntegerField |
+| `is_notes_open` | BooleanField — toggle saisie notes |
+
+### `Subject` (`apps/schools`)
+| Champ | Type |
+|---|---|
+| `school` | FK → School |
+| `name` | CharField(100) |
+| `short_name` | CharField(10) |
+| `color` | CharField(7, default `#1E3A5F`) |
+| `is_active` | BooleanField — soft delete |
+
+`unique_together = [('school', 'name')]`
+
+### `ClassSubject` (`apps/schools`)
+Table de liaison SchoolClass ↔ Subject avec paramètres pédagogiques.
+| Champ | Type |
+|---|---|
+| `school_class` | FK → SchoolClass |
+| `subject` | FK → Subject |
+| `coefficient` | DecimalField(3,1) |
+| `note_system` | TextChoices : `moyenne_simple` / `devoirs_compo` |
+| `coeff_devoirs` / `coeff_compo` | DecimalField(3,2) — doivent sommer à 1 |
+| `max_grade` | DecimalField(5,2, default 20) |
+| `teacher` | FK → User (null) |
+| `order` | PositiveSmallIntegerField |
+| `is_active` | BooleanField |
+
+`clean()` : `coeff_devoirs + coeff_compo == 1` en mode `devoirs_compo`.
+
+### `Note` (`apps/schools`)
+| Champ | Type |
+|---|---|
+| `class_subject` | FK → ClassSubject |
+| `student` | FK → Student (related_name=`grade_notes`) |
+| `period` | FK → Period |
+| `note_type` | TextChoices : `devoir` / `composition` / `examen` |
+| `value` | DecimalField(5,2) |
+| `entered_by` | FK → User |
+| `entered_at` | DateTimeField(auto_now_add) |
+
+`clean()` : `value ≤ class_subject.max_grade`. Index DB : `(student, period, class_subject)`.
 
 ### `Student` (`apps/students`)
 | Champ | Type |
@@ -198,6 +264,19 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 
 ## Ce qui est terminé
 
+### Fondation bulletins — Étape 1/3 (`/settings/school-years/`, `/settings/subjects/`)
+- **6 nouveaux modèles** : `SchoolYear`, `Period`, `Subject`, `ClassSubject`, `Note` + `notes_delegates` sur `SchoolClass`
+- **Migration** `0003_grades_foundation` — appliquée
+- **Années scolaires** : créer, activer/archiver (validation 1 seule active), gérer les périodes
+- **Génération périodes** : bouton « 3 Trimestres » ou « 2 Semestres » auto-découpe l'année
+- **Saisie périodes manuelle** : formulaire collapse HTMX
+- **Toggle saisie notes** : ouvre/ferme la saisie par période (OOB swap sur la card)
+- **Matières** : créer (avec suggestions rapides pré-remplissables), soft delete
+- **Matières par classe** : panel HTMX (select → load), ajouter/modifier inline/retirer
+- **OOB swaps** : liste rafraîchie côté serveur après chaque action, pas de rechargement page
+- `HX-Trigger schoolYearSaved / subjectSaved` → Alpine ferme le panneau auto
+- **2 nouvelles sections** sidebar activées : Années scolaires + Matières
+
 ### Interface Classes (`/classes/`)
 - Liste avec vue **cards** (défaut) et **tableau** triable — switch persisté localStorage
 - Switch vue `hidden lg:flex` — masqué sur mobile
@@ -235,11 +314,14 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 
 ## Prochaines étapes dans l'ordre
 
-1. **Inscription élèves** — 3 modes : individuel rapide, import CSV, saisie par groupe
-2. **Paiements + reçus PDF** — saisie paiement, reçu PDF généré, historique par élève
-3. **Bulletins PDF** — avec zones variables, header école, logo
-4. ~~**Login custom + vrai multi-tenant**~~ ✅ terminé
-5. **Portail professeur** — liste classes, saisie notes/absences
+1. ~~**Inscription élèves**~~ ✅ terminé
+2. ~~**Paiements + reçus PDF**~~ ✅ terminé
+3. ~~**Login custom + vrai multi-tenant**~~ ✅ terminé
+4. **Bulletins PDF** — en cours
+   - ~~**Étape 1** : Modèles fondation (SchoolYear, Period, Subject, ClassSubject, Note) + settings UI~~ ✅
+   - **Étape 2** : Saisie des notes (vue professeur/staff, formulaires notes par période)
+   - **Étape 3** : Génération bulletin PDF (WeasyPrint, layout A4, header école)
+5. **Portail professeur** — liste classes, absences
 6. **Portail élève** — style Duolingo, notes, bulletins, solde
 7. **Portail parent** — bulletin, solde, paiement Orange Money
 

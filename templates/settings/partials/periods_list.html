@@ -1,0 +1,13 @@
+{% load i18n %}
+{% if periods %}
+  <div class="space-y-3">
+    {% for period in periods %}
+      {% include "settings/partials/period_card.html" with period=period year=year %}
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="text-center py-12 text-gray-400">
+    <p class="text-sm">Aucune période configurée.</p>
+    <p class="text-xs mt-1">Utilisez les boutons ci-dessus pour générer ou ajouter des périodes.</p>
+  </div>
+{% endif %}

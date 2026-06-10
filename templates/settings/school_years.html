@@ -1,0 +1,49 @@
+{% extends "settings/settings_base.html" %}
+{% load i18n %}
+{% block settings_content %}
+<div class="max-w-3xl px-6 py-8"
+     x-data="{ showForm: false }"
+     @school-year-saved.window="showForm = false">
+
+  <!-- ── En-tête ─────────────────────────────────────────────── -->
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <h2 class="text-xl font-bold text-gray-900">Années scolaires</h2>
+      <p class="text-sm text-gray-500 mt-1">Configurez les années et leurs périodes (trimestres, semestres).</p>
+    </div>
+    <button @click="showForm = !showForm"
+            class="flex items-center gap-2 px-4 py-2.5 bg-brand-gold text-white text-sm font-semibold rounded-lg hover:bg-amber-500 transition min-h-[44px] flex-shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Nouvelle année
+    </button>
+  </div>
+
+  <!-- ── Formulaire création (collapsible) ──────────────────── -->
+  <div x-show="showForm"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 -translate-y-2"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-cloak
+       class="mb-6 bg-gray-50 border border-gray-200 rounded-xl p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-gray-900 text-sm">Nouvelle année scolaire</h3>
+      <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="school-year-form">
+      {% include "settings/partials/school_year_form.html" with form=form %}
+    </div>
+  </div>
+
+  <!-- ── Liste ──────────────────────────────────────────────── -->
+  <div id="school-year-list">
+    {% include "settings/partials/school_year_list.html" with years=years %}
+  </div>
+
+</div>
+{% endblock %}
