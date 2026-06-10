@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     # Librairies tierces
     'django_htmx',
     # Applications EduApp
+    'apps.core',
     'apps.accounts',
     'apps.schools',
     'apps.students',
@@ -35,6 +36,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.core.middleware.SchoolMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
 ]
 
@@ -109,6 +111,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Modèle utilisateur personnalisé
 AUTH_USER_MODEL = 'accounts.User'
 
-# URL de login (remplacer par 'accounts:login' quand la page de login sera créée)
-LOGIN_URL = '/admin/login/'
+# Backends d'authentification — PhoneBackend en priorité
+AUTHENTICATION_BACKENDS = [
+    'apps.accounts.backends.PhoneBackend',
+    'django.contrib.auth.backends.ModelBackend',  # fallback superadmin Django
+]
+
+# URLs auth
+LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = '/classes/'
+LOGOUT_REDIRECT_URL = '/login/'
+
+# Session — expire après 8h d'inactivité
+SESSION_COOKIE_AGE = 8 * 60 * 60        # 8 heures en secondes
+SESSION_SAVE_EVERY_REQUEST = True        # réinitialise le timer à chaque requête

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — EduApp</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'brand-blue':  '#1E3A5F',
+            'brand-gold':  '#F5A623',
+            'brand-light': '#F0F4F8',
+          }
+        }
+      }
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card-enter { animation: fadeSlideUp 0.4s ease-out forwards; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50 flex items-center justify-center p-4">
+
+<div x-data="{ showPwd: false }" class="w-full max-w-md">
+
+  <!-- Logo + titre -->
+  <div class="text-center mb-8 card-enter" style="animation-delay:0s">
+    <div class="w-16 h-16 bg-brand-blue rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-900/20">
+      <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M12 14l9-5-9-5-9 5 9 5z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+      </svg>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">EduApp</h1>
+    <p class="text-gray-500 text-sm mt-1">Gérez votre école simplement</p>
+  </div>
+
+  <!-- Toast déconnexion -->
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="mb-4 px-4 py-3 rounded-xl border text-sm font-medium flex items-center gap-2 card-enter
+                  {% if msg.tags == 'success' %}bg-green-50 border-green-200 text-green-700
+                  {% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}"
+           style="animation-delay:.05s">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        {{ msg }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Card -->
+  <div class="bg-white rounded-2xl shadow-xl shadow-gray-200/60 border border-gray-100 p-8 card-enter" style="animation-delay:.08s">
+
+    {% if locked %}
+      <!-- Blocage rate limit -->
+      <div class="text-center py-4">
+        <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+        </div>
+        <h2 class="text-base font-semibold text-gray-900 mb-2">Trop de tentatives</h2>
+        <p class="text-sm text-gray-500 leading-relaxed">
+          Accès temporairement bloqué après {{ max_attempts }} échecs.<br>
+          Réessayez dans <strong>15 minutes</strong>.
+        </p>
+      </div>
+
+    {% else %}
+
+      <h2 class="text-lg font-semibold text-gray-900 mb-6">Connexion</h2>
+
+      <!-- Erreur globale -->
+      {% if form.non_field_errors %}
+        <div class="mb-5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2">
+          <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>{{ form.non_field_errors.0 }}</span>
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+
+        <!-- Téléphone -->
+        <div class="mb-5">
+          <label for="id_phone_number"
+                 class="block text-sm font-medium text-gray-700 mb-1.5">
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+              </svg>
+              Numéro de téléphone
+            </span>
+          </label>
+          {{ form.phone_number }}
+          {% if form.phone_number.errors %}
+            <p class="mt-1.5 text-xs text-red-600">{{ form.phone_number.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Mot de passe avec toggle -->
+        <div class="mb-7">
+          <label for="id_password"
+                 class="block text-sm font-medium text-gray-700 mb-1.5">
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+              Mot de passe
+            </span>
+          </label>
+          <div class="relative">
+            <input :type="showPwd ? 'text' : 'password'"
+                   name="password"
+                   id="id_password"
+                   placeholder="••••••••"
+                   autocomplete="current-password"
+                   class="w-full px-4 py-3 pr-11 border border-gray-300 rounded-xl text-sm
+                          focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue
+                          placeholder-gray-400 transition">
+            <button type="button"
+                    @click="showPwd = !showPwd"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition"
+                    :title="showPwd ? 'Masquer' : 'Afficher'">
+              <svg x-show="!showPwd" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+              <svg x-show="showPwd" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+              </svg>
+            </button>
+          </div>
+          {% if form.password.errors %}
+            <p class="mt-1.5 text-xs text-red-600">{{ form.password.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <button type="submit"
+                class="w-full bg-brand-blue hover:bg-blue-950 text-white font-semibold
+                       py-3 rounded-xl transition duration-150 min-h-[44px]
+                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue">
+          Se connecter
+        </button>
+
+      </form>
+
+    {% endif %}
+  </div>
+
+  <!-- Footer -->
+  <p class="text-center text-xs text-gray-400 mt-6">
+    Problème de connexion ?
+    <span class="text-gray-500">Contactez votre administrateur.</span>
+  </p>
+
+</div>
+</body>
+</html>

@@ -17,7 +17,8 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
 from apps.payments.models import Payment, PaymentMethod
-from apps.schools.models import School, SchoolClass
+from apps.schools.models import SchoolClass
+from apps.core.mixins import get_school
 
 from .forms import StudentCreateForm, StudentUpdateForm
 from .models import Student
@@ -25,9 +26,6 @@ from .models import Student
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _get_school():
-    """Retourne l'école de démonstration. Sera remplacé par request.user.school."""
-    return School.objects.get(id=1)
 
 
 def _students_qs(school, filter_type='all', class_id=None):
@@ -85,9 +83,9 @@ def compute_student_stats(school):
 
 # ── Vues principales ──────────────────────────────────────────────────────────
 
-@login_required(login_url='/admin/login/')
+@login_required
 def student_list(request):
-    school = _get_school()
+    school = get_school(request)
     filter_type = request.GET.get('filter', 'all')
     class_id    = request.GET.get('class_id')
     students    = list(_students_qs(school, filter_type, class_id))
@@ -108,10 +106,10 @@ def student_list(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_http_methods(['POST'])
 def student_create(request):
-    school = _get_school()
+    school = get_school(request)
     form = StudentCreateForm(request.POST, school=school)
 
     if form.is_valid():
@@ -152,10 +150,10 @@ def student_create(request):
     return redirect('students:list')
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_http_methods(['POST'])
 def student_create_group(request):
-    school     = _get_school()
+    school = get_school(request)
     class_id   = request.POST.get('class_id')
     names_json = request.POST.get('names_data', '[]')
     school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
@@ -190,9 +188,9 @@ def student_create_group(request):
     return redirect('students:list')
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def student_detail(request, student_id):
-    school  = _get_school()
+    school = get_school(request)
     student = get_object_or_404(
         Student.objects.select_related('school_class').prefetch_related('payments'),
         id=student_id, school=school,
@@ -203,9 +201,9 @@ def student_detail(request, student_id):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def student_update(request, student_id):
-    school  = _get_school()
+    school = get_school(request)
     student = get_object_or_404(
         Student.objects.select_related('school_class').prefetch_related('payments'),
         id=student_id, school=school,
@@ -249,9 +247,9 @@ def student_update(request, student_id):
     return redirect('students:detail', student_id=student.id)
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def student_search(request):
-    school      = _get_school()
+    school = get_school(request)
     query       = request.GET.get('q', '').strip()
     filter_type = request.GET.get('filter', 'all')
     class_id    = request.GET.get('class_id')
@@ -271,7 +269,7 @@ def student_search(request):
 
 # ── Import Excel ──────────────────────────────────────────────────────────────
 
-@login_required(login_url='/admin/login/')
+@login_required
 def student_import_template(request):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -424,14 +422,14 @@ def _parse_student_rows(file_obj, filename, school):
     return rows, errors
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_http_methods(['POST'])
 def student_import_preview(request):
     file_obj = request.FILES.get('import_file')
     if not file_obj:
         return HttpResponse('<p class="text-red-600 text-sm p-3">Aucun fichier sélectionné.</p>')
 
-    school = _get_school()
+    school = get_school(request)
     rows, errors = _parse_student_rows(file_obj, file_obj.name, school)
 
     return render(request, 'students/partials/student_import_preview.html', {
@@ -442,10 +440,10 @@ def student_import_preview(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_http_methods(['POST'])
 def student_import_confirm(request):
-    school = _get_school()
+    school = get_school(request)
     try:
         rows = json.loads(request.POST.get('rows_data', '[]'))
     except json.JSONDecodeError:

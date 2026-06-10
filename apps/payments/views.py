@@ -9,7 +9,8 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.schools.models import School, SchoolClass
+from apps.schools.models import SchoolClass
+from apps.core.mixins import get_school
 from apps.students.models import Student
 
 from .forms import PaymentCancelForm, PaymentCreateForm
@@ -18,8 +19,6 @@ from .models import Payment
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _get_school():
-    return School.objects.get(id=1)
 
 
 def _paid_subquery():
@@ -94,9 +93,9 @@ def _apply_filters(qs, q, status, class_id):
 
 # ── Vues ──────────────────────────────────────────────────────────────────────
 
-@login_required(login_url='/admin/login/')
+@login_required
 def payment_dashboard(request):
-    school   = _get_school()
+    school = get_school(request)
     q        = request.GET.get('q', '').strip()
     status   = request.GET.get('status', 'unpaid')
     class_id = request.GET.get('class_id', '')
@@ -130,9 +129,9 @@ def payment_dashboard(request):
     return render(request, 'payments/dashboard.html', ctx)
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def payment_form(request, student_id):
-    school  = _get_school()
+    school = get_school(request)
     student = get_object_or_404(
         Student.objects.select_related('school_class').prefetch_related('payments'),
         id=student_id, school=school, is_active=True,
@@ -146,10 +145,10 @@ def payment_form(request, student_id):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_POST
 def payment_create(request, student_id):
-    school  = _get_school()
+    school = get_school(request)
     student = get_object_or_404(
         Student.objects.select_related('school_class').prefetch_related('payments'),
         id=student_id, school=school, is_active=True,
@@ -192,9 +191,9 @@ def payment_create(request, student_id):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def payment_history(request, student_id):
-    school  = _get_school()
+    school = get_school(request)
     student = get_object_or_404(
         Student.objects.select_related('school_class'),
         id=student_id, school=school, is_active=True,
@@ -213,10 +212,10 @@ def payment_history(request, student_id):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_POST
 def payment_cancel(request, payment_id):
-    school  = _get_school()
+    school = get_school(request)
     payment = get_object_or_404(
         Payment.objects.select_related('student__school_class'),
         id=payment_id, student__school=school, is_cancelled=False,
@@ -249,9 +248,9 @@ def payment_cancel(request, payment_id):
     return HttpResponse(status=400)
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def payment_receipt_download(request, payment_id):
-    school  = _get_school()
+    school = get_school(request)
     payment = get_object_or_404(
         Payment.objects.select_related('student__school_class'),
         id=payment_id, student__school=school, is_cancelled=False,

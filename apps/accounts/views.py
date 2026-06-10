@@ -1,0 +1,89 @@
+from django.contrib.auth import login, logout
+from django.contrib import messages
+from django.core.cache import cache
+from django.shortcuts import render, redirect
+from django.views.decorators.http import require_http_methods
+
+from .forms import LoginForm
+from .models import UserRole
+
+_MAX_ATTEMPTS = 5
+_LOCKOUT_SECS = 15 * 60  # 15 minutes
+
+
+# ── Helpers rate limiting ──────────────────────────────────────────────────
+
+def _client_ip(request):
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    return forwarded.split(',')[0].strip() if forwarded else request.META.get('REMOTE_ADDR', 'unknown')
+
+
+def _is_locked(ip):
+    return bool(cache.get(f'login_lock_{ip}'))
+
+
+def _record_failure(ip):
+    key      = f'login_fail_{ip}'
+    attempts = (cache.get(key) or 0) + 1
+    cache.set(key, attempts, _LOCKOUT_SECS)
+    if attempts >= _MAX_ATTEMPTS:
+        cache.set(f'login_lock_{ip}', True, _LOCKOUT_SECS)
+
+
+def _clear_failures(ip):
+    cache.delete(f'login_fail_{ip}')
+    cache.delete(f'login_lock_{ip}')
+
+
+# ── Redirect post-login selon rôle ────────────────────────────────────────
+
+def _post_login_url(request, user):
+    next_url = request.POST.get('next') or request.GET.get('next', '')
+    if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+        return next_url
+    if user.is_superuser:
+        return '/superadmin/'
+    if user.role in (UserRole.DIRECTOR, UserRole.STAFF):
+        return '/classes/'
+    if user.role == UserRole.TEACHER:
+        return '/teacher/'
+    if user.role == UserRole.STUDENT:
+        return '/student/'
+    if user.role == UserRole.PARENT:
+        return '/parent/'
+    return '/classes/'
+
+
+# ── Vues ──────────────────────────────────────────────────────────────────
+
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect(_post_login_url(request, request.user))
+
+    ip     = _client_ip(request)
+    locked = _is_locked(ip)
+
+    if request.method == 'POST' and not locked:
+        form = LoginForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            _clear_failures(ip)
+            login(request, user, backend='apps.accounts.backends.PhoneBackend')
+            return redirect(_post_login_url(request, user))
+        _record_failure(ip)
+        locked = _is_locked(ip)
+    else:
+        form = LoginForm(request)
+
+    return render(request, 'accounts/login.html', {
+        'form':   form,
+        'locked': locked,
+        'next':   request.GET.get('next', ''),
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+def logout_view(request):
+    logout(request)
+    messages.success(request, 'Vous avez été déconnecté avec succès.')
+    return redirect('accounts:login')

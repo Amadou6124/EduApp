@@ -261,3 +261,45 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 9. **Monnaie** : stocker en FCFA entier (`DecimalField decimal_places=0`), afficher avec `|intcomma`
 10. **Templates** : un partial = un seul concept, nommage `partial_<objet>_<action>.html`
 11. **Commits** : feat / fix / docs / refactor — message en français, détail des fichiers touchés
+
+---
+
+## Vision Dashboard (construction progressive)
+
+### Dashboard V1 — Données admin (maintenant)
+Widgets disponibles :
+- Résumé financier : encaissé/dû/solde
+- Élèves par statut paiement (graphique donut)
+- Évolution inscriptions (graphique courbe)
+- Alertes impayés critiques
+- Classes les plus chargées
+- Activité récente (timeline)
+
+### Dashboard V2 — Après portail prof
+Widgets à ajouter :
+- Taux d'absences par classe
+- Alertes absences non justifiées
+- Notes publiées récemment
+- Alertes comportement élèves
+- Taux de complétion des leçons
+
+### Dashboard V3 — Final surpuissant
+Widgets à ajouter :
+- Taux de réussite par classe/matière
+- Progression élèves sur le trimestre
+- Comparaison trimestres (évolution)
+- Position des classes entre elles
+- Drill-down : clic sur stat → détail complet
+- Alertes intelligentes (élève en difficulté)
+- Prévisions paiements fin d'année
+- Heatmap activité élèves
+- Graphique revenus vs objectif annuel
+
+### Principes dashboard
+- Animation = vivant (transitions, counters)
+- Interactivité = on peut agir dessus
+- Intelligence = aide à prendre une décision
+- Drill-down sur chaque métrique
+- Filtres : par classe, par période, par statut
+- Responsive : même richesse sur mobile
+- Inspirations : Stripe, Linear, Vercel Analytics

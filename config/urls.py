@@ -8,6 +8,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('i18n/', include('django.conf.urls.i18n')),
     path('', lambda request: redirect('schools:class-list'), name='home'),
+    path('', include('apps.accounts.urls')),
     path('', include('apps.schools.urls')),
     path('students/', include('apps.students.urls')),
     path('payments/', include('apps.payments.urls')),

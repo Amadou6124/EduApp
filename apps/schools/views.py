@@ -16,6 +16,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import SchoolClass, School, EducationLevel
 from .forms import SchoolClassForm
+from apps.core.mixins import get_school
 
 # Correspondance libellés Excel → valeurs modèle
 LEVEL_LABELS = {
@@ -33,13 +34,6 @@ LEVEL_DISPLAY = {
     EducationLevel.HIGH_SCHOOL: 'Lycée',
     EducationLevel.UNIVERSITY: 'Université',
 }
-
-# École de démonstration (sera remplacée par le multi-tenant)
-DEMO_SCHOOL_ID = 1
-
-
-def get_demo_school():
-    return School.objects.filter(id=DEMO_SCHOOL_ID).first()
 
 
 def _classes_qs(school):
@@ -63,9 +57,9 @@ def compute_class_stats(classes):
     return total_students, avg_fill_rate
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def class_list(request):
-    school = get_demo_school()
+    school = get_school(request)
     classes = list(_classes_qs(school))
     total_students, avg_fill_rate = compute_class_stats(classes)
 
@@ -79,10 +73,10 @@ def class_list(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_http_methods(['POST'])
 def class_create(request):
-    school = get_demo_school()
+    school = get_school(request)
     form = SchoolClassForm(request.POST)
 
     if form.is_valid():
@@ -114,9 +108,9 @@ def class_create(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def class_edit_form(request, class_id):
-    school = get_demo_school()
+    school = get_school(request)
     school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     form = SchoolClassForm(instance=school_class)
     return render(request, 'schools/partials/class_edit_row.html', {
@@ -125,10 +119,10 @@ def class_edit_form(request, class_id):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_http_methods(['POST'])
 def class_update(request, class_id):
-    school = get_demo_school()
+    school = get_school(request)
     school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     form = SchoolClassForm(request.POST, instance=school_class)
 
@@ -145,9 +139,9 @@ def class_update(request, class_id):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def class_search(request):
-    school = get_demo_school()
+    school = get_school(request)
     query = request.GET.get('q', '').strip()
     classes = list(
         _classes_qs(school).filter(name__icontains=query)
@@ -160,9 +154,9 @@ def class_search(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def class_edit_modal(request, class_id):
-    school = get_demo_school()
+    school = get_school(request)
     school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     form = SchoolClassForm(instance=school_class)
     return render(request, 'schools/partials/class_edit_modal.html', {
@@ -171,16 +165,16 @@ def class_edit_modal(request, class_id):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def class_row(request, class_id):
-    school = get_demo_school()
+    school = get_school(request)
     school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     return render(request, 'schools/partials/class_row.html', {
         'school_class': school_class,
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def class_import_template(request):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -281,7 +275,7 @@ def _parse_import_rows(file_obj, filename):
     return rows, errors
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_http_methods(['POST'])
 def class_import_preview(request):
     file_obj = request.FILES.get('import_file')
@@ -289,7 +283,7 @@ def class_import_preview(request):
         return HttpResponse('<p class="text-red-600 text-sm">Aucun fichier sélectionné.</p>')
 
     rows, errors = _parse_import_rows(file_obj, file_obj.name)
-    school = get_demo_school()
+    school = get_school(request)
 
     # Détecter les doublons avec les classes existantes
     existing_names = set(
@@ -305,10 +299,10 @@ def class_import_preview(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_http_methods(['POST'])
 def class_import_confirm(request):
-    school = get_demo_school()
+    school = get_school(request)
     rows_json = request.POST.get('rows_data', '[]')
 
     try:
@@ -347,10 +341,10 @@ def class_import_confirm(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 @require_http_methods(['DELETE'])
 def class_delete(request, class_id):
-    school = get_demo_school()
+    school = get_school(request)
     school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
     # Désactivation douce : on ne supprime pas si des élèves sont inscrits
     if school_class.get_student_count() > 0:

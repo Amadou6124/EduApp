@@ -8,8 +8,7 @@ from .forms import (
     AppearanceForm, GeneralSettingsForm,
     ReceiptModeForm, ReceiptUploadForm,
 )
-from .models import School
-from .views import get_demo_school as _get_school
+from apps.core.mixins import get_school
 
 # Variables disponibles pour le mapping de reçu personnalisé
 _RECEIPT_VARIABLES = [
@@ -48,9 +47,9 @@ def _custom_step(school):
     return 'empty'
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def general(request):
-    school = _get_school()
+    school = get_school(request)
     if request.method == 'POST':
         form = GeneralSettingsForm(request.POST, instance=school)
         if form.is_valid():
@@ -73,9 +72,9 @@ def general(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def appearance(request):
-    school = _get_school()
+    school = get_school(request)
     if request.method == 'POST':
         if request.POST.get('delete_logo'):
             if school.logo:
@@ -109,9 +108,9 @@ def appearance(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def receipt(request):
-    school = _get_school()
+    school = get_school(request)
     if request.method == 'POST':
         action = request.POST.get('action', '')
 
@@ -183,7 +182,7 @@ def receipt(request):
     })
 
 
-@login_required(login_url='/admin/login/')
+@login_required
 def coming_soon(request, section):
     title, description, icon = _COMING_SOON_META.get(
         section, ('Section', 'Cette section sera disponible prochainement.', 'document'),
