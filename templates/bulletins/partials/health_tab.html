@@ -1,0 +1,88 @@
+{% comment %}
+Onglet Santé éducative — partial HTMX.
+Contexte : student_count, gen_avg, success_rate, admitted_count,
+           difficulty_count, school_class, active_period, can_generate, students
+{% endcomment %}
+{% load i18n %}
+
+{# ── 4 Stats ─────────────────────────────────────────────────── #}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+    <p class="text-xs text-gray-500 mb-1">Moyenne générale</p>
+    <p class="text-2xl font-bold text-brand-blue">
+      {% if gen_avg %}{{ gen_avg }}/20{% else %}—{% endif %}
+    </p>
+  </div>
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+    <p class="text-xs text-gray-500 mb-1">Taux de réussite</p>
+    <p class="text-2xl font-bold {% if success_rate >= 50 %}text-green-600{% else %}text-red-500{% endif %}">
+      {% if success_rate %}{{ success_rate }}%{% else %}—{% endif %}
+    </p>
+  </div>
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+    <p class="text-xs text-gray-500 mb-1">Admis (≥ 10)</p>
+    <p class="text-2xl font-bold text-green-600">{{ admitted_count }}</p>
+  </div>
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+    <p class="text-xs text-gray-500 mb-1">En difficulté (< 10)</p>
+    <p class="text-2xl font-bold text-red-500">{{ difficulty_count }}</p>
+  </div>
+</div>
+
+{# ── Top 3 Excellents ───────────────────────────────────────── #}
+{% if bulletins %}
+  {% with top3=bulletins.values|dictsortreversed:'general_average'|slice:':3' %}
+    {% if top3 %}
+    <h3 class="text-sm font-semibold text-gray-700 mb-3">🏆 Top 3 de la classe</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+      {% for bul in top3 %}
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center gap-3
+                    {% if forloop.counter == 1 %}border-amber-300 bg-amber-50/50{% endif %}">
+          <span class="text-2xl">
+            {% if forloop.counter == 1 %}🥇
+            {% elif forloop.counter == 2 %}🥈
+            {% else %}🥉{% endif %}
+          </span>
+          <div>
+            <p class="text-sm font-semibold text-gray-800">{{ bul.student.full_name }}</p>
+            <p class="text-xs text-gray-500">
+              {{ bul.general_average|floatformat:'2' }}/20
+            </p>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+{% endif %}
+
+{# ── Élèves en difficulté ───────────────────────────────────── #}
+{% if difficulty_count > 0 %}
+  <h3 class="text-sm font-semibold text-red-600 mb-3">⚠️ Élèves en difficulté</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+    {% for bul in bulletins.values %}
+      {% if bul.general_average and bul.general_average < 10 %}
+        <div class="bg-red-50 rounded-xl p-3 border border-red-100 flex items-center gap-3">
+          <span class="text-xs font-bold text-red-500">{{ bul.general_average|floatformat:'1' }}/20</span>
+          <span class="text-sm font-medium text-gray-700">{{ bul.student.full_name }}</span>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+
+{# ── État des bulletins ──────────────────────────────────────── #}
+<div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+  <p class="text-xs text-gray-500">
+    {{ bulletins|length }} / {{ student_count }} bulletins générés
+    {% if can_generate %}
+      — <button type="button"
+                class="text-brand-blue hover:underline"
+                hx-post="{% url 'bulletins:generate-class' school_class.pk active_period.pk %}"
+                hx-swap="innerHTML"
+                hx-target="closest div">
+        ⚡ Générer maintenant
+      </button>
+    {% endif %}
+  </p>
+</div>

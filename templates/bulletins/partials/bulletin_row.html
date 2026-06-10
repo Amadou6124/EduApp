@@ -1,0 +1,36 @@
+{% comment %}
+Ligne eleve dans l'onglet Bulletins — partial HTMX
+{% endcomment %}
+{% load i18n %}
+<tr class="hover:bg-gray-50/50 transition-colors bg-green-50/40">
+  <td class="px-4 py-2.5 text-gray-400 text-xs">
+    {% if bulletin and bulletin.rank %}{{ bulletin.rank }}{% else %}—{% endif %}
+  </td>
+  <td class="px-4 py-2.5 font-medium text-gray-700">{{ student.full_name }}</td>
+  <td class="px-4 py-2.5 text-center font-semibold text-brand-blue">
+    {% if bulletin and bulletin.general_average is not None %}
+      {{ bulletin.general_average|floatformat:'2' }}/20
+    {% else %}—{% endif %}
+  </td>
+  <td class="px-4 py-2.5 text-center text-xs text-gray-500">
+    {% if bulletin and bulletin.rank %}
+      {{ bulletin.rank }}<sup>e</sup>/{{ bulletin.class_size }}
+    {% else %}—{% endif %}
+  </td>
+  <td class="px-4 py-2.5 text-center">
+    <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+      ✅ {% trans "Genere" %}
+    </span>
+  </td>
+  <td class="px-4 py-2.5 text-center">
+    <div class="flex items-center justify-center gap-1">
+      <button type="button"
+              class="text-xs text-brand-blue hover:underline"
+              hx-get="{% url 'bulletins:preview' bulletin.pk %}"
+              hx-target="#preview-modal-container"
+              hx-swap="innerHTML">👁</button>
+      <a href="{% url 'bulletins:download' bulletin.pk %}"
+         class="text-xs text-brand-blue hover:underline">📥</a>
+    </div>
+  </td>
+</tr>

@@ -1,0 +1,123 @@
+{% comment %}
+Onglet Classements — partial HTMX.
+Contexte : bulletins, school_class, period
+{% endcomment %}
+{% load i18n %}
+
+{# ── Tableau classement ─────────────────────────────────────── #}
+{% if bulletins %}
+  <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+        <tr>
+          <th class="text-center px-4 py-3 font-semibold w-16">{% trans "Rang" %}</th>
+          <th class="text-left px-4 py-3 font-semibold">{% trans "Élève" %}</th>
+          <th class="text-center px-4 py-3 font-semibold">{% trans "Moy. Gén" %}</th>
+          <th class="text-center px-4 py-3 font-semibold">{% trans "Total Pts" %}</th>
+          <th class="text-center px-4 py-3 font-semibold">{% trans "Appréciation" %}</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for bul in bulletins %}
+          <tr class="hover:bg-gray-50/50 transition-colors
+                     {% if forloop.counter == 1 %}bg-amber-50/60{% endif %}
+                     {% if forloop.counter == 2 %}bg-gray-50/40{% endif %}
+                     {% if forloop.counter == 3 %}bg-orange-50/30{% endif %}
+                     {% if forloop.counter > 3 %}{% cycle '' 'bg-gray-50/20' %}{% endif %}">
+            <td class="px-4 py-2.5 text-center">
+              {# Médailles pour le podium #}
+              {% if forloop.counter == 1 %}
+                <span class="text-xl">🥇</span>
+              {% elif forloop.counter == 2 %}
+                <span class="text-xl">🥈</span>
+              {% elif forloop.counter == 3 %}
+                <span class="text-xl">🥉</span>
+              {% else %}
+                <span class="text-xs text-gray-500">{{ forloop.counter }}<sup>e</sup></span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2.5 font-medium text-gray-700">
+              {{ bul.student.full_name }}
+            </td>
+            <td class="px-4 py-2.5 text-center font-bold
+                       {% if bul.general_average >= 14 %}text-green-600
+                       {% elif bul.general_average >= 10 %}text-brand-blue
+                       {% else %}text-red-500{% endif %}">
+              {{ bul.general_average|floatformat:'2' }}/20
+            </td>
+            <td class="px-4 py-2.5 text-center text-xs text-gray-500">
+              {% with total=bul.general_average|floatformat:'2' %}
+                {{ total }}
+              {% endwith %}
+            </td>
+            <td class="px-4 py-2.5 text-center text-xs">
+              {% if bul.appreciation %}
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-medium
+                             {% if bul.general_average >= 14 %}bg-green-100 text-green-700
+                             {% elif bul.general_average >= 10 %}bg-blue-100 text-blue-700
+                             {% else %}bg-red-50 text-red-500{% endif %}">
+                  {{ bul.appreciation }}
+                </span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# ── Résumé statistique en bas ─────────────────────────────── #}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+    <div class="bg-white rounded-lg border border-gray-100 px-3 py-2 text-xs shadow-sm">
+      <span class="text-gray-400">Moy. classe</span>
+      <p class="font-bold text-brand-blue">
+        {% with total=0 count=0 %}
+          {% for bul in bulletins %}
+            {% if bul.general_average %}
+              {% with total=total|add:bul.general_average count=count|add:1 %}{% endwith %}
+            {% endif %}
+          {% endfor %}
+          {# Approximation : premier et dernier uniquement #}
+        {% endwith %}
+        {% if bulletins.0.general_average and bulletins|last.general_average %}
+          {% with first=bulletins.0.general_average last=bulletins|last.general_average %}
+            {{ first|add:last|floatformat:'2' }}/20
+          {% endwith %}
+        {% else %}—{% endif %}
+      </p>
+    </div>
+    <div class="bg-white rounded-lg border border-amber-100 px-3 py-2 text-xs shadow-sm">
+      <span class="text-gray-400">Moy. du 1<sup>er</sup></span>
+      <p class="font-bold text-amber-600">
+        {% with first=bulletins.0 %}
+          {% if first and first.general_average %}
+            {{ first.general_average|floatformat:'2' }}/20
+          {% else %}—{% endif %}
+        {% endwith %}
+      </p>
+    </div>
+    <div class="bg-white rounded-lg border border-gray-100 px-3 py-2 text-xs shadow-sm">
+      <span class="text-gray-400">Moy. du dernier</span>
+      <p class="font-bold text-red-500">
+        {% with last=bulletins|last %}
+          {% if last and last.general_average %}
+            {{ last.general_average|floatformat:'2' }}/20
+          {% else %}—{% endif %}
+        {% endwith %}
+      </p>
+    </div>
+    <div class="bg-white rounded-lg border border-gray-100 px-3 py-2 text-xs shadow-sm">
+      <span class="text-gray-400">Effectif</span>
+      <p class="font-bold text-gray-700">{{ bulletins|length }}</p>
+    </div>
+  </div>
+{% else %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+    <p class="text-sm text-gray-400">
+      Aucun bulletin généré pour cette classe sur cette période.
+    </p>
+    <p class="text-xs text-gray-400 mt-1">
+      Générez d'abord les bulletins dans l'onglet "Bulletins".
+    </p>
+  </div>
+{% endif %}

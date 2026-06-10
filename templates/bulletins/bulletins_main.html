@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% comment %}
+Page principale /bulletins/ — 3 onglets.
+Contexte :
+  - years, active_year, periods, active_period, classes, active_class
+  - active_tab, school, can_generate
+{% endcomment %}
+{% load i18n %}
+
+{% block title %}{% trans "Bulletins" %}{% endblock %}
+
+{% block page_title %}
+  {% trans "Bulletins" %}
+{% endblock %}
+
+{% block header_actions %}
+  {% if active_class and active_period and can_generate %}
+    <button type="button"
+            class="bg-brand-gold hover:bg-yellow-500 text-white font-semibold px-4 py-2 rounded-lg text-sm min-h-[44px] transition"
+            hx-post="{% url 'bulletins:generate-class' active_class.pk active_period.pk %}"
+            hx-target="#tab-content"
+            hx-swap="innerHTML">
+      ⚡ {% trans "Générer tous les bulletins" %}
+    </button>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ── Sélecteurs ──────────────────────────────────────────────── #}
+<div class="flex flex-wrap gap-3 mb-6">
+  {# Année scolaire #}
+  <div>
+    <label class="block text-xs text-gray-500 mb-1">Année</label>
+    <form method="get" id="selectors-form" class="flex flex-wrap gap-3">
+      <select name="year" onchange="this.form.submit()"
+              class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand-gold/40">
+        {% for y in years %}
+          <option value="{{ y.pk }}" {% if active_year and y.pk == active_year.pk %}selected{% endif %}>
+            {{ y.name }}{% if y.is_active %} (active){% endif %}
+          </option>
+        {% empty %}
+          <option value="">—</option>
+        {% endfor %}
+      </select>
+
+      {# Période #}
+      {% if periods %}
+      <select name="period" onchange="this.form.submit()"
+              class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand-gold/40">
+        {% for p in periods %}
+          <option value="{{ p.pk }}" {% if active_period and p.pk == active_period.pk %}selected{% endif %}>
+            {{ p.name }}
+          </option>
+        {% endfor %}
+      </select>
+      {% endif %}
+
+      {# Classe #}
+      <select name="class" onchange="this.form.submit()"
+              class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand-gold/40">
+        <option value="">— Toutes —</option>
+        {% for c in classes %}
+          <option value="{{ c.pk }}" {% if active_class and c.pk == active_class.pk %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+        {% endfor %}
+      </select>
+
+      {# Garder l'onglet actif #}
+      <input type="hidden" name="tab" value="{{ active_tab }}">
+    </form>
+  </div>
+</div>
+
+{% if not active_year %}
+  <div class="text-center py-20 text-gray-400">
+    <p class="text-sm">Configurez d'abord une année scolaire.</p>
+    <a href="{% url 'settings:school-years' %}"
+       class="inline-block mt-3 text-sm text-brand-blue hover:underline">
+      Paramètres →
+    </a>
+  </div>
+{% elif not active_class %}
+  <div class="text-center py-20 text-gray-400">
+    <p class="text-sm">Sélectionnez une classe pour afficher les bulletins.</p>
+  </div>
+{% else %}
+  {# ── 3 Onglets ──────────────────────────────────────────────── #}
+  <div class="flex gap-1 mb-6 border-b border-gray-200"
+       x-data="{ tab: '{{ active_tab }}' }">
+    <button type="button"
+            x-on:click="tab = 'health'"
+            x-bind:class="tab === 'health' ? 'border-brand-blue text-brand-blue' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2.5 text-sm font-medium border-b-2 transition min-h-[44px]"
+            hx-get="{% url 'bulletins:health-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
+            hx-target="#tab-content"
+            hx-swap="innerHTML">
+      📊 {% trans "Santé éducative" %}
+    </button>
+    <button type="button"
+            x-on:click="tab = 'bullets'"
+            x-bind:class="tab === 'bullets' ? 'border-brand-blue text-brand-blue' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2.5 text-sm font-medium border-b-2 transition min-h-[44px]"
+            hx-get="{% url 'bulletins:bullets-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
+            hx-target="#tab-content"
+            hx-swap="innerHTML">
+      📋 {% trans "Bulletins" %}
+    </button>
+    <button type="button"
+            x-on:click="tab = 'rankings'"
+            x-bind:class="tab === 'rankings' ? 'border-brand-blue text-brand-blue' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2.5 text-sm font-medium border-b-2 transition min-h-[44px]"
+            hx-get="{% url 'bulletins:rankings-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
+            hx-target="#tab-content"
+            hx-swap="innerHTML">
+      🏆 {% trans "Classements" %}
+    </button>
+  </div>
+
+  {# ── Contenu de l'onglet ────────────────────────────────────── #}
+  <div id="tab-content"
+       hx-get="{% url 'bulletins:health-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
+       hx-trigger="load"
+       hx-swap="innerHTML">
+    {% include "bulletins/partials/health_tab.html" %}
+  </div>
+{% endif %}
+
+{% endblock %}

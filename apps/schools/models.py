@@ -148,7 +148,7 @@ class SchoolYear(models.Model):
         related_name='school_years',
         verbose_name=_('école'),
     )
-    name = models.CharField(_('nom'), max_length=20)  # ex : "2024-2025"
+    name = models.CharField(_('nom'), max_length=20)  # ex : "2024-2025"
     start_date = models.DateField(_('début'))
     end_date   = models.DateField(_('fin'))
     is_active  = models.BooleanField(_('active'), default=False)
@@ -196,7 +196,7 @@ class Period(models.Model):
         related_name='periods',
         verbose_name=_('année scolaire'),
     )
-    name        = models.CharField(_('nom'), max_length=50)  # ex : "Trimestre 1"
+    name        = models.CharField(_('nom'), max_length=50)  # ex : "Trimestre 1"
     period_type = models.CharField(
         _('type'),
         max_length=10,
@@ -229,8 +229,8 @@ class Subject(models.Model):
         related_name='subjects',
         verbose_name=_('école'),
     )
-    name       = models.CharField(_('nom'), max_length=100)       # ex : "Mathématiques"
-    short_name = models.CharField(_('abréviation'), max_length=10)  # ex : "Maths"
+    name       = models.CharField(_('nom'), max_length=100)       # ex : "Mathématiques"
+    short_name = models.CharField(_('abréviation'), max_length=10)  # ex : "Maths"
     color      = models.CharField(_('couleur'), max_length=7, default='#1E3A5F')
     is_active  = models.BooleanField(_('active'), default=True)
 
@@ -417,6 +417,218 @@ class Note(models.Model):
 
     def __str__(self):
         return (
-            f'{self.student} — {self.class_subject.subject.name} : '
+            f'{self.student} — {self.class_subject.subject.name} : '
             f'{self.value}/{self.class_subject.max_grade}'
         )
+
+
+# ──────────────────────────────────────────────────────────────
+# Bulletins — Étape 3/3
+# ──────────────────────────────────────────────────────────────
+
+class AppreciationScale(models.Model):
+    """Barème d'appréciations par école."""
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name='appreciation_scales',
+        verbose_name=_('école'),
+    )
+    min_grade = models.DecimalField(
+        _('note minimale'), max_digits=5, decimal_places=2,
+        help_text=_('Seuil inférieur (inclus) pour cette appréciation.'),
+    )
+    label = models.CharField(_('appréciation'), max_length=50)
+    order = models.PositiveSmallIntegerField(_('ordre'), default=0)
+
+    class Meta:
+        verbose_name = _('barème d\'appréciation')
+        verbose_name_plural = _('barèmes d\'appréciation')
+        ordering = ['-min_grade']
+        unique_together = [('school', 'label')]
+
+    def __str__(self):
+        return f'{self.label} (>= {self.min_grade}) — {self.school.name}'
+
+    @staticmethod
+    def get_appreciation(school, grade):
+        """Retourne l'appréciation correspondant à une note."""
+        if grade is None:
+            return ''
+        for s in (
+            AppreciationScale.objects
+            .filter(school=school)
+            .order_by('-min_grade')
+        ):
+            if grade >= s.min_grade:
+                return s.label
+        return ''
+
+
+class BulletinFormat(models.TextChoices):
+    FULL_PAGE = 'full_page',     _('Pleine page A4')
+    TWO_PER_PAGE = 'two_per_page', _('Deux par page A4')
+
+
+class BulletinLanguage(models.TextChoices):
+    FRENCH = 'french',       _('Français')
+    ARABIC = 'arabic',       _('Arabe')
+    BILINGUAL = 'bilingual', _('Bilingue')
+
+
+class BulletinConfig(models.Model):
+    """Configuration du bulletin par école (1:1)."""
+    school = models.OneToOneField(
+        School,
+        on_delete=models.CASCADE,
+        related_name='bulletin_config',
+        verbose_name=_('école'),
+    )
+    show_ministry_header = models.BooleanField(
+        _('afficher l\'en-tête ministériel'), default=True,
+    )
+    ministry_text = models.TextField(
+        _('texte ministère (gauche)'), blank=True, default='',
+    )
+    republic_text = models.TextField(
+        _('texte république (droite)'), blank=True, default='',
+    )
+    show_logo = models.BooleanField(_('afficher le logo'), default=True)
+    paper_format = models.CharField(
+        _('format d\'impression'), max_length=15,
+        choices=BulletinFormat.choices, default=BulletinFormat.TWO_PER_PAGE,
+    )
+    language = models.CharField(
+        _('langue du bulletin'), max_length=10,
+        choices=BulletinLanguage.choices, default=BulletinLanguage.FRENCH,
+    )
+    show_rank = models.BooleanField(_('afficher le classement'), default=True)
+    show_class_average = models.BooleanField(
+        _('afficher la moyenne de classe'), default=True,
+    )
+    show_first_average = models.BooleanField(
+        _('afficher la moyenne du premier'), default=True,
+    )
+    show_appreciations = models.BooleanField(
+        _('afficher les appréciations'), default=True,
+    )
+    footer_left = models.CharField(
+        _('pied gauche'), max_length=100, blank=True, default='Le Parent',
+    )
+    footer_right = models.CharField(
+        _('pied droit'), max_length=100, blank=True, default='Le Directeur',
+    )
+
+    class Meta:
+        verbose_name = _('configuration bulletin')
+        verbose_name_plural = _('configurations bulletin')
+
+    def __str__(self):
+        return f'Config bulletin — {self.school.name}'
+
+
+class Bulletin(models.Model):
+    """Bulletin généré pour un élève sur une période."""
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='bulletins',
+        verbose_name=_('élève'),
+    )
+    period = models.ForeignKey(
+        Period,
+        on_delete=models.CASCADE,
+        related_name='bulletins',
+        verbose_name=_('période'),
+    )
+    school_class = models.ForeignKey(
+        SchoolClass,
+        on_delete=models.CASCADE,
+        related_name='bulletins',
+        verbose_name=_('classe'),
+    )
+    generated_at = models.DateTimeField(_('généré le'), auto_now_add=True)
+    generated_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.PROTECT,
+        related_name='generated_bulletins',
+        verbose_name=_('généré par'),
+    )
+    is_published = models.BooleanField(_('publié'), default=False)
+    published_at = models.DateTimeField(_('publié le'), null=True, blank=True)
+    general_average = models.DecimalField(
+        _('moyenne générale'), max_digits=5, decimal_places=2, null=True, blank=True,
+    )
+    rank = models.PositiveIntegerField(_('rang'), null=True, blank=True)
+    class_size = models.PositiveIntegerField(
+        _('effectif classe'), null=True, blank=True,
+    )
+    first_average = models.DecimalField(
+        _('moyenne du premier'), max_digits=5, decimal_places=2, null=True, blank=True,
+    )
+    appreciation = models.CharField(
+        _('appréciation générale'), max_length=50, blank=True,
+    )
+    pdf_file = models.FileField(
+        _('fichier PDF'), upload_to='bulletins/%Y/%m/', null=True, blank=True,
+    )
+    is_cancelled = models.BooleanField(_('annulé'), default=False)
+
+    class Meta:
+        verbose_name = _('bulletin')
+        verbose_name_plural = _('bulletins')
+        ordering = ['-generated_at']
+        unique_together = [('student', 'period')]
+        indexes = [
+            models.Index(fields=['school_class', 'period'], name='bul_class_period_idx'),
+            models.Index(fields=['student', 'period'], name='bul_student_period_idx'),
+        ]
+
+    def __str__(self):
+        return (
+            f'Bulletin {self.student.full_name} — '
+            f'{self.period.name} ({self.period.school_year.name})'
+        )
+
+
+class BulletinLine(models.Model):
+    """Ligne matière dans un bulletin."""
+    bulletin = models.ForeignKey(
+        Bulletin,
+        on_delete=models.CASCADE,
+        related_name='lines',
+        verbose_name=_('bulletin'),
+    )
+    class_subject = models.ForeignKey(
+        ClassSubject,
+        on_delete=models.CASCADE,
+        related_name='bulletin_lines',
+        verbose_name=_('matière de classe'),
+    )
+    devoir_average = models.DecimalField(
+        _('moyenne devoirs'), max_digits=5, decimal_places=2, null=True, blank=True,
+    )
+    compo_grade = models.DecimalField(
+        _('note composition'), max_digits=5, decimal_places=2, null=True, blank=True,
+    )
+    final_average = models.DecimalField(
+        _('moyenne finale matière'), max_digits=5, decimal_places=2, null=True, blank=True,
+    )
+    weighted_grade = models.DecimalField(
+        _('note pondérée (x coefficient)'), max_digits=6, decimal_places=2,
+        null=True, blank=True,
+    )
+    appreciation = models.CharField(
+        _('appréciation matière'), max_length=50, blank=True,
+    )
+    rank_in_subject = models.PositiveIntegerField(
+        _('rang dans la matière'), null=True, blank=True,
+    )
+
+    class Meta:
+        verbose_name = _('ligne de bulletin')
+        verbose_name_plural = _('lignes de bulletin')
+        ordering = ['class_subject__order', 'class_subject__subject__name']
+
+    def __str__(self):
+        return f'{self.class_subject.subject.name} — {self.bulletin.student.full_name}'
