@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{{ student.full_name }}{% endblock %}
+{% block page_title %}Fiche élève{% endblock %}
+
+{% block header_actions %}
+  <a href="{% url 'students:list' %}"
+     class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue text-sm font-medium rounded-lg transition min-h-[44px]">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    Retour
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+  {# ── Section 1 — Identité (inline-editable) ── #}
+  {% include "students/partials/student_profile_view.html" %}
+
+  {# ── Section 2 — Situation financière ── #}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-5">Situation financière</h3>
+
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="text-center p-4 bg-gray-50 rounded-xl">
+        <p class="text-xs text-gray-400 mb-1">Frais annuels</p>
+        <p class="text-lg font-bold text-gray-700">{{ student.tuition_fee|intcomma }}</p>
+        <p class="text-xs text-gray-400">FCFA</p>
+      </div>
+      <div class="text-center p-4 bg-green-50 rounded-xl">
+        <p class="text-xs text-gray-400 mb-1">Total versé</p>
+        <p class="text-lg font-bold text-green-600">{{ student.get_total_paid|intcomma }}</p>
+        <p class="text-xs text-gray-400">FCFA</p>
+      </div>
+      <div class="text-center p-4 rounded-xl {% if student.get_balance_due <= 0 %}bg-green-50{% else %}bg-red-50{% endif %}">
+        <p class="text-xs text-gray-400 mb-1">Solde restant</p>
+        <p class="text-lg font-bold {% if student.get_balance_due <= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+          {{ student.get_balance_due|intcomma }}
+        </p>
+        <p class="text-xs text-gray-400">FCFA</p>
+      </div>
+    </div>
+
+    {# Historique des versements #}
+    <h4 class="text-sm font-medium text-gray-700 mb-3">Historique des versements</h4>
+    {% with valid_payments=student.payments.all %}
+      {% if valid_payments %}
+        <div class="space-y-2">
+          {% for payment in valid_payments %}
+            {% if payment.is_valid %}
+              <div class="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-xl text-sm">
+                <div class="flex items-center gap-3">
+                  <div class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></div>
+                  <div>
+                    <p class="font-medium text-gray-800">{{ payment.amount|intcomma }} FCFA</p>
+                    <p class="text-xs text-gray-400">{{ payment.get_payment_method_display }} · {{ payment.paid_at|date:"d/m/Y" }}</p>
+                  </div>
+                </div>
+                <span class="text-xs text-gray-400 font-mono">{{ payment.receipt_number }}</span>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-sm text-gray-400 text-center py-4">Aucun versement enregistré</p>
+      {% endif %}
+    {% endwith %}
+  </div>
+
+</div>
+{% endblock %}

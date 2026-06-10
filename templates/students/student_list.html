@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}Élèves{% endblock %}
+{% block page_title %}Élèves{% endblock %}
+
+{% block extra_head %}
+<script>
+  function studentsPageData() {
+    return {
+      showPanel: false,
+      panelMode: 'individual',
+      showImportModal: false,
+      showParent: false,
+      showPayment: false,
+      selectedClassId: null,
+      groupNames: [''],
+      groupClassId: null,
+      classes: {{ classes_json|safe }},
+      viewMode: localStorage.getItem('studentsView') || 'cards',
+      get selectedClass() { return this.classes.find(c => c.id == this.selectedClassId) },
+      get selectedFee() { return this.selectedClass ? this.selectedClass.annual_fee : null },
+      addGroupName() { this.groupNames.push('') },
+      removeGroupName(i) { if (this.groupNames.length > 1) this.groupNames.splice(i, 1) },
+      setView(m) { this.viewMode = m; localStorage.setItem('studentsView', m) }
+    }
+  }
+</script>
+{% endblock %}
+
+{% block content %}
+<div x-data="studentsPageData()"
+     @close-panel.window="showPanel = false"
+     @closePanel.window="showPanel = false">
+
+  {# ── Barre d'actions ── #}
+  <div class="flex items-center justify-between mb-6">
+    <div></div>
+    <div class="flex items-center gap-2">
+      <button @click="showImportModal = true"
+              class="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue text-sm font-medium rounded-lg transition min-h-[44px]">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+        </svg>
+        Importer
+      </button>
+      <button @click="showPanel = true; panelMode = 'individual'"
+              class="flex items-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Inscrire un élève
+      </button>
+    </div>
+  </div>
+
+  {# ── Stats ── #}
+  {% include "students/partials/student_stats.html" %}
+
+  {# ── Recherche #}
+  {% include "includes/search_bar.html" with url="/students/search/" target="student-list-area" placeholder="Rechercher un élève, une classe…" %}
+
+  {# ── Onglets filtre ── #}
+  <div class="flex gap-1 mb-5 border-b border-gray-200 overflow-x-auto">
+    <a href="?filter=all"   class="px-4 py-2.5 text-sm font-medium border-b-2 transition {% if filter_type == 'all' %}border-brand-blue text-brand-blue{% else %}border-transparent text-gray-500 hover:text-gray-700{% endif %}">Tous</a>
+    <a href="?filter=class" class="px-4 py-2.5 text-sm font-medium border-b-2 transition {% if filter_type == 'class' %}border-brand-blue text-brand-blue{% else %}border-transparent text-gray-500 hover:text-gray-700{% endif %}">Par classe</a>
+    <a href="?filter=no_parent" class="px-4 py-2.5 text-sm font-medium border-b-2 transition {% if filter_type == 'no_parent' %}border-brand-blue text-brand-blue{% else %}border-transparent text-gray-500 hover:text-gray-700{% endif %}">Sans parent</a>
+    <a href="?filter=unpaid" class="px-4 py-2.5 text-sm font-medium border-b-2 transition {% if filter_type == 'unpaid' %}border-brand-blue text-brand-blue{% else %}border-transparent text-gray-500 hover:text-gray-700{% endif %}">Impayés</a>
+  </div>
+
+  {# ── Switch vue ── #}
+  <div class="hidden lg:flex items-center justify-end gap-1 mb-4">
+    <button @click="setView('cards')"
+            :class="viewMode === 'cards' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+            class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+      </svg>
+    </button>
+    <button @click="setView('table')"
+            :class="viewMode === 'table' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+            class="p-2 rounded-lg border border-gray-200 transition" title="Vue tableau">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
+      </svg>
+    </button>
+  </div>
+
+  {# ── Liste principale ── #}
+  {% include "students/partials/student_table_body.html" %}
+
+  {# ════════════════════════════════════════════════════════ #}
+  {# ── Panel latéral inscription (slide from right) ── #}
+  {# ════════════════════════════════════════════════════════ #}
+
+  {# Overlay #}
+  <div x-show="showPanel" x-cloak
+       class="fixed inset-0 bg-black/40 z-40"
+       @click="showPanel = false"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0">
+  </div>
+
+  {# Panel #}
+  <div x-show="showPanel" x-cloak
+       class="fixed top-0 right-0 h-full w-full sm:w-[520px] bg-white shadow-2xl z-50 flex flex-col"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="translate-x-full">
+
+    {# Header du panel #}
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <h2 class="text-lg font-semibold text-brand-blue">Inscrire un élève</h2>
+        <div class="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+          <button @click="panelMode = 'individual'"
+                  :class="panelMode === 'individual' ? 'bg-white shadow-sm text-brand-blue' : 'text-gray-500'"
+                  class="px-3 py-1 text-xs font-medium rounded-md transition">Individuel</button>
+          <button @click="panelMode = 'group'"
+                  :class="panelMode === 'group' ? 'bg-white shadow-sm text-brand-blue' : 'text-gray-500'"
+                  class="px-3 py-1 text-xs font-medium rounded-md transition">Groupe</button>
+        </div>
+      </div>
+      <button @click="showPanel = false" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    {# ── Mode individuel ── #}
+    <div x-show="panelMode === 'individual'" class="flex-1 overflow-y-auto">
+      <form hx-post="{% url 'students:create' %}"
+            hx-target="#student-list-area"
+            hx-swap="outerHTML"
+            class="px-6 py-5 space-y-5"
+            x-init="$nextTick(() => $el.querySelector('[name=full_name]')?.focus())">
+        {% csrf_token %}
+
+        {# Section 1 — Infos essentielles #}
+        <div>
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Informations essentielles</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom complet <span class="text-red-500">*</span></label>
+              <input type="text" name="full_name" required autofocus
+                     class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent"
+                     placeholder="Prénom Nom">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Classe <span class="text-red-500">*</span></label>
+              <select name="school_class" required
+                      x-model="selectedClassId"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                <option value="">— Sélectionner une classe —</option>
+                {% for class in classes %}
+                  <option value="{{ class.id }}">{{ class.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone élève</label>
+                <input type="tel" name="phone_number"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                       placeholder="07 00 00 00 00">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Date de naissance</label>
+                <input type="date" name="date_of_birth"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# Section 2 — Parent #}
+        <div class="border-t border-gray-100 pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Parent / Responsable</h3>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <div class="relative">
+                <input type="checkbox" x-model="showParent" class="sr-only peer">
+                <div class="w-9 h-5 bg-gray-200 peer-checked:bg-brand-blue rounded-full transition peer-focus:ring-2 peer-focus:ring-brand-blue/30"></div>
+                <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></div>
+              </div>
+              <span class="text-xs text-gray-500">Lier maintenant</span>
+            </label>
+          </div>
+          <div x-show="showParent" x-cloak class="grid grid-cols-2 gap-3"
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 -translate-y-1"
+               x-transition:enter-end="opacity-100 translate-y-0">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone parent</label>
+              <input type="tel" name="parent_phone_number"
+                     class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                     placeholder="07 00 00 00 00">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Lien de parenté</label>
+              <select name="parent_relationship"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                <option value="">— Choisir —</option>
+                <option value="father">Père</option>
+                <option value="mother">Mère</option>
+                <option value="guardian">Tuteur/Tutrice</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {# Section 3 — Paiement initial #}
+        <div class="border-t border-gray-100 pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Paiement initial</h3>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <div class="relative">
+                <input type="checkbox" x-model="showPayment" class="sr-only peer">
+                <div class="w-9 h-5 bg-gray-200 peer-checked:bg-brand-blue rounded-full transition peer-focus:ring-2 peer-focus:ring-brand-blue/30"></div>
+                <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></div>
+              </div>
+              <span class="text-xs text-gray-500">Enregistrer maintenant</span>
+            </label>
+          </div>
+
+          <template x-if="selectedClass">
+            <p class="text-xs text-gray-400 mb-3">
+              Frais annuels : <span class="font-semibold text-gray-700" x-text="selectedFee?.toLocaleString('fr-FR') + ' FCFA'"></span>
+            </p>
+          </template>
+
+          <div x-show="showPayment" x-cloak class="grid grid-cols-2 gap-3"
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 -translate-y-1"
+               x-transition:enter-end="opacity-100 translate-y-0">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Montant versé (FCFA)</label>
+              <input type="number" name="initial_payment" min="0"
+                     :placeholder="selectedFee || '0'"
+                     class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Mode de paiement</label>
+              <select name="payment_method"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                <option value="cash">Espèces</option>
+                <option value="mobile_money">Mobile Money</option>
+                <option value="bank_transfer">Virement bancaire</option>
+                <option value="check">Chèque</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {# Boutons #}
+        <div class="flex gap-3 pt-2">
+          <button type="button" @click="showPanel = false"
+                  class="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition min-h-[44px]">
+            Annuler
+          </button>
+          <button type="submit"
+                  class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px] flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            Inscrire
+          </button>
+        </div>
+      </form>
+    </div>
+
+    {# ── Mode groupe ── #}
+    <div x-show="panelMode === 'group'" x-cloak class="flex-1 overflow-y-auto">
+      <form hx-post="{% url 'students:create-group' %}"
+            hx-target="#student-list-area"
+            hx-swap="outerHTML"
+            class="px-6 py-5 space-y-5"
+            @submit="$el.querySelector('[name=names_data]').value = JSON.stringify(groupNames.filter(n => n.trim()))">
+        {% csrf_token %}
+        <input type="hidden" name="names_data" value="[]">
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Classe <span class="text-red-500">*</span></label>
+          <select name="class_id" x-model="groupClassId" required
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+            <option value="">— Sélectionner une classe —</option>
+            {% for class in classes %}
+              <option value="{{ class.id }}">{{ class.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-sm font-medium text-gray-700">Noms des élèves</label>
+            <span class="text-xs text-gray-400" x-text="groupNames.filter(n => n.trim()).length + ' élève(s)'"></span>
+          </div>
+          <div class="space-y-2">
+            <template x-for="(name, i) in groupNames" :key="i">
+              <div class="flex items-center gap-2">
+                <input type="text" x-model="groupNames[i]"
+                       :placeholder="'Élève ' + (i + 1)"
+                       class="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                       @keydown.enter.prevent="addGroupName()">
+                <button type="button" @click="removeGroupName(i)"
+                        x-show="groupNames.length > 1"
+                        class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
+          <button type="button" @click="addGroupName()"
+                  class="mt-2 w-full py-2 border border-dashed border-gray-300 text-sm text-gray-500 hover:border-brand-blue hover:text-brand-blue rounded-lg transition">
+            + Ajouter un élève
+          </button>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="button" @click="showPanel = false"
+                  class="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition min-h-[44px]">
+            Annuler
+          </button>
+          <button type="submit"
+                  :disabled="!groupClassId || groupNames.filter(n => n.trim()).length === 0"
+                  class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-yellow-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition min-h-[44px]"
+                  x-text="'Inscrire ' + groupNames.filter(n => n.trim()).length + ' élève(s)'">
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>{# fin panel #}
+
+  {# ════════════════════════════════════════════════════════ #}
+  {# ── Modal import Excel ── #}
+  {# ════════════════════════════════════════════════════════ #}
+
+  <div x-show="showImportModal" x-cloak
+       class="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4"
+       @closeImportModal.window="showImportModal = false">
+
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+         @click.stop
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100">
+
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h3 class="text-lg font-semibold text-brand-blue">Importer des élèves</h3>
+        <button @click="showImportModal = false" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-5">
+        <div class="flex items-start gap-3 p-4 bg-blue-50 rounded-xl">
+          <svg class="w-5 h-5 text-brand-blue flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div class="text-sm text-brand-blue">
+            <p class="font-medium mb-1">Format attendu (Excel ou CSV)</p>
+            <p class="text-blue-600 text-xs font-semibold">Obligatoires : Nom complet · Classe</p>
+            <p class="text-blue-500 text-xs mt-0.5">Optionnelles : Téléphone parent · Téléphone élève · Date de naissance · Lien parenté</p>
+            <p class="text-gray-400 text-xs mt-1 italic">Les paiements se gèrent dans l'application, pas à l'import.</p>
+          </div>
+        </div>
+
+        <a href="{% url 'students:import-template' %}"
+           class="flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition text-sm text-gray-700 font-medium">
+          <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Télécharger le modèle Excel
+        </a>
+
+        <form hx-post="{% url 'students:import-preview' %}"
+              hx-target="#import-preview-area"
+              hx-encoding="multipart/form-data"
+              hx-indicator="#import-spinner"
+              enctype="multipart/form-data">
+          {% csrf_token %}
+          <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl hover:border-brand-blue cursor-pointer transition bg-gray-50 hover:bg-blue-50">
+            <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+            </svg>
+            <p class="text-sm text-gray-500">Cliquer pour choisir un fichier <span class="text-brand-blue font-medium">.xlsx</span> ou <span class="text-brand-blue font-medium">.csv</span></p>
+            <input type="file" name="import_file" accept=".xlsx,.csv" class="hidden"
+                   @change="$el.closest('form').dispatchEvent(new Event('change'))"
+                   hx-trigger="change" hx-post="{% url 'students:import-preview' %}"
+                   hx-target="#import-preview-area" hx-encoding="multipart/form-data"
+                   hx-include="closest form">
+          </label>
+        </form>
+
+        <div id="import-preview-area">
+          <svg id="import-spinner" class="htmx-indicator animate-spin w-6 h-6 text-brand-blue mx-auto hidden" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>{# fin x-data #}
+{% endblock %}

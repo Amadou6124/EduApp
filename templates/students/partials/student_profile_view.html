@@ -1,0 +1,80 @@
+{% load i18n humanize %}
+{% with colors=student.get_avatar_colors status=student.get_payment_status %}
+<div id="student-profile-card" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+
+  {% if success %}
+    <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm font-medium"
+         x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 4000)">
+      Fiche mise à jour avec succès.
+    </div>
+  {% endif %}
+
+  <div class="flex items-start gap-5">
+    <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0"
+         style="background-color:{{ colors.0 }};color:{{ colors.1 }}">
+      {{ student.get_initials }}
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">{{ student.full_name }}</h2>
+          <p class="text-sm text-gray-500 mt-0.5">
+            {{ student.school_class.name }} · Code :
+            <span class="font-mono font-semibold text-brand-blue">{{ student.access_code }}</span>
+          </p>
+        </div>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold flex-shrink-0"
+              style="{% if status == 'paid' %}background-color:#EAF3DE;color:#27500A{% elif status == 'partial' %}background-color:#FAEEDA;color:#633806{% else %}background-color:#FCEBEB;color:#A32D2D{% endif %}">
+          {% if status == 'paid' %}Soldé{% elif status == 'partial' %}Partiel{% else %}Impayé{% endif %}
+        </span>
+      </div>
+
+      <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+        <div>
+          <p class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Téléphone élève</p>
+          <p class="text-gray-700 font-medium">{{ student.phone_number|default:"—" }}</p>
+        </div>
+        <div>
+          <p class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Date de naissance</p>
+          <p class="text-gray-700 font-medium">{{ student.date_of_birth|date:"d/m/Y"|default:"—" }}</p>
+        </div>
+        <div>
+          <p class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Téléphone parent</p>
+          <p class="text-gray-700 font-medium">{{ student.parent_phone_number|default:"—" }}</p>
+        </div>
+        {% if student.parent_relationship %}
+          <div>
+            <p class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Lien de parenté</p>
+            <p class="text-gray-700 font-medium">{{ student.get_parent_relationship_display }}</p>
+          </div>
+        {% endif %}
+        <div>
+          <p class="text-gray-400 text-xs uppercase tracking-wide mb-0.5">Inscrit le</p>
+          <p class="text-gray-700 font-medium">{{ student.enrolled_at|date:"d/m/Y" }}</p>
+        </div>
+      </div>
+
+      {% if student.notes %}
+        <div class="mt-4 pt-3 border-t border-gray-100">
+          <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Notes</p>
+          <p class="text-sm text-gray-600 whitespace-pre-wrap">{{ student.notes }}</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mt-4 pt-4 border-t border-gray-50 flex gap-3">
+    <button hx-get="{% url 'students:update' student.id %}"
+            hx-target="#student-profile-card"
+            hx-swap="outerHTML"
+            class="px-4 py-2 bg-brand-blue text-white text-sm font-medium rounded-lg hover:bg-blue-900 transition min-h-[40px] flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+      </svg>
+      Modifier la fiche
+    </button>
+  </div>
+
+</div>
+{% endwith %}
