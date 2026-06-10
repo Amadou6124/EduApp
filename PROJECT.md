@@ -219,8 +219,17 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 ### Qualité / Sécurité
 - **N+1 éliminés** : `_classes_qs()` avec `annotate(student_count=Count(...))`, `get_student_count()` utilise l'annotation
 - **Superadmin dashboard** : `annotate(classes_count, students_count)` + `prefetch_related(directors)`
-- **Isolation multi-tenant** : tous les `get_object_or_404` filtrent `school=get_demo_school()`
-- **Auth** : `@login_required` sur les 11 vues schools, `@superadmin_required` sur superadmin
+- **Isolation multi-tenant** : tous les `get_object_or_404` filtrent `school=get_school(request)`
+- **Auth** : `@login_required` sur toutes les vues, `@superadmin_required` sur superadmin
+
+### Authentification custom (`/login/`)
+- **Login par numéro de téléphone** — `PhoneBackend` + `LoginForm` avec messages d'erreur précis
+- **Rate limiting** : 5 échecs consécutifs → blocage 15 minutes (cache Django)
+- **Logout** avec toast de confirmation de déconnexion
+- **Redirection intelligente par rôle** : superuser → `/superadmin/`, director/staff → `/classes/`
+- **Session** : expire après 8h d'inactivité (`SESSION_COOKIE_AGE` + `SESSION_SAVE_EVERY_REQUEST`)
+- **Vrai multi-tenant** : `get_school(request)` unique source de vérité, `SchoolMiddleware` → `request.school` dans les templates
+- `get_demo_school()` supprimé intégralement (27 occurrences dans 4 fichiers)
 
 ---
 
@@ -229,7 +238,7 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 1. **Inscription élèves** — 3 modes : individuel rapide, import CSV, saisie par groupe
 2. **Paiements + reçus PDF** — saisie paiement, reçu PDF généré, historique par élève
 3. **Bulletins PDF** — avec zones variables, header école, logo
-4. **Login custom + vrai multi-tenant** — page login téléphone, `get_demo_school()` → `request.user.school`
+4. ~~**Login custom + vrai multi-tenant**~~ ✅ terminé
 5. **Portail professeur** — liste classes, saisie notes/absences
 6. **Portail élève** — style Duolingo, notes, bulletins, solde
 7. **Portail parent** — bulletin, solde, paiement Orange Money
@@ -238,11 +247,11 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 
 ## Dette technique à corriger
 
-- [ ] **Remplacer `DEMO_SCHOOL_ID` par `request.user.school`** dans `get_demo_school()` (`apps/schools/views.py`)
-  → À faire quand le login custom sera construit (`apps/accounts/views.py`)
+- [✅] **`DEMO_SCHOOL_ID` remplacé par `get_school(request)`** — `get_demo_school()` supprimé dans les 4 fichiers de vues
 
-- [ ] **Remplacer `LOGIN_URL = '/admin/login/'`** par `accounts:login` dans `config/settings.py`
-  → À faire quand la page de login custom sera créée
+- [✅] **`LOGIN_URL` corrigé vers `accounts:login`** — PhoneBackend + LoginForm + vues en place
+
+- [✅] **Multi-tenant réel en place** via `get_school(request)`, `SchoolMixin`, `SchoolMiddleware`
 
 - [ ] **Tailwind CDN → build local** pour la production (performance + purge CSS)
 
