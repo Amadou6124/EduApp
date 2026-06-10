@@ -10,6 +10,7 @@ urlpatterns = [
     path('', lambda request: redirect('schools:class-list'), name='home'),
     path('', include('apps.schools.urls')),
     path('students/', include('apps.students.urls')),
+    path('settings/', include('apps.schools.settings_urls')),
     path('superadmin/', include('apps.accounts.superadmin_urls')),
 ]
 
