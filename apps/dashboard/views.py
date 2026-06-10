@@ -134,41 +134,73 @@ def _compute_alerts(school, active_period):
     return alerts
 
 
+from calendar import monthrange
+
 def _compute_charts(school, active_year):
     if not active_year:
         return {
             'enrollment_months': [], 'enrollment_data': [],
             'revenue_months': [], 'revenue_data': [], 'objective': 0,
         }
+
+    # Generer la liste des mois entre start_date et end_date
     months = []
-    cur = active_year.start_date
-    while cur <= active_year.end_date:
-        months.append(cur.strftime('%b'))
-        month = cur.month
-        cur = date(cur.year + (month // 12), (month % 12) + 1, 1)
+    cur_year = active_year.start_date.year
+    cur_month = active_year.start_date.month
+    end_year = active_year.end_date.year
+    end_month = active_year.end_date.month
+
+    while (cur_year < end_year) or (cur_year == end_year and cur_month <= end_month):
+        months.append({
+            'label': date(cur_year, cur_month, 1).strftime('%b'),
+            'year': cur_year,
+            'num': cur_month,
+            'last_day': monthrange(cur_year, cur_month)[1],
+        })
+        cur_month += 1
+        if cur_month > 12:
+            cur_month = 1
+            cur_year += 1
+
     if not months:
-        months = ['Oct', 'Nov', 'Dec', 'Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin']
+        months = [
+            {'label': 'Oct', 'year': 2024, 'num': 10, 'last_day': 31},
+            {'label': 'Nov', 'year': 2024, 'num': 11, 'last_day': 30},
+        ]
+
+    # Graphique 1 : Inscriptions cumulees par mois
     enrollment_data = []
-    cumul = 0
     for m in months:
-        month_num = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        last_day = date(m['year'], m['num'], m['last_day'])
         count = Student.objects.filter(
             school=school, is_active=True,
+            enrolled_at__date__lte=last_day,
         ).count()
-        cumul += count
-        enrollment_data.append(cumul)
-    total_fees = Student.objects.filter(school=school, is_active=True).aggregate(total=Sum('tuition_fee'))['total'] or 0
-    nb = max(len(months), 1)
-    objective = round(total_fees / nb, -3)
+        enrollment_data.append(count)
+
+    # Graphique 2 : Revenus mensuels
     revenue_data = []
     for m in months:
         monthly = Payment.objects.filter(
-            student__school=school, is_cancelled=False,
+            student__school=school,
+            is_cancelled=False,
+            payment_date__year=m['year'],
+            payment_date__month=m['num'],
         ).aggregate(total=Sum('amount'))['total'] or 0
         revenue_data.append(float(monthly))
+
+    # Objectif mensuel
+    total_fees = Student.objects.filter(school=school, is_active=True).aggregate(total=Sum('tuition_fee'))['total'] or 0
+    nb = max(len(months), 1)
+    objective = round(total_fees / nb, -3)
+
+    month_labels = [m['label'] for m in months]
+
     return {
-        'enrollment_months': months, 'enrollment_data': enrollment_data,
-        'revenue_months': months, 'revenue_data': revenue_data,
+        'enrollment_months': month_labels,
+        'enrollment_data': enrollment_data,
+        'revenue_months': month_labels,
+        'revenue_data': revenue_data,
         'objective': int(objective),
     }
 
