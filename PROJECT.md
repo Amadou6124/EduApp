@@ -315,6 +315,22 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - **Multi-format** : téléchargement PDF individuel ou ZIP classe complète
 - **URL** : `/bulletins/` — lien activé dans la sidebar
 
+### Dashboard V1 (`/dashboard/`)
+- **6 KPI cards** avec counters animés (0 → valeur réelle en 1.2s ease-out cubique, `requestAnimationFrame`)
+- **Alertes intelligentes** 3 niveaux (🔴 critique : impayés > 30j / 🟡 attention : moyenne < 8/20 / 🟢 info : bulletins prêts) — dismissibles avec transition
+- **Graphiques Chart.js** données réelles :
+  - Courbe inscriptions cumulées par mois (filtre `enrolled_at__date__lte`)
+  - Barres revenus mensuels (filtre `payment_date__year` + `__month`) + ligne objectif pointillée
+  - États vides avec lien vers l'action correspondante
+- **Tableau santé éducative par classe** : moy. générale, taux réussite, paiements, statut 🟢🟡🔴, filtre niveau (primaire/collège/lycée), ligne cliquable → bulletins
+- **Timeline 10 dernières actions** : paiements, bulletins, notes, inscriptions — slide-in gauche, icônes par type
+- **FAB mobile** : bouton + flottant bas droite, rotation au clic, 4 actions en fan (Inscrire/Paiement/Notes/Bulletins)
+- **États vides élégants** : message + lien d'action pour chaque section sans données
+- **Filtres mensuels graphiques corrigés** : génération de la liste des mois entre start_date et end_date
+- **Actions rapides desktop** : barre horizontale avec 4 boutons d'accès direct
+- **Redirection login** : director/staff → `/dashboard/` (au lieu de `/classes/`)
+- **URL** : `/dashboard/` — lien **Dashboard** en premier dans la sidebar
+
 ### Interface Classes (`/classes/`)
 - Liste avec vue **cards** (défaut) et **tableau** triable — switch persisté localStorage
 - Switch vue `hidden lg:flex` — masqué sur mobile
