@@ -1,0 +1,41 @@
+{% comment %}
+Section 5 — Activité récente (timeline).
+Contexte : activity = list[dict] {type, icon, time, text, url}
+{% endcomment %}
+{% load i18n %}
+{% load humanize %}
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+  <h2 class="text-sm font-semibold text-gray-700 mb-4">Activité récente</h2>
+
+  {% if activity %}
+  <div class="space-y-3">
+    {% for item in activity %}
+    <a href="{{ item.url }}"
+       class="flex items-start gap-3 p-2 -mx-2 rounded-lg hover:bg-gray-50/50 transition group"
+       x-data x-init="$el.style.opacity = '0'; $el.style.transform = 'translateX(-10px)';
+                     setTimeout(() => { $el.style.transition = 'all 0.4s ease-out';
+                                        $el.style.opacity = '1'; $el.style.transform = 'translateX(0)'; }, {{ forloop.counter|add:'100' }});">
+      <span class="text-lg flex-shrink-0 mt-0.5">{{ item.icon }}</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm text-gray-700 group-hover:text-brand-blue transition line-clamp-1">{{ item.text }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">
+          {% if item.time|timesince != '0 minutes' %}
+          Il y a {{ item.time|timesince }}
+          {% else %}
+          À l'instant
+          {% endif %}
+        </p>
+      </div>
+      <svg class="w-4 h-4 text-gray-300 group-hover:text-brand-blue flex-shrink-0 mt-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-8 text-gray-400">
+    <p class="text-sm">Aucune activité récente.</p>
+  </div>
+  {% endif %}
+</div>

@@ -44,7 +44,7 @@ def _post_login_url(request, user):
     if user.is_superuser:
         return '/superadmin/'
     if user.role in (UserRole.DIRECTOR, UserRole.STAFF):
-        return '/classes/'
+        return '/dashboard/'
     if user.role == UserRole.TEACHER:
         return '/teacher/'
     if user.role == UserRole.STUDENT:
