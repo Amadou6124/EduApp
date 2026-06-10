@@ -222,23 +222,20 @@ def _compute_class_health(school, active_period):
 
 
 from datetime import datetime, time
+from django.utils import timezone as tz
 
 def _compute_activity(school):
     activity = []
+    aware_tz = tz.get_current_timezone()
     for p in Payment.objects.filter(student__school=school, is_cancelled=False).select_related('student', 'collected_by').order_by('-payment_date')[:5]:
-        dt = p.payment_date
-        if not hasattr(dt, 'hour'):
-            dt = datetime.combine(dt, time.min)
         activity.append({
             'type': 'payment', 'icon': chr(0x1f4b3),
-            'time': dt,
+            'time': p.payment_date,
             'text': f'{p.student.full_name} -- {int(p.amount):,} FCFA ({p.get_payment_method_display()})',
             'url': '/payments/',
         })
     for b in Bulletin.objects.filter(school_class__school=school, is_cancelled=False).select_related('student', 'school_class', 'period').order_by('-generated_at')[:5]:
         dt = b.generated_at
-        if not hasattr(dt, 'hour'):
-            dt = datetime.combine(dt, time.min)
         activity.append({
             'type': 'bulletin', 'icon': chr(0x1f4c4),
             'time': dt,
@@ -246,24 +243,26 @@ def _compute_activity(school):
             'url': '/bulletins/',
         })
     for n in Note.objects.filter(class_subject__school_class__school=school).select_related('student', 'class_subject__subject', 'class_subject__school_class', 'entered_by').order_by('-entered_at')[:5]:
-        dt = n.entered_at
-        if not hasattr(dt, 'hour'):
-            dt = datetime.combine(dt, time.min)
         activity.append({
             'type': 'note', 'icon': chr(0x1f4dd),
-            'time': dt,
+            'time': n.entered_at,
             'text': f'{n.entered_by.full_name} -- {n.class_subject.subject.name} ({n.class_subject.school_class.name})',
             'url': f'/notes/{n.class_subject.school_class_id}/{n.period_id}/',
         })
     for s in Student.objects.filter(school=school).order_by('-enrolled_at')[:5]:
-        dt = s.enrolled_at
-        if not hasattr(dt, 'hour'):
-            dt = datetime.combine(dt, time.min)
         activity.append({
             'type': 'student', 'icon': chr(0x1f464),
-            'time': dt,
+            'time': s.enrolled_at,
             'text': f'{s.full_name} -- {s.school_class.name if s.school_class else "Aucune classe"}',
             'url': '/students/',
         })
-    activity.sort(key=lambda x: x['time'], reverse=True)
+    # Normaliser date -> datetime aware, puis trier par timestamp
+    def _sort_key(item):
+        val = item['time']
+        if isinstance(val, datetime) and tz.is_aware(val):
+            return val
+        if isinstance(val, datetime):
+            return val.replace(tzinfo=aware_tz)
+        return datetime(val.year, val.month, val.day, tzinfo=aware_tz)
+    activity.sort(key=_sort_key, reverse=True)
     return activity[:10]
