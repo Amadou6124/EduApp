@@ -277,6 +277,21 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - `HX-Trigger schoolYearSaved / subjectSaved` → Alpine ferme le panneau auto
 - **2 nouvelles sections** sidebar activées : Années scolaires + Matières
 
+### Module Notes (`/notes/`)
+- **Dashboard** progression par classe/matière : cartes avec barres de remplissage
+- **Saisie notes HTMX** sauvegarde immédiate au focusout/Enter (upsert)
+- **Recalcul moyenne temps réel** Alpine.js via `HX-Trigger`
+- **Flash vert/rouge** feedback visuel après sauvegarde (1,2s / 2,5s)
+- **Navigation clavier** Tab/Entrée pour passer à la cellule suivante
+- **Onglets matières Alpine.js** avec état actif (fond bleu `#1E3A5F`)
+- **Cellules éditables** hauteur `h-[36px]` corrigée pour zone cliquable
+- **Colonne nom sticky** gauche pour défilement horizontal mobile
+- **`can_enter_notes()`** contrôle d'accès par rôle (directeur/staff toujours, prof si assigné + période ouverte)
+- Support **devoirs+composition** (2 colonnes pondérées) et **moyenne simple** (colonnes dynamiques)
+- Bouton "Ajouter une évaluation" en mode moyenne simple
+- Annulation soft des notes (directeur/staff)
+- Stats classe temps réel (moy. classe, meilleur, faible)
+
 ### Interface Classes (`/classes/`)
 - Liste avec vue **cards** (défaut) et **tableau** triable — switch persisté localStorage
 - Switch vue `hidden lg:flex` — masqué sur mobile
