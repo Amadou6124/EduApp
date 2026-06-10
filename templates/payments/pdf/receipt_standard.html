@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; background: white; }
+  .page { width: 148mm; min-height: 210mm; padding: 12mm; }
+
+  .top-bar { height: 6px; background-color: {{ primary_color }}; margin-bottom: 10mm; border-radius: 2px; }
+
+  .header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8mm; padding-bottom: 6mm; border-bottom: 1px solid #e5e7eb; }
+  .logo-box { width: 56px; height: 56px; flex-shrink: 0; }
+  .logo-box img { width: 100%; height: 100%; object-fit: contain; }
+  .logo-placeholder { width: 56px; height: 56px; border: 2px solid {{ primary_color }}; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: {{ primary_color }}; font-size: 18px; font-weight: bold; }
+  .school-info { flex: 1; }
+  .school-name { font-size: 15px; font-weight: bold; color: #111827; }
+  .school-meta { font-size: 10px; color: #6b7280; margin-top: 2px; }
+  .receipt-ref { text-align: right; }
+  .receipt-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; }
+  .receipt-number { font-size: 13px; font-weight: bold; color: {{ primary_color }}; font-family: monospace; }
+
+  .title { text-align: center; font-size: 16px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: {{ primary_color }}; margin-bottom: 7mm; }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin-bottom: 7mm; }
+  .info-item { background: #f9fafb; border-radius: 6px; padding: 8px 10px; }
+  .info-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; font-weight: 600; margin-bottom: 2px; }
+  .info-value { font-size: 12px; font-weight: 600; color: #111827; }
+
+  .amounts { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 7mm; }
+  .amount-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
+  .amount-row:last-child { border-bottom: none; }
+  .amount-row.highlight { background: #f0f9ff; }
+  .amount-label { font-size: 11px; color: #4b5563; }
+  .amount-value { font-size: 12px; font-weight: 700; color: #111827; }
+  .amount-value.versé { color: #16a34a; }
+  .amount-value.solde-zero { color: #16a34a; }
+  .amount-value.solde-positif { color: #dc2626; }
+
+  .status-badge { text-align: center; margin-bottom: 7mm; }
+  .badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .badge-paid { background: #dcfce7; color: #15803d; }
+  .badge-partial { background: #fef9c3; color: #b45309; }
+  .badge-unpaid { background: #fee2e2; color: #b91c1c; }
+
+  .footer { margin-top: 10mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .footer-left { font-size: 9px; color: #d1d5db; }
+  .signature-box { width: 60mm; border: 1px dashed #d1d5db; border-radius: 4px; height: 18mm; display: flex; align-items: center; justify-content: center; }
+  .signature-label { font-size: 9px; color: #d1d5db; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="top-bar"></div>
+
+  <div class="header">
+    <div class="logo-box">
+      {% if logo_path %}
+        <img src="file://{{ logo_path }}" alt="Logo">
+      {% else %}
+        <div class="logo-placeholder">{{ school.name|first|upper }}</div>
+      {% endif %}
+    </div>
+    <div class="school-info">
+      <div class="school-name">{{ school.name }}</div>
+      <div class="school-meta">
+        {% if school.address %}{{ school.address }}<br>{% endif %}
+        {{ school.city }}{% if school.phone_number %} &bull; {{ school.phone_number }}{% endif %}
+        {% if school.email %}<br>{{ school.email }}{% endif %}
+      </div>
+    </div>
+    <div class="receipt-ref">
+      <div class="receipt-label">Reçu de paiement</div>
+      <div class="receipt-number">{{ payment.receipt_number }}</div>
+    </div>
+  </div>
+
+  <div class="title">Reçu de Paiement</div>
+
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="info-label">Élève</div>
+      <div class="info-value">{{ student.full_name }}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Classe</div>
+      <div class="info-value">{{ class_name }}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Date</div>
+      <div class="info-value">{{ date_fmt }}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Mode de paiement</div>
+      <div class="info-value">{{ method_label }}</div>
+    </div>
+  </div>
+
+  <div class="amounts">
+    <div class="amount-row highlight">
+      <span class="amount-label">Montant versé</span>
+      <span class="amount-value versé">{{ amount_fmt }} FCFA</span>
+    </div>
+    <div class="amount-row">
+      <span class="amount-label">Total annuel</span>
+      <span class="amount-value">{{ total_due_fmt }} FCFA</span>
+    </div>
+    <div class="amount-row">
+      <span class="amount-label">Déjà versé (cumulé)</span>
+      <span class="amount-value">{{ total_paid_fmt }} FCFA</span>
+    </div>
+    <div class="amount-row">
+      <span class="amount-label">Solde restant</span>
+      <span class="amount-value {% if status.label == 'Soldé' %}solde-zero{% else %}solde-positif{% endif %}">
+        {{ balance_fmt }} FCFA
+      </span>
+    </div>
+  </div>
+
+  <div class="status-badge">
+    <span class="badge {% if status.label == 'Soldé' %}badge-paid{% elif status.label == 'Partiel' %}badge-partial{% else %}badge-unpaid{% endif %}">
+      {{ status.emoji }} {{ status.label }}
+    </span>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">
+      {% if school.current_school_year %}Année {{ school.current_school_year }} &bull; {% endif %}
+      Document généré par EduApp
+    </div>
+    <div class="signature-box">
+      <span class="signature-label">Cachet et signature</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

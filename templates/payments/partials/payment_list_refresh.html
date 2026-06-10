@@ -1,0 +1,52 @@
+{% load humanize %}
+
+<div id="payment-stats" hx-swap-oob="true">
+  {% include "payments/partials/payment_stats.html" %}
+</div>
+
+<div id="payment-list-area">
+  {% if not students %}
+    <div class="text-center py-16 text-gray-400">
+      <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+      </svg>
+      <p class="text-sm font-medium text-gray-500">Aucun résultat</p>
+      <p class="text-xs text-gray-400 mt-1">Essayez de modifier vos filtres</p>
+    </div>
+  {% else %}
+
+    <div x-show="viewMode === 'table'">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100 bg-gray-50">
+              <th class="px-5 py-3 text-left font-medium">Élève</th>
+              <th class="px-4 py-3 text-left font-medium">Classe</th>
+              <th class="px-4 py-3 text-right font-medium">Total dû</th>
+              <th class="px-4 py-3 text-right font-medium">Versé</th>
+              <th class="px-4 py-3 text-right font-medium">Solde</th>
+              <th class="px-4 py-3 text-center font-medium">Statut</th>
+              <th class="px-4 py-3 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for student in students %}
+              {% include "payments/partials/payment_row.html" %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div x-show="viewMode === 'cards'" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {% for student in students %}
+        {% include "payments/partials/payment_card.html" %}
+      {% endfor %}
+    </div>
+
+    <div class="mt-4 text-xs text-gray-400 text-center">
+      {{ students|length }} élève{% if students|length > 1 %}s{% endif %} affiché{% if students|length > 1 %}s{% endif %}
+    </div>
+
+  {% endif %}
+</div>

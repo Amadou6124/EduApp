@@ -44,7 +44,7 @@ def _students_qs(school, filter_type='all', class_id=None):
     elif filter_type == 'unpaid':
         paid_sq = (
             Payment.objects
-            .filter(student=OuterRef('pk'), is_valid=True)
+            .filter(student=OuterRef('pk'), is_cancelled=False)
             .values('student')
             .annotate(s=Sum('amount'))
             .values('s')
@@ -63,7 +63,7 @@ def compute_student_stats(school):
     base = Student.objects.filter(school=school, is_active=True)
     paid_sq = (
         Payment.objects
-        .filter(student=OuterRef('pk'), is_valid=True)
+        .filter(student=OuterRef('pk'), is_cancelled=False)
         .values('student')
         .annotate(s=Sum('amount'))
         .values('s')

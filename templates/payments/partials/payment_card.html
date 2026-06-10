@@ -1,0 +1,74 @@
+{% load humanize %}
+{% with balance=student.balance total_paid=student.total_paid tuition=student.tuition_fee %}
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+
+  <div class="flex items-start justify-between mb-3">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+           style="background-color: #1E3A5F;">
+        {{ student.full_name|first|upper }}
+      </div>
+      <div>
+        <p class="font-semibold text-gray-900 text-sm leading-tight">{{ student.full_name }}</p>
+        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 mt-0.5 inline-block">
+          {{ student.school_class.name }}
+        </span>
+      </div>
+    </div>
+    {% if balance <= 0 %}
+      <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">✅ Soldé</span>
+    {% elif total_paid > 0 %}
+      <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">⏳ Partiel</span>
+    {% else %}
+      <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">❌ Impayé</span>
+    {% endif %}
+  </div>
+
+  {% if tuition > 0 %}
+    {% with pct=total_paid|default:0 %}
+    <div class="mb-3">
+      <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div class="h-full rounded-full transition-all"
+             style="width: {% widthratio total_paid tuition 100 %}%;
+                    background-color: {% if balance <= 0 %}#22c55e{% elif total_paid > 0 %}#f59e0b{% else %}#ef4444{% endif %};">
+        </div>
+      </div>
+      <div class="flex justify-between mt-1 text-xs text-gray-400">
+        <span>{{ total_paid|floatformat:0|intcomma }} FCFA versés</span>
+        <span>{{ tuition|floatformat:0|intcomma }} FCFA</span>
+      </div>
+    </div>
+    {% endwith %}
+  {% endif %}
+
+  {% if balance > 0 %}
+    <p class="text-sm font-bold mb-3 {% if total_paid > 0 %}text-orange-600{% else %}text-red-600{% endif %}">
+      {{ balance|floatformat:0|intcomma }} FCFA restants
+    </p>
+  {% else %}
+    <p class="text-sm font-bold text-green-600 mb-3">Compte soldé ✓</p>
+  {% endif %}
+
+  <div class="flex gap-2">
+    <button type="button"
+            hx-get="{% url 'payments:form' student.id %}"
+            hx-target="#payment-panel"
+            hx-swap="innerHTML"
+            @click="showPanel = true"
+            class="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-xs font-semibold rounded-lg transition min-h-[44px]">
+      + Nouveau versement
+    </button>
+    <button type="button"
+            hx-get="{% url 'payments:history' student.id %}"
+            hx-target="#payment-history-modal"
+            hx-swap="innerHTML"
+            @click="showHistory = true"
+            class="p-2.5 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg border border-gray-200 transition" title="Historique">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </button>
+  </div>
+
+</div>
+{% endwith %}

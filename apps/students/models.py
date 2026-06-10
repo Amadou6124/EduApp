@@ -85,7 +85,7 @@ class Student(models.Model):
     # Aucune requête supplémentaire ne sera émise.
 
     def get_total_paid(self):
-        return sum(p.amount for p in self.payments.all() if p.is_valid)
+        return sum(p.amount for p in self.payments.all() if not p.is_cancelled)
 
     def get_balance_due(self):
         return self.tuition_fee - self.get_total_paid()

@@ -1,0 +1,127 @@
+{% load humanize %}
+
+<div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+  <div>
+    <h3 class="text-base font-bold text-gray-900">{{ student.full_name }}</h3>
+    <p class="text-xs text-gray-500 mt-0.5">{{ student.school_class.name }}</p>
+  </div>
+  <button type="button" @click="showHistory = false"
+          class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+  </button>
+</div>
+
+<div class="grid grid-cols-3 gap-3 px-6 py-4 border-b border-gray-100">
+  <div class="text-center">
+    <p class="text-xs text-gray-400 mb-0.5">Total dû</p>
+    <p class="text-sm font-bold text-gray-800">{{ student.tuition_fee|floatformat:0|intcomma }}</p>
+  </div>
+  <div class="text-center">
+    <p class="text-xs text-gray-400 mb-0.5">Versé</p>
+    <p class="text-sm font-bold text-green-600">{{ total_paid|floatformat:0|intcomma }}</p>
+  </div>
+  <div class="text-center">
+    <p class="text-xs text-gray-400 mb-0.5">Solde</p>
+    {% with balance=student.tuition_fee|add:"-0" %}
+    <p class="text-sm font-bold {% if student.get_balance_due <= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+      {{ student.get_balance_due|floatformat:0|intcomma }}
+    </p>
+    {% endwith %}
+  </div>
+</div>
+
+<div class="px-6 py-4">
+
+  {% if not payments %}
+    <p class="text-sm text-gray-400 text-center py-8">Aucun paiement enregistré</p>
+  {% else %}
+    <div class="relative">
+      <div class="absolute left-3 top-0 bottom-0 w-px bg-gray-200"></div>
+
+      <div class="space-y-4">
+        {% for payment in payments %}
+          <div class="relative pl-9">
+            <div class="absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center border-2
+                        {% if payment.is_cancelled %}border-gray-300 bg-white{% else %}border-brand-blue bg-brand-blue{% endif %}">
+              {% if payment.is_cancelled %}
+                <div class="w-2 h-2 rounded-full bg-gray-300"></div>
+              {% else %}
+                <div class="w-2 h-2 rounded-full bg-white"></div>
+              {% endif %}
+            </div>
+
+            <div class="bg-gray-50 rounded-xl px-4 py-3 {% if payment.is_cancelled %}opacity-60{% endif %}">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1">
+                  <p class="text-xs text-gray-400 mb-0.5">{{ payment.payment_date|date:"d M Y" }}</p>
+                  <p class="text-sm font-bold {% if payment.is_cancelled %}line-through text-gray-400{% else %}text-gray-900{% endif %}">
+                    {{ payment.amount|floatformat:0|intcomma }} FCFA
+                  </p>
+                  <p class="text-xs text-gray-500 mt-0.5">
+                    {{ payment.get_payment_method_display }}
+                    {% if payment.collected_by %} · {{ payment.collected_by.full_name }}{% endif %}
+                  </p>
+                  <p class="text-xs text-gray-400 font-mono mt-0.5">{{ payment.receipt_number }}</p>
+                  {% if payment.is_cancelled %}
+                    <p class="text-xs text-red-500 mt-1">
+                      Annulé le {{ payment.cancelled_at|date:"d/m/Y" }}
+                      {% if payment.cancellation_reason %} — {{ payment.cancellation_reason }}{% endif %}
+                    </p>
+                  {% endif %}
+                </div>
+
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  {% if not payment.is_cancelled %}
+                    <a href="{% url 'payments:receipt' payment.id %}" target="_blank"
+                       class="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition" title="Télécharger reçu">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    </a>
+                    <div x-data="{ showCancel: false }">
+                      <button type="button" @click="showCancel = !showCancel"
+                              class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Annuler ce paiement">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                      </button>
+                      <div x-show="showCancel" x-cloak
+                           class="mt-2 bg-red-50 border border-red-200 rounded-xl p-3"
+                           x-transition:enter="transition ease-out duration-150"
+                           x-transition:enter-start="opacity-0 -translate-y-1"
+                           x-transition:enter-end="opacity-100 translate-y-0">
+                        <form hx-post="{% url 'payments:cancel' payment.id %}"
+                              hx-target="#payment-history-modal"
+                              hx-swap="innerHTML">
+                          {% csrf_token %}
+                          <label class="block text-xs font-medium text-red-700 mb-1">Motif d'annulation</label>
+                          <textarea name="cancellation_reason" rows="2" required
+                                    class="w-full border border-red-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-red-400 mb-2"
+                                    placeholder="Erreur de saisie, remboursement…"></textarea>
+                          <div class="flex gap-2">
+                            <button type="button" @click="showCancel = false"
+                                    class="flex-1 py-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+                              Non
+                            </button>
+                            <button type="submit"
+                                    class="flex-1 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium">
+                              Confirmer l'annulation
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  {% else %}
+                    <span class="text-xs px-2 py-0.5 bg-red-100 text-red-600 rounded-full font-medium">Annulé</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>

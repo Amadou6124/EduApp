@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Paiements{% endblock %}
+{% block page_title %}Paiements{% endblock %}
+
+{% block extra_head %}
+<script>
+function paymentsPageData() {
+  return {
+    viewMode: localStorage.getItem('paymentsView') || (window.innerWidth < 1024 ? 'cards' : 'table'),
+    showPanel: false,
+    showHistory: false,
+    currentStatus: new URLSearchParams(window.location.search).get('status') || 'unpaid',
+    setView(m) { this.viewMode = m; localStorage.setItem('paymentsView', m); },
+    setStatus(s) {
+      this.currentStatus = s;
+      const inp = document.querySelector('[name=status]');
+      if (inp) inp.value = s;
+    },
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div x-data="paymentsPageData()"
+     @close-panel.window="showPanel = false"
+     @closePanel.window="showPanel = false">
+
+  {% include "payments/partials/payment_stats.html" %}
+
+  <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5 mt-6">
+
+    <form hx-get="{% url 'payments:dashboard' %}"
+          hx-target="#payment-list-area"
+          hx-swap="outerHTML"
+          hx-trigger="change, keyup changed delay:300ms from:[name=q]"
+          hx-push-url="true"
+          class="flex flex-1 items-center gap-3 flex-wrap">
+
+      <input type="text" name="q" value="{{ q }}"
+             class="flex-1 min-w-[200px] border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+             placeholder="Rechercher un élève…">
+
+      <select name="class_id"
+              class="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue bg-white">
+        <option value="">Toutes les classes</option>
+        {% for cls in classes %}
+          <option value="{{ cls.id }}" {% if class_id == cls.id|stringformat:"s" %}selected{% endif %}>{{ cls.name }}</option>
+        {% endfor %}
+      </select>
+
+      <input type="hidden" name="status" value="{{ status }}">
+    </form>
+
+    <div class="hidden lg:flex items-center gap-1">
+      <button @click="setView('cards')"
+              :class="viewMode === 'cards' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+              class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+        </svg>
+      </button>
+      <button @click="setView('table')"
+              :class="viewMode === 'table' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+              class="p-2 rounded-lg border border-gray-200 transition" title="Vue tableau">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="flex gap-1 mb-5 border-b border-gray-200 overflow-x-auto">
+    {% for s_val, s_label in tab_list %}
+    <button type="button"
+            hx-get="{% url 'payments:dashboard' %}?status={{ s_val }}&q={{ q }}&class_id={{ class_id }}"
+            hx-target="#payment-list-area"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            @click="setStatus('{{ s_val }}')"
+            :class="currentStatus === '{{ s_val }}' ? 'border-brand-blue text-brand-blue' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap min-h-[44px]">
+      {{ s_label }}
+    </button>
+    {% endfor %}
+  </div>
+
+  {% include "payments/partials/payment_list_refresh.html" %}
+
+  <div x-show="showPanel" x-cloak
+       class="fixed inset-0 bg-black/40 z-40"
+       @click="showPanel = false"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0">
+  </div>
+
+  <div x-show="showPanel" x-cloak
+       id="payment-panel"
+       class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl z-50 flex flex-col overflow-y-auto"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="translate-x-full">
+  </div>
+
+  <div x-show="showHistory" x-cloak
+       class="fixed inset-0 bg-black/40 z-40 flex items-end sm:items-center justify-center p-4"
+       @click.self="showHistory = false"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100">
+    <div id="payment-history-modal"
+         class="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto"
+         @click.stop
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100">
+    </div>
+  </div>
+
+</div>
+{% endblock %}
