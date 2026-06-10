@@ -211,17 +211,41 @@ def generate_class_bulletins(request, class_id, period_id):
         )
     except Exception as e:
         return HttpResponse(
-            f'<span class="text-red-500">Erreur lors de la génération : {e}</span>',
+            f'<p class="text-red-500 text-sm">Erreur : {e}</p>',
             status=500,
         )
 
-    # Génération PDF asynchrone (pour l'instant synchrone)
-    pdf_bytes = generate_class_pdf(bulletins)
+    # Re-rendre l'onglet bulletins avec les nouveaux bulletins
+    students = list(
+        Student.objects
+        .filter(school_class=school_class, school=school, is_active=True)
+        .order_by('full_name')
+    )
+    existing = {
+        b.student_id: b
+        for b in Bulletin.objects.filter(
+            period=period,
+            school_class=school_class,
+            is_cancelled=False,
+        ).select_related('student')
+    }
+    rows = []
+    for student in students:
+        bul = existing.get(student.pk)
+        rows.append({
+            'student':    student,
+            'bulletin':   bul,
+            'has_notes':  _student_has_notes(student, period, school_class),
+        })
 
-    # TODO: sauvegarder le PDF en tâche de fond
-    # Pour l'instant on stocke même pas
-
-    response = HttpResponse(status=200)
+    response = render(request, 'bulletins/partials/bulletins_tab.html', {
+        'rows':           rows,
+        'school_class':   school_class,
+        'period':         period,
+        'can_generate':   True,
+        'generated_count': len(existing),
+        'total_count':     len(students),
+    })
     response['HX-Trigger'] = json.dumps({
         'bullets-generated': {
             'count':   len(bulletins),

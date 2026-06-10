@@ -120,14 +120,18 @@ class BulletinCalculator:
 
         Retourne None si aucun coefficient.
         """
+        # Ne prendre que les matieres qui ont une note
+        # sinon le coefficient d'une matiere sans note fausse la moyenne
+        filtered = [l for l in lines if l.get('weighted_grade') is not None]
+        if not filtered:
+            return None
         total_weighted = sum(
-            Decimal(str(line['weighted_grade']))
-            for line in lines
-            if line.get('weighted_grade') is not None
+            Decimal(str(l['weighted_grade']))
+            for l in filtered
         )
         total_coeff = sum(
-            Decimal(str(line['coefficient']))
-            for line in lines
+            Decimal(str(l['coefficient']))
+            for l in filtered
         )
         if total_coeff == 0:
             return None
