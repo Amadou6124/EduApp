@@ -98,7 +98,7 @@ def _compute_alerts(school, active_period):
             unpaid_crit += 1
     if unpaid_crit > 0:
         alerts.append({
-            'level': 'critical', 'icon': chr(0x1f534),
+            'level': 'critical', 'icon': 'alert-circle',
             'title': f'{unpaid_crit} eleve{"s" if unpaid_crit > 1 else ""} avec solde impaye',
             'text': 'Ces eleves ont un solde impaye.',
             'action_url': '/payments/', 'action_text': 'Voir les paiements >',
@@ -110,7 +110,7 @@ def _compute_alerts(school, active_period):
     ).count()
     if low > 0:
         alerts.append({
-            'level': 'warning', 'icon': chr(0x1f7e1),
+            'level': 'warning', 'icon': 'alert-triangle',
             'title': f'{low} eleve{"s" if low > 1 else ""} en grande difficulte',
             'text': 'Moyenne generale < 8/20.',
             'action_url': '/bulletins/', 'action_text': 'Voir les bulletins >',
@@ -126,7 +126,7 @@ def _compute_alerts(school, active_period):
             ready += n_students - existing
     if ready > 0:
         alerts.append({
-            'level': 'info', 'icon': chr(0x1f7e2),
+            'level': 'info', 'icon': 'info',
             'title': f'{ready} bulletin{"s" if ready > 1 else ""} a generer',
             'text': 'Generation des bulletins pour cette periode.',
             'action_url': '/bulletins/', 'action_text': 'Generer >',
@@ -261,7 +261,7 @@ def _compute_activity(school):
     aware_tz = tz.get_current_timezone()
     for p in Payment.objects.filter(student__school=school, is_cancelled=False).select_related('student', 'collected_by').order_by('-payment_date')[:5]:
         activity.append({
-            'type': 'payment', 'icon': chr(0x1f4b3),
+            'type': 'payment', 'icon': 'credit-card',
             'time': p.payment_date,
             'text': f'{p.student.full_name} -- {int(p.amount):,} FCFA ({p.get_payment_method_display()})',
             'url': '/payments/',
@@ -269,21 +269,21 @@ def _compute_activity(school):
     for b in Bulletin.objects.filter(school_class__school=school, is_cancelled=False).select_related('student', 'school_class', 'period').order_by('-generated_at')[:5]:
         dt = b.generated_at
         activity.append({
-            'type': 'bulletin', 'icon': chr(0x1f4c4),
+            'type': 'bulletin', 'icon': 'file-text',
             'time': dt,
             'text': f'{b.school_class.name} -- {b.period.name} -- {b.student.full_name}',
             'url': '/bulletins/',
         })
     for n in Note.objects.filter(class_subject__school_class__school=school).select_related('student', 'class_subject__subject', 'class_subject__school_class', 'entered_by').order_by('-entered_at')[:5]:
         activity.append({
-            'type': 'note', 'icon': chr(0x1f4dd),
+            'type': 'note', 'icon': 'book-open',
             'time': n.entered_at,
             'text': f'{n.entered_by.full_name} -- {n.class_subject.subject.name} ({n.class_subject.school_class.name})',
             'url': f'/notes/{n.class_subject.school_class_id}/{n.period_id}/',
         })
     for s in Student.objects.filter(school=school).order_by('-enrolled_at')[:5]:
         activity.append({
-            'type': 'student', 'icon': chr(0x1f464),
+            'type': 'student', 'icon': 'user-plus',
             'time': s.enrolled_at,
             'text': f'{s.full_name} -- {s.school_class.name if s.school_class else "Aucune classe"}',
             'url': '/students/',

@@ -16,7 +16,7 @@ Contexte : activity = list[dict] {type, icon, time, text, url}
        x-data x-init="$el.style.opacity = '0'; $el.style.transform = 'translateX(-10px)';
                      setTimeout(() => { $el.style.transition = 'all 0.4s ease-out';
                                         $el.style.opacity = '1'; $el.style.transform = 'translateX(0)'; }, {{ forloop.counter|add:'100' }});">
-      <span class="text-lg flex-shrink-0 mt-0.5">{{ item.icon }}</span>
+      <i data-lucide="{{ item.icon }}" class="w-5 h-5 shrink-0 mt-0.5 text-gray-400"></i>
       <div class="flex-1 min-w-0">
         <p class="text-sm text-gray-700 group-hover:text-brand-blue transition line-clamp-1">{{ item.text }}</p>
         <p class="text-xs text-gray-400 mt-0.5">
