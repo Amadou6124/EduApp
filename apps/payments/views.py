@@ -117,10 +117,11 @@ def payment_dashboard(request):
         'students': filtered,
         'stats':    stats,
         'classes':  classes,
+        'tab_list': tab_list,
         'q':        q,
         'status':   status,
         'class_id': class_id,
-        'tab_list': tab_list,
+        'school':   school,
     }
 
     if request.htmx:
