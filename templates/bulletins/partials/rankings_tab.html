@@ -21,7 +21,7 @@ Contexte : bulletins, school_class, period
           <th class="text-center px-4 py-3 font-semibold w-16">{% trans "Rang" %}</th>
           <th class="text-left px-4 py-3 font-semibold">{% trans "Élève" %}</th>
           <th class="text-center px-4 py-3 font-semibold">{% trans "Moy. Gén" %}</th>
-          <th class="text-center px-4 py-3 font-semibold">{% trans "Total Pts" %}</th>
+          <th class="hidden md:table-cell text-center px-4 py-3 font-semibold">{% trans "Total Pts" %}</th>
           <th class="text-center px-4 py-3 font-semibold">{% trans "Appréciation" %}</th>
         </tr>
       </thead>
@@ -55,11 +55,11 @@ Contexte : bulletins, school_class, period
                        {% else %}text-red-500{% endif %}">
               {{ bul.general_average|floatformat:'2' }}/20
             </td>
-            <td class="px-4 py-2.5 text-center text-xs text-gray-500">
-              {% with total=bul.general_average|floatformat:'2' %}
-                {{ total }}
-              {% endwith %}
-            </td>
+          <td class="hidden md:table-cell px-4 py-2.5 text-center text-xs text-gray-500">
+            {% with total=bul.general_average|floatformat:'2' %}
+              {{ total }}
+            {% endwith %}
+          </td>
             <td class="px-4 py-2.5 text-center text-xs">
               {% if bul.appreciation %}
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-medium
