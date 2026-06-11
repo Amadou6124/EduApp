@@ -16,10 +16,10 @@ Recherche eleve via Alpine $store.search
 {# ── Barre d'actions + compteurs ────────────────────────────── #}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <div class="flex items-center gap-3">
-    <span class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+    <span class="badge-success">
       ✅ {{ generated_count }} {% trans "generes" %}
     </span>
-    <span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+    <span class="badge-warning">
       ⏳ {{ total_count|add:"-1" }}
     </span>
   </div>
@@ -90,15 +90,15 @@ Recherche eleve via Alpine $store.search
           </td>
           <td class="px-4 py-2.5 text-center">
             {% if row.bulletin %}
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+              <span class="badge-success">
                 ✅ {% trans "Genere" %}
               </span>
             {% elif row.has_notes %}
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">
+              <span class="badge-warning">
                 ⏳ {% trans "Pret" %}
               </span>
             {% else %}
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-500">
+              <span class="badge-danger">
                 ❌ {% trans "Notes manquantes" %}
               </span>
             {% endif %}

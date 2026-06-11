@@ -155,14 +155,14 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom complet <span class="text-red-500">*</span></label>
               <input type="text" name="full_name" required autofocus
-                     class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent"
+                     class="input-field"
                      placeholder="Prénom Nom">
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Classe <span class="text-red-500">*</span></label>
               <select name="school_class" required
                       x-model="selectedClassId"
-                      class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                      class="input-field">
                 <option value="">— Sélectionner une classe —</option>
                 {% for class in classes %}
                   <option value="{{ class.id }}">{{ class.name }}</option>
@@ -173,13 +173,13 @@
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone élève</label>
                 <input type="tel" name="phone_number"
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                       class="input-field"
                        placeholder="07 00 00 00 00">
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Date de naissance</label>
                 <input type="date" name="date_of_birth"
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                       class="input-field">
               </div>
             </div>
           </div>
@@ -205,13 +205,13 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone parent</label>
               <input type="tel" name="parent_phone_number"
-                     class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                     class="input-field"
                      placeholder="07 00 00 00 00">
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Lien de parenté</label>
               <select name="parent_relationship"
-                      class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                      class="input-field">
                 <option value="">— Choisir —</option>
                 <option value="father">Père</option>
                 <option value="mother">Mère</option>
@@ -249,12 +249,12 @@
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Montant versé (FCFA)</label>
               <input type="number" name="initial_payment" min="0"
                      :placeholder="selectedFee || '0'"
-                     class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                     class="input-field">
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Mode de paiement</label>
               <select name="payment_method"
-                      class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                      class="input-field">
                 <option value="cash">Espèces</option>
                 <option value="mobile_money">Mobile Money</option>
                 <option value="bank_transfer">Virement bancaire</option>
@@ -267,7 +267,7 @@
         {# Boutons #}
         <div class="flex gap-3 pt-2">
           <button type="button" @click="showPanel = false"
-                  class="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition min-h-[44px]">
+                  class="btn-secondary flex-1">
             Annuler
           </button>
           <button type="submit"
@@ -295,7 +295,7 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">Classe <span class="text-red-500">*</span></label>
           <select name="class_id" x-model="groupClassId" required
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                  class="input-field">
             <option value="">— Sélectionner une classe —</option>
             {% for class in classes %}
               <option value="{{ class.id }}">{{ class.name }}</option>
@@ -317,7 +317,7 @@
                        @keydown.enter.prevent="addGroupName()">
                 <button type="button" @click="removeGroupName(i)"
                         x-show="groupNames.length > 1"
-                        class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+                        class="btn-ghost transition">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
@@ -333,7 +333,7 @@
 
         <div class="flex gap-3 pt-2">
           <button type="button" @click="showPanel = false"
-                  class="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition min-h-[44px]">
+                  class="btn-secondary flex-1">
             Annuler
           </button>
           <button type="submit"

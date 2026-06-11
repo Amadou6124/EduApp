@@ -103,7 +103,7 @@ Contexte : bulletin, lines, config
     {# Actions #}
     <div class="flex justify-end gap-2 mt-4">
       <a href="{% url 'bulletins:download' bulletin.pk %}"
-         class="px-4 py-2 bg-brand-gold text-white rounded-lg text-sm font-medium hover:bg-amber-500 transition">
+         class="btn-primary">
         📥 Télécharger PDF
       </a>
       <button x-on:click="open = false; $el.remove()"

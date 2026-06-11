@@ -16,7 +16,7 @@ Contexte :
 {% block header_actions %}
   {% if active_class and active_period and can_generate %}
     <button type="button"
-            class="bg-brand-gold hover:bg-yellow-500 text-white font-semibold px-4 py-2 rounded-lg text-sm min-h-[44px] transition"
+            class="btn-primary text-sm min-h-[44px] transition"
             hx-post="{% url 'bulletins:generate-class' active_class.pk active_period.pk %}"
             hx-target="#tab-content"
             hx-swap="innerHTML">
@@ -34,7 +34,7 @@ Contexte :
     <label class="block text-xs text-gray-500 mb-1">Année</label>
     <form method="get" id="selectors-form" class="flex flex-wrap gap-3">
       <select name="year" onchange="this.form.submit()"
-              class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand-gold/40">
+              class="input-field">
         {% for y in years %}
           <option value="{{ y.pk }}" {% if active_year and y.pk == active_year.pk %}selected{% endif %}>
             {{ y.name }}{% if y.is_active %} (active){% endif %}
@@ -47,7 +47,7 @@ Contexte :
       {# Période #}
       {% if periods %}
       <select name="period" onchange="this.form.submit()"
-              class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand-gold/40">
+              class="input-field">
         {% for p in periods %}
           <option value="{{ p.pk }}" {% if active_period and p.pk == active_period.pk %}selected{% endif %}>
             {{ p.name }}
@@ -58,7 +58,7 @@ Contexte :
 
       {# Classe #}
       <select name="class" onchange="this.form.submit()"
-              class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand-gold/40">
+              class="input-field">
         <option value="">— Toutes —</option>
         {% for c in classes %}
           <option value="{{ c.pk }}" {% if active_class and c.pk == active_class.pk %}selected{% endif %}>

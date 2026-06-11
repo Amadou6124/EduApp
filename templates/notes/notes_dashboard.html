@@ -23,7 +23,7 @@
       Configurez d'abord une année scolaire et ses périodes dans les paramètres.
     </p>
     <a href="{% url 'settings:school-years' %}"
-       class="px-4 py-2 bg-brand-gold text-white rounded-lg text-sm font-medium hover:bg-amber-500 transition">
+       class="btn-primary">
       Configurer les années scolaires
     </a>
   </div>
@@ -38,7 +38,7 @@
         {% if active_period %}<input type="hidden" name="period" value="{{ active_period.pk }}">{% endif %}
         <select name="year"
                 onchange="this.form.submit()"
-                class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-semibold text-brand-blue bg-white focus:outline-none focus:ring-2 focus:ring-brand-gold/40">
+                class="input-field>
           {% for y in years %}
             <option value="{{ y.pk }}" {% if y.pk == active_year.pk %}selected{% endif %}>
               {{ y.name }}{% if y.is_active %} (active){% endif %}
