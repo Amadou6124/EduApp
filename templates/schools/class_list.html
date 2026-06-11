@@ -102,7 +102,7 @@
       <form hx-post="{% url 'schools:class-create' %}"
             hx-target="#classes-table"
             hx-swap="innerHTML"
-            hx-on::after-request="if(event.detail.successful) { $data.showAddModal = false; }"
+            @htmx:after-request.document="if(event.detail.elt === $el && event.detail.successful) { $data.showAddModal = false; }"
             class="px-6 py-6 space-y-4">
         {% csrf_token %}
         {% include "schools/partials/class_form_fields.html" %}
@@ -146,6 +146,7 @@
 
   <!-- ─── Modal : Importer des classes ────────────────────────── -->
   <div x-show="showImportModal"
+       @closeImportModal.window="showImportModal = false"
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0 scale-95"
        x-transition:enter-end="opacity-100 scale-100"

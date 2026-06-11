@@ -57,7 +57,7 @@
   <form hx-post="{% url 'schools:class-import-confirm' %}"
         hx-target="#classes-table"
         hx-swap="innerHTML"
-        hx-on::after-request="if(event.detail.successful) { $data.showImportModal = false; }"
+        hx-on::after-request="if(event.detail.successful) { document.dispatchEvent(new CustomEvent('closeImportModal')); }"
         class="flex gap-3">
     {% csrf_token %}
     <input type="hidden" name="rows_data" value="{{ rows_json }}">
