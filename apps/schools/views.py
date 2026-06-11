@@ -77,8 +77,29 @@ def class_list(request):
 @require_http_methods(['POST'])
 def class_create(request):
     school = get_school(request)
-    form = SchoolClassForm(request.POST)
 
+    # Réactivation d'une classe soft-deletée
+    name = request.POST.get('name', '').strip()
+    if name:
+        existing = SchoolClass.objects.filter(school=school, name=name, is_active=False).first()
+        if existing:
+            existing.is_active = True
+            existing.annual_fee = request.POST.get('annual_fee', existing.annual_fee)
+            existing.level = request.POST.get('level', existing.level)
+            existing.max_capacity = request.POST.get('max_capacity', existing.max_capacity)
+            existing.save()
+            if request.htmx:
+                classes = list(_classes_qs(school))
+                total_students, avg_fill_rate = compute_class_stats(classes)
+                return render(request, 'schools/partials/class_list_refresh.html', {
+                    'classes': classes,
+                    'form': SchoolClassForm(),
+                    'success_message': _('Classe réactivée avec succès.'),
+                    'total_students': total_students,
+                    'avg_fill_rate': avg_fill_rate,
+                })
+
+    form = SchoolClassForm(request.POST)
     if form.is_valid():
         school_class = form.save(commit=False)
         school_class.school = school
@@ -310,28 +331,38 @@ def class_import_confirm(request):
     except json.JSONDecodeError:
         return HttpResponse('<p class="text-red-600 text-sm">Données invalides.</p>')
 
-    created, skipped = 0, 0
+    created, skipped, reactivated = 0, 0, 0
     for row in rows:
-        _, was_created = SchoolClass.objects.get_or_create(
+        obj, was_created = SchoolClass.objects.get_or_create(
             school=school,
             name=row['name'],
             defaults={
                 'level': row['level'],
                 'annual_fee': row['annual_fee'],
                 'max_capacity': row.get('max_capacity'),
+                'is_active': True,
             },
         )
         if was_created:
             created += 1
+        elif not obj.is_active:
+            obj.is_active = True
+            obj.level = row['level']
+            obj.annual_fee = row['annual_fee']
+            obj.max_capacity = row.get('max_capacity')
+            obj.save()
+            reactivated += 1
         else:
             skipped += 1
 
-    classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
-    total_students, avg_fill_rate = compute_class_stats(classes)
-
     msg = f'{created} classe(s) importée(s).'
+    if reactivated:
+        msg += f' {reactivated} réactivée(s).'
     if skipped:
         msg += f' {skipped} ignorée(s) (doublon).'
+
+    classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
+    total_students, avg_fill_rate = compute_class_stats(classes)
 
     return render(request, 'schools/partials/class_list_refresh.html', {
         'classes': classes,

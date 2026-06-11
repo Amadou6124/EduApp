@@ -120,8 +120,14 @@ class SchoolClass(models.Model):
         verbose_name = _('classe')
         verbose_name_plural = _('classes')
         ordering = ['level', 'name']
-        # Une classe par nom dans la même école
-        unique_together = [('school', 'name')]
+        # Une classe par nom dans la même école (ignore les soft-deleted)
+        constraints = [
+            models.UniqueConstraint(
+                fields=['school', 'name'],
+                condition=models.Q(is_active=True),
+                name='unique_active_class_per_school',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.name} — {self.school.name}'
