@@ -54,7 +54,7 @@ function paymentsPageData() {
       <input type="hidden" name="status" value="{{ status }}">
     </form>
 
-    <div class="self-start flex items-center gap-1">
+    <div class="hidden sm:flex self-start items-center gap-1">
       <button @click="setView('cards')"
               :class="viewMode === 'cards' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
               class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">

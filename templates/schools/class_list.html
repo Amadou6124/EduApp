@@ -50,7 +50,7 @@
     <div class="flex-1">
       {% include "includes/search_bar.html" with placeholder="Rechercher une classe..." target="classes-table" url=class_search_url %}
     </div>
-    <div class="flex items-center gap-1 shrink-0">
+    <div class="hidden sm:flex items-center gap-1 shrink-0">
       <button @click="setView('cards')"
               :class="view === 'cards' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
               class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">

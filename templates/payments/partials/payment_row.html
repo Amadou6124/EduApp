@@ -12,17 +12,17 @@
     </div>
   </td>
 
-  <td class="hidden md:table-cell px-4 py-3">
+  <td class="px-4 py-3">
     <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
       {{ student.school_class.name }}
     </span>
   </td>
 
-  <td class="hidden md:table-cell px-4 py-3 text-right text-sm text-gray-700 font-medium tabular-nums">
+  <td class="px-4 py-3 text-right text-sm text-gray-700 font-medium tabular-nums">
     {{ tuition|floatformat:0|intcomma }}
   </td>
 
-  <td class="hidden md:table-cell px-4 py-3 text-right text-sm font-medium tabular-nums
+  <td class="px-4 py-3 text-right text-sm font-medium tabular-nums
              {% if total_paid > 0 %}text-green-700{% else %}text-gray-400{% endif %}">
     {{ total_paid|floatformat:0|intcomma }}
   </td>
@@ -64,7 +64,7 @@
       </button>
       <a {% if total_paid > 0 %}href="{% url 'payments:receipt' student.payments.first.id %}" target="_blank"{% else %}href="#"{% endif %}
          class="p-1.5 rounded-lg transition
-                {% if total_paid > 0 %}text-gray-400 hover:text-green-600 hover:bg-green-50{% else %}hidden{% endif %}"
+                 {% if total_paid > 0 %}text-gray-400 hover:text-green-600 hover:bg-green-50{% else %}invisible pointer-events-none{% endif %}"
          title="Dernier reçu">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>

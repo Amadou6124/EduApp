@@ -60,7 +60,7 @@
     <div class="flex-1">
       {% include "includes/search_bar.html" with url="/students/search/" target="student-list-area" placeholder="Rechercher un élève, une classe…" %}
     </div>
-    <div class="flex items-center gap-1 shrink-0">
+    <div class="hidden sm:flex items-center gap-1 shrink-0">
       <button @click="setView('cards')"
               :class="viewMode === 'cards' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
               class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">
