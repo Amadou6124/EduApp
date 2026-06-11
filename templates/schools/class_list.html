@@ -19,27 +19,7 @@
   <!-- ── En-tête : toggle + bouton ─────────────────────────────── -->
   <div class="flex items-center justify-between mb-6">
 
-    <!-- Switch vue (icônes) — masqué sur mobile, tableau non disponible -->
-    <div class="hidden lg:flex items-center bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
-      <button @click="setView('cards')"
-              :class="view === 'cards' ? 'bg-brand-blue text-white' : 'text-gray-400 hover:text-gray-600'"
-              class="p-2 rounded-md transition min-h-[44px] min-w-[44px] flex items-center justify-center"
-              :title="'{% trans "Vue cards" %}'">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-        </svg>
-      </button>
-      <button @click="setView('table')"
-              :class="view === 'table' ? 'bg-brand-blue text-white' : 'text-gray-400 hover:text-gray-600'"
-              class="p-2 rounded-md transition min-h-[44px] min-w-[44px] flex items-center justify-center"
-              :title="'{% trans "Vue tableau" %}'">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
-        </svg>
-      </button>
-    </div>
+    <div></div>
 
     <!-- Boutons d'action -->
     <div class="flex items-center gap-2">
@@ -66,10 +46,28 @@
     {% include "schools/partials/class_stats.html" %}
   </div>
 
-  <!-- ── Barre de recherche ───────────────────────────────────── -->
+  <!-- ── Barre de recherche + switch vue ──────────────────────── -->
   {% url 'schools:class-search' as class_search_url %}
-  <div class="mb-4">
-    {% include "includes/search_bar.html" with placeholder="Rechercher une classe..." target="classes-table" url=class_search_url %}
+  <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+    <div class="flex-1">
+      {% include "includes/search_bar.html" with placeholder="Rechercher une classe..." target="classes-table" url=class_search_url %}
+    </div>
+    <div class="hidden lg:flex items-center gap-1 shrink-0">
+      <button @click="setView('cards')"
+              :class="view === 'cards' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+              class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+        </svg>
+      </button>
+      <button @click="setView('table')"
+              :class="view === 'table' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+              class="p-2 rounded-lg border border-gray-200 transition" title="Vue tableau">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <!-- ── Contenu (cards ou tableau) — cible HTMX ───────────────── -->
