@@ -62,7 +62,7 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
   <div class="bg-white rounded-xl border border-gray-200 p-5">
     <h2 class="text-sm font-semibold text-gray-700 mb-4">Évolution des inscriptions</h2>
     {% if charts.enrollment_data and charts.enrollment_data|length > 0 %}
-    <div class="relative h-64">
+    <div class="relative h-48 sm:h-64">
       <canvas id="enrollmentChart"></canvas>
     </div>
     {% else %}
@@ -80,7 +80,7 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
   <div class="bg-white rounded-xl border border-gray-200 p-5">
     <h2 class="text-sm font-semibold text-gray-700 mb-4">Revenus mensuels</h2>
     {% if charts.revenue_data and charts.revenue_data|length > 0 %}
-    <div class="relative h-64">
+    <div class="relative h-48 sm:h-64">
       <canvas id="revenueChart"></canvas>
     </div>
     {% else %}
