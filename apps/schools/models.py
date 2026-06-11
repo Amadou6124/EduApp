@@ -164,7 +164,13 @@ class SchoolYear(models.Model):
         verbose_name        = _('année scolaire')
         verbose_name_plural = _('années scolaires')
         ordering            = ['-start_date']
-        unique_together     = [('school', 'name')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['school', 'name'],
+                condition=models.Q(is_active=True),
+                name='unique_active_schoolyear_per_school',
+            ),
+        ]
 
     def clean(self):
         # Contrainte : une seule année active par école
@@ -244,7 +250,13 @@ class Subject(models.Model):
         verbose_name        = _('matière')
         verbose_name_plural = _('matières')
         ordering            = ['name']
-        unique_together     = [('school', 'name')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['school', 'name'],
+                condition=models.Q(is_active=True),
+                name='unique_active_subject_per_school',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.name} ({self.school.name})'
@@ -345,7 +357,7 @@ class NoteType(models.TextChoices):
 class Note(models.Model):
     student = models.ForeignKey(
         'students.Student',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='grade_notes',
         verbose_name=_('élève'),
     )
@@ -537,7 +549,7 @@ class Bulletin(models.Model):
     """Bulletin généré pour un élève sur une période."""
     student = models.ForeignKey(
         'students.Student',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='bulletins',
         verbose_name=_('élève'),
     )

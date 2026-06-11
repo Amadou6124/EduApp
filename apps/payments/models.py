@@ -17,7 +17,7 @@ class Payment(models.Model):
     # ── Élève ──────────────────────────────────────────────────────
     student = models.ForeignKey(
         'students.Student',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='payments',
         verbose_name=_('élève'),
     )

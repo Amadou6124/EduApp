@@ -17,7 +17,7 @@ class ParentRelationship(models.TextChoices):
 class Student(models.Model):
     school = models.ForeignKey(
         'schools.School',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='students',
         verbose_name=_('école'),
     )
