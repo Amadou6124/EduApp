@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply font-sans text-gray-900 antialiased;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+  h1 { @apply text-2xl font-bold tracking-tight text-gray-900; }
+  h2 { @apply text-xl font-semibold tracking-tight text-gray-900; }
+  h3 { @apply text-lg font-semibold text-gray-900; }
+  p  { @apply text-sm text-gray-600 leading-relaxed; }
+}
+
 @layer components {
   .btn-primary {
     @apply bg-brand-blue text-white rounded-lg px-4 py-2 text-sm font-medium
