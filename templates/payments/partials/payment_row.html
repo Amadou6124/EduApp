@@ -12,17 +12,17 @@
     </div>
   </td>
 
-  <td class="px-4 py-3">
+  <td class="hidden md:table-cell px-4 py-3">
     <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
       {{ student.school_class.name }}
     </span>
   </td>
 
-  <td class="px-4 py-3 text-right text-sm text-gray-700 font-medium tabular-nums">
+  <td class="hidden md:table-cell px-4 py-3 text-right text-sm text-gray-700 font-medium tabular-nums">
     {{ tuition|floatformat:0|intcomma }}
   </td>
 
-  <td class="px-4 py-3 text-right text-sm font-medium tabular-nums
+  <td class="hidden md:table-cell px-4 py-3 text-right text-sm font-medium tabular-nums
              {% if total_paid > 0 %}text-green-700{% else %}text-gray-400{% endif %}">
     {{ total_paid|floatformat:0|intcomma }}
   </td>

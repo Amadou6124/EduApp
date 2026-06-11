@@ -59,7 +59,7 @@
 
   <div>
     <label class="block text-sm font-medium text-gray-700 mb-3">Mode de paiement <span class="text-red-500">*</span></label>
-    <div class="grid grid-cols-2 gap-2"
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2"
          x-data="{ selected: 'cash' }">
       {% for val, label in form.fields.payment_method.choices %}
         <label class="relative cursor-pointer">
