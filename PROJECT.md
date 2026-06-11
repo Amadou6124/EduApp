@@ -355,6 +355,23 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - **Isolation multi-tenant** : tous les `get_object_or_404` filtrent `school=get_school(request)`
 - **Auth** : `@login_required` sur toutes les vues, `@superadmin_required` sur superadmin
 
+### Redesign complet (branche `feature/redesign`)
+- **Tailwind CLI** (production-ready, build local, purge CSS automatique)
+- **Lucide Icons** (zéro emojis, zéro SVG inline, bundle CDN)
+- **Sidebar + Header blanc** style Notion/Linear (sidebar w-64 bg-white, header h-16 sticky)
+- **Tabs modernes** style Notion (bg-gray-100 rounded-lg p-1, actif bg-white shadow-sm)
+- **Cards standardisées** border-gray-200 (suppression des shadows, hover:shadow-sm subtil)
+- **Composants CSS réutilisables** :
+  - `btn-primary`, `btn-secondary`, `btn-danger`, `btn-ghost`
+  - `input-field` (focus ring bleu, placeholder gris)
+  - `badge-success`, `badge-warning`, `badge-danger`, `badge-primary`, `badge-purple`, `badge-emerald`
+- **Typographie Manrope** Google Fonts (chiffres alignés, lisibilité écran, font-size avec letter-spacing)
+- **Animations globales** (fade-in, fade-in-up, slide-in-right, slide-in-up, skeleton loading)
+- **Modals premium** (backdrop-blur-sm, animations scale+translate, header avec bouton X Lucide)
+- **Panels slide premium** (animate-slide-in-right, overlay backdrop-blur-[2px], border-l subtil)
+- **États vides premium** (15 états modernisés : icône Lucide, titre, description, bouton action)
+- **68 fichiers redesignés** sur l'ensemble du projet
+
 ### Authentification custom (`/login/`)
 - **Login par numéro de téléphone** — `PhoneBackend` + `LoginForm` avec messages d'erreur précis
 - **Rate limiting** : 5 échecs consécutifs → blocage 15 minutes (cache Django)
