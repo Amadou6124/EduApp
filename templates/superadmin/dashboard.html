@@ -64,14 +64,22 @@
             </td>
             <td class="px-5 py-3 text-right font-semibold">{{ item.classes_count }}</td>
             <td class="px-5 py-3 text-right font-semibold">{{ item.students_count }}</td>
-            <td class="px-5 py-3 text-center">
-              {% if not item.director %}
-                <a href="{% url 'superadmin:director-create' item.school.id %}"
-                   class="text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 px-2 py-1 rounded font-medium transition">
-                  + Directeur
+            <td class="px-5 py-3 text-center space-y-1">
+              <a href="{% url 'superadmin:school-update' item.school.id %}"
+                 class="inline-block text-xs bg-blue-100 text-brand-blue hover:bg-blue-200 px-2 py-1 rounded font-medium transition">
+                ✎ École
+              </a>
+              <br>
+              {% if item.director %}
+                <a href="{% url 'superadmin:director-update' item.school.id item.director.id %}"
+                   class="inline-block text-xs bg-green-100 text-green-700 hover:bg-green-200 px-2 py-1 rounded font-medium transition">
+                  ✎ Directeur
                 </a>
               {% else %}
-                <span class="text-xs text-green-600 font-medium">✓ Complet</span>
+                <a href="{% url 'superadmin:director-create' item.school.id %}"
+                   class="inline-block text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 px-2 py-1 rounded font-medium transition">
+                  + Directeur
+                </a>
               {% endif %}
             </td>
           </tr>

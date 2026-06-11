@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.schools.models import School, SchoolClass
 from apps.students.models import Student
 from .models import User, UserRole
-from .superadmin_forms import SchoolCreateForm, DirectorCreateForm
+from .superadmin_forms import SchoolCreateForm, SchoolUpdateForm, DirectorCreateForm, DirectorUpdateForm
 
 
 def superadmin_required(view_func):
@@ -99,4 +99,41 @@ def director_create(request, school_id):
     return render(request, 'superadmin/director_create.html', {
         'form': form,
         'school': school,
+    })
+
+
+@superadmin_required
+def school_update(request, school_id):
+    school = get_object_or_404(School, id=school_id)
+    if request.method == 'POST':
+        form = SchoolUpdateForm(request.POST, request.FILES, instance=school)
+        if form.is_valid():
+            form.save()
+            return redirect('superadmin:dashboard')
+    else:
+        form = SchoolUpdateForm(instance=school)
+    return render(request, 'superadmin/school_update.html', {
+        'form': form,
+        'school': school,
+    })
+
+
+@superadmin_required
+def director_update(request, school_id, director_id):
+    school = get_object_or_404(School, id=school_id)
+    director = get_object_or_404(User, id=director_id, school=school, role=UserRole.DIRECTOR)
+    if request.method == 'POST':
+        form = DirectorUpdateForm(request.POST, instance=director)
+        if form.is_valid():
+            user = form.save(commit=False)
+            if form.cleaned_data.get('password'):
+                user.set_password(form.cleaned_data['password'])
+            user.save()
+            return redirect('superadmin:dashboard')
+    else:
+        form = DirectorUpdateForm(instance=director)
+    return render(request, 'superadmin/director_update.html', {
+        'form': form,
+        'school': school,
+        'director': director,
     })

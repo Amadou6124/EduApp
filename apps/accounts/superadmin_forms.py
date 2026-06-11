@@ -19,6 +19,19 @@ class SchoolCreateForm(forms.ModelForm):
         }
 
 
+class SchoolUpdateForm(forms.ModelForm):
+    class Meta:
+        model = School
+        fields = ['name', 'city', 'country', 'phone_number', 'email', 'logo', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder': 'Ex: Groupe Scolaire Excellence'}),
+            'city': forms.TextInput(attrs={'placeholder': 'Ex: Abidjan'}),
+            'country': forms.TextInput(attrs={'placeholder': "Côte d'Ivoire"}),
+            'phone_number': forms.TextInput(attrs={'placeholder': '+225 07 00 00 00 00'}),
+            'email': forms.EmailInput(attrs={'placeholder': 'contact@ecole.ci'}),
+        }
+
+
 class DirectorCreateForm(forms.ModelForm):
     email = forms.EmailField(
         label=_('Adresse email'),
@@ -61,4 +74,48 @@ class DirectorCreateForm(forms.ModelForm):
         pwd2 = cleaned.get('password_confirm')
         if pwd and pwd2 and pwd != pwd2:
             self.add_error('password_confirm', _('Les mots de passe ne correspondent pas.'))
+        return cleaned
+
+
+class DirectorUpdateForm(forms.ModelForm):
+    email = forms.EmailField(
+        label=_('Adresse email'),
+        required=False,
+        widget=forms.EmailInput(attrs={'placeholder': 'directeur@ecole.ci'}),
+    )
+    password = forms.CharField(
+        label=_('Nouveau mot de passe'),
+        required=False,
+        widget=forms.PasswordInput(attrs={'placeholder': 'Laisser vide pour ne pas changer'}),
+        min_length=8,
+        help_text=_('Laisser vide pour conserver le mot de passe actuel.'),
+    )
+    password_confirm = forms.CharField(
+        label=_('Confirmer le mot de passe'),
+        required=False,
+        widget=forms.PasswordInput(attrs={'placeholder': 'Répéter le mot de passe'}),
+    )
+
+    class Meta:
+        model = User
+        fields = ['full_name', 'phone_number', 'email', 'is_active']
+        widgets = {
+            'full_name': forms.TextInput(attrs={'placeholder': 'Nom Prénom'}),
+            'phone_number': forms.TextInput(attrs={'placeholder': '+225 07 00 00 00 00'}),
+        }
+
+    def clean_phone_number(self):
+        phone = self.cleaned_data['phone_number']
+        instance = getattr(self, 'instance', None)
+        if User.objects.filter(phone_number=phone).exclude(pk=instance.pk if instance else None).exists():
+            raise ValidationError(_('Ce numéro de téléphone est déjà utilisé.'))
+        return phone
+
+    def clean(self):
+        cleaned = super().clean()
+        pwd = cleaned.get('password')
+        pwd2 = cleaned.get('password_confirm')
+        if pwd or pwd2:
+            if pwd != pwd2:
+                self.add_error('password_confirm', _('Les mots de passe ne correspondent pas.'))
         return cleaned
