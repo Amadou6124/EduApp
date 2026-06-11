@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load static i18n %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}" dir="{% if LANGUAGE_CODE == 'ar' %}rtl{% else %}ltr{% endif %}">
 <head>
@@ -6,23 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}EduApp{% endblock %} — EduApp</title>
 
-  <!-- Tailwind CSS via CDN (remplacer par build local en production) -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              blue:  '#1E3A5F',
-              gold:  '#F5A623',
-              light: '#F0F4F8',
-            }
-          }
-        }
-      }
-    }
-  </script>
+  <!-- Tailwind CSS (build local) -->
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
 
   <!-- HTMX -->
   <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
