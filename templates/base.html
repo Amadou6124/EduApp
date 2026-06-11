@@ -48,65 +48,43 @@
         <a href="{% url 'dashboard:main' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition
                   {% if request.resolver_match.app_name == 'dashboard' %}bg-white/15{% endif %}">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-          </svg>
+          <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
           {% trans "Dashboard" %}
         </a>
         <a href="{% url 'schools:class-list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition
                   {% if request.resolver_match.app_name == 'schools' %}bg-white/15{% endif %}">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-          </svg>
+          <i data-lucide="school" class="w-5 h-5 shrink-0"></i>
           {% trans "Classes" %}
         </a>
         <a href="{% url 'students:list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition
                   {% if request.resolver_match.app_name == 'students' %}bg-white/15{% endif %}">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-          </svg>
+          <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
           {% trans "Élèves" %}
         </a>
         <a href="{% url 'payments:dashboard' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition
                   {% if request.resolver_match.app_name == 'payments' %}bg-white/15{% endif %}">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-          </svg>
+          <i data-lucide="credit-card" class="w-5 h-5 shrink-0"></i>
           {% trans "Paiements" %}
         </a>
         <a href="{% url 'notes:dashboard' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition
                   {% if request.resolver_match.app_name == 'notes' %}bg-white/15{% endif %}">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-          </svg>
+          <i data-lucide="book-open" class="w-5 h-5 shrink-0"></i>
           {% trans "Notes" %}
         </a>
         <a href="{% url 'bulletins:main' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition
                   {% if request.resolver_match.app_name == 'bulletins' %}bg-white/15{% endif %}">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
+          <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
           {% trans "Bulletins" %}
         </a>
         <a href="{% url 'settings:general' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition
                   {% if request.resolver_match.app_name == 'settings' %}bg-white/15{% endif %}">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
+          <i data-lucide="settings" class="w-5 h-5 shrink-0"></i>
           {% trans "Paramètres" %}
         </a>
       </nav>
@@ -115,9 +93,7 @@
         <div class="px-4 pb-3">
           <a href="{% url 'superadmin:dashboard' %}"
              class="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand-gold/20 hover:bg-brand-gold/30 transition text-brand-gold text-xs font-semibold">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-            </svg>
+            <i data-lucide="shield" class="w-3.5 h-3.5 shrink-0"></i>
             Superadmin
           </a>
         </div>
@@ -134,10 +110,7 @@
         </div>
         <a href="{% url 'accounts:logout' %}"
            class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition text-white/60 hover:text-white text-xs w-full">
-          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-          </svg>
+          <i data-lucide="log-out" class="w-3.5 h-3.5 shrink-0"></i>
           Déconnexion
         </a>
       </div>
@@ -184,50 +157,40 @@
     <a href="{% url 'schools:class-list' %}"
        class="flex-1 flex flex-col items-center py-3 gap-1 text-xs hover:bg-white/10
               {% if request.resolver_match.app_name == 'schools' %}bg-white/15{% endif %}">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-      </svg>
+      <i data-lucide="school" class="w-6 h-6 shrink-0"></i>
       {% trans "Classes" %}
     </a>
     <a href="{% url 'students:list' %}"
        class="flex-1 flex flex-col items-center py-3 gap-1 text-xs hover:bg-white/10
               {% if request.resolver_match.app_name == 'students' %}bg-white/15{% endif %}">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/>
-      </svg>
+      <i data-lucide="users" class="w-6 h-6 shrink-0"></i>
       {% trans "Élèves" %}
     </a>
     <a href="{% url 'payments:dashboard' %}"
        class="flex-1 flex flex-col items-center py-3 gap-1 text-xs hover:bg-white/10
               {% if request.resolver_match.app_name == 'payments' %}bg-white/15{% endif %}">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-      </svg>
+      <i data-lucide="credit-card" class="w-6 h-6 shrink-0"></i>
       {% trans "Paiements" %}
     </a>
     <a href="{% url 'notes:dashboard' %}"
        class="flex-1 flex flex-col items-center py-3 gap-1 text-xs hover:bg-white/10
               {% if request.resolver_match.app_name == 'notes' %}bg-white/15{% endif %}">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-      </svg>
+      <i data-lucide="book-open" class="w-6 h-6 shrink-0"></i>
       {% trans "Notes" %}
     </a>
     <a href="{% url 'settings:general' %}"
        class="flex-1 flex flex-col items-center py-3 gap-1 text-xs hover:bg-white/10
               {% if request.resolver_match.app_name == 'settings' %}bg-white/15{% endif %}">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-      </svg>
+      <i data-lucide="settings" class="w-6 h-6 shrink-0"></i>
       {% trans "Paramètres" %}
     </a>
   </nav>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+  </script>
 
   {# ── Alpine store global pour recherche multicomposant ── #}
   <script>
