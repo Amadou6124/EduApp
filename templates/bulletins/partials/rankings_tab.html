@@ -78,7 +78,7 @@ Contexte : bulletins, school_class, period
 
   {# ── Résumé statistique en bas ─────────────────────────────── #}
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-    <div class="bg-white rounded-lg border border-gray-100 px-3 py-2 text-xs shadow-sm">
+    <div class="bg-white rounded-lg border border-gray-200 px-3 py-2 text-xs shadow-sm">
       <span class="text-gray-400">Moy. classe</span>
       <p class="font-bold text-brand-blue">
         {% with total=0 count=0 %}
@@ -106,7 +106,7 @@ Contexte : bulletins, school_class, period
         {% endwith %}
       </p>
     </div>
-    <div class="bg-white rounded-lg border border-gray-100 px-3 py-2 text-xs shadow-sm">
+    <div class="bg-white rounded-lg border border-gray-200 px-3 py-2 text-xs shadow-sm">
       <span class="text-gray-400">Moy. du dernier</span>
       <p class="font-bold text-red-500">
         {% with last=bulletins|last %}
@@ -116,13 +116,13 @@ Contexte : bulletins, school_class, period
         {% endwith %}
       </p>
     </div>
-    <div class="bg-white rounded-lg border border-gray-100 px-3 py-2 text-xs shadow-sm">
+    <div class="bg-white rounded-lg border border-gray-200 px-3 py-2 text-xs shadow-sm">
       <span class="text-gray-400">Effectif</span>
       <p class="font-bold text-gray-700">{{ bulletins|length }}</p>
     </div>
   </div>
 {% else %}
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+  <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
     <p class="text-sm text-gray-400">
       Aucun bulletin généré pour cette classe sur cette période.
     </p>

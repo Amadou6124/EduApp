@@ -14,7 +14,7 @@ Contexte attendu :
 
 {% if not can_enter %}
   {# ── Bloqué : pas les droits ─────────────────────────────────── #}
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+  <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
     <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
       <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -26,7 +26,7 @@ Contexte attendu :
   </div>
 {% elif not rows %}
   {# ── Vide : aucun élève ──────────────────────────────────────── #}
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+  <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
     <p class="text-sm text-gray-400">Aucun élève dans cette classe.</p>
   </div>
 {% else %}
@@ -105,7 +105,7 @@ Contexte attendu :
     {# ── Stats de la classe ────────────────────────────────────── #}
     {% if class_stats.avg is not None %}
       <div class="flex flex-wrap gap-3 mb-4">
-        <div class="bg-white rounded-lg border border-gray-100 px-3 py-1.5 text-xs text-gray-500 shadow-sm">
+        <div class="bg-white rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 shadow-sm">
           <span class="font-semibold text-gray-700">Moy. classe</span>
           <span class="ml-1 text-brand-blue font-bold">{{ class_stats.avg }}/{{ cs.max_grade|floatformat:'0' }}</span>
         </div>

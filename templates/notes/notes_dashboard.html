@@ -53,7 +53,7 @@
 <!-- ── 4 Stats ─────────────────────────────────────────────────── -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
 
-  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+  <div class="bg-white rounded-xl p-4 border border-gray-200">
     <p class="text-xs text-gray-500 mb-1">Périodes ouvertes</p>
     <p class="text-2xl font-bold {% if stats.open_periods > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
       {{ stats.open_periods }}
@@ -61,7 +61,7 @@
     <p class="text-xs text-gray-400 mt-1">sur {{ periods|length }} période{{ periods|length|pluralize }}</p>
   </div>
 
-  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+  <div class="bg-white rounded-xl p-4 border border-gray-200">
     <p class="text-xs text-gray-500 mb-1">Matières sans notes</p>
     <p class="text-2xl font-bold {% if stats.subjects_without_notes > 0 %}text-amber-500{% else %}text-gray-400{% endif %}">
       {{ stats.subjects_without_notes }}
@@ -69,13 +69,13 @@
     <p class="text-xs text-gray-400 mt-1">pour la période sélectionnée</p>
   </div>
 
-  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+  <div class="bg-white rounded-xl p-4 border border-gray-200">
     <p class="text-xs text-gray-500 mb-1">Classes complètes</p>
     <p class="text-2xl font-bold text-blue-600">{{ stats.complete_classes }}</p>
     <p class="text-xs text-gray-400 mt-1">toutes notes saisies</p>
   </div>
 
-  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+  <div class="bg-white rounded-xl p-4 border border-gray-200">
     <p class="text-xs text-gray-500 mb-1">Moyenne générale école</p>
     <p class="text-2xl font-bold text-gray-700">
       {% if stats.avg_overall %}{{ stats.avg_overall }}/{{ 20 }}{% else %}—{% endif %}
@@ -117,7 +117,7 @@
 {% endif %}
 
 {% else %}
-<div class="bg-white rounded-xl p-8 text-center border border-dashed border-gray-200">
+<div class="bg-white rounded-xl border border-dashed border-gray-200 p-8 text-center">
   <p class="text-gray-500 text-sm">
     Aucune période configurée pour l'année {{ active_year.name }}.
   </p>

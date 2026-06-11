@@ -1,7 +1,7 @@
 {% load payment_tags %}
 <div id="payment-stats" class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-2">
 
-  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4">
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4">
     <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1 truncate">Total dû</p>
     <p class="text-base sm:text-lg font-bold text-gray-800 leading-tight">
       <span class="sm:hidden">{{ stats.total_due|fcfa_compact }}</span>
@@ -10,7 +10,7 @@
     </p>
   </div>
 
-  <div class="rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4" style="background-color:#EAF3DE;">
+  <div class="rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4" style="background-color:#EAF3DE;">
     <p class="text-xs font-medium uppercase tracking-wide mb-1 truncate" style="color:#27500A;">Encaissé mois</p>
     <p class="text-base sm:text-lg font-bold leading-tight" style="color:#27500A;">
       <span class="sm:hidden">{{ stats.encaisse_mois|fcfa_compact }}</span>
@@ -19,7 +19,7 @@
     </p>
   </div>
 
-  <div class="rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4" style="background-color:#FCEBEB;">
+  <div class="rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4" style="background-color:#FCEBEB;">
     <p class="text-xs font-medium uppercase tracking-wide mb-1 truncate" style="color:#A32D2D;">Solde restant</p>
     <p class="text-base sm:text-lg font-bold leading-tight" style="color:#A32D2D;">
       <span class="sm:hidden">{{ stats.solde_restant|fcfa_compact }}</span>
@@ -28,12 +28,12 @@
     </p>
   </div>
 
-  <div class="rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4" style="background-color:#E6F1FB;">
+  <div class="rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4" style="background-color:#E6F1FB;">
     <p class="text-xs font-medium uppercase tracking-wide mb-1" style="color:#0C447C;">Soldés</p>
     <p class="text-base sm:text-lg font-bold" style="color:#0C447C;">{{ stats.count_soldes }}</p>
   </div>
 
-  <div class="rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 col-span-2 lg:col-span-1" style="background-color:#FAEEDA;">
+  <div class="rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4 col-span-2 lg:col-span-1" style="background-color:#FAEEDA;">
     <p class="text-xs font-medium uppercase tracking-wide mb-1" style="color:#633806;">Impayés</p>
     <p class="text-base sm:text-lg font-bold" style="color:#633806;">{{ stats.count_impayes }}</p>
   </div>
