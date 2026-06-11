@@ -78,22 +78,29 @@
   </div>
 
   <!-- ─── Modal : Nouvelle classe ──────────────────────────────── -->
-  <div x-show="showAddModal"
+  <!-- ─── Modal : Nouvelle classe ──────────────────────────── -->
+  <div x-show="showAddModal" x-cloak
        x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0 scale-95"
-       x-transition:enter-end="opacity-100 scale-100"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
        x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100 scale-100"
-       x-transition:leave-end="opacity-0 scale-95"
-       class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-       style="display:none">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg" @click.outside="showAddModal = false">
-      <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="font-semibold text-lg text-brand-blue">{% trans "Nouvelle classe" %}</h3>
-        <button @click="showAddModal = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+       @click.self="showAddModal = false">
+    <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg"
+         @click.stop
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-base font-semibold text-gray-900">{% trans "Nouvelle classe" %}</h3>
+        <button @click="showAddModal = false"
+                class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+          <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
         </button>
       </div>
       <form hx-post="{% url 'schools:class-create' %}"
@@ -118,16 +125,23 @@
   </div>
 
   <!-- ─── Modal : Modifier une classe ──────────────────────────── -->
-  <div x-show="showEditModal"
+  <div x-show="showEditModal" x-cloak
        x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0 scale-95"
-       x-transition:enter-end="opacity-100 scale-100"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
        x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100 scale-100"
-       x-transition:leave-end="opacity-0 scale-95"
-       class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-       style="display:none">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg" @click.outside="showEditModal = false">
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+       @click.self="showEditModal = false">
+    <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg"
+         @click.stop
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2">
       <div id="modal-edit-content" class="min-h-[200px]">
         <!-- Contenu chargé dynamiquement par HTMX -->
       </div>
