@@ -1,6 +1,7 @@
 {% comment %}
 Section 5 — Activité récente (timeline).
-Contexte : activity = list[dict] {type, icon, time, text, url}
+Contexte : activity = list[dict] {type, icon, label, color, time, text, url}
+Pour ajouter un type : modifier _compute_activity() dans apps/dashboard/views.py
 {% endcomment %}
 {% load i18n %}
 {% load humanize %}
@@ -9,16 +10,16 @@ Contexte : activity = list[dict] {type, icon, time, text, url}
   <h2 class="text-sm font-semibold text-gray-700 mb-4">Activité récente</h2>
 
   {% if activity %}
-  <div class="space-y-3">
+  <div class="space-y-4">
     {% for item in activity %}
     <a href="{{ item.url }}"
-       class="flex items-start gap-3 p-2 -mx-2 rounded-lg hover:bg-gray-50/50 transition group"
-       x-data x-init="$el.style.opacity = '0'; $el.style.transform = 'translateX(-10px)';
-                     setTimeout(() => { $el.style.transition = 'all 0.4s ease-out';
-                                        $el.style.opacity = '1'; $el.style.transform = 'translateX(0)'; }, {{ forloop.counter|add:'100' }});">
-      <i data-lucide="{{ item.icon }}" class="w-5 h-5 shrink-0 mt-0.5 text-gray-400"></i>
+       class="flex items-start gap-3 p-2 -mx-2 rounded-lg hover:bg-gray-50/50 transition group">
+      <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 {{ item.color }}">
+        <i data-lucide="{{ item.icon }}" class="w-4 h-4 shrink-0"></i>
+      </div>
       <div class="flex-1 min-w-0">
-        <p class="text-sm text-gray-700 group-hover:text-brand-blue transition line-clamp-1">{{ item.text }}</p>
+        <p class="text-xs uppercase tracking-wider text-gray-400 font-medium">{{ item.label }}</p>
+        <p class="text-sm font-medium text-gray-900 mt-0.5 group-hover:text-brand-blue transition line-clamp-1">{{ item.text }}</p>
         <p class="text-xs text-gray-400 mt-0.5">
           {% if item.time|timesince != '0 minutes' %}
           Il y a {{ item.time|timesince }}
@@ -27,7 +28,7 @@ Contexte : activity = list[dict] {type, icon, time, text, url}
           {% endif %}
         </p>
       </div>
-      <svg class="w-4 h-4 text-gray-300 group-hover:text-brand-blue flex-shrink-0 mt-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-4 h-4 text-gray-300 group-hover:text-brand-blue flex-shrink-0 mt-1.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
       </svg>
     </a>

@@ -262,6 +262,8 @@ def _compute_activity(school):
     for p in Payment.objects.filter(student__school=school, is_cancelled=False).select_related('student', 'collected_by').order_by('-payment_date')[:5]:
         activity.append({
             'type': 'payment', 'icon': 'credit-card',
+            'label': 'Paiement enregistr\u00e9',
+            'color': 'text-green-500 bg-green-50',
             'time': p.payment_date,
             'text': f'{p.student.full_name} -- {int(p.amount):,} FCFA ({p.get_payment_method_display()})',
             'url': '/payments/',
@@ -270,6 +272,8 @@ def _compute_activity(school):
         dt = b.generated_at
         activity.append({
             'type': 'bulletin', 'icon': 'file-text',
+            'label': 'Bulletin g\u00e9n\u00e9r\u00e9',
+            'color': 'text-blue-500 bg-blue-50',
             'time': dt,
             'text': f'{b.school_class.name} -- {b.period.name} -- {b.student.full_name}',
             'url': '/bulletins/',
@@ -277,6 +281,8 @@ def _compute_activity(school):
     for n in Note.objects.filter(class_subject__school_class__school=school).select_related('student', 'class_subject__subject', 'class_subject__school_class', 'entered_by').order_by('-entered_at')[:5]:
         activity.append({
             'type': 'note', 'icon': 'book-open',
+            'label': 'Notes saisies',
+            'color': 'text-amber-500 bg-amber-50',
             'time': n.entered_at,
             'text': f'{n.entered_by.full_name} -- {n.class_subject.subject.name} ({n.class_subject.school_class.name})',
             'url': f'/notes/{n.class_subject.school_class_id}/{n.period_id}/',
@@ -284,6 +290,8 @@ def _compute_activity(school):
     for s in Student.objects.filter(school=school).order_by('-enrolled_at')[:5]:
         activity.append({
             'type': 'student', 'icon': 'user-plus',
+            'label': '\u00c9l\u00e8ve inscrit',
+            'color': 'text-purple-500 bg-purple-50',
             'time': s.enrolled_at,
             'text': f'{s.full_name} -- {s.school_class.name if s.school_class else "Aucune classe"}',
             'url': '/students/',
