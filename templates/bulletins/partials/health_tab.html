@@ -33,15 +33,17 @@ Contexte : student_count, gen_avg, success_rate, admitted_count,
 {% if bulletins %}
   {% with top3=bulletins.values|dictsortreversed:'general_average'|slice:':3' %}
     {% if top3 %}
-    <h3 class="text-sm font-semibold text-gray-700 mb-3">🏆 Top 3 de la classe</h3>
+    <h3 class="text-sm font-semibold text-gray-700 mb-3">
+      <i data-lucide="trophy" class="w-4 h-4 inline-block -mt-0.5 text-amber-500"></i>
+      Top 3 de la classe
+    </h3>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
       {% for bul in top3 %}
         <div class="bg-white rounded-xl p-4 border border-gray-200 flex items-center gap-3
                     {% if forloop.counter == 1 %}border-amber-300 bg-amber-50/50{% endif %}">
-          <span class="text-2xl">
-            {% if forloop.counter == 1 %}🥇
-            {% elif forloop.counter == 2 %}🥈
-            {% else %}🥉{% endif %}
+          <span class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0
+                       {% if forloop.counter == 1 %}bg-amber-400{% elif forloop.counter == 2 %}bg-gray-300{% else %}bg-orange-300{% endif %}">
+            {% if forloop.counter == 1 %}1{% elif forloop.counter == 2 %}2{% else %}3{% endif %}
           </span>
           <div>
             <p class="text-sm font-semibold text-gray-800">{{ bul.student.full_name }}</p>
@@ -58,7 +60,10 @@ Contexte : student_count, gen_avg, success_rate, admitted_count,
 
 {# ── Élèves en difficulté ───────────────────────────────────── #}
 {% if difficulty_count > 0 %}
-  <h3 class="text-sm font-semibold text-red-600 mb-3">⚠️ Élèves en difficulté</h3>
+  <h3 class="text-sm font-semibold text-red-600 mb-3">
+    <i data-lucide="alert-triangle" class="w-4 h-4 inline-block -mt-0.5"></i>
+    Élèves en difficulté
+  </h3>
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
     {% for bul in bulletins.values %}
       {% if bul.general_average and bul.general_average < 10 %}
@@ -81,7 +86,8 @@ Contexte : student_count, gen_avg, success_rate, admitted_count,
                 hx-post="{% url 'bulletins:generate-class' school_class.pk active_period.pk %}"
                 hx-swap="innerHTML"
                 hx-target="closest div">
-        ⚡ Générer maintenant
+        <i data-lucide="zap" class="w-3.5 h-3.5 inline-block"></i>
+        Générer maintenant
       </button>
     {% endif %}
   </p>

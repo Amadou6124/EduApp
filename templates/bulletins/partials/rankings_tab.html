@@ -37,11 +37,11 @@ Contexte : bulletins, school_class, period
             <td class="px-4 py-2.5 text-center">
               {# Médailles pour le podium #}
               {% if forloop.counter == 1 %}
-                <span class="text-xl">🥇</span>
+                <span class="w-7 h-7 rounded-full bg-amber-400 text-white text-xs font-bold flex items-center justify-center mx-auto">1</span>
               {% elif forloop.counter == 2 %}
-                <span class="text-xl">🥈</span>
+                <span class="w-7 h-7 rounded-full bg-gray-300 text-white text-xs font-bold flex items-center justify-center mx-auto">2</span>
               {% elif forloop.counter == 3 %}
-                <span class="text-xl">🥉</span>
+                <span class="w-7 h-7 rounded-full bg-orange-300 text-white text-xs font-bold flex items-center justify-center mx-auto">3</span>
               {% else %}
                 <span class="text-xs text-gray-500">{{ forloop.counter }}<sup>e</sup></span>
               {% endif %}

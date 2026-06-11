@@ -70,11 +70,11 @@ Contexte : class_health = list[dict] {class, student_count, avg, success_rate, p
           </td>
           <td class="px-3 py-2.5 text-center">
             {% if row.status == 'good' %}
-            <span class="text-lg" title="Bonne santé">🟢</span>
-            {% elif row.status == 'warning' %}
-            <span class="text-lg" title="Attention">🟡</span>
-            {% else %}
-            <span class="text-lg" title="Critique">🔴</span>
+            <span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" title="Bonne santé"></span>
+          {% elif row.status == 'warning' %}
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" title="Attention"></span>
+          {% else %}
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" title="Critique"></span>
             {% endif %}
           </td>
         </tr>

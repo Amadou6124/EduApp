@@ -37,7 +37,7 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
 <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
   <div>
     <h2 class="text-xl font-bold text-gray-800">
-      Bonjour, {{ request.user.full_name }} 👋
+      Bonjour, {{ request.user.full_name }}
     </h2>
     <p class="text-sm text-gray-500 mt-1">
       {{ school.name }}
@@ -107,11 +107,17 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
   <a href="{% url 'students:list' %}"
      class="text-xs bg-brand-gold hover:bg-yellow-500 text-white font-semibold px-4 py-2 rounded-lg transition min-h-[44px]">+ Inscrire un élève</a>
   <a href="{% url 'payments:dashboard' %}"
-     class="text-xs bg-brand-blue hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg transition min-h-[44px]">💰 Enregistrer un paiement</a>
+     class="text-xs bg-brand-blue hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg transition min-h-[44px]">
+       <i data-lucide="credit-card" class="w-3.5 h-3.5"></i>
+       Enregistrer un paiement</a>
   <a href="{% url 'notes:dashboard' %}"
-     class="text-xs bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 transition min-h-[44px]">📝 Saisir des notes</a>
+     class="text-xs bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 transition min-h-[44px]">
+       <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+       Saisir des notes</a>
   <a href="{% url 'bulletins:main' %}"
-     class="text-xs bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 transition min-h-[44px]">📄 Générer bulletins</a>
+     class="text-xs bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 transition min-h-[44px]">
+       <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+       Générer bulletins</a>
 </div>
 
 {# ── FAB mobile (Flottant bas droite) ───────────────────────── #}
@@ -133,15 +139,18 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
     </a>
     <a href="{% url 'payments:dashboard' %}"
        class="flex items-center gap-2 bg-brand-blue text-white px-4 py-2.5 rounded-full shadow-lg text-sm font-medium min-h-[44px]">
-      <span>💰</span> Paiement
+       <i data-lucide="credit-card" class="w-4 h-4"></i>
+       Paiement
     </a>
     <a href="{% url 'notes:dashboard' %}"
        class="flex items-center gap-2 bg-white text-gray-700 px-4 py-2.5 rounded-full shadow-lg text-sm font-medium border border-gray-200 min-h-[44px]">
-      <span>📝</span> Notes
+       <i data-lucide="book-open" class="w-4 h-4"></i>
+       Notes
     </a>
     <a href="{% url 'bulletins:main' %}"
        class="flex items-center gap-2 bg-white text-gray-700 px-4 py-2.5 rounded-full shadow-lg text-sm font-medium border border-gray-200 min-h-[44px]">
-      <span>📄</span> Bulletins
+       <i data-lucide="file-text" class="w-4 h-4"></i>
+       Bulletins
     </a>
   </div>
   {# Bouton FAB principal #}

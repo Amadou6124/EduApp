@@ -17,10 +17,10 @@ Recherche eleve via Alpine $store.search
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <div class="flex items-center gap-3">
     <span class="badge-success">
-      ✅ {{ generated_count }} {% trans "generes" %}
+      {{ generated_count }} {% trans "generes" %}
     </span>
     <span class="badge-warning">
-      ⏳ {{ total_count|add:"-1" }}
+      {{ total_count|add:"-1" }}
     </span>
   </div>
   <div class="flex gap-2">
@@ -30,13 +30,15 @@ Recherche eleve via Alpine $store.search
               hx-post="{% url 'bulletins:generate-class' school_class.pk period.pk %}"
               hx-target="#tab-content"
               hx-swap="innerHTML">
-        ⚡ {% trans "Generer tous" %}
+        <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+        {% trans "Generer tous" %}
       </button>
     {% endif %}
     {% if generated_count > 0 %}
       <a href="{% url 'bulletins:download-all' school_class.pk period.pk %}"
          class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition">
-        📥 {% trans "Tout telecharger ZIP" %}
+        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+        {% trans "Tout telecharger ZIP" %}
       </a>
     {% endif %}
   </div>
@@ -91,15 +93,15 @@ Recherche eleve via Alpine $store.search
           <td class="px-4 py-2.5 text-center">
             {% if row.bulletin %}
               <span class="badge-success">
-                ✅ {% trans "Genere" %}
+                {% trans "Genere" %}
               </span>
             {% elif row.has_notes %}
               <span class="badge-warning">
-                ⏳ {% trans "Pret" %}
+                {% trans "Pret" %}
               </span>
             {% else %}
               <span class="badge-danger">
-                ❌ {% trans "Notes manquantes" %}
+                {% trans "Notes manquantes" %}
               </span>
             {% endif %}
           </td>
@@ -110,9 +112,13 @@ Recherche eleve via Alpine $store.search
                         class="text-xs text-brand-blue hover:underline"
                         hx-get="{% url 'bulletins:preview' row.bulletin.pk %}"
                         hx-target="#preview-modal-container"
-                        hx-swap="innerHTML">👁</button>
+                        hx-swap="innerHTML">
+                  <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                </button>
                 <a href="{% url 'bulletins:download' row.bulletin.pk %}"
-                   class="text-xs text-brand-blue hover:underline">📥</a>
+                   class="text-xs text-brand-blue hover:underline">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                </a>
               </div>
             {% elif row.has_notes and can_generate %}
               <button type="button"
@@ -120,7 +126,8 @@ Recherche eleve via Alpine $store.search
                       hx-post="{% url 'bulletins:generate-student' row.student.pk period.pk %}"
                       hx-target="closest tr"
                       hx-swap="outerHTML">
-                ⚡ {% trans "Generer" %}
+                <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+                {% trans "Generer" %}
               </button>
             {% endif %}
           </td>

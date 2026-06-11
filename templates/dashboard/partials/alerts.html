@@ -7,7 +7,8 @@ Contexte : alerts = list[dict] {level, icon, title, text, action_url, action_tex
 {% if alerts %}
 <div x-data="{ dismissed: [] }" class="mb-8">
   <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-    <span>⚠️</span> Nécessite votre attention
+    <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500"></i>
+    <span>Nécessite votre attention</span>
   </h2>
   <div class="space-y-2">
     {% for alert in alerts %}
@@ -20,7 +21,7 @@ Contexte : alerts = list[dict] {level, icon, title, text, action_url, action_tex
                 {% if alert.level == 'critical' %}bg-red-50 border-red-200
                 {% elif alert.level == 'warning' %}bg-amber-50 border-amber-200
                 {% else %}bg-blue-50 border-blue-200{% endif %}">
-      <span class="text-lg flex-shrink-0 mt-0.5">{{ alert.icon }}</span>
+      <i data-lucide="{{ alert.icon }}" class="w-5 h-5 shrink-0 mt-0.5"></i>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-semibold text-gray-800">{{ alert.title }}</p>
         <p class="text-xs text-gray-600 mt-0.5">{{ alert.text }}</p>

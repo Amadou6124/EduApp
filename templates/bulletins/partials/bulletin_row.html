@@ -19,7 +19,7 @@ Ligne eleve dans l'onglet Bulletins — partial HTMX
   </td>
   <td class="px-4 py-2.5 text-center">
     <span class="badge-success">
-      ✅ {% trans "Genere" %}
+      {% trans "Genere" %}
     </span>
   </td>
   <td class="px-4 py-2.5 text-center">
@@ -27,10 +27,14 @@ Ligne eleve dans l'onglet Bulletins — partial HTMX
       <button type="button"
               class="text-xs text-brand-blue hover:underline"
               hx-get="{% url 'bulletins:preview' bulletin.pk %}"
-              hx-target="#preview-modal-container"
-              hx-swap="innerHTML">👁</button>
+               hx-target="#preview-modal-container"
+               hx-swap="innerHTML">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+        </button>
       <a href="{% url 'bulletins:download' bulletin.pk %}"
-         class="text-xs text-brand-blue hover:underline">📥</a>
+         class="text-xs text-brand-blue hover:underline">
+        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+      </a>
     </div>
   </td>
 </tr>
