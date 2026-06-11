@@ -9,12 +9,18 @@
   {% endif %}
 
   {% if not students %}
-    <div class="text-center py-16 text-gray-400">
-      <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-      </svg>
-      <p class="text-sm">Aucun élève trouvé</p>
+    <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+        <i data-lucide="users" class="w-7 h-7 text-gray-400"></i>
+      </div>
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun élève trouvé</h3>
+      <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
+        Commencez par inscrire vos élèves dans une classe.
+      </p>
+      <a href="{% url 'students:list' %}" class="btn-primary text-sm">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        Inscrire un élève
+      </a>
     </div>
 
   {% else %}

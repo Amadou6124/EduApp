@@ -26,8 +26,14 @@ Contexte attendu :
   </div>
 {% elif not rows %}
   {# ── Vide : aucun élève ──────────────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
-    <p class="text-sm text-gray-400">Aucun élève dans cette classe.</p>
+  <div class="flex flex-col items-center justify-center py-12 px-8 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="users" class="w-7 h-7 text-gray-400"></i>
+    </div>
+    <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun élève</h3>
+    <p class="text-sm text-gray-500 max-w-xs leading-relaxed">
+      Aucun élève dans cette classe.
+    </p>
   </div>
 {% else %}
   {# ── Tableau de saisie ────────────────────────────────────────── #}

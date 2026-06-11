@@ -34,8 +34,11 @@ Contexte : activity = list[dict] {type, icon, time, text, url}
     {% endfor %}
   </div>
   {% else %}
-  <div class="text-center py-8 text-gray-400">
-    <p class="text-sm">Aucune activité récente.</p>
+  <div class="flex flex-col items-center justify-center py-8 text-center">
+    <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+      <i data-lucide="activity" class="w-6 h-6 text-gray-400"></i>
+    </div>
+    <p class="text-sm text-gray-500">Aucune activité récente</p>
   </div>
   {% endif %}
 </div>

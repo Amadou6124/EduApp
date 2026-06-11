@@ -124,7 +124,12 @@ Contexte : bulletins, school_class, period
 {% else %}
   <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
     <p class="text-sm text-gray-400">
-      Aucun bulletin généré pour cette classe sur cette période.
+      <div class="flex flex-col items-center justify-center py-8 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+          <i data-lucide="award" class="w-6 h-6 text-gray-400"></i>
+        </div>
+        <p class="text-sm text-gray-500">Aucun bulletin généré pour cette classe sur cette période.</p>
+      </div>
     </p>
     <p class="text-xs text-gray-400 mt-1">
       Générez d'abord les bulletins dans l'onglet "Bulletins".

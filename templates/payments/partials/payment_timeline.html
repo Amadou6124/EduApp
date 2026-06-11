@@ -35,7 +35,12 @@
 <div class="px-6 py-4">
 
   {% if not payments %}
-    <p class="text-sm text-gray-400 text-center py-8">Aucun paiement enregistré</p>
+    <div class="flex flex-col items-center justify-center py-8 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+        <i data-lucide="credit-card" class="w-6 h-6 text-gray-400"></i>
+      </div>
+      <p class="text-sm text-gray-500">Aucun paiement enregistré</p>
+    </div>
   {% else %}
     <div class="relative">
       <div class="absolute left-3 top-0 bottom-0 w-px bg-gray-200"></div>
