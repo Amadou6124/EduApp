@@ -64,23 +64,23 @@ Contexte attendu :
 {# ── Sélecteur de matière (onglets) avec état Alpine ───────────── #}
 {% if class_subjects %}
   <div x-data="{ activeTab: '{{ active_cs.pk|default:'' }}' }"
-       class="flex gap-2 mb-6 overflow-x-auto pb-1">
+       class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 overflow-x-auto mb-6">
     {% for cs in class_subjects %}
       <button type="button"
               x-on:click="activeTab = '{{ cs.pk }}'"
               x-bind:class="activeTab === '{{ cs.pk }}'
-                ? 'bg-brand-blue text-white shadow border border-brand-blue'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'"
-              class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition min-h-[44px]"
+                ? 'bg-white shadow-sm text-gray-900 font-medium'
+                : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all whitespace-nowrap"
               hx-get="{% url 'notes:subject-table' school_class.pk period.pk cs.pk %}"
               hx-target="#notes-table-container"
               hx-swap="innerHTML"
               hx-push-url="?subject={{ cs.pk }}">
         {# Pastille couleur matière #}
-        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+        <span class="w-2 h-2 rounded-full flex-shrink-0"
               style="background-color: {{ cs.subject.color|default:'#1E3A5F' }}"></span>
         <span>{{ cs.subject.short_name|default:cs.subject.name }}</span>
-        <span class="text-[10px] opacity-60">coeff. {{ cs.coefficient|floatformat:'1' }}</span>
+        <span class="text-[10px] opacity-60 ml-0.5">coeff.{{ cs.coefficient|floatformat:'1' }}</span>
       </button>
     {% endfor %}
   </div>

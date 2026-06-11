@@ -86,35 +86,35 @@ Contexte :
     <p class="text-sm">Sélectionnez une classe pour afficher les bulletins.</p>
   </div>
 {% else %}
-  {# ── 3 Onglets ──────────────────────────────────────────────── #}
-  <div class="flex gap-1 mb-6 border-b border-gray-200"
+  {# ── 3 Onglets (style Notion) ────────────────────────────────── #}
+  <div class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 mb-6"
        x-data="{ tab: '{{ active_tab }}' }">
     <button type="button"
             x-on:click="tab = 'health'"
-            x-bind:class="tab === 'health' ? 'border-brand-blue text-brand-blue' : 'border-transparent text-gray-500 hover:text-gray-700'"
-            class="px-4 py-2.5 text-sm font-medium border-b-2 transition min-h-[44px]"
+            x-bind:class="tab === 'health' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
+            class="px-4 py-2 rounded-md text-sm transition-all"
             hx-get="{% url 'bulletins:health-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
             hx-target="#tab-content"
             hx-swap="innerHTML">
-      📊 {% trans "Santé éducative" %}
+      {% trans "Santé éducative" %}
     </button>
     <button type="button"
             x-on:click="tab = 'bullets'"
-            x-bind:class="tab === 'bullets' ? 'border-brand-blue text-brand-blue' : 'border-transparent text-gray-500 hover:text-gray-700'"
-            class="px-4 py-2.5 text-sm font-medium border-b-2 transition min-h-[44px]"
+            x-bind:class="tab === 'bullets' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
+            class="px-4 py-2 rounded-md text-sm transition-all"
             hx-get="{% url 'bulletins:bullets-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
             hx-target="#tab-content"
             hx-swap="innerHTML">
-      📋 {% trans "Bulletins" %}
+      {% trans "Bulletins" %}
     </button>
     <button type="button"
             x-on:click="tab = 'rankings'"
-            x-bind:class="tab === 'rankings' ? 'border-brand-blue text-brand-blue' : 'border-transparent text-gray-500 hover:text-gray-700'"
-            class="px-4 py-2.5 text-sm font-medium border-b-2 transition min-h-[44px]"
+            x-bind:class="tab === 'rankings' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
+            class="px-4 py-2 rounded-md text-sm transition-all"
             hx-get="{% url 'bulletins:rankings-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
             hx-target="#tab-content"
             hx-swap="innerHTML">
-      🏆 {% trans "Classements" %}
+      {% trans "Classements" %}
     </button>
   </div>
 
