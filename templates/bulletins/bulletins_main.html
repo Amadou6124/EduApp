@@ -20,7 +20,8 @@ Contexte :
             hx-post="{% url 'bulletins:generate-class' active_class.pk active_period.pk %}"
             hx-target="#tab-content"
             hx-swap="innerHTML">
-      ⚡ {% trans "Générer tous les bulletins" %}
+      <i data-lucide="zap" class="w-4 h-4"></i>
+      {% trans "Générer tous les bulletins" %}
     </button>
   {% endif %}
 {% endblock %}

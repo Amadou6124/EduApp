@@ -69,12 +69,17 @@
                  {% if val == 'cash' %}checked{% endif %}>
           <div class="border-2 rounded-xl p-3 text-center transition peer-checked:border-brand-blue peer-checked:bg-blue-50 border-gray-200 hover:border-gray-300"
                :class="selected === '{{ val }}' ? 'border-brand-blue bg-blue-50' : 'border-gray-200'">
-            <p class="text-xl mb-1">
-              {% if val == 'cash' %}💵
-              {% elif val == 'orange_money' %}📱
-              {% elif val == 'wave' %}🌊
-              {% else %}💳{% endif %}
-            </p>
+             <p class="text-xl mb-1">
+               {% if val == 'cash' %}
+                 <i data-lucide="wallet" class="w-6 h-6 mx-auto text-gray-500"></i>
+               {% elif val == 'orange_money' %}
+                 <i data-lucide="smartphone" class="w-6 h-6 mx-auto text-gray-500"></i>
+               {% elif val == 'wave' %}
+                 <i data-lucide="smartphone" class="w-6 h-6 mx-auto text-gray-500"></i>
+               {% else %}
+                 <i data-lucide="credit-card" class="w-6 h-6 mx-auto text-gray-500"></i>
+               {% endif %}
+             </p>
             <p class="text-xs font-semibold text-gray-700">{{ label }}</p>
           </div>
         </label>
