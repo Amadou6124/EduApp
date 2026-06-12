@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db.models import Count, ProtectedError
+from django.db.models import Count
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.template.loader import render_to_string
@@ -423,16 +423,17 @@ def period_delete(request, period_id):
     school = get_school(request)
     period = get_object_or_404(Period, id=period_id, school_year__school=school)
     year   = period.school_year
-    try:
-        period.delete()
-    except ProtectedError:
-        return HttpResponse(
-            '<div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">'
-            '<p class="font-medium">Impossible de supprimer cette période.</p>'
-            '<p>Des notes ont déjà été saisies pour cette période. Supprimez d\'abord les notes.</p>'
-            '</div>',
-            status=422
-        )
+    note_count = Note.objects.filter(period=period).count()
+    if note_count > 0:
+        response = HttpResponse(status=422)
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {
+                'message': f'Impossible de supprimer cette période : {note_count} note(s) saisie(s). Supprimez les notes d\'abord.',
+                'type': 'error',
+            }
+        })
+        return response
+    period.delete()
     periods = year.periods.order_by('order')
     resp    = render(request, 'settings/partials/periods_list.html', {
         'year': year, 'periods': periods,
