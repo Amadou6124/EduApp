@@ -6,9 +6,12 @@ import io
 import json
 import zipfile
 
+import openpyxl
+from openpyxl.styles import Alignment, Font, PatternFill
+
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Avg, Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_http_methods
@@ -27,6 +30,15 @@ from .services.bulletin_pdf import (
 
 
 calculator = BulletinCalculator()
+
+LEVEL_BADGE = {
+    'prescolaire':    ('Préscolaire',       'bg-purple-100 text-purple-700 border-purple-200'),
+    'fondamental_1':  ('Fond. 1er Cycle',   'bg-blue-100 text-blue-700 border-blue-200'),
+    'fondamental_2':  ('Fond. 2ème Cycle',  'bg-indigo-100 text-indigo-700 border-indigo-200'),
+    'secondaire_gen': ('Secondaire Gén.',   'bg-green-100 text-green-700 border-green-200'),
+    'secondaire_pro': ('Secondaire Pro',    'bg-teal-100 text-teal-700 border-teal-200'),
+    'superieur':      ('Supérieur',         'bg-orange-100 text-orange-700 border-orange-200'),
+}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -93,7 +105,20 @@ def bulletins_main(request):
 
     # Stats globales si classe + période sélectionnées
     if active_class and active_period:
-        context.update(_get_class_stats(active_class, active_period, school))
+        stats = _get_class_stats(active_class, active_period, school)
+        context.update(stats)
+        context['generated_count'] = len(stats['bulletins'])
+        context['total_count'] = stats['student_count']
+        context['pending_count'] = stats['student_count'] - len(stats['bulletins'])
+
+    if active_class:
+        context['subject_count'] = ClassSubject.objects.filter(
+            school_class=active_class, is_active=True,
+        ).count()
+        context['active_class_badge'] = LEVEL_BADGE.get(
+            active_class.level,
+            ('', 'bg-gray-100 text-gray-600 border-gray-200'),
+        )
 
     return render(request, 'bulletins/bulletins_main.html', context)
 
@@ -152,13 +177,17 @@ def bulletins_tab(request):
             'has_notes':  student.pk in with_notes,
         })
 
+    generated_count = len(existing)
+    total_count     = len(students)
     return render(request, 'bulletins/partials/bulletins_tab.html', {
-        'rows':           rows,
-        'school_class':   active_class,
-        'period':         active_period,
-        'can_generate':   request.user.role in ('director', 'staff') or request.user.is_superuser,
-        'generated_count': len(existing),
-        'total_count':     len(students),
+        'rows':            rows,
+        'school_class':    active_class,
+        'period':          active_period,
+        'can_generate':    request.user.role in ('director', 'staff') or request.user.is_superuser,
+        'generated_count': generated_count,
+        'total_count':     total_count,
+        'pending_count':   total_count - generated_count,
+        'generated_pct':   int(generated_count / total_count * 100) if total_count > 0 else 0,
     })
 
 
@@ -181,10 +210,17 @@ def rankings_tab(request):
         .order_by('-general_average')
     )
 
+    averages = [b.general_average for b in bulletins]
+    class_average = round(sum(averages) / len(averages), 2) if averages else None
+
     return render(request, 'bulletins/partials/rankings_tab.html', {
-        'bulletins':      bulletins,
-        'school_class':   active_class,
-        'period':         active_period,
+        'bulletins':     bulletins,
+        'school_class':  active_class,
+        'period':        active_period,
+        'class_average': class_average,
+        'first_average': averages[0] if averages else None,
+        'last_average':  averages[-1] if averages else None,
+        'can_generate':  request.user.role in ('director', 'staff') or request.user.is_superuser,
     })
 
 
@@ -240,13 +276,17 @@ def generate_class_bulletins(request, class_id, period_id):
             'has_notes':  student.pk in with_notes,
         })
 
+    generated_count = len(existing)
+    total_count     = len(students)
     response = render(request, 'bulletins/partials/bulletins_tab.html', {
-        'rows':           rows,
-        'school_class':   school_class,
-        'period':         period,
-        'can_generate':   True,
-        'generated_count': len(existing),
-        'total_count':     len(students),
+        'rows':            rows,
+        'school_class':    school_class,
+        'period':          period,
+        'can_generate':    True,
+        'generated_count': generated_count,
+        'total_count':     total_count,
+        'pending_count':   total_count - generated_count,
+        'generated_pct':   int(generated_count / total_count * 100) if total_count > 0 else 0,
     })
     response['HX-Trigger'] = json.dumps({
         'bullets-generated': {
@@ -350,6 +390,27 @@ def bulletin_download(request, bulletin_id):
 
 @login_required
 @director_or_staff_required
+def bulletin_view_pdf(request, bulletin_id):
+    """Ouvre le PDF dans le navigateur (Content-Disposition: inline)."""
+    school = get_school(request)
+    bulletin = get_object_or_404(
+        Bulletin,
+        pk=bulletin_id,
+        student__school=school,
+        is_cancelled=False,
+    )
+    pdf_bytes = generate_bulletin_pdf(bulletin)
+    filename = (
+        f'bulletin_{bulletin.student.full_name.replace(" ", "_")}_'
+        f'{bulletin.period.name.replace(" ", "_")}.pdf'
+    )
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+@login_required
+@director_or_staff_required
 def bulletin_download_all(request, class_id, period_id):
     """Téléchargement ZIP de tous les bulletins d'une classe."""
     school = get_school(request)
@@ -386,6 +447,71 @@ def bulletin_download_all(request, class_id, period_id):
         f'attachment; filename="bulletins_{school_class.name}_'
         f'{period.name.replace(" ", "_")}.zip"'
     )
+    return response
+
+
+@login_required
+@director_or_staff_required
+def rankings_export(request, class_id, period_id):
+    """Export Excel du classement d'une classe."""
+    school = get_school(request)
+    school_class = get_object_or_404(
+        school.classes.filter(is_active=True), pk=class_id,
+    )
+    period = get_object_or_404(
+        Period, pk=period_id, school_year__school=school,
+    )
+
+    bulletins = list(
+        Bulletin.objects.filter(
+            period=period,
+            school_class=school_class,
+            is_cancelled=False,
+            general_average__isnull=False,
+        )
+        .select_related('student')
+        .order_by('-general_average')
+    )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f'Classement {period.name}'[:31]  # Excel limite à 31 chars
+
+    # En-tête
+    headers = ['Rang', 'Nom et Prénom', 'Moyenne Générale (/20)', 'Appréciation']
+    ws.append(headers)
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    # Données
+    for rank, bul in enumerate(bulletins, start=1):
+        row = [rank, bul.student.full_name, float(bul.general_average), bul.appreciation or '']
+        ws.append(row)
+        # Fond doré pour le 1er
+        if rank == 1:
+            gold_fill = PatternFill(start_color='FEF3C7', end_color='FEF3C7', fill_type='solid')
+            for cell in ws[ws.max_row]:
+                cell.fill = gold_fill
+
+    # Largeurs colonnes
+    ws.column_dimensions['A'].width = 8
+    ws.column_dimensions['B'].width = 32
+    ws.column_dimensions['C'].width = 22
+    ws.column_dimensions['D'].width = 22
+
+    filename = (
+        f'classement_{school_class.name.replace(" ", "_")}_'
+        f'{period.name.replace(" ", "_")}.xlsx'
+    )
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
     return response
 
 
@@ -460,30 +586,52 @@ def _get_class_stats(school_class, period, school):
         )
     )
 
-    # Bulletins existants
     bulletins = {
         b.student_id: b
         for b in Bulletin.objects.filter(
             period=period,
             school_class=school_class,
             is_cancelled=False,
-        )
+        ).select_related('student')
     }
 
-    # Stats
     averages = [b.general_average for b in bulletins.values() if b.general_average is not None]
 
+    # Moyennes par matière (agrégées sur tous les bulletins de la classe)
+    subject_rows = (
+        BulletinLine.objects
+        .filter(
+            bulletin__period=period,
+            bulletin__school_class=school_class,
+            bulletin__is_cancelled=False,
+            final_average__isnull=False,
+        )
+        .values('class_subject__subject__name', 'class_subject__coefficient')
+        .annotate(avg=Avg('final_average'))
+        .order_by('-avg')
+    )
+    subject_stats = [
+        {
+            'name':        row['class_subject__subject__name'],
+            'coefficient': row['class_subject__coefficient'],
+            'avg':         round(float(row['avg']), 2),
+            'pct':         round(float(row['avg']) / 20 * 100, 1),
+        }
+        for row in subject_rows
+    ]
+
     return {
-        'student_count': len(students),
-        'gen_avg': round(sum(averages) / len(averages), 2) if averages else None,
-        'success_rate': (
+        'student_count':    len(students),
+        'gen_avg':          round(sum(averages) / len(averages), 2) if averages else None,
+        'success_rate':     (
             round(sum(1 for a in averages if a >= 10) / len(averages) * 100, 1)
             if averages else 0
         ),
-        'admitted_count': sum(1 for a in averages if a >= 10),
+        'admitted_count':   sum(1 for a in averages if a >= 10),
         'difficulty_count': sum(1 for a in averages if a < 10),
-        'bulletins': bulletins,
-        'students': students,
-        'active_period': period,
-        'school_class': school_class,
+        'bulletins':        bulletins,
+        'students':         students,
+        'active_period':    period,
+        'school_class':     school_class,
+        'subject_stats':    subject_stats,
     }

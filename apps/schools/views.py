@@ -20,19 +20,33 @@ from apps.core.mixins import get_school, director_or_staff_required
 
 # Correspondance libellés Excel → valeurs modèle
 LEVEL_LABELS = {
-    'primaire': EducationLevel.PRIMARY,
-    'college': EducationLevel.MIDDLE_SCHOOL,
-    'collège': EducationLevel.MIDDLE_SCHOOL,
-    'lycee': EducationLevel.HIGH_SCHOOL,
-    'lycée': EducationLevel.HIGH_SCHOOL,
-    'universite': EducationLevel.UNIVERSITY,
-    'université': EducationLevel.UNIVERSITY,
+    'prescolaire':      EducationLevel.PRESCOLAIRE,
+    'préscolaire':      EducationLevel.PRESCOLAIRE,
+    'fondamental1':     EducationLevel.FONDAMENTAL_1,
+    'fondamental_1':    EducationLevel.FONDAMENTAL_1,
+    'primaire':         EducationLevel.FONDAMENTAL_1,
+    'fondamental2':     EducationLevel.FONDAMENTAL_2,
+    'fondamental_2':    EducationLevel.FONDAMENTAL_2,
+    'college':          EducationLevel.FONDAMENTAL_2,
+    'collège':          EducationLevel.FONDAMENTAL_2,
+    'secondaire':       EducationLevel.SECONDAIRE_GEN,
+    'secondaire_gen':   EducationLevel.SECONDAIRE_GEN,
+    'lycee':            EducationLevel.SECONDAIRE_GEN,
+    'lycée':            EducationLevel.SECONDAIRE_GEN,
+    'secondaire_pro':   EducationLevel.SECONDAIRE_PRO,
+    'cap':              EducationLevel.SECONDAIRE_PRO,
+    'universite':       EducationLevel.SUPERIEUR,
+    'université':       EducationLevel.SUPERIEUR,
+    'superieur':        EducationLevel.SUPERIEUR,
+    'supérieur':        EducationLevel.SUPERIEUR,
 }
 LEVEL_DISPLAY = {
-    EducationLevel.PRIMARY: 'Primaire',
-    EducationLevel.MIDDLE_SCHOOL: 'Collège',
-    EducationLevel.HIGH_SCHOOL: 'Lycée',
-    EducationLevel.UNIVERSITY: 'Université',
+    EducationLevel.PRESCOLAIRE:    'Préscolaire',
+    EducationLevel.FONDAMENTAL_1:  'Fondamental 1er Cycle',
+    EducationLevel.FONDAMENTAL_2:  'Fondamental 2ème Cycle',
+    EducationLevel.SECONDAIRE_GEN: 'Secondaire Général',
+    EducationLevel.SECONDAIRE_PRO: 'Secondaire Professionnel',
+    EducationLevel.SUPERIEUR:      'Enseignement Supérieur',
 }
 
 

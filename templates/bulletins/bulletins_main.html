@@ -4,132 +4,201 @@ Page principale /bulletins/ — 3 onglets.
 Contexte :
   - years, active_year, periods, active_period, classes, active_class
   - active_tab, school, can_generate
+  - active_class_badge, subject_count, generated_count, total_count, pending_count
 {% endcomment %}
 {% load i18n %}
 
 {% block title %}{% trans "Bulletins" %}{% endblock %}
-
-{% block page_title %}
-  {% trans "Bulletins" %}
-{% endblock %}
-
-{% block header_actions %}
-  {% if active_class and active_period and can_generate %}
-    <button type="button"
-            class="btn-primary text-sm min-h-[44px] transition"
-            hx-post="{% url 'bulletins:generate-class' active_class.pk active_period.pk %}"
-            hx-target="#tab-content"
-            hx-swap="innerHTML">
-      <i data-lucide="zap" class="w-4 h-4"></i>
-      {% trans "Générer tous les bulletins" %}
-    </button>
-  {% endif %}
-{% endblock %}
+{% block page_title %}{% trans "Bulletins" %}{% endblock %}
 
 {% block content %}
 
-{# ── Sélecteurs ──────────────────────────────────────────────── #}
-<form method="get" id="selectors-form" class="flex flex-wrap items-end gap-3 mb-6">
-  {# Année scolaire #}
-  <div>
-    <label class="block text-xs text-gray-500 mb-1">Année</label>
-    <select name="year" onchange="this.form.submit()"
-            class="input-field">
-      {% for y in years %}
-        <option value="{{ y.pk }}" {% if active_year and y.pk == active_year.pk %}selected{% endif %}>
-          {{ y.name }}{% if y.is_active %} (active){% endif %}
-        </option>
-      {% empty %}
-        <option value="">—</option>
-      {% endfor %}
-    </select>
-  </div>
+{# ── Sélecteurs en cartes ──────────────────────────────────────── #}
+<form method="get" id="selectors-form">
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
 
-  {# Période #}
-  {% if periods %}
-  <div>
-    <label class="block text-xs text-gray-500 mb-1">Période</label>
-    <select name="period" onchange="this.form.submit()"
-            class="input-field">
-      {% for p in periods %}
-        <option value="{{ p.pk }}" {% if active_period and p.pk == active_period.pk %}selected{% endif %}>
-          {{ p.name }}
-        </option>
-      {% endfor %}
-    </select>
-  </div>
-  {% endif %}
+    {# Année scolaire #}
+    <div class="bg-white rounded-xl border border-gray-200 p-4">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="calendar" class="w-4 h-4 text-brand-blue/60"></i>
+        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Année scolaire</span>
+      </div>
+      <select name="year" onchange="this.form.submit()"
+              class="w-full text-sm font-semibold text-gray-800 bg-transparent border-0 p-0 focus:ring-0 cursor-pointer">
+        {% for y in years %}
+          <option value="{{ y.pk }}" {% if active_year and y.pk == active_year.pk %}selected{% endif %}>
+            {{ y.name }}{% if y.is_active %} ·  actuelle{% endif %}
+          </option>
+        {% empty %}
+          <option value="">—</option>
+        {% endfor %}
+      </select>
+    </div>
 
-  {# Classe #}
-  <div>
-    <label class="block text-xs text-gray-500 mb-1">Classe</label>
-    <select name="class" onchange="this.form.submit()"
-            class="input-field">
-      <option value="">— Toutes —</option>
-      {% for c in classes %}
-        <option value="{{ c.pk }}" {% if active_class and c.pk == active_class.pk %}selected{% endif %}>
-          {{ c.name }}
-        </option>
-      {% endfor %}
-    </select>
-  </div>
+    {# Période #}
+    <div class="bg-white rounded-xl border border-gray-200 p-4">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="clock" class="w-4 h-4 text-brand-blue/60"></i>
+        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Période</span>
+      </div>
+      <select name="period" onchange="this.form.submit()"
+              class="w-full text-sm font-semibold text-gray-800 bg-transparent border-0 p-0 focus:ring-0 cursor-pointer"
+              {% if not periods %}disabled{% endif %}>
+        {% for p in periods %}
+          <option value="{{ p.pk }}" {% if active_period and p.pk == active_period.pk %}selected{% endif %}>
+            {{ p.name }}
+          </option>
+        {% empty %}
+          <option value="">— Aucune période —</option>
+        {% endfor %}
+      </select>
+    </div>
 
-  {# Garder l'onglet actif #}
+    {# Classe #}
+    <div class="bg-white rounded-xl border border-gray-200 p-4">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="school" class="w-4 h-4 text-brand-blue/60"></i>
+        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Classe</span>
+      </div>
+      <select name="class" onchange="this.form.submit()"
+              class="w-full text-sm font-semibold text-gray-800 bg-transparent border-0 p-0 focus:ring-0 cursor-pointer">
+        <option value="">— Toutes les classes —</option>
+        {% for c in classes %}
+          <option value="{{ c.pk }}" {% if active_class and c.pk == active_class.pk %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+  </div>
   <input type="hidden" name="tab" value="{{ active_tab }}">
 </form>
 
+{# ── États vides ─────────────────────────────────────────────── #}
 {% if not active_year %}
-  <div class="text-center py-20 text-gray-400">
+  <div class="text-center py-24 text-gray-400">
+    <i data-lucide="calendar-x" class="w-10 h-10 mx-auto mb-3 opacity-25"></i>
     <p class="text-sm">Configurez d'abord une année scolaire.</p>
     <a href="{% url 'settings:school-years' %}"
        class="inline-block mt-3 text-sm text-brand-blue hover:underline">
       Paramètres →
     </a>
   </div>
+
 {% elif not active_class %}
-  <div class="text-center py-20 text-gray-400">
+  <div class="text-center py-24 text-gray-400">
+    <i data-lucide="users" class="w-10 h-10 mx-auto mb-3 opacity-25"></i>
     <p class="text-sm">Sélectionnez une classe pour afficher les bulletins.</p>
   </div>
+
 {% else %}
-  {# ── 3 Onglets (style Notion) ────────────────────────────────── #}
+
+  {# ── Info-bar classe ───────────────────────────────────────── #}
+  <div class="bg-white rounded-xl border border-gray-200 px-4 py-3 mb-5 flex flex-wrap items-center justify-between gap-3">
+
+    {# Gauche : badge niveau + nom classe + stats rapides #}
+    <div class="flex items-center gap-3 min-w-0">
+      {% if active_class_badge %}
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border flex-shrink-0 {{ active_class_badge.1 }}">
+          {{ active_class_badge.0 }}
+        </span>
+      {% endif %}
+      <span class="font-semibold text-gray-800 truncate">{{ active_class.name }}</span>
+      <span class="text-sm text-gray-400 flex-shrink-0">
+        {{ student_count|default:'?' }} élève{{ student_count|pluralize }}
+        {% if subject_count %} · {{ subject_count }} matière{{ subject_count|pluralize }}{% endif %}
+      </span>
+    </div>
+
+    {# Droite : actions #}
+    <div class="flex items-center gap-2 flex-shrink-0">
+      {% if can_generate and active_period %}
+        <button type="button"
+                class="btn-primary text-sm"
+                hx-post="{% url 'bulletins:generate-class' active_class.pk active_period.pk %}"
+                hx-target="#tab-content"
+                hx-swap="innerHTML">
+          <i data-lucide="zap" class="w-4 h-4"></i>
+          Générer tous
+        </button>
+      {% endif %}
+      {% if generated_count and generated_count > 0 and active_period %}
+        <a href="{% url 'bulletins:download-all' active_class.pk active_period.pk %}"
+           class="inline-flex items-center gap-1.5 text-sm bg-white border border-gray-200 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-50 transition font-medium">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          ZIP
+        </a>
+      {% endif %}
+    </div>
+
+  </div>
+
+  {# ── Onglets ───────────────────────────────────────────────── #}
   <div class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 mb-6"
        x-data="{ tab: '{{ active_tab }}' }">
+
     <button type="button"
             x-on:click="tab = 'health'"
-            x-bind:class="tab === 'health' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
-            class="px-4 py-2 rounded-md text-sm transition-all"
+            x-bind:class="tab === 'health'
+              ? 'bg-white shadow-sm text-gray-900 font-medium'
+              : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm transition-all"
             hx-get="{% url 'bulletins:health-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
             hx-target="#tab-content"
             hx-swap="innerHTML">
-      {% trans "Santé éducative" %}
+      <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i>
+      Santé éducative
     </button>
+
     <button type="button"
             x-on:click="tab = 'bullets'"
-            x-bind:class="tab === 'bullets' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
-            class="px-4 py-2 rounded-md text-sm transition-all"
+            x-bind:class="tab === 'bullets'
+              ? 'bg-white shadow-sm text-gray-900 font-medium'
+              : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm transition-all"
             hx-get="{% url 'bulletins:bullets-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
             hx-target="#tab-content"
             hx-swap="innerHTML">
-      {% trans "Bulletins" %}
+      <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+      Bulletins
+      {% if total_count %}
+        <span class="ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-mono
+                     {% if generated_count == total_count %}bg-green-100 text-green-700{% else %}bg-gray-200 text-gray-600{% endif %}">
+          {{ generated_count|default:'0' }}/{{ total_count }}
+        </span>
+      {% endif %}
     </button>
+
     <button type="button"
             x-on:click="tab = 'rankings'"
-            x-bind:class="tab === 'rankings' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
-            class="px-4 py-2 rounded-md text-sm transition-all"
+            x-bind:class="tab === 'rankings'
+              ? 'bg-white shadow-sm text-gray-900 font-medium'
+              : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm transition-all"
             hx-get="{% url 'bulletins:rankings-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
             hx-target="#tab-content"
             hx-swap="innerHTML">
-      {% trans "Classements" %}
+      <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
+      Classements
     </button>
+
   </div>
 
-  {# ── Contenu de l'onglet ────────────────────────────────────── #}
+  {# ── Contenu de l'onglet ──────────────────────────────────── #}
   <div id="tab-content"
-       hx-get="{% url 'bulletins:health-tab' %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
+       hx-get="{% if active_tab == 'bullets' %}{% url 'bulletins:bullets-tab' %}{% elif active_tab == 'rankings' %}{% url 'bulletins:rankings-tab' %}{% else %}{% url 'bulletins:health-tab' %}{% endif %}?class={{ active_class.pk }}&period={{ active_period.pk }}"
        hx-trigger="load"
        hx-swap="innerHTML">
-    {% include "bulletins/partials/health_tab.html" %}
+    {% if active_tab == 'bullets' %}
+      {% include "bulletins/partials/bulletins_tab.html" %}
+    {% elif active_tab == 'rankings' %}
+      {% include "bulletins/partials/rankings_tab.html" %}
+    {% else %}
+      {% include "bulletins/partials/health_tab.html" %}
+    {% endif %}
   </div>
+
 {% endif %}
 
 {% endblock %}

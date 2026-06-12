@@ -7,6 +7,7 @@ from .models import (
     School, SchoolClass, SchoolType,
     SchoolYear, Period, PeriodType,
     Subject, ClassSubject, NoteSystem,
+    BulletinConfig,
 )
 
 
@@ -199,6 +200,42 @@ class SubjectForm(forms.ModelForm):
         return color or '#1E3A5F'
 
 
+# ── Bulletin config ────────────────────────────────────────────────────────
+
+class BulletinConfigForm(forms.ModelForm):
+
+    class Meta:
+        model  = BulletinConfig
+        fields = [
+            'show_ministry_header',
+            'ministry_line1', 'ministry_line2', 'ministry_line3',
+            'republic_line1', 'republic_line2',
+            'bulletin_title',
+            'show_logo',
+            'paper_format',
+            'show_rank', 'show_class_average',
+            'show_first_average', 'show_appreciations',
+            'show_annual_averages', 'show_last_average',
+            'footer_left', 'footer_right',
+        ]
+        widgets = {
+            'ministry_line1': forms.TextInput(attrs={'class': _F, 'placeholder': "MINISTERE DE L'EDUCATION NATIONALE"}),
+            'ministry_line2': forms.TextInput(attrs={'class': _F, 'placeholder': "Académie d'Enseignement de Bamako"}),
+            'ministry_line3': forms.TextInput(attrs={'class': _F, 'placeholder': "CAP de la Commune IV (optionnel)"}),
+            'republic_line1': forms.TextInput(attrs={'class': _F, 'placeholder': "REPUBLIQUE DU MALI"}),
+            'republic_line2': forms.TextInput(attrs={'class': _F, 'placeholder': "UN PEUPLE - UN BUT - UNE FOI"}),
+            'bulletin_title': forms.TextInput(attrs={'class': _F, 'placeholder': "RELEVE DE NOTES"}),
+            'paper_format':   forms.Select(attrs={'class': _S}),
+            'footer_left':    forms.TextInput(attrs={'class': _F, 'placeholder': "Le Parent"}),
+            'footer_right':   forms.TextInput(attrs={'class': _F, 'placeholder': "Le Directeur"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for f in self.fields.values():
+            f.required = False
+
+
 class ClassSubjectForm(forms.ModelForm):
 
     class Meta:
@@ -220,6 +257,7 @@ class ClassSubjectForm(forms.ModelForm):
         }
 
     def __init__(self, school, school_class, *args, **kwargs):
+
         super().__init__(*args, **kwargs)
         from apps.accounts.models import User
 
