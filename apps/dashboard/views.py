@@ -292,7 +292,7 @@ def _compute_activity(school):
             'text': f'{n.entered_by.full_name} -- {n.class_subject.subject.name} ({n.class_subject.school_class.name})',
             'url': f'/notes/{n.class_subject.school_class_id}/{n.period_id}/',
         })
-    for s in Student.objects.filter(school=school).order_by('-enrolled_at')[:5]:
+    for s in Student.objects.filter(school=school, is_active=True).order_by('-enrolled_at')[:5]:
         activity.append({
             'type': 'student', 'icon': 'user-plus',
             'label': '\u00c9l\u00e8ve inscrit',
