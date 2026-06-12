@@ -518,11 +518,27 @@ class BulletinConfig(models.Model):
     show_ministry_header = models.BooleanField(
         _('afficher l\'en-tête ministériel'), default=True,
     )
-    ministry_text = models.TextField(
-        _('texte ministère (gauche)'), blank=True, default='',
+    ministry_line1 = models.CharField(
+        _('ministère — ligne 1'), max_length=200, blank=True,
+        default="MINISTERE DE L'EDUCATION NATIONALE",
     )
-    republic_text = models.TextField(
-        _('texte république (droite)'), blank=True, default='',
+    ministry_line2 = models.CharField(
+        _('ministère — ligne 2 (ex: Académie)'), max_length=200, blank=True, default='',
+    )
+    ministry_line3 = models.CharField(
+        _('ministère — ligne 3 (ex: CAP)'), max_length=200, blank=True, default='',
+    )
+    republic_line1 = models.CharField(
+        _('république — ligne 1'), max_length=200, blank=True,
+        default='REPUBLIQUE DU MALI',
+    )
+    republic_line2 = models.CharField(
+        _('république — ligne 2 (devise)'), max_length=200, blank=True,
+        default='UN PEUPLE - UN BUT - UNE FOI',
+    )
+    bulletin_title = models.CharField(
+        _('titre du bulletin'), max_length=200, blank=True,
+        default='RELEVE DE NOTES',
     )
     show_logo = models.BooleanField(_('afficher le logo'), default=True)
     paper_format = models.CharField(
@@ -542,6 +558,12 @@ class BulletinConfig(models.Model):
     )
     show_appreciations = models.BooleanField(
         _('afficher les appréciations'), default=True,
+    )
+    show_annual_averages = models.BooleanField(
+        _('afficher les moyennes des autres trimestres'), default=False,
+    )
+    show_last_average = models.BooleanField(
+        _('afficher la moyenne du dernier'), default=False,
     )
     footer_left = models.CharField(
         _('pied gauche'), max_length=100, blank=True, default='Le Parent',

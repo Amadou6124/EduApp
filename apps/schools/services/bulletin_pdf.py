@@ -113,15 +113,26 @@ def _build_context(bulletin: Bulletin, lines: list[BulletinLine], config: Bullet
     ) if any(line.weighted_grade is not None for line in lines) else None
 
     return {
-        'school': school,
-        'student': student,
-        'period': period,
-        'bulletin': bulletin,
-        'config': config,
-        'subjects_rows': subjects_rows,
-        'total_coeff': total_coeff,
-        'total_weighted': total_weighted,
-        'generated_at': bulletin.generated_at or datetime.now(),
+        'school':          school,
+        'student':         student,
+        'period':          period,
+        'bulletin':        bulletin,
+        'config':          config,
+        'subjects_rows':   subjects_rows,
+        'total_coeff':     total_coeff,
+        'total_weighted':  total_weighted,
+        'generated_at':    bulletin.generated_at or datetime.now(),
+        # En-tête structuré (nouveaux champs BulletinConfig)
+        'ministry_lines':  [l for l in [
+            config.ministry_line1,
+            config.ministry_line2,
+            config.ministry_line3,
+        ] if l],
+        'republic_lines':  [l for l in [
+            config.republic_line1,
+            config.republic_line2,
+        ] if l],
+        'bulletin_title':  config.bulletin_title or 'RELEVE DE NOTES',
     }
 
 
