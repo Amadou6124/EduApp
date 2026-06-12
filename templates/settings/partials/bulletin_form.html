@@ -94,12 +94,27 @@
     </div>
 
     <div class="space-y-2">
-      {% for field in form.show_logo,form.show_rank,form.show_class_average,form.show_first_average,form.show_appreciations,form.show_annual_averages,form.show_last_average %}
       <label class="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
-        {{ field }}
-        <span class="text-sm text-gray-700">{{ field.label }}</span>
+        {{ form.show_logo }}<span class="text-sm text-gray-700">{{ form.show_logo.label }}</span>
       </label>
-      {% endfor %}
+      <label class="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+        {{ form.show_rank }}<span class="text-sm text-gray-700">{{ form.show_rank.label }}</span>
+      </label>
+      <label class="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+        {{ form.show_class_average }}<span class="text-sm text-gray-700">{{ form.show_class_average.label }}</span>
+      </label>
+      <label class="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+        {{ form.show_first_average }}<span class="text-sm text-gray-700">{{ form.show_first_average.label }}</span>
+      </label>
+      <label class="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+        {{ form.show_appreciations }}<span class="text-sm text-gray-700">{{ form.show_appreciations.label }}</span>
+      </label>
+      <label class="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+        {{ form.show_annual_averages }}<span class="text-sm text-gray-700">{{ form.show_annual_averages.label }}</span>
+      </label>
+      <label class="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+        {{ form.show_last_average }}<span class="text-sm text-gray-700">{{ form.show_last_average.label }}</span>
+      </label>
     </div>
   </div>
 
