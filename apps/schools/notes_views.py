@@ -537,7 +537,7 @@ def note_cancel(request, note_id):
     note.modified_by        = user
     note.save(update_fields=['is_cancelled', 'cancellation_reason', 'modified_by', 'modified_at'])
 
-    return render(request, 'notes/partials/note_cell.html', {
+    resp = render(request, 'notes/partials/note_cell.html', {
         'cs':        note.class_subject,
         'student':   note.student,
         'period':    note.period,
@@ -546,6 +546,10 @@ def note_cancel(request, note_id):
         'can_enter': True,
         'cancelled': True,
     })
+    resp['HX-Trigger'] = json.dumps({
+        'showToast': {'message': 'Note annulée.', 'type': 'info'}
+    })
+    return resp
 
 
 # ─────────────────────────────────────────────────────────────
