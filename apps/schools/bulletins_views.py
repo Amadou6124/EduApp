@@ -159,6 +159,7 @@ def bulletins_tab(request):
         'can_generate':   request.user.role in ('director', 'staff') or request.user.is_superuser,
         'generated_count': len(existing),
         'total_count':     len(students),
+        'pending_count':   len(students) - len(existing),
     })
 
 
@@ -247,6 +248,7 @@ def generate_class_bulletins(request, class_id, period_id):
         'can_generate':   True,
         'generated_count': len(existing),
         'total_count':     len(students),
+        'pending_count':   len(students) - len(existing),
     })
     response['HX-Trigger'] = json.dumps({
         'bullets-generated': {
@@ -345,6 +347,27 @@ def bulletin_download(request, bulletin_id):
 
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@director_or_staff_required
+def bulletin_view_pdf(request, bulletin_id):
+    """Ouvre le PDF dans le navigateur (Content-Disposition: inline)."""
+    school = get_school(request)
+    bulletin = get_object_or_404(
+        Bulletin,
+        pk=bulletin_id,
+        student__school=school,
+        is_cancelled=False,
+    )
+    pdf_bytes = generate_bulletin_pdf(bulletin)
+    filename = (
+        f'bulletin_{bulletin.student.full_name.replace(" ", "_")}_'
+        f'{bulletin.period.name.replace(" ", "_")}.pdf'
+    )
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
 
 
