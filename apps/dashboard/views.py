@@ -6,7 +6,8 @@ Zero donnee fictive.
 from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Sum, Q, Avg
+from django.db.models import Count, Sum, Q, Avg, Subquery, OuterRef, F
+from django.db.models.functions import Coalesce
 from django.shortcuts import render
 
 from apps.core.mixins import get_school
@@ -39,7 +40,7 @@ def dashboard_view(request):
             active_period = active_year.periods.order_by('-order').first()
 
     kpis = _compute_kpis(school, active_period)
-    alerts = _compute_alerts(school, active_period)
+    alerts = _compute_alerts(school, active_period, kpis['unpaid_count'])
     charts = _compute_charts(school, active_year)
     class_health = _compute_class_health(school, active_period)
     activity = _compute_activity(school)
@@ -66,10 +67,21 @@ def _compute_kpis(school, active_period):
             is_cancelled=False,
         ).aggregate(total=Sum('amount'))
         total_collected = result['total'] or 0
-    unpaid_count = 0
-    for s in Student.objects.filter(school=school, is_active=True):
-        if s.get_balance_due() > 0:
-            unpaid_count += 1
+    paid_subquery = Coalesce(
+        Subquery(
+            Payment.objects.filter(student=OuterRef('pk'), is_cancelled=False)
+            .values('student')
+            .annotate(total=Sum('amount'))
+            .values('total')[:1]
+        ),
+        0,
+    )
+    unpaid_count = (
+        Student.objects.filter(school=school, is_active=True)
+        .annotate(total_paid=paid_subquery)
+        .filter(total_paid__lt=F('tuition_fee'))
+        .count()
+    )
     school_avg = None
     if active_period:
         result = Note.objects.filter(
@@ -85,21 +97,14 @@ def _compute_kpis(school, active_period):
     }
 
 
-def _compute_alerts(school, active_period):
+def _compute_alerts(school, active_period, unpaid_count=0):
     alerts = []
-    today = date.today()
     if not active_period:
         return alerts
-    # Critique : impayes > 30 jours
-    thirty_days_ago = today - timedelta(days=30)
-    unpaid_crit = 0
-    for s in Student.objects.filter(school=school, is_active=True):
-        if s.get_balance_due() > 0:
-            unpaid_crit += 1
-    if unpaid_crit > 0:
+    if unpaid_count > 0:
         alerts.append({
             'level': 'critical', 'icon': 'alert-circle',
-            'title': f'{unpaid_crit} eleve{"s" if unpaid_crit > 1 else ""} avec solde impaye',
+            'title': f'{unpaid_count} eleve{"s" if unpaid_count > 1 else ""} avec solde impaye',
             'text': 'Ces eleves ont un solde impaye.',
             'action_url': '/payments/', 'action_text': 'Voir les paiements >',
         })
