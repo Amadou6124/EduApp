@@ -1,13 +1,7 @@
 {% load i18n %}
-{#
-  Partial — card d'un membre de l'équipe.
-  Contexte : member (User), class_count (int, teachers only),
-             is_director (bool)
-#}
 {% with colors=member.get_avatar_colors initials=member.get_initials %}
 <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-4 hover:shadow-md transition-shadow duration-200 animate-fade-in-up">
 
-  {# ── En-tête : avatar + identité + badge rôle #}
   <div class="flex items-start gap-3">
     <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
          style="background-color:{{ colors.0 }};color:{{ colors.1 }}">
@@ -21,13 +15,13 @@
         <p class="text-xs text-gray-400 truncate mt-0.5">{{ member.get_role_display }}</p>
       {% endif %}
     </div>
-    {# Badge rôle #}
     {% if member.role == 'teacher' %}
       <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-brand-blue flex-shrink-0">
         Enseignant
       </span>
     {% elif member.role == 'staff' %}
-      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 flex-shrink-0">
+      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0"
+            style="background-color:#F3F0FE;color:#5B21B6">
         Staff
       </span>
     {% elif member.role == 'director' %}
@@ -38,9 +32,7 @@
     {% endif %}
   </div>
 
-  {# ── Contenu spécifique au rôle #}
   {% if member.role == 'teacher' %}
-    {# Matières de l'enseignant #}
     <div class="min-h-[40px]">
       {% if member.active_subjects %}
         <div class="flex flex-wrap gap-1.5 mb-1.5">
@@ -68,42 +60,39 @@
     </div>
 
   {% elif member.role == 'staff' %}
-    {# Badges des permissions actives #}
     <div class="min-h-[40px]">
       {% with perm=member.staff_permission %}
       {% if perm %}
-        {% comment %}
-          On construit la liste des permissions actives à afficher.
-          Limité à 3 badges + compteur "+X autres".
-        {% endcomment %}
         <div class="flex flex-wrap gap-1.5">
           {% if perm.can_view_payments or perm.can_create_payments %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-green-50 text-green-700 perm-badge">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-green-50 text-green-700">
               Paiements
             </span>
           {% endif %}
           {% if perm.can_view_notes or perm.can_edit_notes %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 perm-badge">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700">
               Notes
             </span>
           {% endif %}
           {% if perm.can_generate_bulletins or perm.can_download_bulletins %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 perm-badge">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium"
+                  style="background-color:#EEF2FF;color:#4338CA">
               Bulletins
             </span>
           {% endif %}
           {% if perm.can_record_absences %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-orange-50 text-orange-700 perm-badge">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-orange-50 text-orange-700">
               Absences
             </span>
           {% endif %}
           {% if perm.can_create_students or perm.can_edit_students %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-teal-50 text-teal-700 perm-badge">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium"
+                  style="background-color:#F0FDFA;color:#0F766E">
               Élèves
             </span>
           {% endif %}
           {% if perm.can_edit_classes %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600 perm-badge">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
               Classes
             </span>
           {% endif %}
@@ -118,14 +107,12 @@
     </div>
   {% endif %}
 
-  {# ── Actions #}
   <div class="flex gap-2 pt-3 border-t border-gray-100 mt-auto">
     <a href="{% url 'team:detail' member.pk %}"
        class="flex-1 text-center text-xs font-medium text-brand-blue bg-blue-50 hover:bg-blue-100 py-2 rounded-lg transition min-h-[36px] flex items-center justify-center gap-1">
       <i data-lucide="eye" class="w-3.5 h-3.5"></i>
       Voir
     </a>
-
     {% if is_director %}
       <button type="button"
               @click="openEditPanel({{ member.pk }})"

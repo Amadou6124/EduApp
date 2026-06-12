@@ -8,23 +8,19 @@
 <script>
 function teamPageData() {
   return {
-    // ── Panel création ──────────────────────────────────────────
-    showPanel:    false,
-    selectedRole: 'teacher',
-
-    // ── Panel édition ───────────────────────────────────────────
+    showPanel:     false,
+    selectedRole:  'teacher',
     showEditPanel: false,
     editUserId:    null,
-
-    // ── Modal mot de passe (affiché une seule fois) ─────────────
     showPwdModal:  false,
     pwdPhone:      '',
     pwdValue:      '',
     pwdCopied:     false,
+    searchTeacher: '',
+    searchStaff:   '',
 
-    // ── Helpers ─────────────────────────────────────────────────
     openEditPanel(userId) {
-      this.editUserId   = userId
+      this.editUserId    = userId
       this.showEditPanel = true
       this.$nextTick(() => {
         htmx.ajax('GET', `/team/${userId}/edit/`, {
@@ -46,8 +42,8 @@ function teamPageData() {
         confirmClass: 'bg-orange-600 hover:bg-orange-700 text-white',
         onConfirm: () => {
           htmx.ajax('POST', `/team/${userId}/deactivate/`, {
-            target: `#member-card-${userId}`,
-            swap:   'outerHTML',
+            target:  `#member-card-${userId}`,
+            swap:    'outerHTML',
             headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' },
           })
         },
@@ -71,7 +67,6 @@ function teamPageData() {
        $nextTick(() => lucide.createIcons())
      ">
 
-  {# ── En-tête page ── #}
   <div class="flex items-center justify-between mb-6">
     <div></div>
     {% if is_director %}
@@ -83,7 +78,6 @@ function teamPageData() {
     {% endif %}
   </div>
 
-  {# ── Stats ── #}
   <div class="grid grid-cols-3 gap-4 mb-8">
     <div class="bg-white rounded-xl border border-gray-200 p-5 animate-fade-in-up">
       <div class="flex items-center gap-3 mb-2">
@@ -105,28 +99,46 @@ function teamPageData() {
     </div>
     <div class="bg-white rounded-xl border border-gray-200 p-5 animate-fade-in-up animate-delay-200">
       <div class="flex items-center gap-3 mb-2">
-        <div class="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center">
-          <i data-lucide="briefcase" class="w-4 h-4 text-purple-600"></i>
+        <div class="w-9 h-9 rounded-lg flex items-center justify-center"
+             style="background-color:#F3F0FE">
+          <i data-lucide="briefcase" class="w-4 h-4" style="color:#5B21B6"></i>
         </div>
         <p class="text-xs text-gray-500 uppercase tracking-wide">Staff admin</p>
       </div>
-      <p class="text-3xl font-bold text-purple-600">{{ stats.staff }}</p>
+      <p class="text-3xl font-bold" style="color:#5B21B6">{{ stats.staff }}</p>
     </div>
   </div>
 
-  {# ── Section Enseignants ── #}
   <div class="mb-10">
-    <div class="flex items-center gap-2 mb-4">
-      <h2 class="text-base font-semibold text-gray-800">Enseignants</h2>
-      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-brand-blue">
-        {{ stats.teachers }}
-      </span>
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <h2 class="text-base font-semibold text-gray-800">Enseignants</h2>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-brand-blue">
+          {{ stats.teachers }}
+        </span>
+      </div>
     </div>
 
     {% if teachers_data %}
+      <div class="relative mb-4">
+        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+          <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+          </svg>
+        </div>
+        <input type="text"
+               x-model="searchTeacher"
+               autocomplete="off"
+               placeholder="Rechercher un enseignant…"
+               class="w-full min-h-[44px] rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 transition focus:border-brand-blue focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20">
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {% for item in teachers_data %}
-          <div id="member-card-{{ item.user.pk }}">
+          <div id="member-card-{{ item.user.pk }}"
+               data-name="{{ item.user.full_name|lower }}"
+               x-show="!searchTeacher || $el.dataset.name.includes(searchTeacher.toLowerCase())">
             {% with member=item.user class_count=item.class_count %}
               {% include "team/partials/member_card.html" %}
             {% endwith %}
@@ -134,7 +146,6 @@ function teamPageData() {
         {% endfor %}
       </div>
     {% else %}
-      {# État vide enseignants #}
       <div class="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center animate-fade-in">
         <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <i data-lucide="graduation-cap" class="w-7 h-7 text-brand-blue"></i>
@@ -152,19 +163,37 @@ function teamPageData() {
     {% endif %}
   </div>
 
-  {# ── Section Staff administratif ── #}
   <div class="mb-10">
-    <div class="flex items-center gap-2 mb-4">
-      <h2 class="text-base font-semibold text-gray-800">Staff administratif</h2>
-      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700">
-        {{ stats.staff }}
-      </span>
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <h2 class="text-base font-semibold text-gray-800">Staff administratif</h2>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+              style="background-color:#F3F0FE;color:#5B21B6">
+          {{ stats.staff }}
+        </span>
+      </div>
     </div>
 
     {% if staff_members %}
+      <div class="relative mb-4">
+        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+          <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+          </svg>
+        </div>
+        <input type="text"
+               x-model="searchStaff"
+               autocomplete="off"
+               placeholder="Rechercher un membre du staff…"
+               class="w-full min-h-[44px] rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 transition focus:border-brand-blue focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20">
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {% for member in staff_members %}
-          <div id="member-card-{{ member.pk }}">
+          <div id="member-card-{{ member.pk }}"
+               data-name="{{ member.full_name|lower }}"
+               x-show="!searchStaff || $el.dataset.name.includes(searchStaff.toLowerCase())">
             {% with class_count=0 %}
               {% include "team/partials/member_card.html" %}
             {% endwith %}
@@ -172,10 +201,10 @@ function teamPageData() {
         {% endfor %}
       </div>
     {% else %}
-      {# État vide staff #}
       <div class="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center animate-fade-in animate-delay-100">
-        <div class="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <i data-lucide="briefcase" class="w-7 h-7 text-purple-600"></i>
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+             style="background-color:#F3F0FE">
+          <i data-lucide="briefcase" class="w-7 h-7" style="color:#5B21B6"></i>
         </div>
         <p class="text-sm font-semibold text-gray-700 mb-1">Aucun staff administratif</p>
         <p class="text-sm text-gray-400 mb-5">Ajoutez un secrétaire, comptable ou censeur.</p>
@@ -190,9 +219,6 @@ function teamPageData() {
     {% endif %}
   </div>
 
-  {# ══════════════════════════════════════════════════════════════
-     PANEL CRÉATION — slide depuis droite
-  ══════════════════════════════════════════════════════════════ #}
   <div x-show="showPanel" x-cloak
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
@@ -213,7 +239,6 @@ function teamPageData() {
        x-transition:leave-end="translate-x-full"
        class="fixed top-0 right-0 h-full w-full sm:w-[540px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col">
 
-    {# Header panel #}
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
       <div class="flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center">
@@ -227,7 +252,6 @@ function teamPageData() {
       </button>
     </div>
 
-    {# Corps du panel — formulaire #}
     <div class="flex-1 overflow-y-auto">
       <form id="team-create-form"
             hx-post="{% url 'team:create' %}"
@@ -238,15 +262,21 @@ function teamPageData() {
               role: selectedRole,
               showPwd: false,
               permissions: {
-                can_view_payments:   false, can_create_payments: false, can_cancel_payments: false,
-                can_view_students:   true,  can_create_students: false, can_edit_students:   false,
-                can_view_notes:      false, can_edit_notes:      false,
-                can_generate_bulletins: false, can_download_bulletins: false,
-                can_record_absences: false,
-                can_view_classes:    true,  can_edit_classes:    false,
+                can_view_payments:      false,
+                can_create_payments:    false,
+                can_cancel_payments:    false,
+                can_view_students:      true,
+                can_create_students:    false,
+                can_edit_students:      false,
+                can_view_notes:         false,
+                can_edit_notes:         false,
+                can_generate_bulletins: false,
+                can_download_bulletins: false,
+                can_record_absences:    false,
+                can_view_classes:       true,
+                can_edit_classes:       false,
               },
               applyPreset(name) {
-                // Remet tout à zéro sauf les champs toujours vrais
                 Object.keys(this.permissions).forEach(k => {
                   this.permissions[k] = (k === 'can_view_students' || k === 'can_view_classes')
                 })
@@ -262,7 +292,6 @@ function teamPageData() {
               generatePwd() {
                 const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
                 this.$refs.pwdInput.value = Array.from({length:10}, () => chars[Math.floor(Math.random()*chars.length)]).join('')
-                this.$refs.pwdInput.type = 'text'
                 this.showPwd = true
               },
             }"
@@ -273,47 +302,34 @@ function teamPageData() {
 
         <div class="px-6 py-5 space-y-6">
 
-          {# ── Section 1 : Identité ── #}
           <div>
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
-              Identité
-            </h3>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Identité</h3>
             <div class="grid grid-cols-2 gap-3 mb-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Prénom <span class="text-red-400">*</span></label>
-                <input type="text" name="first_name" required
-                       class="input-field" placeholder="Prénom">
+                <input type="text" name="first_name" required class="input-field" placeholder="Prénom">
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom <span class="text-red-400">*</span></label>
-                <input type="text" name="last_name" required
-                       class="input-field" placeholder="Nom de famille">
+                <input type="text" name="last_name" required class="input-field" placeholder="Nom de famille">
               </div>
             </div>
             <div class="mb-3">
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone <span class="text-red-400">*</span></label>
-              <input type="tel" name="phone_number" required
-                     class="input-field" placeholder="Ex : 0700000000" inputmode="tel">
+              <input type="tel" name="phone_number" required class="input-field" placeholder="Ex : 0700000000" inputmode="tel">
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Titre du poste</label>
-              <input type="text" name="job_title"
-                     class="input-field" placeholder="Ex : Censeur, Comptable, Surveillant…">
+              <input type="text" name="job_title" class="input-field" placeholder="Ex : Censeur, Comptable, Surveillant…">
             </div>
           </div>
 
-          {# ── Section 2 : Rôle ── #}
           <div class="border-t border-gray-100 pt-5">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
-              Rôle
-            </h3>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Rôle</h3>
             <div class="grid grid-cols-2 gap-3">
-
               <button type="button" @click="role = 'teacher'"
-                      :class="role === 'teacher'
-                        ? 'border-brand-blue bg-blue-50 ring-1 ring-brand-blue'
-                        : 'border-gray-200 hover:border-gray-300 bg-white'"
-                      class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition text-left cursor-pointer">
+                      :class="role === 'teacher' ? 'border-brand-blue bg-blue-50 ring-1 ring-brand-blue' : 'border-gray-200 hover:border-gray-300 bg-white'"
+                      class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition cursor-pointer">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center"
                      :class="role === 'teacher' ? 'bg-brand-blue' : 'bg-gray-100'">
                   <i data-lucide="graduation-cap" class="w-5 h-5"
@@ -324,14 +340,12 @@ function teamPageData() {
                   <p class="text-xs text-gray-400 mt-0.5">Accès classes &amp; matières</p>
                 </div>
               </button>
-
               <button type="button" @click="role = 'staff'"
-                      :class="role === 'staff'
-                        ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-500'
-                        : 'border-gray-200 hover:border-gray-300 bg-white'"
-                      class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition text-left cursor-pointer">
+                      :class="role === 'staff' ? 'ring-1 bg-opacity-10' : 'border-gray-200 hover:border-gray-300 bg-white'"
+                      :style="role === 'staff' ? 'border-color:#5B21B6;background-color:#F3F0FE;box-shadow:0 0 0 1px #5B21B6' : ''"
+                      class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition cursor-pointer">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center"
-                     :class="role === 'staff' ? 'bg-purple-600' : 'bg-gray-100'">
+                     :style="role === 'staff' ? 'background-color:#5B21B6' : 'background-color:#F3F4F6'">
                   <i data-lucide="briefcase" class="w-5 h-5"
                      :class="role === 'staff' ? 'text-white' : 'text-gray-500'"></i>
                 </div>
@@ -340,19 +354,15 @@ function teamPageData() {
                   <p class="text-xs text-gray-400 mt-0.5">Permissions configurables</p>
                 </div>
               </button>
-
             </div>
           </div>
 
-          {# ── Section 3A : Enseignant — assignation matières (placeholder) ── #}
           <div x-show="role === 'teacher'" x-cloak
                x-transition:enter="transition ease-out duration-200"
                x-transition:enter-start="opacity-0 -translate-y-1"
                x-transition:enter-end="opacity-100 translate-y-0"
                class="border-t border-gray-100 pt-5">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-              Assignation matières &amp; classes
-            </h3>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Assignation matières &amp; classes</h3>
             <div class="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 flex items-start gap-3">
               <i data-lucide="info" class="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5"></i>
               <p class="text-xs text-blue-700 leading-relaxed">
@@ -363,18 +373,14 @@ function teamPageData() {
             </div>
           </div>
 
-          {# ── Section 3B : Staff — profils rapides + permissions ── #}
           <div x-show="role === 'staff'" x-cloak
                x-transition:enter="transition ease-out duration-200"
                x-transition:enter-start="opacity-0 -translate-y-1"
                x-transition:enter-end="opacity-100 translate-y-0"
                class="border-t border-gray-100 pt-5 space-y-5">
 
-            {# Profils rapides #}
             <div>
-              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                Profil rapide
-              </h3>
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Profil rapide</h3>
               <div class="flex flex-wrap gap-2">
                 {% for label, key in presets %}
                   <button type="button" @click="applyPreset('{{ key }}')"
@@ -385,15 +391,12 @@ function teamPageData() {
               </div>
             </div>
 
-            {# Permissions par catégorie avec toggle switch #}
             <div class="space-y-4">
-
               {% for group_label, group_fields in perm_form.grouped_fields %}
                 <div>
                   <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{{ group_label }}</p>
                   <div class="space-y-2">
                     {% for bf in group_fields %}
-                      {# Champs toujours actifs (vue élèves, vue classes) : non modifiables #}
                       {% if bf.name == "can_view_students" or bf.name == "can_view_classes" %}
                         <div class="flex items-center justify-between py-1">
                           <span class="text-sm text-gray-500">{{ bf.label }}</span>
@@ -403,7 +406,6 @@ function teamPageData() {
                       {% else %}
                         <label class="flex items-center justify-between py-1 cursor-pointer group">
                           <span class="text-sm text-gray-700 group-hover:text-gray-900 transition">{{ bf.label }}</span>
-                          {# Toggle switch Alpine (lié à permissions[name]) #}
                           <div class="relative flex-shrink-0">
                             <input type="checkbox"
                                    name="{{ bf.name }}"
@@ -412,7 +414,7 @@ function teamPageData() {
                                    class="sr-only peer">
                             <div @click="permissions['{{ bf.name }}'] = !permissions['{{ bf.name }}']"
                                  :class="permissions['{{ bf.name }}'] ? 'bg-brand-blue' : 'bg-gray-200'"
-                                 class="w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer peer-focus:ring-2 peer-focus:ring-brand-blue/30"></div>
+                                 class="w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"></div>
                             <div @click="permissions['{{ bf.name }}'] = !permissions['{{ bf.name }}']"
                                  :class="permissions['{{ bf.name }}'] ? 'translate-x-4' : 'translate-x-0'"
                                  class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 cursor-pointer"></div>
@@ -426,29 +428,21 @@ function teamPageData() {
                   <div class="border-t border-gray-50"></div>
                 {% endif %}
               {% endfor %}
-
             </div>
           </div>
 
-          {# ── Section 4 : Accès / Mot de passe ── #}
           <div class="border-t border-gray-100 pt-5">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-              Accès
-            </h3>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">
-              Mot de passe temporaire
-            </label>
-            <div class="relative flex gap-2">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Accès</h3>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Mot de passe temporaire</label>
+            <div class="flex gap-2">
               <div class="relative flex-1">
                 <input x-ref="pwdInput"
-                       type="password"
-                       name="password"
                        :type="showPwd ? 'text' : 'password'"
+                       name="password"
                        class="input-field pr-10"
                        placeholder="Laissez vide pour générer automatiquement"
                        autocomplete="new-password">
-                <button type="button"
-                        @click="showPwd = !showPwd"
+                <button type="button" @click="showPwd = !showPwd"
                         class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
                   <i :data-lucide="showPwd ? 'eye-off' : 'eye'" class="w-4 h-4"></i>
                 </button>
@@ -465,19 +459,15 @@ function teamPageData() {
             </p>
           </div>
 
-        </div>{# fin px-6 py-5 #}
+        </div>
 
-        {# ── Pied du panel — sticky ── #}
         <div class="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex gap-3 flex-shrink-0">
-          <button type="button" @click="showPanel = false"
-                  class="btn-secondary flex-1">
+          <button type="button" @click="showPanel = false" class="btn-secondary flex-1">
             Annuler
           </button>
           <button type="submit"
                   class="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
-            <svg id="create-spinner"
-                 class="w-4 h-4 htmx-indicator animate-spin hidden"
-                 fill="none" viewBox="0 0 24 24">
+            <svg id="create-spinner" class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
             </svg>
@@ -487,11 +477,8 @@ function teamPageData() {
 
       </form>
     </div>
-  </div>{# fin panel création #}
+  </div>
 
-  {# ══════════════════════════════════════════════════════════════
-     PANEL ÉDITION — slide depuis droite
-  ══════════════════════════════════════════════════════════════ #}
   <div x-show="showEditPanel" x-cloak
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
@@ -511,7 +498,6 @@ function teamPageData() {
        x-transition:leave-start="translate-x-0"
        x-transition:leave-end="translate-x-full"
        class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col">
-
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
       <div class="flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center">
@@ -529,17 +515,13 @@ function teamPageData() {
         <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>
       </div>
     </div>
-  </div>{# fin panel édition #}
+  </div>
 
-  {# ══════════════════════════════════════════════════════════════
-     MODAL MOT DE PASSE (affichée une seule fois après création)
-  ══════════════════════════════════════════════════════════════ #}
   <div x-show="showPwdModal" x-cloak
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
        x-transition:enter-end="opacity-100"
        class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-
     <div x-show="showPwdModal"
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0 scale-95"
@@ -549,17 +531,14 @@ function teamPageData() {
          x-transition:leave-end="opacity-0 scale-95"
          class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
 
-      {# Icône succès #}
       <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
         <i data-lucide="check" class="w-6 h-6 text-green-600"></i>
       </div>
-
       <h3 class="text-base font-semibold text-gray-900 text-center mb-1">Membre créé avec succès</h3>
       <p class="text-sm text-gray-500 text-center mb-5 leading-relaxed">
         Communiquez ces identifiants au membre <strong>en personne</strong>.
       </p>
 
-      {# Bloc identifiants #}
       <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-4 space-y-2">
         <div class="flex items-center justify-between">
           <span class="text-xs text-gray-500">Téléphone</span>
@@ -571,19 +550,14 @@ function teamPageData() {
         </div>
       </div>
 
-      {# Bouton copier #}
       <button type="button"
-              @click="
-                navigator.clipboard.writeText('Téléphone : ' + pwdPhone + '\nMot de passe : ' + pwdValue)
-                  .then(() => { pwdCopied = true; setTimeout(() => pwdCopied = false, 2500) })
-              "
+              @click="navigator.clipboard.writeText('Téléphone : ' + pwdPhone + '\nMot de passe : ' + pwdValue).then(() => { pwdCopied = true; setTimeout(() => pwdCopied = false, 2500) })"
               :class="pwdCopied ? 'border-green-300 text-green-700 bg-green-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
               class="w-full flex items-center justify-center gap-2 border rounded-lg py-2.5 text-sm font-medium transition mb-4">
         <i :data-lucide="pwdCopied ? 'check' : 'clipboard'" class="w-4 h-4"></i>
         <span x-text="pwdCopied ? 'Copié !' : 'Copier les identifiants'"></span>
       </button>
 
-      {# Avertissement #}
       <div class="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 mb-5">
         <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5"></i>
         <p class="text-xs text-amber-700 leading-relaxed">
@@ -599,7 +573,7 @@ function teamPageData() {
       </button>
 
     </div>
-  </div>{# fin modal mot de passe #}
+  </div>
 
-</div>{# fin x-data teamPageData #}
+</div>
 {% endblock %}
