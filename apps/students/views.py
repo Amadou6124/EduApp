@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import logging
 from datetime import date, datetime
 
 import openpyxl
@@ -22,6 +23,8 @@ from apps.core.mixins import get_school
 
 from .forms import StudentCreateForm, StudentUpdateForm
 from .models import Student
+
+logger = logging.getLogger(__name__)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -128,10 +131,7 @@ def student_create(request):
             )
 
         if student.parent_phone_number:
-            print(
-                f'[SMS LOG] → {student.parent_phone_number} : '
-                f'{student.full_name} inscrit(e). Code d\'accès : {student.access_code}'
-            )
+            logger.info('[SMS] Notification parent à envoyer — élève : %s', student.full_name)
 
         if request.htmx:
             students = list(_students_qs(school))
