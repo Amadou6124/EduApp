@@ -8,6 +8,7 @@ import zipfile
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_http_methods
@@ -141,13 +142,14 @@ def bulletins_tab(request):
         ).select_related('student')
     }
 
+    with_notes = _students_with_notes(active_period, active_class)
     rows = []
     for student in students:
         bul = existing.get(student.pk)
         rows.append({
             'student':    student,
             'bulletin':   bul,
-            'has_notes':  _student_has_notes(student, active_period, active_class),
+            'has_notes':  student.pk in with_notes,
         })
 
     return render(request, 'bulletins/partials/bulletins_tab.html', {
@@ -228,13 +230,14 @@ def generate_class_bulletins(request, class_id, period_id):
             is_cancelled=False,
         ).select_related('student')
     }
+    with_notes = _students_with_notes(period, school_class)
     rows = []
     for student in students:
         bul = existing.get(student.pk)
         rows.append({
             'student':    student,
             'bulletin':   bul,
-            'has_notes':  _student_has_notes(student, period, school_class),
+            'has_notes':  student.pk in with_notes,
         })
 
     response = render(request, 'bulletins/partials/bulletins_tab.html', {
@@ -416,15 +419,37 @@ def _student_has_notes(student, period, school_class):
     ).count()
     if cs_count == 0:
         return False
-
     noted_count = Note.objects.filter(
         student=student,
         period=period,
         class_subject__school_class=school_class,
         is_cancelled=False,
     ).values('class_subject').distinct().count()
-
     return noted_count >= cs_count
+
+
+def _students_with_notes(period, school_class):
+    """
+    Retourne un set de student_id ayant une note pour chaque matière active de la classe.
+    2 requêtes SQL au lieu de 2×N.
+    """
+    cs_count = ClassSubject.objects.filter(
+        school_class=school_class, is_active=True,
+    ).count()
+    if cs_count == 0:
+        return set()
+
+    rows = (
+        Note.objects.filter(
+            period=period,
+            class_subject__school_class=school_class,
+            is_cancelled=False,
+        )
+        .values('student_id')
+        .annotate(distinct_subjects=Count('class_subject', distinct=True))
+        .filter(distinct_subjects__gte=cs_count)
+    )
+    return {row['student_id'] for row in rows}
 
 
 def _get_class_stats(school_class, period, school):
