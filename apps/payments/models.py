@@ -1,6 +1,6 @@
 import datetime
 
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import MinValueValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -83,20 +83,22 @@ class Payment(models.Model):
         super().save(*args, **kwargs)
 
     def _generate_receipt_number(self):
-        """Génère REC-YYYY-XXXX — séquentiel par année."""
+        """Génère REC-YYYY-XXXX — séquentiel par année, sans collision concurrente."""
         year = datetime.date.today().year
-        last = (
-            Payment.objects
-            .filter(receipt_number__startswith=f'REC-{year}-')
-            .order_by('-receipt_number')
-            .values_list('receipt_number', flat=True)
-            .first()
-        )
-        if last:
-            try:
-                seq = int(last.split('-')[-1]) + 1
-            except (ValueError, IndexError):
+        with transaction.atomic():
+            last = (
+                Payment.objects
+                .select_for_update()
+                .filter(receipt_number__startswith=f'REC-{year}-')
+                .order_by('-receipt_number')
+                .values_list('receipt_number', flat=True)
+                .first()
+            )
+            if last:
+                try:
+                    seq = int(last.split('-')[-1]) + 1
+                except (ValueError, IndexError):
+                    seq = 1
+            else:
                 seq = 1
-        else:
-            seq = 1
-        return f'REC-{year}-{seq:04d}'
+            return f'REC-{year}-{seq:04d}'
