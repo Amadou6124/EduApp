@@ -6,6 +6,7 @@ Zero donnee fictive.
 from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.db.models import Count, Sum, Q, Avg, Subquery, OuterRef, F
 from django.db.models.functions import Coalesce, TruncMonth
 from django.shortcuts import render
@@ -17,6 +18,16 @@ from apps.schools.models import (
 )
 from apps.payments.models import Payment
 from apps.accounts.models import User
+
+
+def invalidate_dashboard_cache(school):
+    """Invalide toutes les clés de cache dashboard pour une école."""
+    from apps.schools.models import SchoolYear
+    for year in SchoolYear.objects.filter(school=school).prefetch_related('periods'):
+        for period in year.periods.all():
+            cache.delete(f'dashboard_{school.id}_{year.id}_{period.id}')
+        cache.delete(f'dashboard_{school.id}_{year.id}_none')
+    cache.delete(f'dashboard_{school.id}_none_none')
 
 
 @login_required
@@ -39,18 +50,27 @@ def dashboard_view(request):
         if not active_period:
             active_period = active_year.periods.order_by('-order').first()
 
-    kpis = _compute_kpis(school, active_period)
-    alerts = _compute_alerts(school, active_period, kpis['unpaid_count'])
-    charts = _compute_charts(school, active_year)
-    class_health = _compute_class_health(school, active_period)
-    activity = _compute_activity(school)
-    today = date.today()
+    period_id = active_period.id if active_period else 'none'
+    year_id   = active_year.id   if active_year   else 'none'
+    cache_key = f'dashboard_{school.id}_{year_id}_{period_id}'
+
+    computed = cache.get(cache_key)
+    if computed is None:
+        kpis         = _compute_kpis(school, active_period)
+        alerts       = _compute_alerts(school, active_period, kpis['unpaid_count'])
+        charts       = _compute_charts(school, active_year)
+        class_health = _compute_class_health(school, active_period)
+        activity     = _compute_activity(school)
+        computed = {
+            'kpis': kpis, 'alerts': alerts, 'charts': charts,
+            'class_health': class_health, 'activity': activity,
+        }
+        cache.set(cache_key, computed, 60 * 5)
 
     return render(request, 'dashboard/dashboard.html', {
         'school': school, 'active_year': active_year, 'active_period': active_period,
-        'kpis': kpis, 'alerts': alerts, 'charts': charts,
-        'class_health': class_health, 'activity': activity,
-        'today': today, 'active_section': 'dashboard', 'no_access': False,
+        'today': date.today(), 'active_section': 'dashboard', 'no_access': False,
+        **computed,
     })
 
 

@@ -21,6 +21,7 @@ from django.views.decorators.http import require_http_methods
 from apps.payments.models import Payment, PaymentMethod
 from apps.schools.models import SchoolClass
 from apps.core.mixins import get_school, director_or_staff_required
+from apps.dashboard.views import invalidate_dashboard_cache
 
 from .forms import StudentCreateForm, StudentUpdateForm
 from .models import Student
@@ -122,6 +123,7 @@ def student_create(request):
         student.school      = school
         student.tuition_fee = student.school_class.annual_fee
         student.save()
+        invalidate_dashboard_cache(school)
 
         initial_amount = form.cleaned_data.get('initial_payment')
         if initial_amount and initial_amount > 0:

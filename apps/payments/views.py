@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 
 from apps.schools.models import SchoolClass
 from apps.core.mixins import get_school, director_or_staff_required
+from apps.dashboard.views import invalidate_dashboard_cache
 from apps.students.models import Student
 
 from .forms import PaymentCancelForm, PaymentCreateForm
@@ -162,6 +163,7 @@ def payment_create(request, student_id):
         payment.student      = student
         payment.collected_by = request.user
         payment.save()
+        invalidate_dashboard_cache(school)
 
         balance_after = student.get_balance_due()
 
