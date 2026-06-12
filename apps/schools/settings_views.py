@@ -150,18 +150,12 @@ def receipt(request):
             })
 
         elif action == 'analyze':
-            mock_mapping = [
-                {'zone': 'Nom de l\'élève', 'variable': 'nom_eleve',      'confidence': 'high'},
-                {'zone': 'Classe :',         'variable': 'classe',          'confidence': 'high'},
-                {'zone': 'Montant versé :',  'variable': 'montant',         'confidence': 'high'},
-                {'zone': 'Date :',           'variable': 'date',            'confidence': 'high'},
-                {'zone': 'N° Reçu :',        'variable': 'numero_recu',     'confidence': 'medium'},
-                {'zone': 'Solde restant :',  'variable': 'solde',           'confidence': 'medium'},
-                {'zone': 'Mode règlement :', 'variable': 'mode_paiement',   'confidence': 'low'},
-            ]
+            # L'analyse automatique du PDF n'est pas encore implémentée.
+            # On passe directement à l'étape de configuration manuelle.
             return render(request, 'settings/partials/receipt_content.html', {
                 'school': school, 'custom_step': 'mapping',
-                'mapping': mock_mapping, 'variables': _RECEIPT_VARIABLES,
+                'mapping': [], 'variables': _RECEIPT_VARIABLES,
+                'analyze_notice': True,
             })
 
         elif action == 'save_mapping':
