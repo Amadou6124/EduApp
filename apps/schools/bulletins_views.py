@@ -174,14 +174,17 @@ def bulletins_tab(request):
             'has_notes':  student.pk in with_notes,
         })
 
+    generated_count = len(existing)
+    total_count     = len(students)
     return render(request, 'bulletins/partials/bulletins_tab.html', {
-        'rows':           rows,
-        'school_class':   active_class,
-        'period':         active_period,
-        'can_generate':   request.user.role in ('director', 'staff') or request.user.is_superuser,
-        'generated_count': len(existing),
-        'total_count':     len(students),
-        'pending_count':   len(students) - len(existing),
+        'rows':            rows,
+        'school_class':    active_class,
+        'period':          active_period,
+        'can_generate':    request.user.role in ('director', 'staff') or request.user.is_superuser,
+        'generated_count': generated_count,
+        'total_count':     total_count,
+        'pending_count':   total_count - generated_count,
+        'generated_pct':   int(generated_count / total_count * 100) if total_count > 0 else 0,
     })
 
 
@@ -263,14 +266,17 @@ def generate_class_bulletins(request, class_id, period_id):
             'has_notes':  student.pk in with_notes,
         })
 
+    generated_count = len(existing)
+    total_count     = len(students)
     response = render(request, 'bulletins/partials/bulletins_tab.html', {
-        'rows':           rows,
-        'school_class':   school_class,
-        'period':         period,
-        'can_generate':   True,
-        'generated_count': len(existing),
-        'total_count':     len(students),
-        'pending_count':   len(students) - len(existing),
+        'rows':            rows,
+        'school_class':    school_class,
+        'period':          period,
+        'can_generate':    True,
+        'generated_count': generated_count,
+        'total_count':     total_count,
+        'pending_count':   total_count - generated_count,
+        'generated_pct':   int(generated_count / total_count * 100) if total_count > 0 else 0,
     })
     response['HX-Trigger'] = json.dumps({
         'bullets-generated': {
