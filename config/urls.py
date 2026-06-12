@@ -45,6 +45,7 @@ urlpatterns = [
     path('dashboard/',  include('apps.dashboard.urls')),
     path('bulletins/',  include('apps.schools.bulletins_urls')),
     path('settings/', include('apps.schools.settings_urls')),
+    path('team/',       include('apps.accounts.team_urls')),
     path('superadmin/', include('apps.accounts.superadmin_urls')),
     path('media/<path:path>', protected_media, name='protected-media'),
 ]
