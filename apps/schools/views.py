@@ -157,7 +157,10 @@ def class_update(request, class_id):
             'school_class': school_class,
             'success': True,
         })
-        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Classe modifiée avec succès.', 'type': 'success'}})
+        resp['HX-Trigger'] = json.dumps({
+            'close-edit-modal': True,
+            'show-toast': {'message': f'Classe {school_class.name} modifiée.', 'type': 'success'},
+        })
         return resp
 
     return render(request, 'schools/partials/class_edit_row.html', {
@@ -389,12 +392,17 @@ def class_delete(request, class_id):
     if student_count > 0:
         response = HttpResponse(status=422)
         response['HX-Trigger'] = json.dumps({
-            'showToast': {
-                'message': f'Impossible de supprimer : {student_count} élève(s) inscrit(s) dans cette classe.',
+            'show-toast': {
+                'message': f'Impossible : {student_count} élève(s) inscrit(s) dans cette classe.',
                 'type': 'error',
             }
         })
         return response
+    name = school_class.name
     school_class.is_active = False
     school_class.save()
-    return HttpResponse('')
+    response = HttpResponse('')
+    response['HX-Trigger'] = json.dumps({
+        'show-toast': {'message': f'Classe {name} supprimée.', 'type': 'success'}
+    })
+    return response
