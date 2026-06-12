@@ -6,6 +6,9 @@ import io
 import json
 import zipfile
 
+import openpyxl
+from openpyxl.styles import Alignment, Font, PatternFill
+
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Avg, Count
@@ -207,10 +210,17 @@ def rankings_tab(request):
         .order_by('-general_average')
     )
 
+    averages = [b.general_average for b in bulletins]
+    class_average = round(sum(averages) / len(averages), 2) if averages else None
+
     return render(request, 'bulletins/partials/rankings_tab.html', {
-        'bulletins':      bulletins,
-        'school_class':   active_class,
-        'period':         active_period,
+        'bulletins':     bulletins,
+        'school_class':  active_class,
+        'period':        active_period,
+        'class_average': class_average,
+        'first_average': averages[0] if averages else None,
+        'last_average':  averages[-1] if averages else None,
+        'can_generate':  request.user.role in ('director', 'staff') or request.user.is_superuser,
     })
 
 
@@ -437,6 +447,71 @@ def bulletin_download_all(request, class_id, period_id):
         f'attachment; filename="bulletins_{school_class.name}_'
         f'{period.name.replace(" ", "_")}.zip"'
     )
+    return response
+
+
+@login_required
+@director_or_staff_required
+def rankings_export(request, class_id, period_id):
+    """Export Excel du classement d'une classe."""
+    school = get_school(request)
+    school_class = get_object_or_404(
+        school.classes.filter(is_active=True), pk=class_id,
+    )
+    period = get_object_or_404(
+        Period, pk=period_id, school_year__school=school,
+    )
+
+    bulletins = list(
+        Bulletin.objects.filter(
+            period=period,
+            school_class=school_class,
+            is_cancelled=False,
+            general_average__isnull=False,
+        )
+        .select_related('student')
+        .order_by('-general_average')
+    )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f'Classement {period.name}'[:31]  # Excel limite à 31 chars
+
+    # En-tête
+    headers = ['Rang', 'Nom et Prénom', 'Moyenne Générale (/20)', 'Appréciation']
+    ws.append(headers)
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    # Données
+    for rank, bul in enumerate(bulletins, start=1):
+        row = [rank, bul.student.full_name, float(bul.general_average), bul.appreciation or '']
+        ws.append(row)
+        # Fond doré pour le 1er
+        if rank == 1:
+            gold_fill = PatternFill(start_color='FEF3C7', end_color='FEF3C7', fill_type='solid')
+            for cell in ws[ws.max_row]:
+                cell.fill = gold_fill
+
+    # Largeurs colonnes
+    ws.column_dimensions['A'].width = 8
+    ws.column_dimensions['B'].width = 32
+    ws.column_dimensions['C'].width = 22
+    ws.column_dimensions['D'].width = 22
+
+    filename = (
+        f'classement_{school_class.name.replace(" ", "_")}_'
+        f'{period.name.replace(" ", "_")}.xlsx'
+    )
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
     return response
 
 
