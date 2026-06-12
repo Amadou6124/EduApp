@@ -143,10 +143,8 @@ def team_member_create(request):
             if role == UserRole.STAFF:
                 StaffPermission.objects.get_or_create(user=user)
 
-            response = render(request, 'team/partials/team_member_row.html', {
-                'member': user,
-                'is_director': True,
-            })
+                from django.http import HttpResponse
+            response = HttpResponse('')
             response['HX-Trigger'] = json.dumps({
                 'close-panel': True,
                 'team-member-added': {
@@ -157,17 +155,17 @@ def team_member_create(request):
             })
             return response
 
-        # Formulaire invalide : retourne le partial avec erreurs
-        return render(request, 'team/partials/team_create_form.html', {
-            'form':      form,
-            'school':    school,
-        }, status=422)
-
-    form = TeamMemberCreateForm(school)
-    return render(request, 'team/partials/team_create_form.html', {
-        'form':   form,
-        'school': school,
-    })
+        # Formulaire invalide : renvoie les erreurs via toast (panel reste ouvert)
+        errors = '; '.join(
+            f'{f}: {e[0]}' for f, errs in form.errors.items()
+            for e in [errs]
+        )
+        from django.http import HttpResponse
+        response = HttpResponse('', status=422)
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {'message': errors or 'Vérifiez les champs.', 'type': 'error'},
+        })
+        return response
 
 
 @login_required
@@ -206,16 +204,12 @@ def team_member_edit(request, user_id):
         form = TeamMemberEditForm(request.POST, instance=member)
         if form.is_valid():
             form.save()
-            response = render(request, 'team/partials/team_member_card.html', {
-                'member':     member,
-                'is_director': True,
-            })
+            from django.http import HttpResponse
+            response = HttpResponse('')
             response['HX-Trigger'] = json.dumps({
                 'close-edit-panel': True,
-                'showToast': {
-                    'message': 'Fiche mise à jour.',
-                    'type':    'success',
-                },
+                'showToast': {'message': 'Fiche mise à jour.', 'type': 'success'},
+                'team-member-updated': {'user_id': member.pk},
             })
             return response
 
@@ -242,23 +236,22 @@ def team_permissions_update(request, user_id):
     form = StaffPermissionForm(request.POST, instance=perm)
     if form.is_valid():
         form.save()
-        response = render(request, 'team/partials/team_permissions_panel.html', {
-            'member':    member,
-            'perm':      perm,
-            'perm_form': StaffPermissionForm(instance=perm),
+        response = render(request, 'team/partials/staff_permissions.html', {
+            'member':      member,
+            'perm':        perm,
+            'perm_form':   StaffPermissionForm(instance=perm),
+            'is_director': True,
         })
         response['HX-Trigger'] = json.dumps({
-            'showToast': {
-                'message': 'Permissions mises à jour.',
-                'type':    'success',
-            },
+            'showToast': {'message': 'Permissions mises à jour.', 'type': 'success'},
         })
         return response
 
-    response = render(request, 'team/partials/team_permissions_panel.html', {
-        'member':    member,
-        'perm':      perm,
-        'perm_form': form,
+    response = render(request, 'team/partials/staff_permissions.html', {
+        'member':      member,
+        'perm':        perm,
+        'perm_form':   form,
+        'is_director': True,
     })
     response.status_code = 422
     return response
@@ -273,8 +266,8 @@ def team_member_deactivate(request, user_id):
 
     # Empêche l'auto-désactivation du directeur connecté
     if member.pk == request.user.pk:
-        response = render(request, 'team/partials/team_member_card.html', {
-            'member':     member,
+        response = render(request, 'team/partials/member_card_refresh.html', {
+            'member':      member,
             'is_director': True,
         })
         response['HX-Trigger'] = json.dumps({
@@ -288,7 +281,7 @@ def team_member_deactivate(request, user_id):
     member.is_active = False
     member.save(update_fields=['is_active'])
 
-    response = render(request, 'team/partials/team_member_card_deactivated.html', {
+    response = render(request, 'team/partials/member_card_deactivated.html', {
         'member': member,
     })
     response['HX-Trigger'] = json.dumps({

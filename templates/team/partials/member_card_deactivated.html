@@ -1,0 +1,30 @@
+{% with colors=member.get_avatar_colors initials=member.get_initials %}
+<div id="member-card-{{ member.pk }}"
+     data-name="{{ member.full_name|lower }}"
+     class="bg-white rounded-xl border border-gray-200 border-dashed p-5 flex flex-col gap-4 opacity-60">
+
+  <div class="flex items-start gap-3">
+    <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 grayscale"
+         style="background-color:{{ colors.0 }};color:{{ colors.1 }}">
+      {{ initials }}
+    </div>
+    <div class="min-w-0 flex-1">
+      <p class="font-semibold text-gray-500 truncate leading-tight line-through">{{ member.full_name }}</p>
+      <p class="text-xs text-gray-400 truncate mt-0.5">
+        {% if member.job_title %}{{ member.job_title }}{% else %}{{ member.get_role_display }}{% endif %}
+      </p>
+    </div>
+    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-400 flex-shrink-0">
+      Désactivé
+    </span>
+  </div>
+
+  <div class="pt-2 border-t border-gray-100">
+    <p class="text-xs text-gray-400 italic text-center flex items-center justify-center gap-1">
+      <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
+      Ce membre a été désactivé
+    </p>
+  </div>
+
+</div>
+{% endwith %}
