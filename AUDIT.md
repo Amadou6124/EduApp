@@ -1,6 +1,7 @@
 # AUDIT COMPLET EDUAPP
 Date : 2026-06-12
-Branche : fix/bugs-critiques
+Branche : fix/bugs-critiques → mergée sur main le 2026-06-12
+Statut : ✅ 40/40 problèmes résolus
 
 ## LÉGENDE
 🔴 MORTEL — App inutilisable / perte de données
@@ -300,21 +301,21 @@ Description : Voir section 7. Précalculer en une requête agrégée retournant 
 19. ✅ **`_compute_charts` 24 requêtes SQL** → `TruncMonth` — `174dff4`
 20. ✅ **Fonctionnalité "Analyser PDF reçu" mock** → message "config manuelle" — `c0a06e1`
 
-### Priorité 3 — Plus tard
+### Priorité 3 — Plus tard ✅ COMPLÈTE (21-33)
 
-21. Caching Redis sur le dashboard (6 fonctions synchrones).
-22. Optimiser `_student_has_notes` avec une requête groupée.
-23. Optimiser `AppreciationScale.get_appreciation` (pré-charger l'échelle).
-24. Pagination liste écoles superadmin.
-25. Toast manquant sur `note_cancel`.
-26. Correction mobile tableaux de notes et panels.
-27. Filtrer les enseignants dans le dropdown (`role=teacher/staff/director`).
-28. Validation "montant ≤ solde restant" dans `PaymentCreateForm`.
-29. Cookies de session Secure en production.
-30. `SECRET_KEY` insecure sans `.env`.
-31. Rate limiting login par compte en plus de l'IP.
-32. Clarifier help_text mot de passe dans `director_update`.
-33. Redirect racine `/` selon le rôle.
+21. ✅ **Caching dashboard 5min** (`dashboard/views.py`) — `d364442`
+22. ✅ **`_students_with_notes` remplace `_student_has_notes` en boucle** (`bulletins_views.py`) — `f005ad2`
+23. ✅ **`AppreciationScale` pré-chargée avant boucle bulletin** (`bulletin_calculator.py`) — `653cf87`
+24. ✅ **Pagination liste écoles superadmin** (`superadmin_views.py`) — `b711a30`
+25. ✅ **Toast manquant sur `note_cancel`** (`notes_views.py`) — `6c25cec`
+26. ✅ **Mobile panels et tableau notes** (déjà `w-full sm:w-[480px]` et `overflow-x-auto` en place) — `a51be7c`
+27. ✅ **Dropdown enseignants filtré** — déjà résolu au point 7 (`b813287`) — `7eb1ea5`
+28. ✅ **Validation "montant ≤ solde"** (`payments/forms.py`) — déjà résolu au point 18 (`ca28ead`)
+29. ✅ **Cookies session/CSRF Secure + HSTS** (`config/settings.py`) — `eb08c7a`
+30. ✅ **`SECRET_KEY` insecure bloque le démarrage en prod** (`config/settings.py`) — `63e41c0`
+31. ✅ **Rate limiting par compte (phone) en plus de l'IP** (`accounts/views.py`) — `2b39a1d`
+32. ✅ **`help_text` mot de passe dans `director_update`** (`superadmin_forms.py`) — `7f36a13`
+33. ✅ **Redirect racine `/` selon le rôle** (`config/urls.py`) — `08424cf`
 
 ---
 
