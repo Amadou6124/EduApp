@@ -91,13 +91,15 @@ def class_create(request):
             if request.htmx:
                 classes = list(_classes_qs(school))
                 total_students, avg_fill_rate = compute_class_stats(classes)
-                return render(request, 'schools/partials/class_list_refresh.html', {
+                resp = render(request, 'schools/partials/class_list_refresh.html', {
                     'classes': classes,
                     'form': SchoolClassForm(),
                     'success_message': _('Classe réactivée avec succès.'),
                     'total_students': total_students,
                     'avg_fill_rate': avg_fill_rate,
                 })
+                resp['HX-Trigger'] = json.dumps({'close-add-modal': True, 'showToast': {'message': 'Classe réactivée avec succès.', 'type': 'success'}})
+                return resp
 
     form = SchoolClassForm(request.POST)
     if form.is_valid():
@@ -109,13 +111,15 @@ def class_create(request):
         if request.htmx:
             classes = list(_classes_qs(school))
             total_students, avg_fill_rate = compute_class_stats(classes)
-            return render(request, 'schools/partials/class_list_refresh.html', {
+            resp = render(request, 'schools/partials/class_list_refresh.html', {
                 'classes': classes,
                 'form': SchoolClassForm(),
                 'success_message': _('Classe créée avec succès.'),
                 'total_students': total_students,
                 'avg_fill_rate': avg_fill_rate,
             })
+            resp['HX-Trigger'] = json.dumps({'close-add-modal': True, 'showToast': {'message': 'Classe créée avec succès.', 'type': 'success'}})
+            return resp
 
     if request.htmx:
         return render(request, 'schools/partials/class_form_fields.html', {
@@ -149,10 +153,12 @@ def class_update(request, class_id):
 
     if form.is_valid():
         form.save()
-        return render(request, 'schools/partials/class_row.html', {
+        resp = render(request, 'schools/partials/class_row.html', {
             'school_class': school_class,
             'success': True,
         })
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Classe modifiée avec succès.', 'type': 'success'}})
+        return resp
 
     return render(request, 'schools/partials/class_edit_row.html', {
         'form': form,
@@ -364,12 +370,14 @@ def class_import_confirm(request):
     classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
     total_students, avg_fill_rate = compute_class_stats(classes)
 
-    return render(request, 'schools/partials/class_list_refresh.html', {
+    resp = render(request, 'schools/partials/class_list_refresh.html', {
         'classes': classes,
         'success_message': msg,
         'total_students': total_students,
         'avg_fill_rate': avg_fill_rate,
     })
+    resp['HX-Trigger'] = json.dumps({'close-import-modal': True, 'showToast': {'message': msg, 'type': 'success'}})
+    return resp
 
 
 @login_required

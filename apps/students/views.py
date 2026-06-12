@@ -141,7 +141,10 @@ def student_create(request):
                 'stats':           stats,
                 'success_message': f'{student.full_name} inscrit(e) — Code : {student.access_code}',
             })
-            response['HX-Trigger'] = 'closePanel'
+            response['HX-Trigger'] = json.dumps({
+                'close-panel': True,
+                'showToast':   {'message': 'Élève inscrit avec succès.', 'type': 'success'},
+            })
             return response
 
     elif request.htmx:
@@ -177,12 +180,16 @@ def student_create_group(request):
     if request.htmx:
         students = list(_students_qs(school))
         stats    = compute_student_stats(school)
+        n        = len(created_students)
         response = render(request, 'students/partials/student_list_refresh.html', {
             'students':        students,
             'stats':           stats,
-            'success_message': _(f'{len(created_students)} élève(s) inscrit(s) dans {school_class.name}.'),
+            'success_message': _(f'{n} élève(s) inscrit(s) dans {school_class.name}.'),
         })
-        response['HX-Trigger'] = 'closePanel'
+        response['HX-Trigger'] = json.dumps({
+            'close-panel': True,
+            'showToast':   {'message': f'{n} élève(s) inscrit(s) avec succès.', 'type': 'success'},
+        })
         return response
 
     return redirect('students:list')
@@ -219,10 +226,12 @@ def student_update(request, student_id):
                 id=student_id, school=school,
             )
             if request.htmx:
-                return render(request, 'students/partials/student_profile_view.html', {
+                resp = render(request, 'students/partials/student_profile_view.html', {
                     'student': student,
                     'success': True,
                 })
+                resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Fiche élève mise à jour.', 'type': 'success'}})
+                return resp
             return redirect('students:detail', student_id=student.id)
 
         # Erreurs de validation
@@ -493,7 +502,10 @@ def student_import_confirm(request):
             'stats':           stats,
             'success_message': f'{len(created)} élève(s) importé(s), {skipped} ignoré(s).',
         })
-        response['HX-Trigger-After-Swap'] = 'closeImportModal'
+        response['HX-Trigger'] = json.dumps({
+            'close-import-modal': True,
+            'showToast': {'message': f'{len(created)} élève(s) importé(s).', 'type': 'success'},
+        })
         return response
 
     return redirect('students:list')

@@ -31,7 +31,7 @@
 {% block content %}
 <div x-data="studentsPageData()"
      @close-panel.window="showPanel = false"
-     @closePanel.window="showPanel = false">
+     @close-import-modal.window="showImportModal = false">
 
   {# ── Barre d'actions ── #}
   <div class="flex items-center justify-between mb-6">
@@ -145,7 +145,6 @@
       <form hx-post="{% url 'students:create' %}"
             hx-target="#student-list-area"
             hx-swap="outerHTML"
-            hx-on::after-request="if(event.detail.successful) { $el.dispatchEvent(new CustomEvent('close-panel', {bubbles: true})) }"
             x-init="$nextTick(() => $el.querySelector('[name=full_name]')?.focus())">
         {% csrf_token %}
 
@@ -288,7 +287,6 @@
       <form hx-post="{% url 'students:create-group' %}"
             hx-target="#student-list-area"
             hx-swap="outerHTML"
-            hx-on::after-request="if(event.detail.successful) { $el.dispatchEvent(new CustomEvent('close-panel', {bubbles: true})) }"
             @submit="$el.querySelector('[name=names_data]').value = JSON.stringify(groupNames.filter(n => n.trim()))">
         {% csrf_token %}
         <input type="hidden" name="names_data" value="[]">
@@ -361,8 +359,6 @@
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
        class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
-       @closeImportModal.window="showImportModal = false"
-       @closeImportModal.document="showImportModal = false"
        @click.self="showImportModal = false">
     <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
          @click.stop

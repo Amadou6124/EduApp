@@ -39,10 +39,15 @@
     </form>
 
     <!-- Supprimer -->
-    <button hx-delete="{% url 'settings:period-delete' period.id %}"
-            hx-target="#periods-list"
-            hx-swap="innerHTML"
-            hx-confirm="Supprimer {{ period.name }} ?"
+    <button type="button"
+            @click="$store.confirm.show({
+              title: 'Supprimer {{ period.name }}',
+              message: 'Cette période sera supprimée définitivement.',
+              warning: 'Si des notes existent sur cette période, la suppression sera bloquée.',
+              confirmText: 'Supprimer', confirmIcon: 'trash-2', confirmClass: 'btn-danger',
+              icon: 'alert-triangle', iconBg: 'bg-red-50', iconColor: 'text-red-500',
+              onConfirm: () => htmx.ajax('DELETE', '{% url "settings:period-delete" period.id %}', {target: '#periods-list', swap: 'innerHTML'})
+            })"
             class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>

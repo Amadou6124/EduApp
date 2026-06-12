@@ -583,6 +583,10 @@ def class_subject_add(request, class_id):
         cs              = form.save(commit=False)
         cs.school_class = school_class
         cs.save()
+        resp = render(request, 'settings/partials/class_subjects.html',
+                      _class_subjects_ctx(school, school_class))
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Matière ajoutée à la classe.', 'type': 'success'}})
+        return resp
     return render(request, 'settings/partials/class_subjects.html',
                   _class_subjects_ctx(school, school_class))
 
@@ -598,6 +602,10 @@ def class_subject_update(request, cs_id):
     form = ClassSubjectForm(school, cs.school_class, request.POST, instance=cs)
     if form.is_valid():
         form.save()
+        resp = render(request, 'settings/partials/class_subjects.html',
+                      _class_subjects_ctx(school, cs.school_class))
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Matière mise à jour.', 'type': 'success'}})
+        return resp
     return render(request, 'settings/partials/class_subjects.html',
                   _class_subjects_ctx(school, cs.school_class))
 

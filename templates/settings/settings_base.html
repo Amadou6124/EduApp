@@ -25,6 +25,11 @@
     .htmx-request .htmx-indicator,
     .htmx-request.htmx-indicator { opacity: 1; }
     [x-cloak] { display: none !important; }
+    .btn-primary   { @apply bg-[#1E3A5F] text-white rounded-lg px-4 py-2 text-sm font-medium hover:opacity-90 transition-colors inline-flex items-center gap-2; }
+    .btn-secondary { display:inline-flex;align-items:center;gap:.5rem;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:.5rem;padding:.5rem 1rem;font-size:.875rem;font-weight:500;cursor:pointer; }
+    .btn-secondary:hover { background:#f9fafb; }
+    .btn-danger    { display:inline-flex;align-items:center;gap:.5rem;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:.5rem;padding:.5rem 1rem;font-size:.875rem;font-weight:500;cursor:pointer; }
+    .btn-danger:hover { background:#fee2e2; }
   </style>
 </head>
 <body class="bg-white font-sans text-gray-800 antialiased"
@@ -168,6 +173,87 @@
     document.addEventListener('showToast', function(e) {
       window.dispatchEvent(new CustomEvent('show-toast', { detail: e.detail }));
     });
+  </script>
+
+  {# ── Modal de confirmation global ── #}
+  <div x-data
+       x-show="$store.confirm.open"
+       x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0">
+
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+         @click="$store.confirm.cancel()"></div>
+
+    <div class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full mx-4 z-10"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2">
+
+      <div class="px-6 pt-6 pb-4">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center"
+               :class="$store.confirm.iconBg">
+            <i :data-lucide="$store.confirm.icon" class="w-5 h-5" :class="$store.confirm.iconColor"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-base font-semibold text-gray-900 mb-1" x-text="$store.confirm.title"></h3>
+            <p class="text-sm text-gray-500 leading-relaxed" x-text="$store.confirm.message"></p>
+          </div>
+        </div>
+        <div x-show="$store.confirm.warning"
+             class="mt-4 flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-lg p-3">
+          <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
+          <span x-text="$store.confirm.warning"></span>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+        <button @click="$store.confirm.cancel()" class="btn-secondary">Annuler</button>
+        <button @click="$store.confirm.confirm()"
+                class="flex items-center gap-2"
+                :class="$store.confirm.confirmClass || 'btn-primary'">
+          <i :data-lucide="$store.confirm.confirmIcon" class="w-4 h-4"></i>
+          <span x-text="$store.confirm.confirmText"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# ── Alpine store : confirm modal ── #}
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('confirm', {
+        open: false, title: '', message: '', warning: '',
+        icon: 'alert-triangle', iconBg: 'bg-red-50', iconColor: 'text-red-500',
+        confirmText: 'Supprimer', confirmIcon: 'trash-2', confirmClass: '',
+        onConfirm: null,
+        show(options) {
+          this.title       = options.title       || 'Confirmer'
+          this.message     = options.message     || ''
+          this.warning     = options.warning     || ''
+          this.icon        = options.icon        || 'alert-triangle'
+          this.iconBg      = options.iconBg      || 'bg-red-50'
+          this.iconColor   = options.iconColor   || 'text-red-500'
+          this.confirmText = options.confirmText || 'Supprimer'
+          this.confirmIcon = options.confirmIcon || 'trash-2'
+          this.confirmClass= options.confirmClass|| ''
+          this.onConfirm   = options.onConfirm   || null
+          this.open        = true
+          setTimeout(() => lucide.createIcons(), 0)
+        },
+        confirm() { if (this.onConfirm) this.onConfirm(); this.open = false },
+        cancel()  { this.open = false }
+      })
+    })
   </script>
 
 </body>

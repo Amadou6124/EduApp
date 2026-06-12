@@ -98,11 +98,13 @@
     {% if school.logo %}
       <button type="button"
               class="mt-3 text-xs text-red-500 hover:text-red-600 underline"
-              hx-post="{% url 'settings:appearance' %}"
-              hx-vals='{"delete_logo": "1"}'
-              hx-target="#appearance-form"
-              hx-swap="outerHTML"
-              hx-confirm="Supprimer le logo enregistré ?">
+              @click="$store.confirm.show({
+                title: 'Supprimer le logo',
+                message: 'Le logo de l\'école sera supprimé des bulletins et reçus.',
+                confirmText: 'Supprimer', confirmIcon: 'trash-2', confirmClass: 'btn-danger',
+                icon: 'image-off', iconBg: 'bg-red-50', iconColor: 'text-red-500',
+                onConfirm: () => htmx.ajax('POST', '{% url "settings:appearance" %}', {target: '#appearance-form', swap: 'outerHTML', values: {delete_logo: '1'}})
+              })">
         Supprimer le logo actuel
       </button>
     {% endif %}

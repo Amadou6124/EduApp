@@ -39,34 +39,36 @@
   <div class="mb-6 p-4 bg-brand-light border border-blue-100 rounded-xl">
     <p class="text-xs font-semibold text-gray-600 mb-3">Générer automatiquement</p>
     <div class="flex gap-3 flex-wrap">
-      <form hx-post="{% url 'settings:period-generate' year.id %}"
-            hx-target="#periods-list"
-            hx-swap="innerHTML"
-            hx-confirm="Cela remplacera les périodes existantes. Confirmer ?">
-        {% csrf_token %}
-        <input type="hidden" name="template" value="3trimesters">
-        <button type="submit"
-                class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:border-brand-blue hover:text-brand-blue transition shadow-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h7"/>
-          </svg>
-          3 Trimestres
-        </button>
-      </form>
-      <form hx-post="{% url 'settings:period-generate' year.id %}"
-            hx-target="#periods-list"
-            hx-swap="innerHTML"
-            hx-confirm="Cela remplacera les périodes existantes. Confirmer ?">
-        {% csrf_token %}
-        <input type="hidden" name="template" value="2semesters">
-        <button type="submit"
-                class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:border-brand-blue hover:text-brand-blue transition shadow-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-          </svg>
-          2 Semestres
-        </button>
-      </form>
+      <button type="button"
+              @click="$store.confirm.show({
+                title: 'Régénérer les périodes',
+                message: 'Toutes les périodes actuelles seront supprimées et recréées en 3 trimestres.',
+                warning: 'Si des notes sont liées aux périodes existantes, la régénération sera bloquée automatiquement.',
+                confirmText: 'Régénérer', confirmIcon: 'refresh-cw', confirmClass: 'btn-danger',
+                icon: 'alert-triangle', iconBg: 'bg-amber-50', iconColor: 'text-amber-500',
+                onConfirm: () => htmx.ajax('POST', '{% url "settings:period-generate" year.id %}', {target: '#periods-list', swap: 'innerHTML', values: {template: '3trimesters'}})
+              })"
+              class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:border-brand-blue hover:text-brand-blue transition shadow-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h7"/>
+        </svg>
+        3 Trimestres
+      </button>
+      <button type="button"
+              @click="$store.confirm.show({
+                title: 'Régénérer les périodes',
+                message: 'Toutes les périodes actuelles seront supprimées et recréées en 2 semestres.',
+                warning: 'Si des notes sont liées aux périodes existantes, la régénération sera bloquée automatiquement.',
+                confirmText: 'Régénérer', confirmIcon: 'refresh-cw', confirmClass: 'btn-danger',
+                icon: 'alert-triangle', iconBg: 'bg-amber-50', iconColor: 'text-amber-500',
+                onConfirm: () => htmx.ajax('POST', '{% url "settings:period-generate" year.id %}', {target: '#periods-list', swap: 'innerHTML', values: {template: '2semesters'}})
+              })"
+              class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:border-brand-blue hover:text-brand-blue transition shadow-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+        2 Semestres
+      </button>
     </div>
   </div>
 

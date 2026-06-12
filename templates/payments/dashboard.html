@@ -25,8 +25,7 @@ function paymentsPageData() {
 
 {% block content %}
 <div x-data="paymentsPageData()"
-     @close-panel.window="showPanel = false"
-     @closePanel.window="showPanel = false">
+     @close-panel.window="showPanel = false">
 
   {% include "payments/partials/payment_stats.html" %}
 

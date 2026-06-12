@@ -180,7 +180,7 @@ def payment_create(request, student_id):
                 'type':    'success',
                 'receipt_url': f'/payments/receipt/{payment.id}/',
             },
-            'closePanel': True,
+            'close-panel': True,
         })
         return resp
 
