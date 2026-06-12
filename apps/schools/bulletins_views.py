@@ -8,7 +8,7 @@ import zipfile
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Avg, Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_http_methods
@@ -511,30 +511,52 @@ def _get_class_stats(school_class, period, school):
         )
     )
 
-    # Bulletins existants
     bulletins = {
         b.student_id: b
         for b in Bulletin.objects.filter(
             period=period,
             school_class=school_class,
             is_cancelled=False,
-        )
+        ).select_related('student')
     }
 
-    # Stats
     averages = [b.general_average for b in bulletins.values() if b.general_average is not None]
 
+    # Moyennes par matière (agrégées sur tous les bulletins de la classe)
+    subject_rows = (
+        BulletinLine.objects
+        .filter(
+            bulletin__period=period,
+            bulletin__school_class=school_class,
+            bulletin__is_cancelled=False,
+            final_average__isnull=False,
+        )
+        .values('class_subject__subject__name', 'class_subject__coefficient')
+        .annotate(avg=Avg('final_average'))
+        .order_by('-avg')
+    )
+    subject_stats = [
+        {
+            'name':        row['class_subject__subject__name'],
+            'coefficient': row['class_subject__coefficient'],
+            'avg':         round(float(row['avg']), 2),
+            'pct':         round(float(row['avg']) / 20 * 100, 1),
+        }
+        for row in subject_rows
+    ]
+
     return {
-        'student_count': len(students),
-        'gen_avg': round(sum(averages) / len(averages), 2) if averages else None,
-        'success_rate': (
+        'student_count':    len(students),
+        'gen_avg':          round(sum(averages) / len(averages), 2) if averages else None,
+        'success_rate':     (
             round(sum(1 for a in averages if a >= 10) / len(averages) * 100, 1)
             if averages else 0
         ),
-        'admitted_count': sum(1 for a in averages if a >= 10),
+        'admitted_count':   sum(1 for a in averages if a >= 10),
         'difficulty_count': sum(1 for a in averages if a < 10),
-        'bulletins': bulletins,
-        'students': students,
-        'active_period': period,
-        'school_class': school_class,
+        'bulletins':        bulletins,
+        'students':         students,
+        'active_period':    period,
+        'school_class':     school_class,
+        'subject_stats':    subject_stats,
     }
