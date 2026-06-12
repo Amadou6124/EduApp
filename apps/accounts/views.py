@@ -2,6 +2,7 @@ from django.contrib.auth import login, logout
 from django.contrib import messages
 from django.core.cache import cache
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 
 from .forms import LoginForm
@@ -46,11 +47,11 @@ def _post_login_url(request, user):
     if user.role in (UserRole.DIRECTOR, UserRole.STAFF):
         return '/dashboard/'
     if user.role == UserRole.TEACHER:
-        return '/teacher/'
+        return '/notes/'
     if user.role == UserRole.STUDENT:
-        return '/student/'
+        return '/portal/student/'
     if user.role == UserRole.PARENT:
-        return '/parent/'
+        return '/portal/parent/'
     return '/classes/'
 
 
@@ -87,3 +88,19 @@ def logout_view(request):
     logout(request)
     messages.success(request, 'Vous avez été déconnecté avec succès.')
     return redirect('accounts:login')
+
+
+@login_required
+def portal_coming_soon(request):
+    role_labels = {
+        UserRole.STUDENT: ('Portail Élève', 'student'),
+        UserRole.PARENT:  ('Portail Parent', 'parent'),
+    }
+    role_label, role_key = role_labels.get(
+        getattr(request.user, 'role', None),
+        ('Portail', 'default')
+    )
+    return render(request, 'accounts/portal_coming_soon.html', {
+        'role_label': role_label,
+        'role_key':   role_key,
+    })

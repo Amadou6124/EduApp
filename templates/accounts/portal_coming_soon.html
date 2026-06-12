@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ role_label }} — EduApp</title>
+  <link rel="stylesheet" href="/static/css/output.css">
+</head>
+<body class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 max-w-md w-full p-8 text-center">
+
+    <!-- Logo -->
+    <div class="w-16 h-16 bg-[#1E3A5F] rounded-2xl flex items-center justify-center mx-auto mb-6">
+      <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+      </svg>
+    </div>
+
+    <!-- Badge -->
+    <span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold px-3 py-1 rounded-full mb-4">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      En cours de développement
+    </span>
+
+    <!-- Titre -->
+    <h1 class="text-xl font-bold text-gray-900 mb-2">{{ role_label }}</h1>
+    <p class="text-sm text-gray-500 leading-relaxed mb-8">
+      Ce portail est actuellement en cours de développement.<br>
+      Il sera disponible prochainement.
+    </p>
+
+    <!-- Infos utilisateur -->
+    <div class="bg-gray-50 rounded-xl px-4 py-3 mb-6 text-left">
+      <p class="text-xs text-gray-400 mb-0.5">Connecté en tant que</p>
+      <p class="text-sm font-semibold text-gray-800">{{ request.user.get_full_name|default:request.user.phone_number }}</p>
+    </div>
+
+    <!-- Bouton déconnexion -->
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit"
+              class="w-full flex items-center justify-center gap-2 bg-[#1E3A5F] hover:bg-blue-900 text-white font-semibold py-3 px-4 rounded-xl transition text-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Se déconnecter
+      </button>
+    </form>
+
+  </div>
+
+</body>
+</html>
