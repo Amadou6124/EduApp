@@ -33,8 +33,9 @@ class PaymentCreateForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, balance_due=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.balance_due = balance_due
         self.fields['payment_date'].initial = datetime.date.today
         self.fields['payment_method'].required = True
         self.fields['notes'].required = False
@@ -43,6 +44,10 @@ class PaymentCreateForm(forms.ModelForm):
         amount = self.cleaned_data.get('amount')
         if amount is not None and amount <= 0:
             raise forms.ValidationError('Le montant doit être supérieur à 0 FCFA.')
+        if amount is not None and self.balance_due is not None and amount > self.balance_due:
+            raise forms.ValidationError(
+                f'Le montant ({amount:,.0f} FCFA) dépasse le solde restant ({self.balance_due:,.0f} FCFA).'
+            )
         return amount
 
 

@@ -155,7 +155,7 @@ def payment_create(request, student_id):
         Student.objects.select_related('school_class').prefetch_related('payments'),
         id=student_id, school=school, is_active=True,
     )
-    form = PaymentCreateForm(request.POST)
+    form = PaymentCreateForm(request.POST, balance_due=student.get_balance_due())
 
     if form.is_valid():
         payment = form.save(commit=False)
