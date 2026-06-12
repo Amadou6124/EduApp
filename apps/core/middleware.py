@@ -1,7 +1,14 @@
+from django.contrib import messages
+from django.shortcuts import redirect
+
+from .mixins import _NoSchoolError
+
+
 class SchoolMiddleware:
     """
     Attache l'école active à la request pour accès direct dans les templates.
-    Utilisation : {{ request.school.name }}
+    Intercepte aussi _NoSchoolError (superadmin sans école sur une vue métier)
+    et redirige vers /superadmin/ avec un message explicite.
     Doit être placé après AuthenticationMiddleware dans MIDDLEWARE.
     """
 
@@ -13,4 +20,13 @@ class SchoolMiddleware:
             request.school = request.user.school
         else:
             request.school = None
-        return self.get_response(request)
+        try:
+            response = self.get_response(request)
+        except _NoSchoolError:
+            messages.warning(
+                request,
+                "Les pages de gestion ne sont pas accessibles depuis le compte superadmin. "
+                "Connectez-vous en tant que directeur d'école."
+            )
+            return redirect('/superadmin/')
+        return response

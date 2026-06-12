@@ -1,13 +1,22 @@
 from django.contrib.auth.mixins import AccessMixin
 
 
+class _NoSchoolError(Exception):
+    """Levée quand un utilisateur sans école (superadmin) accède à une vue métier."""
+    pass
+
+
 def get_school(request):
     """
     Retourne l'école de l'utilisateur connecté.
     Point d'entrée unique pour l'isolation multi-tenant dans les vues FBV.
-    Remplace tous les anciens get_demo_school() / _get_school().
+    Lève _NoSchoolError si l'utilisateur n'a pas d'école (ex: superadmin).
+    Interceptée par SchoolMiddleware → redirect /superadmin/.
     """
-    return request.user.school
+    school = request.user.school
+    if school is None:
+        raise _NoSchoolError()
+    return school
 
 
 class SchoolMixin(AccessMixin):
@@ -17,7 +26,10 @@ class SchoolMixin(AccessMixin):
     """
 
     def get_school(self):
-        return self.request.user.school
+        school = self.request.user.school
+        if school is None:
+            raise _NoSchoolError()
+        return school
 
     def get_queryset(self):
         qs = super().get_queryset()
