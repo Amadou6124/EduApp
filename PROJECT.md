@@ -308,27 +308,38 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - Stats classe temps réel (moy. classe, meilleur, faible)
 - **Recherche instantanée** Alpine.js dans le tableau de saisie (filtrage local, zéro requête serveur)
 
-### Module Bulletins (`/bulletins/`)
+### Module Bulletins V2 (`/bulletins/`)
 - **4 nouveaux modèles** : `AppreciationScale`, `BulletinConfig` (1:1 école), `Bulletin`, `BulletinLine`
-- **Migration** `0005_bulletins` — appliquée
+- **Migrations** `0005_bulletins`, `0008_education_level_mali`, `0009_bulletinconfig_structured_header` — appliquées
+- **Niveaux scolaires maliens officiels** : `prescolaire`, `fondamental_1`, `fondamental_2`, `secondaire_gen`, `secondaire_pro`, `superieur` — badges colorés par niveau dans l'interface
+- **Formule malienne officielle** : `(moy_devoirs + compo × 2) / 3` — double-rounding fix, `calculate_subject_average` retourne Decimal non arrondi
 - **Calcul automatique** des moyennes matière et générales avec `BulletinCalculator`
-- Support **devoirs+composition** (pondération 40/60) et **moyenne simple**
+- Support **devoirs+composition** et **moyenne simple** (mode mixte possible)
 - **Cas limites gérés** : matière sans note exclue du total des coefficients
-- **Génération PDF WeasyPrint** au format officiel malien
-  - En-tête ministériel configurable (texte gauche/droite, logo)
-  - "RELEVÉ DE NOTES DU...", tableau colonnes N.Classe/Comp×2/Moy(1+2)
-  - Format **pleine page A4** ou **2 par page A4** avec ligne pointillée de découpe
-  - Signatures bas de page (Le Parent / Le Directeur)
-- **3 onglets interactifs** :
-  - 📊 **Santé éducative** : 4 stats (moy. classe, taux réussite, admis, difficulté), Top 3 podium, alertes élèves <10, bouton génération
-  - 📋 **Bulletins** : liste des élèves avec statut (généré/prêt/notes manquantes), génération individuelle ou en masse, preview modal, téléchargement PDF/ZIP
-  - 🏆 **Classements** : tableau trié par moyenne, médailles podium, statistiques récapitulatives (moy. classe, premier, dernier, effectif)
+- **Génération PDF WeasyPrint** au format officiel malien :
+  - En-tête 3 colonnes : Ministère (gauche) · École+titre (centre) · République du Mali (droite)
+  - Colonnes tableau : Notes Classe | Comp×2 | Moy.(1+2×2)/3 | N.×Coef | Appréciations
+  - Stats récapitulatives : Moy. générale, Appréciation, Classement, Moy. 1er
+  - N.B., date/lieu, signatures (Parent / Directeur / cachet)
+- **BulletinConfig structuré** : `ministry_line1/2/3`, `republic_line1/2`, `bulletin_title`, options show_rank/show_logo/etc.
+- **Paramètres bulletin** `/settings/bulletin/` : formulaire HTMX complet, toast on save
+- **Interface principale améliorée** :
+  - Sélecteurs en cartes avec icônes Lucide (calendar / clock / school)
+  - Info-bar classe : badge niveau malien coloré + effectif + matières + boutons Générer/ZIP
+  - `LEVEL_BADGE` dict avec classes Tailwind par niveau
+  - Onglets avec compteur `(22/34)` vert si complet, gris sinon
+- **Onglet Bulletins** : barre progression animée, badges statuts avec icônes (check-circle / clock / alert-circle), 3 boutons actions (voir PDF inline / télécharger / imprimer), HTMX indicator
+- **Onglet Santé éducative** : 4 stats cards avec cercles d'icônes, podium Top 3 or/argent/bronze, élèves en difficulté avec barre score + lien profil, barres matières triées par moyenne avec indicateur couleur
+- **Onglet Classements** : 4 stats cards (moy. classe / moy. 1er / moy. dernier / effectif), podium Top 3 différencié, tableau avec médaille trophy rang 1, export Excel openpyxl, impression `window.print()`
+- **Vue PDF inline** : `bulletin_view_pdf` avec `Content-Disposition: inline`, ouverture onglet navigateur
+- **Export Excel** : `rankings_export` — colonnes Rang/Nom/Moyenne/Appréciation, en-tête bleu brand, fond doré rang 1
+- **Fix N+1** : `select_related('student')` dans `_get_class_stats` et `rankings_tab`
 - **Barème appréciations** personnalisable via `AppreciationScale.get_appreciation()`
-- **Génération optimisée** : 1 requête notes, `bulk_create` Bulletin + BulletinLines, calcul rangs en 1 passe
-- **Recherche instantanée** Alpine.js avec `$store.search` (onglets Bulletins et Classements)
-- **Sécurité** : isolation école, generation director/staff uniquement, aperçu et download contrôlés
-- **Multi-format** : téléchargement PDF individuel ou ZIP classe complète
-- **URL** : `/bulletins/` — lien activé dans la sidebar
+- **Génération optimisée** : `bulk_create` Bulletin + BulletinLines, calcul rangs en 1 passe
+- **Recherche instantanée** Alpine.js `$store.search` (onglets Bulletins et Classements)
+- **Sécurité** : isolation école, génération director/staff uniquement, download contrôlé
+- **Multi-format** : PDF individuel, ZIP classe complète, Excel classement
+- **URL** : `/bulletins/` — sidebar active
 
 ### Dashboard V1 (`/dashboard/`)
 - **6 KPI cards** avec counters animés (0 → valeur réelle en 1.2s ease-out cubique, `requestAnimationFrame`)
