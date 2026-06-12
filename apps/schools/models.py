@@ -7,10 +7,12 @@ from django.utils.translation import gettext_lazy as _
 
 
 class EducationLevel(models.TextChoices):
-    PRIMARY    = 'primary',    _('Primaire')
-    MIDDLE_SCHOOL = 'middle',  _('Collège')
-    HIGH_SCHOOL   = 'high',    _('Lycée')
-    UNIVERSITY    = 'university', _('Université')
+    PRESCOLAIRE    = 'prescolaire',    _('Préscolaire')
+    FONDAMENTAL_1  = 'fondamental_1',  _('Fondamental 1er Cycle')
+    FONDAMENTAL_2  = 'fondamental_2',  _('Fondamental 2ème Cycle')
+    SECONDAIRE_GEN = 'secondaire_gen', _('Secondaire Général')
+    SECONDAIRE_PRO = 'secondaire_pro', _('Secondaire Professionnel')
+    SUPERIEUR      = 'superieur',      _('Enseignement Supérieur')
 
 
 class SchoolType(models.TextChoices):
@@ -131,6 +133,17 @@ class SchoolClass(models.Model):
 
     def __str__(self):
         return f'{self.name} — {self.school.name}'
+
+    def get_level_display_verbose(self):
+        labels = {
+            'prescolaire':    "Préscolaire (Jardin d'enfants)",
+            'fondamental_1':  'Fondamental 1er Cycle (1ère-6ème)',
+            'fondamental_2':  'Fondamental 2ème Cycle (7ème-9ème)',
+            'secondaire_gen': 'Secondaire Général (Lycée/BAC)',
+            'secondaire_pro': 'Secondaire Professionnel (CAP/BT)',
+            'superieur':      'Enseignement Supérieur',
+        }
+        return labels.get(self.level, self.level)
 
     def get_student_count(self):
         if hasattr(self, 'student_count'):
