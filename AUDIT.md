@@ -285,20 +285,20 @@ Description : Voir section 7. Précalculer en une requête agrégée retournant 
 7. ✅ **Dropdown enseignants filtré** (`settings_views.py:544`) — `b813287`
 8. ✅ **Redirect superadmin vers `/login/`** (`superadmin_views.py:17`) — `bbafdab`
 
-### Priorité 2 — Semaine suivante
+### Priorité 2 — Semaine suivante ✅ COMPLÈTE (9-20)
 
-9. **🟠 Race condition numéro de reçu** (`payments/models.py:85-102`) — crash 500 lors de paiements simultanés.
-10. **🟠 `bulk_create` élèves sans gestion IntegrityError** (`students/views.py:495`) — crash 500 sans message utilisateur.
-11. **🟠 `bulletin_download` sans vérification de rôle** (`bulletins_views.py:329,352`) — accès non autorisé aux bulletins PDF.
-12. **🟠 `generate_student_bulletin` sans transaction atomique** (`bulletins_views.py:281-284`) — bulletins avec rang manquant.
-13. **🟠 Activité récente affiche les élèves archivés** (`dashboard/views.py:290`).
-14. **🟠 Vues métier sans vérification de rôle** (toutes les vues classe/élève/paiement).
-15. **🟠 Fichiers media accessibles sans auth** (`config/urls.py:22-23`).
-16. **🟡 `receipt_url` dans le toast non implémentée** (`payments/views.py:181`).
-17. **🟡 Colonne "Versement" toujours vide dans l'aperçu import** (`student_import_preview.html:44`).
-18. **🟡 Paiement en surcharge possible** (`payments/forms.py`).
-19. **🟡 `_compute_charts` 24 requêtes SQL** → `TruncMonth`.
-20. **🟡 Fonctionnalité "Analyser PDF reçu" mock** → masquer ou implémenter.
+9.  ✅ **Race condition numéro de reçu** (`payments/models.py`) — `cb30729`
+10. ✅ **`bulk_create` élèves sans gestion IntegrityError** (`students/views.py`) — `481aec9`
+11. ✅ **`bulletin_download` sans vérification de rôle** (`bulletins_views.py`) — `bcc8bd4`
+12. ✅ **`generate_student_bulletin` sans transaction atomique** (`bulletins_views.py`) — `8c6fd5e`
+13. ✅ **Activité récente affiche les élèves archivés** (`dashboard/views.py`) — `4a6dce8`
+14. ✅ **Vues métier sans vérification de rôle** (14 vues classes/élèves/paiements) — `7caf52e`
+15. ✅ **Fichiers media accessibles sans auth** (`config/urls.py`) — `a45e63e`
+16. ✅ **`receipt_url` dans le toast non implémentée** (`payments/views.py`) — `8ab165c`
+17. ✅ **Colonne "Versement" toujours vide dans l'aperçu import** (`student_import_preview.html`) — `6cbcc4a`
+18. ✅ **Paiement en surcharge possible** (`payments/forms.py`) — `ca28ead`
+19. ✅ **`_compute_charts` 24 requêtes SQL** → `TruncMonth` — `174dff4`
+20. ✅ **Fonctionnalité "Analyser PDF reçu" mock** → message "config manuelle" — `c0a06e1`
 
 ### Priorité 3 — Plus tard
 
