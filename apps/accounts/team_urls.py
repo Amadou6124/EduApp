@@ -11,4 +11,5 @@ urlpatterns = [
     path('<int:user_id>/edit/',           team_views.team_member_edit,         name='edit'),
     path('<int:user_id>/permissions/',    team_views.team_permissions_update,  name='permissions'),
     path('<int:user_id>/deactivate/',     team_views.team_member_deactivate,   name='deactivate'),
+    path('<int:user_id>/subjects/',       team_views.teacher_subjects_update,  name='subjects'),
 ]

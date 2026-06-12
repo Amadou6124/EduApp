@@ -127,53 +127,15 @@
   </div>
 
   {% if member.role == 'teacher' %}
-    <div class="bg-white rounded-xl border border-gray-200 p-6">
-      <div class="flex items-center justify-between mb-5">
-        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Matières et classes</h3>
-        <a href="{% url 'settings:subjects' %}"
-           class="flex items-center gap-1.5 text-xs font-medium text-brand-blue hover:underline">
-          <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
-          Gérer les assignations
-        </a>
+    <div hx-get="{% url 'team:subjects' member.pk %}"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="flex items-center gap-3 text-gray-400">
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+          <span class="text-sm">Chargement des matières…</span>
+        </div>
       </div>
-      {% if subjects %}
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-gray-100">
-                <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide pb-3 pr-4">Matière</th>
-                <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide pb-3 pr-4">Classe</th>
-                <th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide pb-3">Niveau</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-50">
-              {% for cs in subjects %}
-                <tr class="hover:bg-gray-50 transition-colors">
-                  <td class="py-3 pr-4">
-                    <div class="flex items-center gap-2">
-                      <div class="w-2 h-2 rounded-full bg-brand-blue flex-shrink-0"></div>
-                      <span class="font-medium text-gray-800">{{ cs.subject.name }}</span>
-                      {% if cs.subject.short_name %}
-                        <span class="text-xs text-gray-400 font-mono">({{ cs.subject.short_name }})</span>
-                      {% endif %}
-                    </div>
-                  </td>
-                  <td class="py-3 pr-4 text-gray-600">{{ cs.school_class.name }}</td>
-                  <td class="py-3 text-gray-500 text-xs">{{ cs.school_class.level|default:"—" }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <div class="text-center py-8">
-          <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <i data-lucide="book-open" class="w-5 h-5 text-brand-blue"></i>
-          </div>
-          <p class="text-sm text-gray-500 mb-1">Aucune matière assignée</p>
-          <p class="text-xs text-gray-400">Les assignations se configurent dans Paramètres → Matières.</p>
-        </div>
-      {% endif %}
     </div>
   {% endif %}
 

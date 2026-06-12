@@ -1,0 +1,123 @@
+{% load i18n %}
+<div id="teacher-subjects-panel" class="bg-white rounded-xl border border-gray-200 p-6">
+
+  <div class="flex items-center justify-between mb-5">
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Matières et classes</h3>
+    {% if is_director %}
+      <span id="subjects-saved-indicator"
+            class="text-xs text-green-600 font-medium transition-opacity duration-300 {% if saved %}opacity-100{% else %}opacity-0{% endif %}">
+        <i data-lucide="check" class="w-3 h-3 inline-block mr-0.5"></i> Enregistré
+      </span>
+    {% endif %}
+  </div>
+
+  {% if is_director %}
+    <form hx-post="{% url 'team:subjects' member.pk %}"
+          hx-target="#teacher-subjects-panel"
+          hx-swap="outerHTML"
+          hx-indicator="#subjects-spinner">
+
+      {% csrf_token %}
+
+      {% regroup all_class_subjects by school_class as grouped %}
+
+      {% if grouped %}
+        <div class="space-y-5">
+          {% for group in grouped %}
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="layout-grid" class="w-3.5 h-3.5 text-gray-400"></i>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ group.grouper.name }}</p>
+                {% if group.grouper.level %}
+                  <span class="text-xs text-gray-400">— {{ group.grouper.level }}</span>
+                {% endif %}
+              </div>
+              <div class="space-y-1 ml-5">
+                {% for cs in group.list %}
+                  <label class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group">
+                    <div class="relative flex-shrink-0">
+                      <input type="checkbox"
+                             name="class_subject_ids"
+                             value="{{ cs.pk }}"
+                             {% if cs.pk in assigned_ids %}checked{% endif %}
+                             class="w-4 h-4 rounded border-gray-300 text-brand-blue focus:ring-brand-blue cursor-pointer">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-800 group-hover:text-gray-900 transition-colors">
+                        {{ cs.subject.name }}
+                        {% if cs.subject.short_name %}
+                          <span class="text-xs text-gray-400 font-mono">({{ cs.subject.short_name }})</span>
+                        {% endif %}
+                      </p>
+                      <p class="text-xs text-gray-400">Coeff. {{ cs.coefficient }}</p>
+                    </div>
+                    {% if cs.teacher and cs.teacher.pk != member.pk %}
+                      <span class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">
+                        {{ cs.teacher.get_short_name }}
+                      </span>
+                    {% endif %}
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+            {% if not forloop.last %}
+              <div class="border-t border-gray-50"></div>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        <div class="mt-5 pt-4 border-t border-gray-100 flex items-center gap-3">
+          <button type="submit"
+                  class="flex items-center gap-2 px-5 py-2.5 bg-brand-blue hover:bg-blue-900 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+            <svg id="subjects-spinner" class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            Enregistrer les assignations
+          </button>
+          <p class="text-xs text-gray-400">
+            {{ assigned_ids|length }} matière{% if assigned_ids|length > 1 %}s{% endif %} assignée{% if assigned_ids|length > 1 %}s{% endif %}
+          </p>
+        </div>
+
+      {% else %}
+        <div class="text-center py-8">
+          <div class="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <i data-lucide="book-open" class="w-5 h-5 text-gray-400"></i>
+          </div>
+          <p class="text-sm text-gray-500 mb-1">Aucune matière configurée</p>
+          <p class="text-xs text-gray-400">
+            Configurez les matières et classes dans
+            <a href="{% url 'settings:subjects' %}" class="text-brand-blue underline">Paramètres → Matières</a>.
+          </p>
+        </div>
+      {% endif %}
+
+    </form>
+
+  {% else %}
+    {% if assigned_ids %}
+      {% regroup all_class_subjects by school_class as grouped %}
+      <div class="space-y-4">
+        {% for group in grouped %}
+          {% with assigned_in_group=group.list|dictsort:"subject.name" %}
+            {% for cs in assigned_in_group %}
+              {% if cs.pk in assigned_ids %}
+                <div class="flex items-center gap-3 py-2 px-3 bg-gray-50 rounded-lg">
+                  <div class="w-2 h-2 rounded-full bg-brand-blue flex-shrink-0"></div>
+                  <div>
+                    <p class="text-sm font-medium text-gray-800">{{ cs.subject.name }}</p>
+                    <p class="text-xs text-gray-400">{{ group.grouper.name }}</p>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% endwith %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-400 italic text-center py-6">Aucune matière assignée.</p>
+    {% endif %}
+  {% endif %}
+
+</div>

@@ -3,13 +3,13 @@ from functools import wraps
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Prefetch
-from django.http import HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.core.mixins import get_school
-from apps.schools.models import ClassSubject
+from apps.schools.models import ClassSubject, Subject, SchoolClass
 from .models import User, UserRole, StaffPermission
 from .team_forms import TeamMemberCreateForm, TeamMemberEditForm, StaffPermissionForm
 
@@ -55,7 +55,7 @@ def _teachers_qs(school):
         .filter(school=school, role=UserRole.TEACHER, is_active=True)
         .prefetch_related(
             Prefetch(
-                'class_subjects',
+                'teaching_subjects',
                 queryset=(
                     ClassSubject.objects
                     .filter(is_active=True)
@@ -143,7 +143,6 @@ def team_member_create(request):
             if role == UserRole.STAFF:
                 StaffPermission.objects.get_or_create(user=user)
 
-                from django.http import HttpResponse
             response = HttpResponse('')
             response['HX-Trigger'] = json.dumps({
                 'close-panel': True,
@@ -160,7 +159,6 @@ def team_member_create(request):
             f'{f}: {e[0]}' for f, errs in form.errors.items()
             for e in [errs]
         )
-        from django.http import HttpResponse
         response = HttpResponse('', status=422)
         response['HX-Trigger'] = json.dumps({
             'showToast': {'message': errors or 'Vérifiez les champs.', 'type': 'error'},
@@ -204,7 +202,6 @@ def team_member_edit(request, user_id):
         form = TeamMemberEditForm(request.POST, instance=member)
         if form.is_valid():
             form.save()
-            from django.http import HttpResponse
             response = HttpResponse('')
             response['HX-Trigger'] = json.dumps({
                 'close-edit-panel': True,
@@ -291,3 +288,66 @@ def team_member_deactivate(request, user_id):
         },
     })
     return response
+
+
+@login_required
+@director_required
+def teacher_subjects_update(request, user_id):
+    school = get_school(request)
+    member = get_object_or_404(User, pk=user_id, school=school, role=UserRole.TEACHER)
+
+    all_class_subjects = (
+        ClassSubject.objects
+        .filter(school_class__school=school, is_active=True)
+        .select_related('subject', 'school_class')
+        .order_by('school_class__name', 'subject__name')
+    )
+    assigned_ids = set(
+        ClassSubject.objects
+        .filter(teacher=member)
+        .values_list('id', flat=True)
+    )
+
+    if request.method == 'POST':
+        selected_ids = set(int(i) for i in request.POST.getlist('class_subject_ids') if i.isdigit())
+
+        to_assign   = selected_ids - assigned_ids
+        to_unassign = assigned_ids - selected_ids
+
+        if to_assign:
+            ClassSubject.objects.filter(
+                id__in=to_assign,
+                school_class__school=school,
+            ).update(teacher=member)
+
+        if to_unassign:
+            ClassSubject.objects.filter(
+                id__in=to_unassign,
+                teacher=member,
+            ).update(teacher=None)
+
+        updated_subjects = (
+            ClassSubject.objects
+            .filter(teacher=member, is_active=True)
+            .select_related('subject', 'school_class')
+            .order_by('school_class__name', 'subject__name')
+        )
+        response = render(request, 'team/partials/teacher_subjects.html', {
+            'member':           member,
+            'all_class_subjects': all_class_subjects,
+            'assigned_ids':     set(updated_subjects.values_list('id', flat=True)),
+            'is_director':      True,
+            'saved':            True,
+        })
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {'message': 'Assignations mises à jour.', 'type': 'success'},
+        })
+        return response
+
+    return render(request, 'team/partials/teacher_subjects.html', {
+        'member':             member,
+        'all_class_subjects': all_class_subjects,
+        'assigned_ids':       assigned_ids,
+        'is_director':        True,
+        'saved':              False,
+    })
