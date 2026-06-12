@@ -493,7 +493,7 @@ def student_import_confirm(request):
             'stats':           stats,
             'success_message': f'{len(created)} élève(s) importé(s), {skipped} ignoré(s).',
         })
-        response['HX-Trigger'] = 'closeImportModal'
+        response['HX-Trigger-After-Swap'] = 'closeImportModal'
         return response
 
     return redirect('students:list')

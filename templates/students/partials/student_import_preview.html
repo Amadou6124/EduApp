@@ -63,7 +63,7 @@
     <form hx-post="{% url 'students:import-confirm' %}"
           hx-target="#student-list-area"
           hx-swap="outerHTML"
-          hx-on::after-request="if(event.detail.successful) { document.dispatchEvent(new CustomEvent('closeImportModal')); }">
+          hx-on::after-request="if(event.detail.successful) { window.dispatchEvent(new CustomEvent('closeImportModal')); }">
       {% csrf_token %}
       <input type="hidden" name="rows_data" value="{{ rows_json }}">
       <button type="submit"
