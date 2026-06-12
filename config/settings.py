@@ -126,3 +126,12 @@ LOGOUT_REDIRECT_URL = '/login/'
 # Session — expire après 8h d'inactivité
 SESSION_COOKIE_AGE = 8 * 60 * 60        # 8 heures en secondes
 SESSION_SAVE_EVERY_REQUEST = True        # réinitialise le timer à chaque requête
+
+# Sécurité HTTPS — activée uniquement en production
+if not DEBUG:
+    SESSION_COOKIE_SECURE  = True
+    CSRF_COOKIE_SECURE     = True
+    SECURE_SSL_REDIRECT    = True
+    SECURE_HSTS_SECONDS    = 31536000   # 1 an
+    SECURE_HSTS_PRELOAD    = True
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
