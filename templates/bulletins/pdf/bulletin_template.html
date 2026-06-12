@@ -1,17 +1,12 @@
-{% comment %}
-Template PDF du bulletin — WeasyPrint.
-Contexte : school, student, period, bulletin, config, subjects_rows,
-           total_coeff, total_weighted, generated_at
-{% endcomment %}
 {% load i18n %}
 <!DOCTYPE html>
-<html lang="{{ config.language|default:'fr' }}">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <style>
   @page {
-    size: A4;
-    margin: 0;
+    size: A4 portrait;
+    margin: 1.5cm;
   }
 
   * {
@@ -23,324 +18,393 @@ Contexte : school, student, period, bulletin, config, subjects_rows,
   body {
     font-family: 'Times New Roman', 'DejaVu Serif', Georgia, serif;
     font-size: 9pt;
-    color: #1a1a1a;
+    color: #000;
     line-height: 1.4;
   }
 
-  /* ── Demi-page pour two_per_page ─────────────── */
-  .bulletin-half {
-    width: 100%;
-    height: 49%;
-    padding: 5mm 10mm;
-    overflow: hidden;
-    position: relative;
-  }
-
-  /* ── Pleine page ───────────────────────────────── */
-  .bulletin-full {
-    width: 100%;
-    min-height: 297mm;
-    padding: 12mm 15mm;
-  }
-
-  /* ── En-tête triple ────────────────────────────── */
+  /* ── En-tête triple ─────────────────────────── */
   .header-row {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 4mm;
-    font-size: 7pt;
   }
+
   .header-left {
-    max-width: 40%;
+    width: 32%;
     font-weight: bold;
+    font-size: 7.5pt;
+    line-height: 1.7;
+    text-transform: uppercase;
   }
+
   .header-center {
+    width: 36%;
     text-align: center;
-    flex: 1;
   }
+
   .header-right {
+    width: 28%;
     text-align: right;
-    max-width: 30%;
     font-style: italic;
     font-weight: bold;
+    font-size: 7.5pt;
+    line-height: 1.7;
+    text-transform: uppercase;
   }
+
   .header-logo {
-    max-height: 20mm;
-    max-width: 30mm;
-    margin-bottom: 1mm;
+    max-height: 18mm;
+    max-width: 25mm;
+    display: block;
+    margin: 0 auto 1.5mm auto;
   }
+
   .school-name {
-    font-size: 12pt;
+    font-size: 11pt;
     font-weight: bold;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 1mm;
+    letter-spacing: 0.5px;
+    margin-bottom: 1.5mm;
   }
+
   .bulletin-title {
     font-size: 10pt;
     font-weight: bold;
     text-decoration: underline;
-    margin-bottom: 2mm;
-  }
-  .bulletin-subtitle {
-    font-size: 8pt;
+    text-transform: uppercase;
     margin-bottom: 1mm;
   }
 
-  /* ── Ligne élève ───────────────────────────────── */
-  .student-info {
-    font-size: 9pt;
-    font-weight: bold;
-    margin-bottom: 3mm;
-    padding: 2mm 0;
-    border-bottom: 1px solid #ccc;
+  .bulletin-subtitle {
+    font-size: 8pt;
+    margin-bottom: 0.5mm;
   }
 
-  /* ── Tableau matières ──────────────────────────── */
-  table {
+  /* ── Séparateur sous l'en-tête ──────────────── */
+  .header-separator {
+    border-top: 1.5pt solid #000;
+    border-bottom: 0.5pt solid #000;
+    height: 1.5mm;
+    margin-bottom: 3mm;
+  }
+
+  /* ── Bloc info élève / classe ────────────────── */
+  .info-bloc {
+    border: 1pt solid #000;
+    padding: 1.8mm 3mm;
+    margin-bottom: 3mm;
+    font-size: 9pt;
+  }
+
+  .info-ligne {
+    display: flex;
+    justify-content: space-between;
+    gap: 5mm;
+  }
+
+  .info-item {
+    flex: 1;
+  }
+
+  .info-label {
+    font-style: italic;
+  }
+
+  .info-value {
+    font-weight: bold;
+  }
+
+  /* ── Tableau matières ────────────────────────── */
+  table.matieres {
     width: 100%;
     border-collapse: collapse;
     font-size: 8pt;
     margin-bottom: 2mm;
   }
-  th {
-    background-color: #f0f4f8;
-    border: 0.5pt solid #999;
+
+  table.matieres th {
+    background-color: #fff;
+    border: 1pt solid #000;
     padding: 1.5mm 1mm;
     text-align: center;
     font-weight: bold;
     font-size: 7.5pt;
+    line-height: 1.3;
   }
-  td {
-    border: 0.5pt solid #999;
+
+  table.matieres td {
+    border: 1pt solid #000;
     padding: 1.2mm 1mm;
     text-align: center;
     font-size: 8pt;
   }
-  td.subject-name {
+
+  table.matieres td.col-matiere {
     text-align: left;
-    font-weight: bold;
-  }
-  tr.total-row {
-    font-weight: bold;
-    background-color: #f9f9f9;
-    border-top: 1.5pt solid #333;
+    padding-left: 2mm;
   }
 
-  /* ── Pied stats ─────────────────────────────────── */
-  .stats-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 8pt;
+  table.matieres tr:nth-child(even) td {
+    background-color: #f7f7f7;
+  }
+
+  table.matieres tr.total-row td {
+    font-weight: bold;
+    border-top: 1.5pt solid #000;
+    background-color: #fff;
+  }
+
+  /* ── Tableau statistiques ────────────────────── */
+  table.stats {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
     margin-bottom: 3mm;
-    padding: 1.5mm 2mm;
-    background-color: #f9f9f9;
-    border: 0.5pt solid #999;
-  }
-  .stats-row strong {
-    font-weight: bold;
+    border: 1pt solid #000;
   }
 
-  /* ── Signatures ─────────────────────────────────── */
+  table.stats td {
+    border: 1pt solid #000;
+    padding: 1.5mm 3mm;
+  }
+
+  table.stats td.st-label {
+    font-style: italic;
+    width: 30%;
+  }
+
+  table.stats td.st-val {
+    font-weight: bold;
+    font-size: 10pt;
+    text-align: center;
+    width: 20%;
+  }
+
+  table.stats td.st-label2 {
+    font-style: italic;
+    width: 28%;
+  }
+
+  table.stats td.st-val2 {
+    font-weight: bold;
+    font-size: 10pt;
+    text-align: center;
+    width: 22%;
+  }
+
+  /* ── N.B. pied ──────────────────────────────── */
+  .nb-footer {
+    font-size: 7pt;
+    font-style: italic;
+    border-top: 0.5pt dashed #000;
+    padding-top: 1.5mm;
+    margin-top: 5mm;
+    margin-bottom: 3mm;
+  }
+
+  /* ── Ligne date / lieu ──────────────────────── */
+  .date-lieu {
+    font-size: 8.5pt;
+    margin-bottom: 6mm;
+    text-align: right;
+    padding-right: 5mm;
+  }
+
+  /* ── Signatures ─────────────────────────────── */
   .signatures {
     display: flex;
     justify-content: space-between;
-    margin-top: 8mm;
-    font-size: 8pt;
-    padding: 0 5mm;
-  }
-  .sig-left, .sig-right {
-    text-align: center;
-    min-width: 40%;
-  }
-  .sig-line {
-    border-bottom: 0.5pt solid #333;
-    width: 60%;
-    margin: 15mm auto 2mm auto;
+    font-size: 8.5pt;
+    padding: 0 10mm;
   }
 
-  /* ── Séparateur de page ─────────────────────────── */
-  .page-break {
-    page-break-after: always;
+  .sig-bloc {
+    text-align: center;
+    min-width: 38%;
+  }
+
+  .sig-titre {
+    font-weight: bold;
+    margin-bottom: 14mm;
+  }
+
+  .sig-line {
+    border-bottom: 0.5pt solid #000;
+    width: 70%;
+    margin: 0 auto 1.5mm auto;
+  }
+
+  .sig-cachet {
+    font-size: 7pt;
+    font-style: italic;
   }
 </style>
 </head>
 <body>
 
-{% if is_half_page or is_full_page %}
-<div class="{% if is_half_page %}bulletin-half{% else %}bulletin-full{% endif %}">
+{# ─── EN-TÊTE MINISTÉRIEL ────────────────────── #}
+{% if config.show_ministry_header %}
+<div class="header-row">
+
+  <div class="header-left">
+    {% for line in republic_lines %}{{ line }}<br>{% endfor %}
+  </div>
+
+  <div class="header-center">
+    {% if config.show_logo and school.logo %}
+      <img src="{{ school.logo.path }}" class="header-logo" alt="Logo">
+    {% endif %}
+    <div class="school-name">{{ school.name }}</div>
+    <div class="bulletin-title">{{ bulletin_title }} — {{ period.name|upper }}</div>
+    <div class="bulletin-subtitle">Année Scolaire : {{ period.school_year.name }}</div>
+  </div>
+
+  <div class="header-right">
+    {% for line in ministry_lines %}{{ line }}<br>{% endfor %}
+  </div>
+
+</div>
+<div class="header-separator"></div>
 {% endif %}
 
-  {# ── En-tête ministériel ─────────────────────────────── #}
-  {% if config.show_ministry_header %}
-  <div class="header-row">
-    {% if config.ministry_text %}
-    <div class="header-left">{{ config.ministry_text|linebreaksbr }}</div>
-    {% else %}
-    <div class="header-left"></div>
-    {% endif %}
-
-    <div class="header-center">
-      {% if config.show_logo and school.logo %}
-      <img src="{{ school.logo.path }}" class="header-logo" alt="Logo">
-      {% endif %}
-      <div class="school-name">{{ school.name }}</div>
-      <div class="bulletin-title">
-        RELEVÉ DE NOTES DU
-        {{ period.name|upper }}
-      </div>
-      <div class="bulletin-subtitle">
-        Année Scolaire {{ period.school_year.name }}
-      </div>
-      <div class="bulletin-subtitle">
-        Classe : {{ bulletin.school_class.name }}
-      </div>
+{# ─── BLOC INFO ÉLÈVE / CLASSE ────────────────── #}
+<div class="info-bloc">
+  <div class="info-ligne">
+    <div class="info-item">
+      <span class="info-label">Prénom et Nom : </span>
+      <span class="info-value">{{ student.full_name|upper }}</span>
     </div>
-
-    {% if config.republic_text %}
-    <div class="header-right">{{ config.republic_text|linebreaksbr }}</div>
-    {% else %}
-    <div class="header-right"></div>
-    {% endif %}
+    <div class="info-item" style="text-align:right;">
+      <span class="info-label">Classe : </span>
+      <span class="info-value">{{ bulletin.school_class.name }}</span>
+      &nbsp;&nbsp;
+      <span class="info-label">Effectif : </span>
+      <span class="info-value">{{ bulletin.class_size }}</span>
+    </div>
   </div>
-  {% endif %}
+</div>
 
-  {# ── Nom de l'élève ─────────────────────────────────── #}
-  <div class="student-info">
-    Prénom et Nom de l'élève : {{ student.full_name }}
-  </div>
+{# ─── TABLEAU DES MATIÈRES ────────────────────── #}
+<table class="matieres">
+  <thead>
+    <tr>
+      <th style="width:30%; text-align:left; padding-left:2mm;">Matières</th>
+      <th style="width:6%;">Coef</th>
+      {% if has_devoirs_compo %}
+        <th style="width:10%;">Notes<br>Classe</th>
+        <th style="width:10%;">Comp<br>&times;2</th>
+        <th style="width:11%;">Moy.<br>(1+2&times;2)/3</th>
+      {% else %}
+        <th style="width:11%;">Moyenne</th>
+      {% endif %}
+      <th style="width:10%;">N.&times;Coef</th>
+      {% if config.show_appreciations %}
+        <th style="width:13%;">Appréciations</th>
+      {% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in subjects_rows %}
+    <tr>
+      <td class="col-matiere">{{ row.subject_name }}</td>
+      <td>{{ row.coefficient|floatformat:'0' }}</td>
 
-  {# ── Tableau matières ────────────────────────────────── #}
-  <table>
-    <thead>
-      <tr>
-        <th style="width:28%">Matières</th>
-        <th style="width:8%">Coef</th>
-        {% for row in subjects_rows %}
-          {% if row.note_system == 'devoirs_compo' %}
-            {% if forloop.first %}
-              <th style="width:10%">N. Classe</th>
-              <th style="width:10%">Comp.&times;2</th>
-              <th style="width:12%">Moy(1+2)/n</th>
-            {% endif %}
-          {% else %}
-            {% if forloop.first %}
-              <th style="width:10%">Note</th>
-            {% endif %}
-          {% endif %}
-        {% endfor %}
-        <th style="width:10%">Moyenne</th>
-        <th style="width:10%">N.&times;Coef</th>
-        {% if config.show_appreciations %}
-        <th style="width:12%">Appréciations</th>
-        {% endif %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in subjects_rows %}
-      <tr>
-        <td class="subject-name">{{ row.subject_name }}</td>
-        <td>{{ row.coefficient|floatformat:'0' }}</td>
-
+      {% if has_devoirs_compo %}
         {% if row.note_system == 'devoirs_compo' %}
-          {# DEVOIRS_COMPO : Notes classe + Compo×coeff #}
-          <td>
-            {% if row.devoir_average is not None %}{{ row.devoir_average }}{% else %}—{% endif %}
-          </td>
-          <td>
-            {% if row.compo_grade is not None %}{{ row.compo_grade }}{% else %}—{% endif %}
-          </td>
+          <td>{% if row.devoir_average is not None %}{{ row.devoir_average|floatformat:'2' }}{% else %}—{% endif %}</td>
+          <td>{% if row.compo_grade_x2 is not None %}{{ row.compo_grade_x2|floatformat:'2' }}{% else %}—{% endif %}</td>
+          <td>{% if row.final_average is not None %}{{ row.final_average|floatformat:'2' }}{% else %}—{% endif %}</td>
         {% else %}
-          {# MOYENNE_SIMPLE : Notes brutes listées ? Non : on affiche la moyenne #}
+          {# MOYENNE_SIMPLE dans tableau DEVOIRS_COMPO : moyenne dans "Notes Classe", tirets ailleurs #}
+          <td>{% if row.final_average is not None %}{{ row.final_average|floatformat:'2' }}{% else %}—{% endif %}</td>
+          <td>—</td>
+          <td>—</td>
         {% endif %}
+      {% else %}
+        <td>{% if row.final_average is not None %}{{ row.final_average|floatformat:'2' }}{% else %}—{% endif %}</td>
+      {% endif %}
 
-        <td>
-          {% if row.final_average is not None %}{{ row.final_average|floatformat:'2' }}{% else %}—{% endif %}
-        </td>
-        <td>
-          {% if row.weighted_grade is not None %}{{ row.weighted_grade|floatformat:'2' }}{% else %}—{% endif %}
-        </td>
-        {% if config.show_appreciations %}
+      <td>{% if row.weighted_grade is not None %}{{ row.weighted_grade|floatformat:'2' }}{% else %}—{% endif %}</td>
+
+      {% if config.show_appreciations %}
         <td>{{ row.appreciation|default:'—' }}</td>
-        {% endif %}
-      </tr>
-      {% endfor %}
+      {% endif %}
+    </tr>
+    {% endfor %}
 
-      {# Ligne Total #}
-      <tr class="total-row">
-        <td class="subject-name">Total</td>
-        <td>{{ total_coeff|floatformat:'0' }}</td>
-        {% for row in subjects_rows %}
-          {% if forloop.first %}
-            {% if subjects_rows.0.note_system == 'devoirs_compo' %}
-              <td></td><td></td>
-            {% endif %}
-          {% endif %}
-        {% endfor %}
-        <td>{{ total_weighted|default:'—'|floatformat:'2' }}</td>
-        <td>—</td>
-        {% if config.show_appreciations %}
+    {# Ligne TOTAL #}
+    <tr class="total-row">
+      <td class="col-matiere">Total</td>
+      <td>{{ total_coeff|floatformat:'0' }}</td>
+      {% if has_devoirs_compo %}
+        <td></td><td></td><td></td>
+      {% else %}
         <td></td>
-        {% endif %}
-      </tr>
-    </tbody>
-  </table>
+      {% endif %}
+      <td>{% if total_weighted is not None %}{{ total_weighted|floatformat:'2' }}{% else %}—{% endif %}</td>
+      {% if config.show_appreciations %}<td></td>{% endif %}
+    </tr>
+  </tbody>
+</table>
 
-  {# ── Stats ───────────────────────────────────────────── #}
-  <div class="stats-row">
-    <span>
-      <strong>Moyenne Générale :</strong>
+{# ─── TABLEAU STATISTIQUES ────────────────────── #}
+<table class="stats">
+  <tr>
+    <td class="st-label">Moyenne Générale :</td>
+    <td class="st-val">
       {% if bulletin.general_average is not None %}
         {{ bulletin.general_average|floatformat:'2' }}/{{ subjects_rows.0.max_grade|floatformat:'0'|default:'20' }}
       {% else %}—{% endif %}
-    </span>
-
-    {% if config.show_rank and bulletin.rank %}
-    <span>
-      <strong>Classement :</strong>
-      {{ bulletin.rank }}<sup>e</sup>/{{ bulletin.class_size }}
-    </span>
-    {% endif %}
-
-    {% if config.show_class_average %}
-    <span>
-      <strong>Moy. Classe :</strong>
-      {% comment %}Calcul serveur si dispo{% endcomment %}
-      —/{{ subjects_rows.0.max_grade|floatformat:'0'|default:'20' }}
-    </span>
-    {% endif %}
-
-    {% if config.show_first_average and bulletin.first_average is not None %}
-    <span>
-      <strong>Moy. du 1<sup>er</sup> :</strong>
-      {{ bulletin.first_average|floatformat:'2' }}
-    </span>
-    {% endif %}
-  </div>
-
-  {# ── Appréciation générale ───────────────────────────── #}
-  {% if config.show_appreciations and bulletin.appreciation %}
-  <div style="text-align:center; font-size:9pt; margin-bottom:3mm; font-weight:bold;">
-    {{ bulletin.appreciation }}
-  </div>
+    </td>
+    <td class="st-label2">Appréciation :</td>
+    <td class="st-val2">
+      {% if config.show_appreciations and bulletin.appreciation %}{{ bulletin.appreciation }}{% else %}—{% endif %}
+    </td>
+  </tr>
+  <tr>
+    <td class="st-label">
+      {% if config.show_rank %}Classement :{% endif %}
+    </td>
+    <td class="st-val">
+      {% if config.show_rank and bulletin.rank %}{{ bulletin.rank }}<sup>e</sup>/{{ bulletin.class_size }}{% else %}—{% endif %}
+    </td>
+    <td class="st-label2">
+      {% if config.show_first_average %}Moy. du 1<sup>er</sup> :{% endif %}
+    </td>
+    <td class="st-val2">
+      {% if config.show_first_average and bulletin.first_average is not None %}{{ bulletin.first_average|floatformat:'2' }}{% else %}—{% endif %}
+    </td>
+  </tr>
+  {% if config.show_last_average %}
+  <tr>
+    <td class="st-label">Moy. du dernier :</td>
+    <td class="st-val" colspan="3">—</td>
+  </tr>
   {% endif %}
+</table>
 
-  {# ── Signatures ──────────────────────────────────────── #}
-  <div class="signatures">
-    <div class="sig-left">
-      <div class="sig-line"></div>
-      {{ config.footer_left|default:'Le Parent' }}
-    </div>
-    <div class="sig-right">
-      <div class="sig-line"></div>
-      {{ config.footer_right|default:'Le Directeur' }}
-    </div>
-  </div>
-
-{% if is_half_page or is_full_page %}
+{# ─── PIED DE PAGE ───────────────────────────── #}
+<div class="nb-footer">
+  <strong>N.B :</strong> Les ratures, grattages, surcharges et usages du correcteur conduisent à la nullité de la présente pièce.
 </div>
-{% endif %}
+
+<div class="date-lieu">
+  A &nbsp;.........................................&nbsp;, le &nbsp;.................................
+</div>
+
+<div class="signatures">
+  <div class="sig-bloc">
+    <div class="sig-titre">{{ config.footer_left|default:'Le Parent' }}</div>
+    <div class="sig-line"></div>
+    <div class="sig-cachet">(Signature et cachet)</div>
+  </div>
+  <div class="sig-bloc">
+    <div class="sig-titre">{{ config.footer_right|default:'Le Directeur' }}</div>
+    <div class="sig-line"></div>
+    <div class="sig-cachet">(Signature et cachet)</div>
+  </div>
+</div>
 
 </body>
 </html>
