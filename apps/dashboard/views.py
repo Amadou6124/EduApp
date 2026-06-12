@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, Q, Avg, Subquery, OuterRef, F
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncMonth
 from django.shortcuts import render
 
 from apps.core.mixins import get_school
@@ -173,26 +173,46 @@ def _compute_charts(school, active_year):
             {'label': 'Nov', 'year': 2024, 'num': 11, 'last_day': 30},
         ]
 
-    # Graphique 1 : Inscriptions cumulees par mois
+    # Graphique 1 : Inscriptions cumulées par mois (1 requête)
+    enrollment_map = {
+        (row['month'].year, row['month'].month): row['count']
+        for row in Student.objects.filter(
+            school=school, is_active=True,
+            enrolled_at__date__gte=active_year.start_date,
+            enrolled_at__date__lte=active_year.end_date,
+        )
+        .annotate(month=TruncMonth('enrolled_at'))
+        .values('month')
+        .annotate(count=Count('id'))
+        .order_by('month')
+    }
+    # Cumul : chaque mois affiche le total depuis le début d'année
+    cumul = 0
+    # Élèves inscrits avant le début de l'année scolaire
+    cumul = Student.objects.filter(
+        school=school, is_active=True,
+        enrolled_at__date__lt=active_year.start_date,
+    ).count()
     enrollment_data = []
     for m in months:
-        last_day = date(m['year'], m['num'], m['last_day'])
-        count = Student.objects.filter(
-            school=school, is_active=True,
-            enrolled_at__date__lte=last_day,
-        ).count()
-        enrollment_data.append(count)
+        cumul += enrollment_map.get((m['year'], m['num']), 0)
+        enrollment_data.append(cumul)
 
-    # Graphique 2 : Revenus mensuels
-    revenue_data = []
-    for m in months:
-        monthly = Payment.objects.filter(
+    # Graphique 2 : Revenus mensuels (1 requête)
+    revenue_map = {
+        (row['month'].year, row['month'].month): float(row['total'])
+        for row in Payment.objects.filter(
             student__school=school,
             is_cancelled=False,
-            payment_date__year=m['year'],
-            payment_date__month=m['num'],
-        ).aggregate(total=Sum('amount'))['total'] or 0
-        revenue_data.append(float(monthly))
+            payment_date__gte=active_year.start_date,
+            payment_date__lte=active_year.end_date,
+        )
+        .annotate(month=TruncMonth('payment_date'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    }
+    revenue_data = [revenue_map.get((m['year'], m['num']), 0.0) for m in months]
 
     # Objectif mensuel
     total_fees = Student.objects.filter(school=school, is_active=True).aggregate(total=Sum('tuition_fee'))['total'] or 0
