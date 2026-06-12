@@ -409,8 +409,7 @@ function teamPageData() {
                           <div class="relative flex-shrink-0">
                             <input type="checkbox"
                                    name="{{ bf.name }}"
-                                   :checked="permissions['{{ bf.name }}']"
-                                   @change="permissions['{{ bf.name }}'] = $event.target.checked"
+                                   x-model="permissions['{{ bf.name }}']"
                                    class="sr-only peer">
                             <div @click="permissions['{{ bf.name }}'] = !permissions['{{ bf.name }}']"
                                  :class="permissions['{{ bf.name }}'] ? 'bg-brand-blue' : 'bg-gray-200'"

@@ -4,9 +4,15 @@
   <div class="flex items-center justify-between mb-5">
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Matières et classes</h3>
     {% if is_director %}
-      <span id="subjects-saved-indicator"
-            class="text-xs text-green-600 font-medium transition-opacity duration-300 {% if saved %}opacity-100{% else %}opacity-0{% endif %}">
-        <i data-lucide="check" class="w-3 h-3 inline-block mr-0.5"></i> Enregistré
+      <span x-data="{ visible: {% if saved %}true{% else %}false{% endif %} }"
+            x-show="visible"
+            x-init="{% if saved %}setTimeout(() => visible = false, 3000){% endif %}"
+            x-transition:leave="transition ease-in duration-500"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="flex items-center gap-1.5 text-sm font-semibold text-green-600">
+        <i data-lucide="check-circle" class="w-4 h-4"></i>
+        Matières enregistrées
       </span>
     {% endif %}
   </div>
@@ -15,7 +21,8 @@
     <form hx-post="{% url 'team:subjects' member.pk %}"
           hx-target="#teacher-subjects-panel"
           hx-swap="outerHTML"
-          hx-indicator="#subjects-spinner">
+          hx-indicator="#subjects-spinner"
+          hx-on::after-swap="lucide.createIcons()">
 
       {% csrf_token %}
 

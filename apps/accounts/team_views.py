@@ -176,14 +176,6 @@ def team_member_detail(request, user_id):
         'is_director': request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
     }
 
-    if member.role == UserRole.TEACHER:
-        context['subjects'] = (
-            ClassSubject.objects
-            .filter(teacher=member, is_active=True)
-            .select_related('subject', 'school_class')
-            .order_by('school_class__name', 'subject__name')
-        )
-
     if member.role == UserRole.STAFF:
         perm, _ = StaffPermission.objects.get_or_create(user=member)
         context['perm']      = perm
@@ -340,7 +332,7 @@ def teacher_subjects_update(request, user_id):
             'saved':            True,
         })
         response['HX-Trigger'] = json.dumps({
-            'showToast': {'message': 'Assignations mises à jour.', 'type': 'success'},
+            'showToast': {'message': 'Matières mises à jour.', 'type': 'success'},
         })
         return response
 
