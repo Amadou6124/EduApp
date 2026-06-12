@@ -7,16 +7,16 @@ Ou via Alpine event : $dispatch('show-toast', { message: '...', type: 'success' 
      class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"
      x-data="{
        toasts: [],
-       add(msg, type) {
+       add(msg, type, receiptUrl) {
          const id = Date.now();
-         this.toasts.push({ id, message: msg, type: type || 'success' });
-         setTimeout(() => this.remove(id), 3500);
+         this.toasts.push({ id, message: msg, type: type || 'success', receiptUrl: receiptUrl || null });
+         setTimeout(() => this.remove(id), 5000);
        },
        remove(id) {
          this.toasts = this.toasts.filter(t => t.id !== id);
        }
      }"
-     @show-toast.window="add($event.detail.message, $event.detail.type)">
+     @show-toast.window="add($event.detail.message, $event.detail.type, $event.detail.receipt_url)">
 
   <template x-for="toast in toasts" :key="toast.id">
     <div x-show="true"
@@ -49,7 +49,15 @@ Ou via Alpine event : $dispatch('show-toast', { message: '...', type: 'success' 
           </svg>
         </template>
       </span>
-      <span x-text="toast.message" class="flex-1 leading-snug"></span>
+      <span class="flex-1 leading-snug">
+        <span x-text="toast.message"></span>
+        <template x-if="toast.receiptUrl">
+          <a :href="toast.receiptUrl" target="_blank"
+             class="block mt-1 text-xs underline opacity-70 hover:opacity-100">
+            Télécharger le reçu
+          </a>
+        </template>
+      </span>
       <button @click="remove(toast.id)" class="text-current opacity-40 hover:opacity-70 transition ml-1 flex-shrink-0">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
