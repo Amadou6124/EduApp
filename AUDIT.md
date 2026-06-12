@@ -274,16 +274,16 @@ Description : Voir section 7. Précalculer en une requête agrégée retournant 
 
 ## PLAN D'ACTION PRIORISÉ
 
-### Priorité 1 — Avant démo directeur
+### Priorité 1 — Avant démo directeur ✅ COMPLÈTE (8/8)
 
-1. **🔴 Redirect post-login enseignants** (`accounts/views.py:42-48`) — les enseignants obtiennent une 404 immédiate après connexion.
-2. **🔴 Guard `get_school()` pour superadmin** (`core/mixins.py:10`) — crash 500 si le superadmin navigue vers les pages métier.
-3. **🔴 N+1 dashboard** (`dashboard/views.py:70-72,96-98`) — timeout en démo avec données réelles.
-4. **🟠 Toasts `show-toast` vs `showToast`** (`schools/views.py:162,395,406`) — le feedback visuel est cassé sur les actions classe les plus courantes.
-5. **🟠 `period_delete` efface silencieusement toutes les notes** (`settings_views.py:423-435`) — risque de perte de données catastrophique sans avertissement.
-6. **🟠 `print()` debug en production** (`students/views.py:131`) — fuite de numéros de téléphone dans les logs.
-7. **🟠 Liste enseignants inclut tous les rôles** (`settings_views.py:544`) — un parent ou élève peut être sélectionné comme prof.
-8. **🟠 Redirect superadmin vers `/admin/login/`** (`superadmin_views.py:17`) — mauvaise page de login.
+1. ✅ **Redirect post-login enseignants** (`accounts/views.py:42-48`) — `a6ccfa2`
+2. ✅ **Guard `get_school()` pour superadmin** (`core/mixins.py`) — `ae690a9`
+3. ✅ **N+1 dashboard** (`dashboard/views.py:70-72,96-98`) — `c47f990`
+4. ✅ **Toasts `show-toast` vs `showToast`** (`schools/views.py:162,395,406`) — `28872d6`
+5. ✅ **`period_delete` guard notes** (`settings_views.py:423-435`) — `47fc74b`
+6. ✅ **`print()` debug supprimé** (`students/views.py:131`) — `27a0210`
+7. ✅ **Dropdown enseignants filtré** (`settings_views.py:544`) — `b813287`
+8. ✅ **Redirect superadmin vers `/login/`** (`superadmin_views.py:17`) — `bbafdab`
 
 ### Priorité 2 — Semaine suivante
 
