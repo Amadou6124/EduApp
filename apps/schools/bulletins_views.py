@@ -120,6 +120,13 @@ def bulletins_main(request):
             ('', 'bg-gray-100 text-gray-600 border-gray-200'),
         )
 
+    if active_class and active_period:
+        gen   = context.get('generated_count', 0)
+        total = context.get('total_count', 0)
+        context['page_subtitle'] = f"{gen}/{total} bulletins · {active_period.name}"
+    elif active_period:
+        context['page_subtitle'] = active_period.name
+
     return render(request, 'bulletins/bulletins_main.html', context)
 
 

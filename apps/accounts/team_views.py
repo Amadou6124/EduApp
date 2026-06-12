@@ -112,19 +112,21 @@ def team_list(request):
 
     total_active = teachers.count() + staff.count()
 
+    t = teachers.count()
+    s = staff.count()
     return render(request, 'team/team_list.html', {
         'school':        school,
         'teachers_data': teachers_data,
         'staff_members': staff,
         'stats': {
             'total':    total_active,
-            'teachers': teachers.count(),
-            'staff':    staff.count(),
+            'teachers': t,
+            'staff':    s,
         },
-        'is_director': request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
-        # Formulaire permissions vide — utilisé dans le panel création staff
-        'perm_form': StaffPermissionForm(),
-        'presets':   _PRESETS,
+        'is_director':   request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
+        'perm_form':     StaffPermissionForm(),
+        'presets':       _PRESETS,
+        'page_subtitle': f"{t} enseignant{'s' if t != 1 else ''} · {s} staff",
     })
 
 

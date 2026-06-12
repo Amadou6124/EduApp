@@ -100,14 +100,16 @@ def student_list(request):
         {'id': c.id, 'name': c.name, 'annual_fee': int(c.annual_fee), 'level': c.level}
         for c in classes
     ])
+    nb_classes = len(classes)  # queryset évalué par classes_json — pas de SQL supplémentaire
     return render(request, 'students/student_list.html', {
-        'students':     students,
-        'stats':        stats,
-        'form':         StudentCreateForm(school=school),
-        'classes':      classes,
-        'classes_json': classes_json,
-        'school':       school,
-        'filter_type':  filter_type,
+        'students':      students,
+        'stats':         stats,
+        'form':          StudentCreateForm(school=school),
+        'classes':       classes,
+        'classes_json':  classes_json,
+        'school':        school,
+        'filter_type':   filter_type,
+        'page_subtitle': f"{stats['total']} élève{'s' if stats['total'] != 1 else ''} · {nb_classes} classe{'s' if nb_classes != 1 else ''}",
     })
 
 
