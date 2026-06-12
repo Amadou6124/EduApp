@@ -16,7 +16,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import SchoolClass, School, EducationLevel
 from .forms import SchoolClassForm
-from apps.core.mixins import get_school
+from apps.core.mixins import get_school, director_or_staff_required
 
 # Correspondance libellés Excel → valeurs modèle
 LEVEL_LABELS = {
@@ -74,6 +74,7 @@ def class_list(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def class_create(request):
     school = get_school(request)
@@ -145,6 +146,7 @@ def class_edit_form(request, class_id):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def class_update(request, class_id):
     school = get_school(request)
@@ -205,6 +207,7 @@ def class_row(request, class_id):
 
 
 @login_required
+@director_or_staff_required
 def class_import_template(request):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -306,6 +309,7 @@ def _parse_import_rows(file_obj, filename):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def class_import_preview(request):
     file_obj = request.FILES.get('import_file')
@@ -330,6 +334,7 @@ def class_import_preview(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def class_import_confirm(request):
     school = get_school(request)
@@ -384,6 +389,7 @@ def class_import_confirm(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['DELETE'])
 def class_delete(request, class_id):
     school = get_school(request)

@@ -20,7 +20,7 @@ from django.views.decorators.http import require_http_methods
 
 from apps.payments.models import Payment, PaymentMethod
 from apps.schools.models import SchoolClass
-from apps.core.mixins import get_school
+from apps.core.mixins import get_school, director_or_staff_required
 
 from .forms import StudentCreateForm, StudentUpdateForm
 from .models import Student
@@ -111,6 +111,7 @@ def student_list(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def student_create(request):
     school = get_school(request)
@@ -155,6 +156,7 @@ def student_create(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def student_create_group(request):
     school = get_school(request)
@@ -210,6 +212,7 @@ def student_detail(request, student_id):
 
 
 @login_required
+@director_or_staff_required
 def student_update(request, student_id):
     school = get_school(request)
     student = get_object_or_404(
@@ -471,6 +474,7 @@ def _unique_access_codes(school, count):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def student_import_confirm(request):
     school = get_school(request)

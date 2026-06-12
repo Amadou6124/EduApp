@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.schools.models import SchoolClass
-from apps.core.mixins import get_school
+from apps.core.mixins import get_school, director_or_staff_required
 from apps.students.models import Student
 
 from .forms import PaymentCancelForm, PaymentCreateForm
@@ -147,6 +147,7 @@ def payment_form(request, student_id):
 
 
 @login_required
+@director_or_staff_required
 @require_POST
 def payment_create(request, student_id):
     school = get_school(request)
@@ -214,6 +215,7 @@ def payment_history(request, student_id):
 
 
 @login_required
+@director_or_staff_required
 @require_POST
 def payment_cancel(request, payment_id):
     school = get_school(request)
