@@ -44,61 +44,64 @@ class BulletinCalculator:
         self,
         notes: list[Note],
         note_system: str,
-        coeff_devoirs: Decimal,
-        coeff_compo: Decimal,
+        coeff_devoirs: Decimal,   # non utilisé pour DEVOIRS_COMPO (formule fixe /3)
+        coeff_compo: Decimal,     # non utilisé pour DEVOIRS_COMPO (formule fixe /3)
         max_grade: Decimal,
     ) -> Optional[Decimal]:
         """
         Calcule la moyenne finale d'une matière.
 
-        MODE DEVOIRS_COMPO :
-          1. Récupérer toutes les notes de type 'devoir' (position=1)
-             et la note de type 'composition' (position=2)
-          2. moy_devoirs = moyenne des notes de devoir
-             Si aucune → devoirs_note = 0 (non, on ignore)
-             Correction : si pas de devoirs, on ne peut pas calculer.
-             En pratique : si pas de devoirs saisis → None
-          3. compo = note composition (unique, position=2)
-             Si pas de compo → None
-          4. finale = (moy_devoirs × coeff_devoirs) 
-                    + (compo × coeff_compo)
+        MODE DEVOIRS_COMPO — Formule officielle malienne :
+          moy_classe = moyenne arithmétique des devoirs (position=1)
+          compo_brut = note de composition (position=2, stockée brute)
+          finale     = (moy_classe + compo_brut × 2) / 3
 
-          Formule standard : (devoirs × 0.4) + (compo × 0.6)
+          Vérification bulletin ASSIA 8ème année :
+            Rédaction : devoirs=[13], compo=11
+            finale = (13 + 11×2) / 3 = 35/3 = 11.67 ✓
+            points = 11.67 × 3 = 35.00 ✓
+
+          Vérification bulletin Lycée Ségou :
+            Français : moy_cl=11, compo=12
+            finale = (11 + 12×2) / 3 = 35/3 = 11.50 ✓
+            points = 11.50 × 3 = 34.50 ✓
+
+          Note : compo_grade stocké = valeur brute (ex: 11)
+                 colonne PDF "Comp X2" = compo_brut × 2 (ex: 22)
 
         MODE MOYENNE_SIMPLE :
-          finale = sum(notes) / len(notes)
+          finale = sum(notes) / nb_notes
 
-        Retourne None si pas assez de notes.
-        Arrondi à 2 décimales. Jamais > max_grade.
+        Retourne None si notes insuffisantes.
+        Arrondi à 2 décimales (Decimal). Jamais > max_grade.
         """
         valid_notes = [n for n in notes if n and not n.is_cancelled]
         if not valid_notes:
             return None
 
         if note_system == NoteSystem.DEVOIRS_COMPO:
-            # Séparer devoirs (position=1) et composition (position=2)
             devoirs = [n.value for n in valid_notes if n.position == 1]
             compo   = next((n.value for n in valid_notes if n.position == 2), None)
 
             if not devoirs or compo is None:
                 return None
 
-            moy_devoirs = sum(devoirs) / len(devoirs)
-            # Test mental : devoirs=[12,14] compo=11, coeff=(0.4,0.6)
-            # moy_devoirs = 13.00
-            # finale = 13 × 0.4 + 11 × 0.6 = 5.2 + 6.6 = 11.80 ✓
-            finale = (moy_devoirs * coeff_devoirs) + (compo * coeff_compo)
-            result = round2(finale)
-            return min(result, max_grade)
+            moy_classe = sum(Decimal(str(v)) for v in devoirs) / len(devoirs)
+            # Formule malienne : (moy_classe + compo×2) / 3
+            # Retourne valeur NON arrondie — l'appelant arrondit séparément
+            # final_average et weighted_grade pour éviter l'erreur d'arrondi :
+            # round2(35/3)×3 = 11.67×3 = 35.01 ≠ 35.00
+            # round2(35/3×3) = round2(35.0) = 35.00 ✓
+            finale = (moy_classe + Decimal(str(compo)) * 2) / 3
+            return min(finale, Decimal(str(max_grade)))
 
         else:
-            # MOYENNE_SIMPLE
+            # MOYENNE_SIMPLE : moyenne arithmétique brute
+            # Test : notes=[15, 12, 18] → 45/3 = 15.00 ✓
+            # Retourne valeur NON arrondie — même raison que ci-dessus
             values = [n.value for n in valid_notes]
-            # Test mental : notes=[15, 12, 18]
-            # finale = (15+12+18)/3 = 45/3 = 15.00 ✓
-            finale = sum(values) / len(values)
-            result = round2(finale)
-            return min(result, max_grade)
+            finale = sum(Decimal(str(v)) for v in values) / len(values)
+            return min(finale, Decimal(str(max_grade)))
 
     def calculate_weighted_grade(
         self,
@@ -263,8 +266,8 @@ class BulletinCalculator:
         for cs in class_subjects:
             cs_notes = notes_by_cs.get(cs.pk, [])
 
-            # Moyenne matière
-            avg = self.calculate_subject_average(
+            # Moyenne matière — valeur exacte non arrondie
+            avg_raw = self.calculate_subject_average(
                 cs_notes,
                 cs.note_system,
                 cs.coeff_devoirs,
@@ -272,10 +275,12 @@ class BulletinCalculator:
                 cs.max_grade,
             )
 
-            # Note pondérée
+            # Arrondi séparément pour éviter l'erreur de double arrondi :
+            # round2(35/3)×3 = 11.67×3 = 35.01 ≠ round2(35/3×3) = 35.00
+            avg_display = round2(avg_raw) if avg_raw is not None else None
             weighted = (
-                self.calculate_weighted_grade(avg, cs.coefficient)
-                if avg is not None
+                self.calculate_weighted_grade(avg_raw, cs.coefficient)
+                if avg_raw is not None
                 else None
             )
 
@@ -288,7 +293,7 @@ class BulletinCalculator:
                     if n.position == 1 and not n.is_cancelled
                 ]
                 if devoirs:
-                    devoir_avg = round2(sum(devoirs) / len(devoirs))
+                    devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
                 compo_note = next(
                     (n for n in cs_notes if n.position == 2 and not n.is_cancelled),
                     None,
@@ -297,12 +302,12 @@ class BulletinCalculator:
                     compo_val = compo_note.value
 
             lines_data.append({
-                'cs':            cs,
+                'cs':             cs,
                 'devoir_average': devoir_avg,
-                'compo_grade':   compo_val,
-                'final_average': avg,
+                'compo_grade':    compo_val,
+                'final_average':  avg_display,
                 'weighted_grade': weighted,
-                'coefficient':   cs.coefficient,
+                'coefficient':    cs.coefficient,
             })
 
         # 4. Moyenne générale
@@ -411,13 +416,15 @@ class BulletinCalculator:
             lines_data = []
             for cs in class_subjects:
                 cs_notes = notes_index.get((student.pk, cs.pk), [])
-                avg = self.calculate_subject_average(
+                avg_raw = self.calculate_subject_average(
                     cs_notes, cs.note_system,
                     cs.coeff_devoirs, cs.coeff_compo, cs.max_grade,
                 )
+                # Arrondi séparé : évite round2(35/3)×3 = 35.01
+                avg_display = round2(avg_raw) if avg_raw is not None else None
                 weighted = (
-                    self.calculate_weighted_grade(avg, cs.coefficient)
-                    if avg is not None else None
+                    self.calculate_weighted_grade(avg_raw, cs.coefficient)
+                    if avg_raw is not None else None
                 )
 
                 devoir_avg = None
@@ -425,7 +432,7 @@ class BulletinCalculator:
                 if cs.note_system == NoteSystem.DEVOIRS_COMPO:
                     devoirs = [n.value for n in cs_notes if n.position == 1]
                     if devoirs:
-                        devoir_avg = round2(sum(devoirs) / len(devoirs))
+                        devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
                     compo = next((n for n in cs_notes if n.position == 2), None)
                     if compo:
                         compo_val = compo.value
@@ -434,7 +441,7 @@ class BulletinCalculator:
                     'cs':              cs,
                     'devoir_average':  devoir_avg,
                     'compo_grade':     compo_val,
-                    'final_average':   avg,
+                    'final_average':   avg_display,
                     'weighted_grade':  weighted,
                     'coefficient':     cs.coefficient,
                 })

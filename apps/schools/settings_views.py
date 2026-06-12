@@ -14,8 +14,9 @@ from .forms import (
     AppearanceForm, GeneralSettingsForm,
     ReceiptModeForm, ReceiptUploadForm,
     SchoolYearForm, PeriodForm, SubjectForm, ClassSubjectForm,
+    BulletinConfigForm,
 )
-from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note
+from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note, BulletinConfig
 from apps.core.mixins import get_school
 
 # Variables disponibles pour le mapping de reçu personnalisé
@@ -181,6 +182,32 @@ def receipt(request):
         'school': school,
         'active_section': 'receipt',
         'custom_step': _custom_step(school),
+    })
+
+
+@login_required
+def bulletin(request):
+    school = get_school(request)
+    config, _ = BulletinConfig.objects.get_or_create(school=school)
+    if request.method == 'POST':
+        form = BulletinConfigForm(request.POST, instance=config)
+        if form.is_valid():
+            form.save()
+            resp = render(request, 'settings/partials/bulletin_form.html', {
+                'form': BulletinConfigForm(instance=config),
+                'config': config,
+            })
+            resp['HX-Trigger'] = json.dumps(
+                {'showToast': {'message': 'Paramètres bulletin enregistrés.', 'type': 'success'}}
+            )
+            return resp
+        return render(request, 'settings/partials/bulletin_form.html', {
+            'form': form, 'config': config,
+        })
+    return render(request, 'settings/bulletin.html', {
+        'form': BulletinConfigForm(instance=config),
+        'config': config,
+        'active_section': 'bulletin',
     })
 
 

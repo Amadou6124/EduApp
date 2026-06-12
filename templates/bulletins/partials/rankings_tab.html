@@ -1,66 +1,171 @@
 {% comment %}
 Onglet Classements — partial HTMX.
-Contexte : bulletins, school_class, period
+Contexte : bulletins, school_class, period,
+           class_average, first_average, last_average, can_generate
 {% endcomment %}
 {% load i18n %}
 
-{# ── Barre recherche + tableau classement ───────────────────── #}
 {% if bulletins %}
+
+  {# ── 4 Stats Cards ──────────────────────────────────────────── #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+    <div class="bg-white rounded-xl p-4 border border-gray-200 flex items-start gap-3">
+      <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="bar-chart-2" class="w-5 h-5 text-brand-blue"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-brand-blue leading-tight">
+          {% if class_average %}{{ class_average }}/20{% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-gray-400 mt-0.5">moy. de la classe</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl p-4 border border-amber-200 bg-amber-50/30 flex items-start gap-3">
+      <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="trophy" class="w-5 h-5 text-amber-500"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-amber-600 leading-tight">
+          {% if first_average %}{{ first_average }}/20{% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-gray-400 mt-0.5">moy. du 1<sup>er</sup></p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl p-4 border border-gray-200 flex items-start gap-3">
+      <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="trending-down" class="w-5 h-5 text-gray-500"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-gray-600 leading-tight">
+          {% if last_average %}{{ last_average }}/20{% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-gray-400 mt-0.5">moy. du dernier</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl p-4 border border-gray-200 flex items-start gap-3">
+      <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="users" class="w-5 h-5 text-indigo-500"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-indigo-600 leading-tight">{{ bulletins|length }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">bulletins classés</p>
+      </div>
+    </div>
+
+  </div>
+
+  {# ── Podium Top 3 ────────────────────────────────────────────── #}
+  {% with top3=bulletins|slice:':3' %}
+    {% if top3 %}
+      <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+        <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i>
+        Podium
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {% for bul in top3 %}
+          <div class="rounded-xl border flex flex-col items-center text-center
+                      {% if forloop.counter == 1 %}p-6 bg-amber-50 border-amber-300 shadow-sm
+                      {% elif forloop.counter == 2 %}p-5 bg-gray-50 border-gray-300
+                      {% else %}p-4 bg-orange-50 border-orange-200{% endif %}">
+
+            <div class="rounded-full flex items-center justify-center text-white font-bold mb-3 flex-shrink-0
+                        {% if forloop.counter == 1 %}w-12 h-12 text-lg bg-amber-400 shadow-md shadow-amber-200
+                        {% elif forloop.counter == 2 %}w-10 h-10 text-base bg-gray-400
+                        {% else %}w-9 h-9 text-sm bg-orange-400{% endif %}">
+              {{ forloop.counter }}
+            </div>
+
+            <p class="font-semibold text-gray-800 mb-1
+                      {% if forloop.counter == 1 %}text-base{% else %}text-sm{% endif %}">
+              {{ bul.student.full_name }}
+            </p>
+
+            <p class="font-bold
+                      {% if forloop.counter == 1 %}text-2xl text-amber-600
+                      {% elif forloop.counter == 2 %}text-xl text-gray-600
+                      {% else %}text-lg text-orange-500{% endif %}">
+              {{ bul.general_average|floatformat:'2' }}/20
+            </p>
+
+            {% if bul.appreciation %}
+              <span class="mt-2 inline-block px-2 py-0.5 rounded-full text-[10px] font-medium
+                           {% if forloop.counter == 1 %}bg-amber-100 text-amber-700
+                           {% elif forloop.counter == 2 %}bg-gray-200 text-gray-600
+                           {% else %}bg-orange-100 text-orange-600{% endif %}">
+                {{ bul.appreciation }}
+              </span>
+            {% endif %}
+
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {# ── Barre recherche ─────────────────────────────────────────── #}
   <div class="relative max-w-xs mb-4">
-    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-    </svg>
+    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
     <input type="text" x-data x-model="$store.search.q"
            class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-gold/40"
-           placeholder="Rechercher un eleve...">
+           placeholder="Rechercher un élève...">
   </div>
-  <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+
+  {# ── Tableau classement ──────────────────────────────────────── #}
+  <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white mb-6">
     <table class="min-w-full text-sm">
       <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
         <tr>
-          <th class="text-center px-4 py-3 font-semibold w-16">{% trans "Rang" %}</th>
-          <th class="text-left px-4 py-3 font-semibold">{% trans "Élève" %}</th>
-          <th class="text-center px-4 py-3 font-semibold">{% trans "Moy. Gén" %}</th>
-          <th class="hidden md:table-cell text-center px-4 py-3 font-semibold">{% trans "Total Pts" %}</th>
-          <th class="text-center px-4 py-3 font-semibold">{% trans "Appréciation" %}</th>
+          <th class="text-center px-4 py-3 font-semibold w-16">Rang</th>
+          <th class="text-left px-4 py-3 font-semibold">Élève</th>
+          <th class="text-center px-4 py-3 font-semibold">Moy. Gén.</th>
+          <th class="text-center px-4 py-3 font-semibold">Appréciation</th>
+          <th class="text-center px-4 py-3 font-semibold w-16">Actions</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for bul in bulletins %}
           <tr x-data="{ sname: '{{ bul.student.full_name|escapejs }}' }"
               x-show="!$store.search.q.trim() || sname.toLowerCase().includes($store.search.q.toLowerCase().trim())"
-              class="hover:bg-gray-50/50 transition-colors
-                     {% if forloop.counter == 1 %}bg-amber-50/60{% endif %}
-                     {% if forloop.counter == 2 %}bg-gray-50/40{% endif %}
-                     {% if forloop.counter == 3 %}bg-orange-50/30{% endif %}
-                     {% if forloop.counter > 3 %}{% cycle '' 'bg-gray-50/20' %}{% endif %}">
+              class="transition-colors
+                     {% if forloop.counter == 1 %}bg-amber-50/70 hover:bg-amber-50
+                     {% elif forloop.counter == 2 %}bg-gray-50/50 hover:bg-gray-50
+                     {% elif forloop.counter == 3 %}bg-orange-50/40 hover:bg-orange-50/60
+                     {% else %}hover:bg-gray-50/50 {% cycle '' 'bg-gray-50/20' %}{% endif %}">
+
+            {# Rang #}
             <td class="px-4 py-2.5 text-center">
-              {# Médailles pour le podium #}
               {% if forloop.counter == 1 %}
-                <span class="w-7 h-7 rounded-full bg-amber-400 text-white text-xs font-bold flex items-center justify-center mx-auto">1</span>
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-400 text-white text-xs font-bold">
+                  <i data-lucide="trophy" class="w-3.5 h-3.5"></i>
+                </span>
               {% elif forloop.counter == 2 %}
-                <span class="w-7 h-7 rounded-full bg-gray-300 text-white text-xs font-bold flex items-center justify-center mx-auto">2</span>
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-400 text-white text-xs font-bold">2</span>
               {% elif forloop.counter == 3 %}
-                <span class="w-7 h-7 rounded-full bg-orange-300 text-white text-xs font-bold flex items-center justify-center mx-auto">3</span>
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-400 text-white text-xs font-bold">3</span>
               {% else %}
-                <span class="text-xs text-gray-500">{{ forloop.counter }}<sup>e</sup></span>
+                <span class="text-xs text-gray-500 font-mono">{{ forloop.counter }}</span>
               {% endif %}
             </td>
+
+            {# Élève #}
             <td class="px-4 py-2.5 font-medium text-gray-700">
               {{ bul.student.full_name }}
             </td>
+
+            {# Moyenne #}
             <td class="px-4 py-2.5 text-center font-bold
                        {% if bul.general_average >= 14 %}text-green-600
                        {% elif bul.general_average >= 10 %}text-brand-blue
                        {% else %}text-red-500{% endif %}">
               {{ bul.general_average|floatformat:'2' }}/20
             </td>
-          <td class="hidden md:table-cell px-4 py-2.5 text-center text-xs text-gray-500">
-            {% with total=bul.general_average|floatformat:'2' %}
-              {{ total }}
-            {% endwith %}
-          </td>
-            <td class="px-4 py-2.5 text-center text-xs">
+
+            {# Appréciation #}
+            <td class="px-4 py-2.5 text-center">
               {% if bul.appreciation %}
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-medium
                              {% if bul.general_average >= 14 %}bg-green-100 text-green-700
@@ -70,69 +175,49 @@ Contexte : bulletins, school_class, period
                 </span>
               {% else %}—{% endif %}
             </td>
+
+            {# Action : voir PDF #}
+            <td class="px-4 py-2.5 text-center">
+              <a href="{% url 'bulletins:view-pdf' bul.pk %}"
+                 target="_blank"
+                 title="Voir le PDF"
+                 class="inline-flex items-center justify-center p-1.5 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </a>
+            </td>
+
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
-  {# ── Résumé statistique en bas ─────────────────────────────── #}
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-    <div class="bg-white rounded-lg border border-gray-200 px-3 py-2 text-xs shadow-sm">
-      <span class="text-gray-400">Moy. classe</span>
-      <p class="font-bold text-brand-blue">
-        {% with total=0 count=0 %}
-          {% for bul in bulletins %}
-            {% if bul.general_average %}
-              {% with total=total|add:bul.general_average count=count|add:1 %}{% endwith %}
-            {% endif %}
-          {% endfor %}
-          {# Approximation : premier et dernier uniquement #}
-        {% endwith %}
-        {% if bulletins.0.general_average and bulletins|last.general_average %}
-          {% with first=bulletins.0.general_average last=bulletins|last.general_average %}
-            {{ first|add:last|floatformat:'2' }}/20
-          {% endwith %}
-        {% else %}—{% endif %}
-      </p>
-    </div>
-    <div class="bg-white rounded-lg border border-amber-100 px-3 py-2 text-xs shadow-sm">
-      <span class="text-gray-400">Moy. du 1<sup>er</sup></span>
-      <p class="font-bold text-amber-600">
-        {% with first=bulletins.0 %}
-          {% if first and first.general_average %}
-            {{ first.general_average|floatformat:'2' }}/20
-          {% else %}—{% endif %}
-        {% endwith %}
-      </p>
-    </div>
-    <div class="bg-white rounded-lg border border-gray-200 px-3 py-2 text-xs shadow-sm">
-      <span class="text-gray-400">Moy. du dernier</span>
-      <p class="font-bold text-red-500">
-        {% with last=bulletins|last %}
-          {% if last and last.general_average %}
-            {{ last.general_average|floatformat:'2' }}/20
-          {% else %}—{% endif %}
-        {% endwith %}
-      </p>
-    </div>
-    <div class="bg-white rounded-lg border border-gray-200 px-3 py-2 text-xs shadow-sm">
-      <span class="text-gray-400">Effectif</span>
-      <p class="font-bold text-gray-700">{{ bulletins|length }}</p>
-    </div>
+  {# ── Boutons export ──────────────────────────────────────────── #}
+  <div class="flex flex-wrap items-center gap-3">
+    <button type="button"
+            onclick="window.print()"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+      <i data-lucide="printer" class="w-4 h-4"></i>
+      Imprimer le classement
+    </button>
+    <a href="{% url 'bulletins:rankings-export' school_class.pk period.pk %}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 transition">
+      <i data-lucide="download" class="w-4 h-4"></i>
+      Exporter Excel
+    </a>
   </div>
+
 {% else %}
+
+  {# ── État vide ───────────────────────────────────────────────── #}
   <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
-    <p class="text-sm text-gray-400">
-      <div class="flex flex-col items-center justify-center py-8 text-center">
-        <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
-          <i data-lucide="award" class="w-6 h-6 text-gray-400"></i>
-        </div>
-        <p class="text-sm text-gray-500">Aucun bulletin généré pour cette classe sur cette période.</p>
+    <div class="flex flex-col items-center justify-center py-4">
+      <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+        <i data-lucide="award" class="w-6 h-6 text-gray-400"></i>
       </div>
-    </p>
-    <p class="text-xs text-gray-400 mt-1">
-      Générez d'abord les bulletins dans l'onglet "Bulletins".
-    </p>
+      <p class="text-sm text-gray-500">Aucun bulletin généré pour cette période.</p>
+      <p class="text-xs text-gray-400 mt-1">Générez d'abord les bulletins dans l'onglet "Bulletins".</p>
+    </div>
   </div>
+
 {% endif %}

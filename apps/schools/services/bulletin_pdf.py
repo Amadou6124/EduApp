@@ -88,12 +88,16 @@ def _build_context(bulletin: Bulletin, lines: list[BulletinLine], config: Bullet
     subjects_rows = []
     for line in lines:
         cs = line.class_subject
+        compo_grade_x2 = (
+            line.compo_grade * 2 if line.compo_grade is not None else None
+        )
         row = {
             'subject_name': cs.subject.name,
             'coefficient': cs.coefficient,
             'note_system': cs.note_system,
             'devoir_average': line.devoir_average,
             'compo_grade': line.compo_grade,
+            'compo_grade_x2': compo_grade_x2,
             'final_average': line.final_average,
             'weighted_grade': line.weighted_grade,
             'appreciation': line.appreciation,
@@ -113,15 +117,30 @@ def _build_context(bulletin: Bulletin, lines: list[BulletinLine], config: Bullet
     ) if any(line.weighted_grade is not None for line in lines) else None
 
     return {
-        'school': school,
-        'student': student,
-        'period': period,
-        'bulletin': bulletin,
-        'config': config,
-        'subjects_rows': subjects_rows,
-        'total_coeff': total_coeff,
-        'total_weighted': total_weighted,
-        'generated_at': bulletin.generated_at or datetime.now(),
+        'school':          school,
+        'student':         student,
+        'period':          period,
+        'bulletin':        bulletin,
+        'config':          config,
+        'subjects_rows':   subjects_rows,
+        'total_coeff':     total_coeff,
+        'total_weighted':  total_weighted,
+        'generated_at':    bulletin.generated_at or datetime.now(),
+        # En-tête structuré (nouveaux champs BulletinConfig)
+        'ministry_lines':  [l for l in [
+            config.ministry_line1,
+            config.ministry_line2,
+            config.ministry_line3,
+        ] if l],
+        'republic_lines':  [l for l in [
+            config.republic_line1,
+            config.republic_line2,
+        ] if l],
+        'bulletin_title':  config.bulletin_title or 'RELEVE DE NOTES',
+        'has_devoirs_compo': any(
+            l.class_subject.note_system == NoteSystem.DEVOIRS_COMPO
+            for l in lines
+        ),
     }
 
 

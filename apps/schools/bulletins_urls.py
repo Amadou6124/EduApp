@@ -38,7 +38,13 @@ urlpatterns = [
     path('download/<int:bulletin_id>/',
          bulletins_views.bulletin_download,
          name='download'),
+    path('view-pdf/<int:bulletin_id>/',
+         bulletins_views.bulletin_view_pdf,
+         name='view-pdf'),
     path('download-all/<int:class_id>/<int:period_id>/',
          bulletins_views.bulletin_download_all,
          name='download-all'),
+    path('rankings-export/<int:class_id>/<int:period_id>/',
+         bulletins_views.rankings_export,
+         name='rankings-export'),
 ]

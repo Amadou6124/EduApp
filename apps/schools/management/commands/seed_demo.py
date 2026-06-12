@@ -26,12 +26,12 @@ class Command(BaseCommand):
 
         # Classes exemples
         demo_classes = [
-            {'name': 'CP1', 'level': EducationLevel.PRIMARY, 'annual_fee': 120000, 'max_capacity': 40},
-            {'name': 'CP2', 'level': EducationLevel.PRIMARY, 'annual_fee': 120000, 'max_capacity': 40},
-            {'name': 'CE1', 'level': EducationLevel.PRIMARY, 'annual_fee': 135000, 'max_capacity': 38},
-            {'name': 'CE2', 'level': EducationLevel.PRIMARY, 'annual_fee': 135000, 'max_capacity': 38},
-            {'name': 'CM1', 'level': EducationLevel.PRIMARY, 'annual_fee': 150000, 'max_capacity': 35},
-            {'name': 'CM2', 'level': EducationLevel.PRIMARY, 'annual_fee': 150000, 'max_capacity': 35},
+            {'name': 'CP1', 'level': EducationLevel.FONDAMENTAL_1, 'annual_fee': 120000, 'max_capacity': 40},
+            {'name': 'CP2', 'level': EducationLevel.FONDAMENTAL_1, 'annual_fee': 120000, 'max_capacity': 40},
+            {'name': 'CE1', 'level': EducationLevel.FONDAMENTAL_1, 'annual_fee': 135000, 'max_capacity': 38},
+            {'name': 'CE2', 'level': EducationLevel.FONDAMENTAL_1, 'annual_fee': 135000, 'max_capacity': 38},
+            {'name': 'CM1', 'level': EducationLevel.FONDAMENTAL_1, 'annual_fee': 150000, 'max_capacity': 35},
+            {'name': 'CM2', 'level': EducationLevel.FONDAMENTAL_1, 'annual_fee': 150000, 'max_capacity': 35},
         ]
 
         for class_data in demo_classes:
