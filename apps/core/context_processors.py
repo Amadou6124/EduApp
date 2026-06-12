@@ -83,6 +83,6 @@ def school_context(request):
     )
 
     return {
-        'active_year':  active_year,   # .name, .period_name (annoté)
-        'alert_count':  alert_count,
+        'badge_year':  active_year,   # .name, .period_name (annoté) — clé distincte pour éviter collision avec les vues
+        'alert_count': alert_count,
     }
