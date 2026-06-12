@@ -9,6 +9,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError
 from django.db.models import DecimalField, F, Q, Subquery, OuterRef, Sum
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
@@ -449,6 +450,26 @@ def student_import_preview(request):
     })
 
 
+def _unique_access_codes(school, count):
+    """Génère `count` codes à 6 chiffres uniques dans le lot ET absents en base pour cette école."""
+    from .models import generate_student_access_code
+    existing = set(
+        Student.objects.filter(school=school)
+        .values_list('access_code', flat=True)
+    )
+    codes, seen = [], set()
+    attempts = 0
+    while len(codes) < count:
+        attempts += 1
+        if attempts > count * 20:
+            raise RuntimeError('Impossible de générer assez de codes uniques.')
+        code = generate_student_access_code()
+        if code not in existing and code not in seen:
+            codes.append(code)
+            seen.add(code)
+    return codes
+
+
 @login_required
 @require_http_methods(['POST'])
 def student_import_confirm(request):
@@ -491,8 +512,26 @@ def student_import_confirm(request):
                 pass
         students_to_create.append(s)
 
-    # bulk_create retourne les instances avec PK sous PostgreSQL + Django 6
-    created = Student.objects.bulk_create(students_to_create)
+    # Assigner des codes uniques (lot + base) avant bulk_create
+    codes = _unique_access_codes(school, len(students_to_create))
+    for student, code in zip(students_to_create, codes):
+        student.access_code = code
+
+    try:
+        created = Student.objects.bulk_create(students_to_create)
+    except IntegrityError:
+        # Fallback : save() un par un pour régénérer les codes en conflit
+        created = []
+        for student in students_to_create:
+            while True:
+                try:
+                    student.pk = None
+                    student.access_code = _unique_access_codes(school, 1)[0]
+                    student.save()
+                    created.append(student)
+                    break
+                except IntegrityError:
+                    continue
 
     if request.htmx:
         students = list(_students_qs(school))
