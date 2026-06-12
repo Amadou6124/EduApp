@@ -1,4 +1,8 @@
+from functools import wraps
+
 from django.contrib.auth.mixins import AccessMixin
+from django.http import HttpResponseForbidden
+from django.urls import reverse
 
 
 class _NoSchoolError(Exception):
@@ -17,6 +21,22 @@ def get_school(request):
     if school is None:
         raise _NoSchoolError()
     return school
+
+
+def director_or_staff_required(view_func):
+    """Limite l'accès aux directeurs, staff et superadmins. À placer après @login_required."""
+    from django.shortcuts import redirect
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect(reverse('accounts:login') + f'?next={request.path}')
+        if request.user.role not in ('director', 'staff') and not request.user.is_superuser:
+            return HttpResponseForbidden(
+                '<h1 style="font-family:sans-serif;padding:40px">403 — Accès réservé au directeur et au staff.</h1>'
+            )
+        return view_func(request, *args, **kwargs)
+    return wrapper
 
 
 class SchoolMixin(AccessMixin):

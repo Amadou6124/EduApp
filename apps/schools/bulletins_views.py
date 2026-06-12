@@ -11,7 +11,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_http_methods
 
-from apps.core.mixins import get_school
+from apps.core.mixins import get_school, director_or_staff_required
 from apps.students.models import Student
 
 from .models import (
@@ -190,13 +190,11 @@ def rankings_tab(request):
 # ─────────────────────────────────────────────────────────────
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def generate_class_bulletins(request, class_id, period_id):
     """Génère tous les bulletins d'une classe."""
     school = get_school(request)
-
-    if request.user.role not in ('director', 'staff') and not request.user.is_superuser:
-        return HttpResponse('Permission refusée.', status=403)
 
     school_class = get_object_or_404(
         school.classes.filter(is_active=True), pk=class_id,
@@ -257,13 +255,11 @@ def generate_class_bulletins(request, class_id, period_id):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def generate_student_bulletin(request, student_id, period_id):
     """Génère le bulletin d'un élève spécifique."""
     school = get_school(request)
-
-    if request.user.role not in ('director', 'staff') and not request.user.is_superuser:
-        return HttpResponse('Permission refusée.', status=403)
 
     student = get_object_or_404(Student, pk=student_id, school=school, is_active=True)
     period = get_object_or_404(Period, pk=period_id, school_year__school=school)
@@ -300,6 +296,7 @@ def generate_student_bulletin(request, student_id, period_id):
 # ─────────────────────────────────────────────────────────────
 
 @login_required
+@director_or_staff_required
 def bulletin_preview(request, bulletin_id):
     """Preview HTML d'un bulletin (modal)."""
     school = get_school(request)
@@ -326,6 +323,7 @@ def bulletin_preview(request, bulletin_id):
 
 
 @login_required
+@director_or_staff_required
 def bulletin_download(request, bulletin_id):
     """Téléchargement PDF d'un bulletin."""
     school = get_school(request)
@@ -348,6 +346,7 @@ def bulletin_download(request, bulletin_id):
 
 
 @login_required
+@director_or_staff_required
 def bulletin_download_all(request, class_id, period_id):
     """Téléchargement ZIP de tous les bulletins d'une classe."""
     school = get_school(request)
