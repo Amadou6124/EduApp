@@ -264,6 +264,21 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 
 ## Ce qui est terminé
 
+### Module Équipe (`/team/`)
+- **Modèle `StaffPermission`** avec 13 permissions booléennes granulaires
+- **5 profils prédéfinis** : Censeur, Comptable, Surveillant, Informaticien, Secrétaire
+- **`job_title`** ajouté sur `User` (titre du poste affiché dans les cards et la fiche)
+- **Création membres** : enseignant ou staff, mot de passe temporaire généré (`secrets`)
+- **Modal mot de passe unique** : affiché une seule fois via `HX-Trigger team-member-added`, clipboard copy
+- **Page détail** (`/team/<id>/`) avec en-tête avatar + badges + infos
+- **Permissions staff inline** : toggles auto-save HTMX au changement (`requestSubmit`), groupées par catégorie
+- **Assignation matières/classes enseignants** : checkboxes par classe, enregistrement partiel HTMX, indicateur "Enregistré" 3s
+- **Panel édition slide-in** : HTMX lazy-load, `team-member-updated` → rechargement page détail
+- **Désactivation** avec `$store.confirm` modal, card grisée in-place, auto-désactivation bloquée
+- **Recherche Alpine.js temps réel** par nom (une barre par section, `data-name` + `x-show`)
+- **Cards responsive** : `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`
+- **Migration** `0002_add_job_title_staff_permissions` — appliquée
+
 ### Fondation bulletins — Étape 1/3 (`/settings/school-years/`, `/settings/subjects/`)
 - **6 nouveaux modèles** : `SchoolYear`, `Period`, `Subject`, `ClassSubject`, `Note` + `notes_delegates` sur `SchoolClass`
 - **Migration** `0003_grades_foundation` — appliquée
