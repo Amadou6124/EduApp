@@ -5,6 +5,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
+
+if not DEBUG and 'insecure' in SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY non configurée : la valeur par défaut 'django-insecure-*' "
+        "ne peut pas être utilisée en production. Définissez SECRET_KEY dans le fichier .env."
+    )
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 INSTALLED_APPS = [
