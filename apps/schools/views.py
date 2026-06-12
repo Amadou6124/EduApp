@@ -377,12 +377,16 @@ def class_import_confirm(request):
 def class_delete(request, class_id):
     school = get_school(request)
     school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
-    # Désactivation douce : on ne supprime pas si des élèves sont inscrits
-    if school_class.get_student_count() > 0:
-        return HttpResponse(
-            f'<div class="text-red-600 text-sm p-2">{_("Impossible : des élèves sont inscrits dans cette classe.")}</div>',
-            status=422,
-        )
+    student_count = school_class.get_student_count()
+    if student_count > 0:
+        response = HttpResponse(status=422)
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {
+                'message': f'Impossible de supprimer : {student_count} élève(s) inscrit(s) dans cette classe.',
+                'type': 'error',
+            }
+        })
+        return response
     school_class.is_active = False
     school_class.save()
     return HttpResponse('')

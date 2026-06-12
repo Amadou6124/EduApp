@@ -1,4 +1,12 @@
 {% load i18n %}
+{% if form.non_field_errors %}
+<div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">
+  <div class="flex items-start gap-2">
+    <i data-lucide="alert-circle" class="w-4 h-4 mt-0.5 shrink-0"></i>
+    <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+  </div>
+</div>
+{% endif %}
 {% for field in form.visible_fields %}
   {% if field.name not in "initial_payment,payment_method" %}
     <div class="mb-4 {% if field.name == 'parent_phone_number' or field.name == 'parent_relationship' %}parent-field{% endif %}

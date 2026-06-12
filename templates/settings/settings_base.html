@@ -163,5 +163,12 @@
 
 {% include "settings/partials/toast.html" %}
 
+  {# ── Bridge HTMX → Alpine : showToast (camelCase) → show-toast (kebab) ── #}
+  <script>
+    document.addEventListener('showToast', function(e) {
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: e.detail }));
+    });
+  </script>
+
 </body>
 </html>
