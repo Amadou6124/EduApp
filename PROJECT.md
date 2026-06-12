@@ -19,7 +19,7 @@ Couvre la gestion des classes, l'inscription des élèves, les paiements, les bu
 | Base de données | PostgreSQL (`db=eduapp_db`, `user=sy`) |
 | Interactions UI | HTMX 2.0.4 (CDN) |
 | Réactivité UI | Alpine.js 3.x (CDN) |
-| CSS | Tailwind CSS CDN (→ build local en production) |
+| CSS | Tailwind CSS CLI (build local, `npm run build:css`, `static/css/output.css`) |
 | Auth | Modèle `User` custom, login par numéro de téléphone |
 | Fichiers statiques | Whitenoise |
 | Config | python-decouple (.env) |
@@ -355,22 +355,61 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - **Isolation multi-tenant** : tous les `get_object_or_404` filtrent `school=get_school(request)`
 - **Auth** : `@login_required` sur toutes les vues, `@superadmin_required` sur superadmin
 
-### Redesign complet (branche `feature/redesign`)
-- **Tailwind CLI** (production-ready, build local, purge CSS automatique)
-- **Lucide Icons** (zéro emojis, zéro SVG inline, bundle CDN)
-- **Sidebar + Header blanc** style Notion/Linear (sidebar w-64 bg-white, header h-16 sticky)
-- **Tabs modernes** style Notion (bg-gray-100 rounded-lg p-1, actif bg-white shadow-sm)
-- **Cards standardisées** border-gray-200 (suppression des shadows, hover:shadow-sm subtil)
-- **Composants CSS réutilisables** :
+### Redesign complet (`feature/redesign` → mergé sur `main`)
+- **Tailwind CLI** migration CDN → build local (`tailwind.config.js`, `input.css`, `npm run build:css`)
+- **Lucide Icons** — zéro emojis, zéro SVG inline dans les templates (bundle CDN + `lucide.createIcons()`)
+- **Sidebar blanc** style Notion/Linear (`bg-white`, liens actifs `bg-brand-light`, icônes Lucide)
+- **Header sticky** `h-16 bg-white border-b`, titre page dynamique, menu utilisateur dropdown Alpine
+- **Menu utilisateur dropdown** : sous-menus "Langue" et "En savoir plus" en `fixed`, fermeture mutuelle
+- **Tabs modernes** style Notion (`bg-gray-100 rounded-lg p-1`, actif `bg-white shadow-sm`)
+- **Cards standardisées** `border-gray-200 rounded-xl` (suppression shadows lourdes, hover subtil)
+- **Typographie Manrope** Google Fonts — chiffres alignés, antialiased, h1/h2/h3 stylés
+- **Animations globales** : `fade-in`, `fade-in-up`, `slide-in-right`, `slide-in-up`, skeleton loading, `prefers-reduced-motion`
+- **Modals premium** : backdrop-blur-sm, animations scale+translate, bouton X Lucide, footer bg-gray-50
+- **Panels slide-in** : `animate-slide-in-right`, overlay `backdrop-blur-[2px]`, border-l subtil
+- **États vides premium** : 15 états modernisés (icône Lucide, titre, description, bouton action contextuel)
+- **Composants CSS réutilisables** (`@layer components`) :
   - `btn-primary`, `btn-secondary`, `btn-danger`, `btn-ghost`
   - `input-field` (focus ring bleu, placeholder gris)
   - `badge-success`, `badge-warning`, `badge-danger`, `badge-primary`, `badge-purple`, `badge-emerald`
-- **Typographie Manrope** Google Fonts (chiffres alignés, lisibilité écran, font-size avec letter-spacing)
-- **Animations globales** (fade-in, fade-in-up, slide-in-right, slide-in-up, skeleton loading)
-- **Modals premium** (backdrop-blur-sm, animations scale+translate, header avec bouton X Lucide)
-- **Panels slide premium** (animate-slide-in-right, overlay backdrop-blur-[2px], border-l subtil)
-- **États vides premium** (15 états modernisés : icône Lucide, titre, description, bouton action)
+- **Adaptation mobile 23 problèmes** : grilles responsives, tableau paiements scrollable, colonnes cachées mobile, bouton importer visible, switch vue `hidden sm:flex`, inputs tactiles `min-h-[44px]`, header `h-14` mobile, graphiques `h-48 sm:h-64`, colonne "Total Pts" cachée mobile
 - **68 fichiers redesignés** sur l'ensemble du projet
+- **Superadmin étendu** : directeurs et écoles modifiables (tous champs) via dashboard
+
+### Corrections critiques (`fix/bugs-critiques` → mergé sur `main`)
+
+#### Modèles et intégrité données
+- **`UniqueConstraint` conditionnels** sur `SchoolClass` et `Subject` : contrainte active uniquement sur `is_active=True` → permet la réactivation d'une entité soft-deletée avec le même nom
+- **`on_delete=PROTECT`** sur toutes les FK sensibles : `Note`, `Bulletin`, `BulletinLine`, `Payment`, `Student` — empêche la suppression accidentelle de données liées
+- **3 migrations appliquées** : `0006_alter_schoolclass_unique_together`, `0007_fix_protect_and_unique_constraints`, idem `payments` et `students`
+
+#### Gestion des erreurs serveur
+- **`ProtectedError` géré** sur `period_delete`, `generate_periods`, `class_subject_remove` : `try/except ProtectedError` → réponse 422 avec message d'erreur en français (au lieu de crash 500)
+- **`class_delete`** : garde `student_count > 0` → 422 + toast erreur bloquant; succès → toast confirmation + `HX-Trigger show-toast`
+- **`non_field_errors`** affichés sur 4 formulaires : création classe, édition classe, inscription élève, paiement
+
+#### Système de toasts unifié
+- **Toast global** ajouté à `base.html` : `{% include "settings/partials/toast.html" %}` + bridge JS `showToast` (camelCase HTMX) → `show-toast` (kebab Alpine)
+- **`$nextTick` → `setTimeout`** dans le store Alpine (`base.html` + `settings_base.html`) — `$nextTick` n'existe pas dans un store Alpine (propriété magique de composant uniquement)
+- **Toasts sur 8 actions** : créer classe, réactiver classe, modifier classe, importer classes, inscrire élève (individuel + groupe), mettre à jour fiche élève, importer élèves
+- **Paiement** : `closePanel` → `close-panel` (kebab-case), listener dédupliqué dans `dashboard.html`
+
+#### Modal de confirmation Alpine (remplace `hx-confirm` natif)
+- **`$store.confirm`** global avec `show(options)`, `confirm()`, `cancel()` — défini dans `base.html` et `settings_base.html`
+- **6 boutons de suppression migrés** vers `$store.confirm.show(...)` + `htmx.ajax(...)` : classes, périodes, matières, sujets, logo
+- **CSRF** : tous les `htmx.ajax()` héritent du CSRF via `hx-headers` sur `<body>`
+- **`settings_base.html`** : modal et store dupliqués (standalone, n'étend pas `base.html`) + classes CSS `btn-primary/danger/secondary` en `<style>` brut (Tailwind CDN ne compile pas les `@layer components`)
+
+#### Fermeture modals/panels (root cause HTML case-folding)
+- **Root cause identifié** : les attributs HTML sont lowercasés par le navigateur → `@closePanel.window` devient `@closepanel.window` → ne matche pas l'événement `closePanel` dispatché par HTMX (CustomEvents case-sensitive en JS)
+- **Fix** : tous les noms d'événements en **kebab-case** dans `HX-Trigger` ET les listeners Alpine :
+  - `closePanel` → `close-panel`
+  - `closeAddModal` → `close-add-modal`
+  - `closeImportModal` → `close-import-modal`
+  - `closeEditModal` → `close-edit-modal`
+- **Suppression de tous les `hx-on::after-request`** qui fermaient les modals/panels — remplacés par `HX-Trigger` côté vue (seul mécanisme fiable)
+- **`close-edit-modal`** ajouté dans `class_update` + listener dans `class_list.html` + target aligné `outerHTML` sur `#class-row-{{ id }}` dans `class_edit_modal.html` (fix double toast)
+- **Message modal suppression classe dynamique** : si `student_count > 0` → modal bloquant "Suppression impossible" + `onConfirm: null` ; sinon → modal destructif normal
 
 ### Authentification custom (`/login/`)
 - **Login par numéro de téléphone** — `PhoneBackend` + `LoginForm` avec messages d'erreur précis
@@ -406,7 +445,7 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 
 - [✅] **Multi-tenant réel en place** via `get_school(request)`, `SchoolMixin`, `SchoolMiddleware`
 
-- [ ] **Tailwind CDN → build local** pour la production (performance + purge CSS)
+- [✅] **Tailwind CDN → build local** — `tailwind.config.js` + `npm run build:css` → `static/css/output.css`
 
 ---
 
