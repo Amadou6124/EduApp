@@ -42,7 +42,7 @@ urlpatterns = [
     path('payment-methods/', settings_views.coming_soon, {'section': 'payment-methods'}, name='payment-methods'),
 
     # ── DOCUMENTS ─────────────────────────────────────────────────────
-    path('bulletin/', settings_views.coming_soon, {'section': 'bulletin'}, name='bulletin'),
+    path('bulletin/', settings_views.bulletin, name='bulletin'),
     path('headers/',  settings_views.coming_soon, {'section': 'headers'},  name='headers'),
 
     # ── COMMUNICATION ─────────────────────────────────────────────────

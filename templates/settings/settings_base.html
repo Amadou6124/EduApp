@@ -71,7 +71,7 @@
 
       <div>
         <p class="text-[11px] uppercase tracking-widest font-semibold text-gray-400 px-3 mb-1">Documents</p>
-        {% include "settings/partials/nav_item.html" with section="bulletin" url_name="settings:bulletin" label="Modèle de bulletin"  available=False icon="document"  %}
+        {% include "settings/partials/nav_item.html" with section="bulletin" url_name="settings:bulletin" label="Modèle de bulletin"  available=True  icon="document"  %}
         {% include "settings/partials/nav_item.html" with section="headers"  url_name="settings:headers"  label="En-têtes officiels" available=False icon="template"  %}
       </div>
 
@@ -135,7 +135,7 @@
           <option value="{% url 'settings:payment-methods' %}" disabled>Modes de paiement (bientôt)</option>
         </optgroup>
         <optgroup label="Documents">
-          <option value="{% url 'settings:bulletin' %}" disabled>Modèle de bulletin (bientôt)</option>
+          <option value="{% url 'settings:bulletin' %}" {% if active_section == 'bulletin' %}selected{% endif %}>Modèle de bulletin</option>
           <option value="{% url 'settings:headers' %}"  disabled>En-têtes officiels (bientôt)</option>
         </optgroup>
         <optgroup label="Communication">

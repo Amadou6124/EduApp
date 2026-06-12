@@ -1,0 +1,145 @@
+<form id="bulletin-form"
+      hx-post="{% url 'settings:bulletin' %}"
+      hx-target="#bulletin-form"
+      hx-swap="outerHTML">
+  {% csrf_token %}
+
+  {% if form.errors %}
+  <div class="mb-6 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+    Veuillez corriger les erreurs ci-dessous.
+  </div>
+  {% endif %}
+
+  <!-- ── EN-TÊTE OFFICIEL ─────────────────────────────────────── -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="landmark" class="w-4 h-4 text-brand-blue"></i>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900">En-tête officiel</h3>
+        <p class="text-xs text-gray-400">Texte affiché en haut du bulletin PDF</p>
+      </div>
+    </div>
+
+    <label class="flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer mb-5 transition-colors">
+      <div class="relative flex-shrink-0">
+        {{ form.show_ministry_header }}
+      </div>
+      <div>
+        <span class="text-sm font-medium text-gray-700">Afficher l'en-tête ministériel</span>
+        <p class="text-xs text-gray-400 mt-0.5">Ministère à gauche, République à droite</p>
+      </div>
+    </label>
+
+    <div class="grid grid-cols-2 gap-6">
+      <!-- Gauche : Ministère -->
+      <div class="space-y-3">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Côté gauche — Ministère
+        </p>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Ligne 1</label>
+          {{ form.ministry_line1 }}
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Ligne 2 (Académie)</label>
+          {{ form.ministry_line2 }}
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Ligne 3 (CAP — optionnel)</label>
+          {{ form.ministry_line3 }}
+        </div>
+      </div>
+
+      <!-- Droite : République -->
+      <div class="space-y-3">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Côté droit — République
+        </p>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Ligne 1</label>
+          {{ form.republic_line1 }}
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Ligne 2 (Devise)</label>
+          {{ form.republic_line2 }}
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <label class="block text-xs text-gray-500 mb-1">Titre du bulletin</label>
+      {{ form.bulletin_title }}
+    </div>
+  </div>
+
+  <hr class="border-gray-100 mb-8">
+
+  <!-- ── PRÉSENTATION ──────────────────────────────────────────── -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="layout" class="w-4 h-4 text-brand-blue"></i>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900">Présentation</h3>
+        <p class="text-xs text-gray-400">Format et colonnes affichées sur le bulletin</p>
+      </div>
+    </div>
+
+    <div class="mb-5">
+      <label class="block text-xs text-gray-500 mb-1">Format papier</label>
+      {{ form.paper_format }}
+    </div>
+
+    <div class="space-y-2">
+      {% for field in form.show_logo,form.show_rank,form.show_class_average,form.show_first_average,form.show_appreciations,form.show_annual_averages,form.show_last_average %}
+      <label class="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+        {{ field }}
+        <span class="text-sm text-gray-700">{{ field.label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <hr class="border-gray-100 mb-8">
+
+  <!-- ── SIGNATURES ────────────────────────────────────────────── -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="pen-line" class="w-4 h-4 text-brand-blue"></i>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900">Signatures</h3>
+        <p class="text-xs text-gray-400">Libellés affichés en bas du bulletin</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-6">
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Signature gauche</label>
+        {{ form.footer_left }}
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Signature droite</label>
+        {{ form.footer_right }}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bouton sauvegarde ─────────────────────────────────────── -->
+  <div class="flex justify-end pt-2 border-t border-gray-100">
+    <button type="submit" class="btn-primary">
+      <i data-lucide="save" class="w-4 h-4"></i>
+      Enregistrer les paramètres
+    </button>
+  </div>
+
+</form>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() { lucide.createIcons(); });
+  lucide.createIcons();
+</script>
