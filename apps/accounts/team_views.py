@@ -13,6 +13,15 @@ from apps.schools.models import ClassSubject
 from .models import User, UserRole, StaffPermission
 from .team_forms import TeamMemberCreateForm, TeamMemberEditForm, StaffPermissionForm
 
+# Libellés des profils prédéfinis exposés au template
+_PRESETS = [
+    ('Censeur',       'censeur'),
+    ('Comptable',     'comptable'),
+    ('Surveillant',   'surveillant'),
+    ('Informaticien', 'informaticien'),
+    ('Secrétaire',    'secretaire'),
+]
+
 
 # ── Décorateur director uniquement ────────────────────────────────────────────
 
@@ -107,11 +116,14 @@ def team_list(request):
         'teachers_data': teachers_data,
         'staff_members': staff,
         'stats': {
-            'total':      total_active,
-            'teachers':   teachers.count(),
-            'staff':      staff.count(),
+            'total':    total_active,
+            'teachers': teachers.count(),
+            'staff':    staff.count(),
         },
         'is_director': request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
+        # Formulaire permissions vide — utilisé dans le panel création staff
+        'perm_form': StaffPermissionForm(),
+        'presets':   _PRESETS,
     })
 
 
@@ -137,14 +149,10 @@ def team_member_create(request):
             })
             response['HX-Trigger'] = json.dumps({
                 'close-panel': True,
-                'showToast': {
-                    'message': f'{user.full_name} ajouté(e) à l\'équipe.',
-                    'type':    'success',
-                },
                 'team-member-added': {
-                    'role':     role,
-                    'temp_pwd': temp_pwd,
-                    'user_id':  user.pk,
+                    'phone_number': user.phone_number,
+                    'temp_pwd':     temp_pwd,
+                    'user_id':      user.pk,
                 },
             })
             return response

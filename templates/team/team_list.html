@@ -1,0 +1,605 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Équipe{% endblock %}
+{% block page_title %}Équipe{% endblock %}
+
+{% block extra_head %}
+<script>
+function teamPageData() {
+  return {
+    // ── Panel création ──────────────────────────────────────────
+    showPanel:    false,
+    selectedRole: 'teacher',
+
+    // ── Panel édition ───────────────────────────────────────────
+    showEditPanel: false,
+    editUserId:    null,
+
+    // ── Modal mot de passe (affiché une seule fois) ─────────────
+    showPwdModal:  false,
+    pwdPhone:      '',
+    pwdValue:      '',
+    pwdCopied:     false,
+
+    // ── Helpers ─────────────────────────────────────────────────
+    openEditPanel(userId) {
+      this.editUserId   = userId
+      this.showEditPanel = true
+      this.$nextTick(() => {
+        htmx.ajax('GET', `/team/${userId}/edit/`, {
+          target: '#edit-panel-body',
+          swap:   'innerHTML',
+        })
+      })
+    },
+
+    confirmDeactivate(userId, name) {
+      Alpine.store('confirm').show({
+        title:        'Désactiver ' + name + ' ?',
+        message:      'Ce membre ne pourra plus se connecter à EduApp.',
+        icon:         'user-x',
+        iconBg:       'bg-orange-50',
+        iconColor:    'text-orange-500',
+        confirmText:  'Désactiver',
+        confirmIcon:  'user-x',
+        confirmClass: 'bg-orange-600 hover:bg-orange-700 text-white',
+        onConfirm: () => {
+          htmx.ajax('POST', `/team/${userId}/deactivate/`, {
+            target: `#member-card-${userId}`,
+            swap:   'outerHTML',
+            headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' },
+          })
+        },
+      })
+    },
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div x-data="teamPageData()"
+     @close-panel.window="showPanel = false"
+     @close-edit-panel.window="showEditPanel = false"
+     @team-member-added.window="
+       showPanel    = false;
+       pwdPhone     = $event.detail.phone_number || '';
+       pwdValue     = $event.detail.temp_pwd    || '';
+       pwdCopied    = false;
+       showPwdModal = true;
+       $nextTick(() => lucide.createIcons())
+     ">
+
+  {# ── En-tête page ── #}
+  <div class="flex items-center justify-between mb-6">
+    <div></div>
+    {% if is_director %}
+      <button @click="showPanel = true"
+              class="flex items-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+        <i data-lucide="user-plus" class="w-4 h-4 shrink-0"></i>
+        Ajouter un membre
+      </button>
+    {% endif %}
+  </div>
+
+  {# ── Stats ── #}
+  <div class="grid grid-cols-3 gap-4 mb-8">
+    <div class="bg-white rounded-xl border border-gray-200 p-5 animate-fade-in-up">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+          <i data-lucide="users-round" class="w-4 h-4 text-brand-blue"></i>
+        </div>
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Total actifs</p>
+      </div>
+      <p class="text-3xl font-bold text-brand-blue">{{ stats.total }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5 animate-fade-in-up animate-delay-100">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+          <i data-lucide="graduation-cap" class="w-4 h-4 text-brand-blue"></i>
+        </div>
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Enseignants</p>
+      </div>
+      <p class="text-3xl font-bold text-brand-blue">{{ stats.teachers }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5 animate-fade-in-up animate-delay-200">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center">
+          <i data-lucide="briefcase" class="w-4 h-4 text-purple-600"></i>
+        </div>
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Staff admin</p>
+      </div>
+      <p class="text-3xl font-bold text-purple-600">{{ stats.staff }}</p>
+    </div>
+  </div>
+
+  {# ── Section Enseignants ── #}
+  <div class="mb-10">
+    <div class="flex items-center gap-2 mb-4">
+      <h2 class="text-base font-semibold text-gray-800">Enseignants</h2>
+      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-brand-blue">
+        {{ stats.teachers }}
+      </span>
+    </div>
+
+    {% if teachers_data %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for item in teachers_data %}
+          <div id="member-card-{{ item.user.pk }}">
+            {% with member=item.user class_count=item.class_count %}
+              {% include "team/partials/member_card.html" %}
+            {% endwith %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      {# État vide enseignants #}
+      <div class="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center animate-fade-in">
+        <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="graduation-cap" class="w-7 h-7 text-brand-blue"></i>
+        </div>
+        <p class="text-sm font-semibold text-gray-700 mb-1">Aucun enseignant</p>
+        <p class="text-sm text-gray-400 mb-5">Ajoutez le premier enseignant de votre école.</p>
+        {% if is_director %}
+          <button @click="showPanel = true; selectedRole = 'teacher'"
+                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[40px]">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            Ajouter un enseignant
+          </button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {# ── Section Staff administratif ── #}
+  <div class="mb-10">
+    <div class="flex items-center gap-2 mb-4">
+      <h2 class="text-base font-semibold text-gray-800">Staff administratif</h2>
+      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700">
+        {{ stats.staff }}
+      </span>
+    </div>
+
+    {% if staff_members %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for member in staff_members %}
+          <div id="member-card-{{ member.pk }}">
+            {% with class_count=0 %}
+              {% include "team/partials/member_card.html" %}
+            {% endwith %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      {# État vide staff #}
+      <div class="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center animate-fade-in animate-delay-100">
+        <div class="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="briefcase" class="w-7 h-7 text-purple-600"></i>
+        </div>
+        <p class="text-sm font-semibold text-gray-700 mb-1">Aucun staff administratif</p>
+        <p class="text-sm text-gray-400 mb-5">Ajoutez un secrétaire, comptable ou censeur.</p>
+        {% if is_director %}
+          <button @click="showPanel = true; selectedRole = 'staff'"
+                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[40px]">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            Ajouter un membre
+          </button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {# ══════════════════════════════════════════════════════════════
+     PANEL CRÉATION — slide depuis droite
+  ══════════════════════════════════════════════════════════════ #}
+  <div x-show="showPanel" x-cloak
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40"
+       @click="showPanel = false">
+  </div>
+
+  <div x-show="showPanel" x-cloak
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="translate-x-full"
+       class="fixed top-0 right-0 h-full w-full sm:w-[540px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col">
+
+    {# Header panel #}
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center">
+          <i data-lucide="user-plus" class="w-4 h-4 text-brand-blue"></i>
+        </div>
+        <h2 class="text-base font-semibold text-gray-900">Nouveau membre</h2>
+      </div>
+      <button @click="showPanel = false"
+              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    {# Corps du panel — formulaire #}
+    <div class="flex-1 overflow-y-auto">
+      <form id="team-create-form"
+            hx-post="{% url 'team:create' %}"
+            hx-target="#team-create-form"
+            hx-swap="outerHTML"
+            hx-indicator="#create-spinner"
+            x-data="{
+              role: selectedRole,
+              showPwd: false,
+              permissions: {
+                can_view_payments:   false, can_create_payments: false, can_cancel_payments: false,
+                can_view_students:   true,  can_create_students: false, can_edit_students:   false,
+                can_view_notes:      false, can_edit_notes:      false,
+                can_generate_bulletins: false, can_download_bulletins: false,
+                can_record_absences: false,
+                can_view_classes:    true,  can_edit_classes:    false,
+              },
+              applyPreset(name) {
+                // Remet tout à zéro sauf les champs toujours vrais
+                Object.keys(this.permissions).forEach(k => {
+                  this.permissions[k] = (k === 'can_view_students' || k === 'can_view_classes')
+                })
+                const presets = {
+                  censeur:       ['can_view_students','can_view_notes','can_edit_notes','can_generate_bulletins','can_download_bulletins','can_record_absences','can_view_classes'],
+                  comptable:     ['can_view_payments','can_create_payments','can_view_students'],
+                  surveillant:   ['can_view_students','can_record_absences'],
+                  informaticien: ['can_view_notes','can_generate_bulletins','can_download_bulletins','can_view_students','can_view_classes'],
+                  secretaire:    ['can_view_students','can_create_students','can_edit_students','can_view_payments','can_create_payments','can_view_classes'],
+                }
+                ;(presets[name] || []).forEach(k => { this.permissions[k] = true })
+              },
+              generatePwd() {
+                const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
+                this.$refs.pwdInput.value = Array.from({length:10}, () => chars[Math.floor(Math.random()*chars.length)]).join('')
+                this.$refs.pwdInput.type = 'text'
+                this.showPwd = true
+              },
+            }"
+            x-init="role = selectedRole">
+
+        {% csrf_token %}
+        <input type="hidden" name="role" :value="role">
+
+        <div class="px-6 py-5 space-y-6">
+
+          {# ── Section 1 : Identité ── #}
+          <div>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
+              Identité
+            </h3>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Prénom <span class="text-red-400">*</span></label>
+                <input type="text" name="first_name" required
+                       class="input-field" placeholder="Prénom">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom <span class="text-red-400">*</span></label>
+                <input type="text" name="last_name" required
+                       class="input-field" placeholder="Nom de famille">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone <span class="text-red-400">*</span></label>
+              <input type="tel" name="phone_number" required
+                     class="input-field" placeholder="Ex : 0700000000" inputmode="tel">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Titre du poste</label>
+              <input type="text" name="job_title"
+                     class="input-field" placeholder="Ex : Censeur, Comptable, Surveillant…">
+            </div>
+          </div>
+
+          {# ── Section 2 : Rôle ── #}
+          <div class="border-t border-gray-100 pt-5">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
+              Rôle
+            </h3>
+            <div class="grid grid-cols-2 gap-3">
+
+              <button type="button" @click="role = 'teacher'"
+                      :class="role === 'teacher'
+                        ? 'border-brand-blue bg-blue-50 ring-1 ring-brand-blue'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'"
+                      class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition text-left cursor-pointer">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center"
+                     :class="role === 'teacher' ? 'bg-brand-blue' : 'bg-gray-100'">
+                  <i data-lucide="graduation-cap" class="w-5 h-5"
+                     :class="role === 'teacher' ? 'text-white' : 'text-gray-500'"></i>
+                </div>
+                <div class="text-center">
+                  <p class="text-sm font-semibold text-gray-800">Enseignant</p>
+                  <p class="text-xs text-gray-400 mt-0.5">Accès classes &amp; matières</p>
+                </div>
+              </button>
+
+              <button type="button" @click="role = 'staff'"
+                      :class="role === 'staff'
+                        ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-500'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'"
+                      class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition text-left cursor-pointer">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center"
+                     :class="role === 'staff' ? 'bg-purple-600' : 'bg-gray-100'">
+                  <i data-lucide="briefcase" class="w-5 h-5"
+                     :class="role === 'staff' ? 'text-white' : 'text-gray-500'"></i>
+                </div>
+                <div class="text-center">
+                  <p class="text-sm font-semibold text-gray-800">Staff admin</p>
+                  <p class="text-xs text-gray-400 mt-0.5">Permissions configurables</p>
+                </div>
+              </button>
+
+            </div>
+          </div>
+
+          {# ── Section 3A : Enseignant — assignation matières (placeholder) ── #}
+          <div x-show="role === 'teacher'" x-cloak
+               x-transition:enter="transition ease-out duration-200"
+               x-transition:enter-start="opacity-0 -translate-y-1"
+               x-transition:enter-end="opacity-100 translate-y-0"
+               class="border-t border-gray-100 pt-5">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+              Assignation matières &amp; classes
+            </h3>
+            <div class="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 flex items-start gap-3">
+              <i data-lucide="info" class="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5"></i>
+              <p class="text-xs text-blue-700 leading-relaxed">
+                L'assignation des matières se configure dans
+                <a href="{% url 'settings:subjects' %}" class="underline font-medium">Paramètres → Matières</a>
+                après la création du membre.
+              </p>
+            </div>
+          </div>
+
+          {# ── Section 3B : Staff — profils rapides + permissions ── #}
+          <div x-show="role === 'staff'" x-cloak
+               x-transition:enter="transition ease-out duration-200"
+               x-transition:enter-start="opacity-0 -translate-y-1"
+               x-transition:enter-end="opacity-100 translate-y-0"
+               class="border-t border-gray-100 pt-5 space-y-5">
+
+            {# Profils rapides #}
+            <div>
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+                Profil rapide
+              </h3>
+              <div class="flex flex-wrap gap-2">
+                {% for label, key in presets %}
+                  <button type="button" @click="applyPreset('{{ key }}')"
+                          class="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-600 hover:border-brand-blue hover:text-brand-blue hover:bg-blue-50 transition">
+                    {{ label }}
+                  </button>
+                {% endfor %}
+              </div>
+            </div>
+
+            {# Permissions par catégorie avec toggle switch #}
+            <div class="space-y-4">
+
+              {% for group_label, group_fields in perm_form.grouped_fields %}
+                <div>
+                  <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{{ group_label }}</p>
+                  <div class="space-y-2">
+                    {% for bf in group_fields %}
+                      {# Champs toujours actifs (vue élèves, vue classes) : non modifiables #}
+                      {% if bf.name == "can_view_students" or bf.name == "can_view_classes" %}
+                        <div class="flex items-center justify-between py-1">
+                          <span class="text-sm text-gray-500">{{ bf.label }}</span>
+                          <span class="text-xs text-gray-400 italic">Toujours actif</span>
+                        </div>
+                        <input type="hidden" name="{{ bf.name }}" value="on">
+                      {% else %}
+                        <label class="flex items-center justify-between py-1 cursor-pointer group">
+                          <span class="text-sm text-gray-700 group-hover:text-gray-900 transition">{{ bf.label }}</span>
+                          {# Toggle switch Alpine (lié à permissions[name]) #}
+                          <div class="relative flex-shrink-0">
+                            <input type="checkbox"
+                                   name="{{ bf.name }}"
+                                   :checked="permissions['{{ bf.name }}']"
+                                   @change="permissions['{{ bf.name }}'] = $event.target.checked"
+                                   class="sr-only peer">
+                            <div @click="permissions['{{ bf.name }}'] = !permissions['{{ bf.name }}']"
+                                 :class="permissions['{{ bf.name }}'] ? 'bg-brand-blue' : 'bg-gray-200'"
+                                 class="w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer peer-focus:ring-2 peer-focus:ring-brand-blue/30"></div>
+                            <div @click="permissions['{{ bf.name }}'] = !permissions['{{ bf.name }}']"
+                                 :class="permissions['{{ bf.name }}'] ? 'translate-x-4' : 'translate-x-0'"
+                                 class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 cursor-pointer"></div>
+                          </div>
+                        </label>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </div>
+                {% if not forloop.last %}
+                  <div class="border-t border-gray-50"></div>
+                {% endif %}
+              {% endfor %}
+
+            </div>
+          </div>
+
+          {# ── Section 4 : Accès / Mot de passe ── #}
+          <div class="border-t border-gray-100 pt-5">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+              Accès
+            </h3>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">
+              Mot de passe temporaire
+            </label>
+            <div class="relative flex gap-2">
+              <div class="relative flex-1">
+                <input x-ref="pwdInput"
+                       type="password"
+                       name="password"
+                       :type="showPwd ? 'text' : 'password'"
+                       class="input-field pr-10"
+                       placeholder="Laissez vide pour générer automatiquement"
+                       autocomplete="new-password">
+                <button type="button"
+                        @click="showPwd = !showPwd"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
+                  <i :data-lucide="showPwd ? 'eye-off' : 'eye'" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <button type="button" @click="generatePwd()"
+                      class="flex-shrink-0 px-3 py-2.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-xs font-medium rounded-lg transition flex items-center gap-1.5 min-h-[44px]">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                Générer
+              </button>
+            </div>
+            <p class="text-xs text-gray-400 mt-2 flex items-center gap-1">
+              <i data-lucide="info" class="w-3 h-3"></i>
+              Communiquez ce mot de passe au membre en personne.
+            </p>
+          </div>
+
+        </div>{# fin px-6 py-5 #}
+
+        {# ── Pied du panel — sticky ── #}
+        <div class="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex gap-3 flex-shrink-0">
+          <button type="button" @click="showPanel = false"
+                  class="btn-secondary flex-1">
+            Annuler
+          </button>
+          <button type="submit"
+                  class="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+            <svg id="create-spinner"
+                 class="w-4 h-4 htmx-indicator animate-spin hidden"
+                 fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            Créer le membre
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>{# fin panel création #}
+
+  {# ══════════════════════════════════════════════════════════════
+     PANEL ÉDITION — slide depuis droite
+  ══════════════════════════════════════════════════════════════ #}
+  <div x-show="showEditPanel" x-cloak
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40"
+       @click="showEditPanel = false">
+  </div>
+
+  <div x-show="showEditPanel" x-cloak
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="translate-x-full"
+       class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col">
+
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center">
+          <i data-lucide="pencil" class="w-4 h-4 text-brand-blue"></i>
+        </div>
+        <h2 class="text-base font-semibold text-gray-900">Modifier le membre</h2>
+      </div>
+      <button @click="showEditPanel = false"
+              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <div id="edit-panel-body" class="flex-1 overflow-y-auto px-6 py-5">
+      <div class="flex items-center justify-center h-32 text-gray-300">
+        <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>
+      </div>
+    </div>
+  </div>{# fin panel édition #}
+
+  {# ══════════════════════════════════════════════════════════════
+     MODAL MOT DE PASSE (affichée une seule fois après création)
+  ══════════════════════════════════════════════════════════════ #}
+  <div x-show="showPwdModal" x-cloak
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+
+    <div x-show="showPwdModal"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+
+      {# Icône succès #}
+      <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="check" class="w-6 h-6 text-green-600"></i>
+      </div>
+
+      <h3 class="text-base font-semibold text-gray-900 text-center mb-1">Membre créé avec succès</h3>
+      <p class="text-sm text-gray-500 text-center mb-5 leading-relaxed">
+        Communiquez ces identifiants au membre <strong>en personne</strong>.
+      </p>
+
+      {# Bloc identifiants #}
+      <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-4 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-500">Téléphone</span>
+          <span class="text-sm font-semibold text-gray-800 font-mono" x-text="pwdPhone"></span>
+        </div>
+        <div class="border-t border-gray-100 pt-2 flex items-center justify-between">
+          <span class="text-xs text-gray-500">Mot de passe</span>
+          <span class="text-sm font-semibold text-gray-800 font-mono" x-text="pwdValue"></span>
+        </div>
+      </div>
+
+      {# Bouton copier #}
+      <button type="button"
+              @click="
+                navigator.clipboard.writeText('Téléphone : ' + pwdPhone + '\nMot de passe : ' + pwdValue)
+                  .then(() => { pwdCopied = true; setTimeout(() => pwdCopied = false, 2500) })
+              "
+              :class="pwdCopied ? 'border-green-300 text-green-700 bg-green-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
+              class="w-full flex items-center justify-center gap-2 border rounded-lg py-2.5 text-sm font-medium transition mb-4">
+        <i :data-lucide="pwdCopied ? 'check' : 'clipboard'" class="w-4 h-4"></i>
+        <span x-text="pwdCopied ? 'Copié !' : 'Copier les identifiants'"></span>
+      </button>
+
+      {# Avertissement #}
+      <div class="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 mb-5">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5"></i>
+        <p class="text-xs text-amber-700 leading-relaxed">
+          Ce mot de passe ne sera affiché <strong>qu'une seule fois</strong>.
+          Notez-le avant de fermer.
+        </p>
+      </div>
+
+      <button type="button"
+              @click="showPwdModal = false; $nextTick(() => window.location.reload())"
+              class="w-full bg-brand-blue hover:bg-blue-900 text-white text-sm font-semibold py-3 rounded-xl transition min-h-[44px]">
+        J'ai noté les identifiants
+      </button>
+
+    </div>
+  </div>{# fin modal mot de passe #}
+
+</div>{# fin x-data teamPageData #}
+{% endblock %}

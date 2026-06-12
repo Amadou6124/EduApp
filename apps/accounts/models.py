@@ -82,6 +82,25 @@ class User(AbstractBaseUser, PermissionsMixin):
         parts = self.full_name.split()
         return parts[0] if parts else self.phone_number
 
+    def get_initials(self):
+        parts = self.full_name.split()
+        if len(parts) >= 2:
+            return f'{parts[0][0]}{parts[-1][0]}'.upper()
+        return self.full_name[:2].upper() if self.full_name else '??'
+
+    def get_avatar_colors(self):
+        """Retourne (bg, text) selon la première lettre du nom — cohérent avec Student."""
+        letter = self.full_name[0].upper() if self.full_name else 'A'
+        if letter <= 'E':
+            return '#E6F1FB', '#0C447C'
+        if letter <= 'J':
+            return '#EAF3DE', '#27500A'
+        if letter <= 'O':
+            return '#FAEEDA', '#633806'
+        if letter <= 'T':
+            return '#EEEDFE', '#3C3489'
+        return '#FAECE7', '#712B13'
+
 
 class StaffPermission(models.Model):
     """

@@ -125,6 +125,20 @@
           <span>{% trans "Bulletins" %}</span>
         </a>
 
+        <!-- Équipe -->
+        {% if request.user.role == 'director' or request.user.role == 'staff' or request.user.is_superuser %}
+        <a href="{% url 'team:list' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'team' %}
+                    bg-blue-50 text-brand-blue font-medium border-l-2 border-brand-blue
+                  {% else %}
+                    text-gray-600 hover:bg-gray-100 hover:text-gray-900
+                  {% endif %}">
+          <i data-lucide="users-round" class="w-5 h-5 shrink-0"></i>
+          <span>Équipe</span>
+        </a>
+        {% endif %}
+
         <!-- Superadmin -->
         {% if request.user.is_superuser %}
           <div class="pt-4 mt-4 border-t border-gray-100">
