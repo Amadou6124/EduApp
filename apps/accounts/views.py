@@ -19,21 +19,21 @@ def _client_ip(request):
     return forwarded.split(',')[0].strip() if forwarded else request.META.get('REMOTE_ADDR', 'unknown')
 
 
-def _is_locked(ip):
-    return bool(cache.get(f'login_lock_{ip}'))
+def _is_locked(key):
+    return bool(cache.get(f'login_lock_{key}'))
 
 
-def _record_failure(ip):
-    key      = f'login_fail_{ip}'
-    attempts = (cache.get(key) or 0) + 1
-    cache.set(key, attempts, _LOCKOUT_SECS)
+def _record_failure(key):
+    fail_key = f'login_fail_{key}'
+    attempts = (cache.get(fail_key) or 0) + 1
+    cache.set(fail_key, attempts, _LOCKOUT_SECS)
     if attempts >= _MAX_ATTEMPTS:
-        cache.set(f'login_lock_{ip}', True, _LOCKOUT_SECS)
+        cache.set(f'login_lock_{key}', True, _LOCKOUT_SECS)
 
 
-def _clear_failures(ip):
-    cache.delete(f'login_fail_{ip}')
-    cache.delete(f'login_lock_{ip}')
+def _clear_failures(key):
+    cache.delete(f'login_fail_{key}')
+    cache.delete(f'login_lock_{key}')
 
 
 # ── Redirect post-login selon rôle ────────────────────────────────────────
@@ -61,18 +61,24 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect(_post_login_url(request, request.user))
 
-    ip     = _client_ip(request)
-    locked = _is_locked(ip)
+    ip    = _client_ip(request)
+    phone = request.POST.get('username', '').strip()
+
+    # Verrou par IP ou par numéro de compte (résistant au spoofing X-Forwarded-For)
+    locked = _is_locked(f'ip_{ip}') or (phone and _is_locked(f'phone_{phone}'))
 
     if request.method == 'POST' and not locked:
         form = LoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
-            _clear_failures(ip)
+            _clear_failures(f'ip_{ip}')
+            _clear_failures(f'phone_{phone}')
             login(request, user, backend='apps.accounts.backends.PhoneBackend')
             return redirect(_post_login_url(request, user))
-        _record_failure(ip)
-        locked = _is_locked(ip)
+        _record_failure(f'ip_{ip}')
+        if phone:
+            _record_failure(f'phone_{phone}')
+        locked = _is_locked(f'ip_{ip}') or (phone and _is_locked(f'phone_{phone}'))
     else:
         form = LoginForm(request)
 
