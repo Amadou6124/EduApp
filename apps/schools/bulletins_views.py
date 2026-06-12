@@ -28,6 +28,15 @@ from .services.bulletin_pdf import (
 
 calculator = BulletinCalculator()
 
+LEVEL_BADGE = {
+    'prescolaire':    ('Préscolaire',       'bg-purple-100 text-purple-700 border-purple-200'),
+    'fondamental_1':  ('Fond. 1er Cycle',   'bg-blue-100 text-blue-700 border-blue-200'),
+    'fondamental_2':  ('Fond. 2ème Cycle',  'bg-indigo-100 text-indigo-700 border-indigo-200'),
+    'secondaire_gen': ('Secondaire Gén.',   'bg-green-100 text-green-700 border-green-200'),
+    'secondaire_pro': ('Secondaire Pro',    'bg-teal-100 text-teal-700 border-teal-200'),
+    'superieur':      ('Supérieur',         'bg-orange-100 text-orange-700 border-orange-200'),
+}
+
 
 # ─────────────────────────────────────────────────────────────
 # Vue 1 : Page principale
@@ -93,7 +102,20 @@ def bulletins_main(request):
 
     # Stats globales si classe + période sélectionnées
     if active_class and active_period:
-        context.update(_get_class_stats(active_class, active_period, school))
+        stats = _get_class_stats(active_class, active_period, school)
+        context.update(stats)
+        context['generated_count'] = len(stats['bulletins'])
+        context['total_count'] = stats['student_count']
+        context['pending_count'] = stats['student_count'] - len(stats['bulletins'])
+
+    if active_class:
+        context['subject_count'] = ClassSubject.objects.filter(
+            school_class=active_class, is_active=True,
+        ).count()
+        context['active_class_badge'] = LEVEL_BADGE.get(
+            active_class.level,
+            ('', 'bg-gray-100 text-gray-600 border-gray-200'),
+        )
 
     return render(request, 'bulletins/bulletins_main.html', context)
 
