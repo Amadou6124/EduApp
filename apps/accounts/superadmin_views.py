@@ -1,6 +1,7 @@
 from functools import wraps
 
 from django.db.models import Count, Q, Prefetch
+from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseForbidden
 from django.urls import reverse
@@ -62,9 +63,12 @@ def dashboard(request):
         for s in schools
     ]
 
+    paginator = Paginator(school_data, 50)
+    page_obj  = paginator.get_page(request.GET.get('page', 1))
+
     return render(request, 'superadmin/dashboard.html', {
         **_global_stats(),
-        'school_data': school_data,
+        'page_obj': page_obj,
     })
 
 
