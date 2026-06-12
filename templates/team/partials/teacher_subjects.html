@@ -18,6 +18,61 @@
   </div>
 
   {% if is_director %}
+    {% if classes %}
+    <div x-data="{ open: false, classId: '', filter: 'all' }" class="mb-5">
+      <button type="button"
+              @click="open = !open"
+              class="flex items-center gap-2 text-sm font-medium text-brand-blue hover:text-blue-900 transition">
+        <i data-lucide="layers" class="w-4 h-4"></i>
+        Assigner à toute une classe
+        <i data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
+      </button>
+
+      <div x-show="open" x-cloak x-transition
+           class="mt-3 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Classe <span class="text-red-400">*</span></label>
+            <select x-model="classId"
+                    class="w-full border border-gray-300 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue">
+              <option value="">— Sélectionner —</option>
+              {% for cls in classes %}
+              <option value="{{ cls.pk }}">{{ cls.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Matières</label>
+            <div class="space-y-1.5 pt-1">
+              <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                <input type="radio" x-model="filter" value="all" class="text-brand-blue"> Toutes les matières
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                <input type="radio" x-model="filter" value="french" class="text-brand-blue"> Matières en français seulement
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                <input type="radio" x-model="filter" value="arabic" class="text-brand-blue"> Matières en arabe seulement
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <button type="button"
+                  :disabled="!classId"
+                  hx-post="{% url 'team:assign-class' member.pk %}"
+                  hx-target="#teacher-subjects-panel"
+                  hx-swap="outerHTML"
+                  hx-on::after-swap="lucide.createIcons()"
+                  :hx-vals="JSON.stringify({ class_id: classId, filter: filter })"
+                  class="flex items-center gap-2 px-4 py-2 bg-brand-blue hover:bg-blue-900 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition">
+            <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+            Assigner
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <form hx-post="{% url 'team:subjects' member.pk %}"
           hx-target="#teacher-subjects-panel"
           hx-swap="outerHTML"

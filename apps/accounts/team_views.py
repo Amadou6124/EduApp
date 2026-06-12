@@ -2,7 +2,7 @@ import json
 from functools import wraps
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
@@ -282,12 +282,8 @@ def team_member_deactivate(request, user_id):
     return response
 
 
-@login_required
-@director_required
-def teacher_subjects_update(request, user_id):
-    school = get_school(request)
-    member = get_object_or_404(User, pk=user_id, school=school, role=UserRole.TEACHER)
-
+def _teacher_subjects_ctx(school, member, saved=False):
+    """Contexte commun pour le partial teacher_subjects.html."""
     all_class_subjects = (
         ClassSubject.objects
         .filter(school_class__school=school, is_active=True)
@@ -299,8 +295,36 @@ def teacher_subjects_update(request, user_id):
         .filter(teacher=member)
         .values_list('id', flat=True)
     )
+    classes = (
+        SchoolClass.objects
+        .filter(school=school, is_active=True)
+        .order_by('level', 'name')
+    )
+    return {
+        'member':             member,
+        'all_class_subjects': all_class_subjects,
+        'assigned_ids':       assigned_ids,
+        'classes':            classes,
+        'is_director':        True,
+        'saved':              saved,
+    }
+
+
+_ARABIC_KEYWORDS = ['arabe', 'fiqh', 'coran', 'hadith', 'tafsir', 'tarbiya']
+
+
+@login_required
+@director_required
+def teacher_subjects_update(request, user_id):
+    school = get_school(request)
+    member = get_object_or_404(User, pk=user_id, school=school, role=UserRole.TEACHER)
 
     if request.method == 'POST':
+        assigned_ids = set(
+            ClassSubject.objects
+            .filter(teacher=member)
+            .values_list('id', flat=True)
+        )
         selected_ids = set(int(i) for i in request.POST.getlist('class_subject_ids') if i.isdigit())
 
         to_assign   = selected_ids - assigned_ids
@@ -318,28 +342,58 @@ def teacher_subjects_update(request, user_id):
                 teacher=member,
             ).update(teacher=None)
 
-        updated_subjects = (
-            ClassSubject.objects
-            .filter(teacher=member, is_active=True)
-            .select_related('subject', 'school_class')
-            .order_by('school_class__name', 'subject__name')
-        )
-        response = render(request, 'team/partials/teacher_subjects.html', {
-            'member':           member,
-            'all_class_subjects': all_class_subjects,
-            'assigned_ids':     set(updated_subjects.values_list('id', flat=True)),
-            'is_director':      True,
-            'saved':            True,
-        })
+        ctx = _teacher_subjects_ctx(school, member, saved=True)
+        response = render(request, 'team/partials/teacher_subjects.html', ctx)
         response['HX-Trigger'] = json.dumps({
             'showToast': {'message': 'Matières mises à jour.', 'type': 'success'},
         })
         return response
 
-    return render(request, 'team/partials/teacher_subjects.html', {
-        'member':             member,
-        'all_class_subjects': all_class_subjects,
-        'assigned_ids':       assigned_ids,
-        'is_director':        True,
-        'saved':              False,
+    return render(request, 'team/partials/teacher_subjects.html',
+                  _teacher_subjects_ctx(school, member))
+
+
+@login_required
+@director_required
+@require_POST
+def teacher_assign_class(request, user_id):
+    school = get_school(request)
+    member = get_object_or_404(User, pk=user_id, school=school, role=UserRole.TEACHER)
+
+    class_id     = request.POST.get('class_id', '').strip()
+    filter_mode  = request.POST.get('filter', 'all')
+
+    if not class_id:
+        ctx = _teacher_subjects_ctx(school, member)
+        response = render(request, 'team/partials/teacher_subjects.html', ctx)
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {'message': 'Sélectionnez une classe.', 'type': 'error'},
+        })
+        return response
+
+    school_class = get_object_or_404(
+        SchoolClass, pk=class_id, school=school, is_active=True
+    )
+
+    arabic_q = Q()
+    for kw in _ARABIC_KEYWORDS:
+        arabic_q |= Q(subject__name__icontains=kw)
+        arabic_q |= Q(subject__short_name__icontains=kw)
+
+    qs = ClassSubject.objects.filter(school_class=school_class, is_active=True)
+    if filter_mode == 'arabic':
+        qs = qs.filter(arabic_q)
+    elif filter_mode == 'french':
+        qs = qs.exclude(arabic_q)
+
+    count = qs.update(teacher=member)
+
+    label = school_class.name
+    msg   = f'{count} matière{"s" if count != 1 else ""} assignée{"s" if count != 1 else ""} en {label}.'
+
+    ctx = _teacher_subjects_ctx(school, member, saved=True)
+    response = render(request, 'team/partials/teacher_subjects.html', ctx)
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {'message': msg, 'type': 'success'},
     })
+    return response

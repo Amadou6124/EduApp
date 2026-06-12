@@ -527,7 +527,7 @@ def subject_delete(request, subject_id):
 
 def _class_subjects_ctx(school, school_class):
     """Contexte commun pour le panneau matières d'une classe."""
-    from apps.accounts.models import User
+    from apps.accounts.models import User, UserRole
     class_subjects = (
         ClassSubject.objects
         .filter(school_class=school_class, is_active=True)
@@ -538,8 +538,8 @@ def _class_subjects_ctx(school, school_class):
     available    = Subject.objects.filter(school=school, is_active=True).exclude(id__in=assigned_ids)
     teachers     = User.objects.filter(
         school=school, is_active=True,
-        role__in=['teacher', 'director', 'staff'],
-    ).order_by('first_name', 'last_name')
+        role=UserRole.TEACHER,
+    ).order_by('full_name')
     return {
         'school_class':       school_class,
         'class_subjects':     class_subjects,
