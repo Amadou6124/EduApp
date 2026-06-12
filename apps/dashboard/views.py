@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
-from django.db.models import Count, Sum, Q, Avg, Subquery, OuterRef, F
+from django.db.models import Count, Sum, Q, Avg, Subquery, OuterRef, F, DecimalField
 from django.db.models.functions import Coalesce, TruncMonth
 from django.shortcuts import render
 
@@ -95,6 +95,7 @@ def _compute_kpis(school, active_period):
             .values('total')[:1]
         ),
         0,
+        output_field=DecimalField(),
     )
     unpaid_count = (
         Student.objects.filter(school=school, is_active=True)
