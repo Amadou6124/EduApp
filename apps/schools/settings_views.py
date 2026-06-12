@@ -542,7 +542,10 @@ def _class_subjects_ctx(school, school_class):
     )
     assigned_ids = class_subjects.values_list('subject_id', flat=True)
     available    = Subject.objects.filter(school=school, is_active=True).exclude(id__in=assigned_ids)
-    teachers     = User.objects.filter(school=school, is_active=True)
+    teachers     = User.objects.filter(
+        school=school, is_active=True,
+        role__in=['teacher', 'director', 'staff'],
+    ).order_by('first_name', 'last_name')
     return {
         'school_class':       school_class,
         'class_subjects':     class_subjects,
