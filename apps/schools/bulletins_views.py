@@ -7,6 +7,7 @@ import json
 import zipfile
 
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_http_methods
@@ -265,19 +266,18 @@ def generate_student_bulletin(request, student_id, period_id):
     period = get_object_or_404(Period, pk=period_id, school_year__school=school)
 
     try:
-        bulletin = calculator.generate_bulletin(student, period, request.user)
+        with transaction.atomic():
+            bulletin = calculator.generate_bulletin(student, period, request.user)
+            ranks = calculator.calculate_ranks(period, student.school_class)
+            bulletin.rank = ranks.get(student.pk)
+            bulletin.class_size = student.school_class.students.filter(is_active=True).count()
+            bulletin.first_average = calculator.get_first_average(period, student.school_class)
+            bulletin.save(update_fields=['rank', 'class_size', 'first_average'])
     except Exception as e:
         return HttpResponse(
             f'<span class="text-red-500">Erreur : {e}</span>',
             status=500,
         )
-
-    # Calculer les rangs
-    ranks = calculator.calculate_ranks(period, student.school_class)
-    bulletin.rank = ranks.get(student.pk)
-    bulletin.class_size = student.school_class.students.filter(is_active=True).count()
-    bulletin.first_average = calculator.get_first_average(period, student.school_class)
-    bulletin.save(update_fields=['rank', 'class_size', 'first_average'])
 
     response = render(request, 'bulletins/partials/bulletin_row.html', {
         'student':  student,
