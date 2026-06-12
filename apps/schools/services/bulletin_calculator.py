@@ -23,6 +23,16 @@ def round2(val):
     return Decimal(str(round(float(val), 2)))
 
 
+def get_appreciation_cached(scales, grade):
+    """Retourne l'appréciation depuis une liste pré-chargée (zéro requête SQL)."""
+    if grade is None:
+        return ''
+    for scale in scales:
+        if grade >= scale.min_grade:
+            return scale.label
+    return ''
+
+
 class BulletinCalculator:
     """Calcul de moyennes et génération de bulletins."""
 
@@ -212,6 +222,11 @@ class BulletinCalculator:
         school = student.school
         school_class = student.school_class
 
+        # Pré-charger l'échelle d'appréciation (1 requête, évite N requêtes en boucle)
+        scales = list(
+            AppreciationScale.objects.filter(school=school).order_by('-min_grade')
+        )
+
         # Supprimer l'ancien bulletin s'il existe (annulé ou regénération)
         Bulletin.objects.filter(
             student=student,
@@ -307,9 +322,7 @@ class BulletinCalculator:
         for ld in lines_data:
             appreciation = ''
             if ld['final_average'] is not None:
-                appreciation = AppreciationScale.get_appreciation(
-                    school, ld['final_average'],
-                )
+                appreciation = get_appreciation_cached(scales, ld['final_average'])
             bulletin_lines.append(BulletinLine(
                 bulletin=bulletin,
                 class_subject=ld['cs'],
@@ -324,9 +337,7 @@ class BulletinCalculator:
 
         # 7. Appréciation générale
         if gen_avg is not None:
-            bulletin.appreciation = AppreciationScale.get_appreciation(
-                school, gen_avg,
-            )
+            bulletin.appreciation = get_appreciation_cached(scales, gen_avg)
             bulletin.save(update_fields=['appreciation'])
 
         return bulletin
@@ -353,6 +364,13 @@ class BulletinCalculator:
         )
         if not students:
             return []
+
+        # Pré-charger l'échelle d'appréciation (1 requête pour toute la classe)
+        scales = list(
+            AppreciationScale.objects
+            .filter(school=school_class.school)
+            .order_by('-min_grade')
+        )
 
         # Supprimer les anciens bulletins
         Bulletin.objects.filter(
@@ -435,9 +453,7 @@ class BulletinCalculator:
             for ld in lines_data:
                 appr = ''
                 if ld['final_average'] is not None:
-                    appr = AppreciationScale.get_appreciation(
-                        school_class.school, ld['final_average'],
-                    )
+                    appr = get_appreciation_cached(scales, ld['final_average'])
                 all_lines.append(BulletinLine(
                     bulletin=bulletin,
                     class_subject=ld['cs'],
@@ -473,9 +489,7 @@ class BulletinCalculator:
             bulletin.class_size = class_size_val
             bulletin.first_average = first_avg
             if bulletin.general_average is not None:
-                bulletin.appreciation = AppreciationScale.get_appreciation(
-                    school_class.school, bulletin.general_average,
-                )
+                bulletin.appreciation = get_appreciation_cached(scales, bulletin.general_average)
 
         Bulletin.objects.bulk_update(
             created,
