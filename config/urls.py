@@ -10,6 +10,14 @@ from django.conf.urls.static import static
 from django.shortcuts import redirect
 
 
+def _home_redirect(request):
+    """Redirige vers la page d'accueil selon le rôle de l'utilisateur."""
+    if not request.user.is_authenticated:
+        return redirect('accounts:login')
+    from apps.accounts.views import _post_login_url
+    return redirect(_post_login_url(request, request.user))
+
+
 @login_required
 def protected_media(request, path):
     """Sert les fichiers media uniquement aux utilisateurs authentifiés."""
@@ -28,7 +36,7 @@ def protected_media(request, path):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('i18n/', include('django.conf.urls.i18n')),
-    path('', lambda request: redirect('schools:class-list'), name='home'),
+    path('', _home_redirect, name='home'),
     path('', include('apps.accounts.urls')),
     path('', include('apps.schools.urls')),
     path('students/', include('apps.students.urls')),
