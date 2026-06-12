@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db.models import Count
+from django.db.models import Count, ProtectedError
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.template.loader import render_to_string
@@ -15,7 +15,7 @@ from .forms import (
     ReceiptModeForm, ReceiptUploadForm,
     SchoolYearForm, PeriodForm, SubjectForm, ClassSubjectForm,
 )
-from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject
+from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note
 from apps.core.mixins import get_school
 
 # Variables disponibles pour le mapping de reçu personnalisé
@@ -341,6 +341,15 @@ def period_generate(request, year_id):
         return HttpResponse(status=400)
 
     # Supprimer les périodes existantes avant génération
+    periods_with_notes = year.periods.filter(grade_notes__isnull=False).distinct()
+    if periods_with_notes.exists():
+        return HttpResponse(
+            '<div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">'
+            '<p class="font-medium">Impossible de régénérer les périodes.</p>'
+            '<p>Des notes existent déjà sur certaines périodes. Supprimez les notes d\'abord.</p>'
+            '</div>',
+            status=422
+        )
     year.periods.all().delete()
 
     n         = len(configs)
@@ -414,7 +423,16 @@ def period_delete(request, period_id):
     school = get_school(request)
     period = get_object_or_404(Period, id=period_id, school_year__school=school)
     year   = period.school_year
-    period.delete()
+    try:
+        period.delete()
+    except ProtectedError:
+        return HttpResponse(
+            '<div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">'
+            '<p class="font-medium">Impossible de supprimer cette période.</p>'
+            '<p>Des notes ont déjà été saisies pour cette période. Supprimez d\'abord les notes.</p>'
+            '</div>',
+            status=422
+        )
     periods = year.periods.order_by('order')
     resp    = render(request, 'settings/partials/periods_list.html', {
         'year': year, 'periods': periods,
@@ -593,7 +611,16 @@ def class_subject_remove(request, cs_id):
         id=cs_id, school_class__school=school,
     )
     school_class = cs.school_class
-    cs.delete()
+    try:
+        cs.delete()
+    except ProtectedError:
+        return HttpResponse(
+            '<div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">'
+            '<p class="font-medium">Impossible de retirer cette matière.</p>'
+            '<p>Des notes ont été saisies pour cette matière dans cette classe. Supprimez les notes d\'abord.</p>'
+            '</div>',
+            status=422
+        )
     return render(request, 'settings/partials/class_subjects.html',
                   _class_subjects_ctx(school, school_class))
 
