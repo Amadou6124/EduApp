@@ -35,6 +35,7 @@
   </div>
 
   {% if page_obj %}
+    <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
         <tr>
@@ -86,6 +87,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% if page_obj.has_other_pages %}
     <div class="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">

@@ -521,7 +521,14 @@ def student_import_confirm(request):
         students_to_create.append(s)
 
     # Assigner des codes uniques (lot + base) avant bulk_create
-    codes = _unique_access_codes(school, len(students_to_create))
+    try:
+        codes = _unique_access_codes(school, len(students_to_create))
+    except RuntimeError as e:
+        return HttpResponse(
+            json.dumps({'showToast': {'message': str(e), 'type': 'error'}}),
+            status=422,
+            content_type='application/json',
+        )
     for student, code in zip(students_to_create, codes):
         student.access_code = code
 
