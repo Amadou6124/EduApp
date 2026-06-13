@@ -66,11 +66,11 @@ class GeneralSettingsForm(forms.ModelForm):
                   'current_school_year', 'school_type']
         widgets = {
             'name':                forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : École Primaire Sainte Marie'}),
-            'phone_number':        forms.TextInput(attrs={'class': _F, 'placeholder': '+225 07 00 00 00 00'}),
-            'email':               forms.EmailInput(attrs={'class': _F, 'placeholder': 'contact@ecole.ci'}),
-            'address':             forms.TextInput(attrs={'class': _F, 'placeholder': '12 Rue de la Paix, Cocody', 'list': 'countries-list'}),
-            'city':                forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Abidjan'}),
-            'country':             forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Côte d\'Ivoire', 'list': 'countries-list'}),
+            'phone_number':        forms.TextInput(attrs={'class': _F, 'placeholder': '+223 00 00 00 00'}),
+            'email':               forms.EmailInput(attrs={'class': _F, 'placeholder': 'contact@ecole.ml'}),
+            'address':             forms.TextInput(attrs={'class': _F, 'placeholder': 'Rue Soundiata Keïta, Hamdallaye', 'list': 'countries-list'}),
+            'city':                forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Bamako'}),
+            'country':             forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Mali', 'list': 'countries-list'}),
             'current_school_year': forms.TextInput(attrs={'class': _F, 'placeholder': '2024-2025'}),
             'school_type':         forms.Select(attrs={'class': _S}),
         }

@@ -48,7 +48,7 @@
               hx-get="{% url 'payments:form' student.id %}"
               hx-target="#payment-panel"
               hx-swap="innerHTML"
-              @click="showPanel = true"
+              @click="$store.payments.showPanel = true"
               class="flex items-center gap-1.5 px-3 py-1.5 bg-brand-gold hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition min-h-[32px]">
         + Versement
       </button>
@@ -56,7 +56,7 @@
               hx-get="{% url 'payments:history' student.id %}"
               hx-target="#payment-history-modal"
               hx-swap="innerHTML"
-              @click="showHistory = true"
+              @click="$store.payments.showHistory = true"
               class="p-1.5 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition" title="Historique">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -67,7 +67,7 @@
                 hx-get="{% url 'payments:receipt-preview' student.active_payments.0.id %}"
                 hx-target="#receipt-panel-content"
                 hx-swap="innerHTML"
-                @click="showReceiptPanel = true"
+                @click="$store.payments.showReceiptPanel = true"
                 class="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
                 title="Voir le dernier reçu">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -14,9 +14,9 @@ class Command(BaseCommand):
             id=1,
             defaults={
                 'name': 'École Primaire Excellence',
-                'city': 'Abidjan',
-                'country': "Côte d'Ivoire",
-                'phone_number': '+225 07 00 00 00 00',
+                'city': 'Bamako',
+                'country': 'Mali',
+                'phone_number': '+223 00 00 00 00',
             }
         )
         if created:
