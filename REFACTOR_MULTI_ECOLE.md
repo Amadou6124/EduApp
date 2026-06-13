@@ -110,4 +110,5 @@ Statut : 🔄 Prochaine — prête à démarrer
 - `80348ce` feat: multi-école Phase C2 - décorateurs lisent get_active_role()
 - `57e78ac` feat: multi-école Phase C3 - templates request.role
 - `b38fdca` feat: multi-école Phase C4 - switch école
-- _(à venir)_ feat: multi-école Phase C5 - login redirect multi-école
+- `b994cc3` feat: multi-école Phase C5 - login redirect multi-école
+- _(à venir)_ fix: isolation multi-école - scope _teacher_class_ids + dashboards (fuite cross-école fermée, prouvée par test)

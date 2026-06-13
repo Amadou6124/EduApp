@@ -82,8 +82,11 @@ def _relative_date_fr(dt):
 def _teacher_class_ids(user, school):
     """Retourne l'ensemble des PKs de classes du prof (assigné + délégué)."""
     assigned = set(
-        ClassSubject.objects.filter(teacher=user, is_active=True)
-        .values_list('school_class_id', flat=True).distinct()
+        ClassSubject.objects.filter(
+            teacher=user,
+            school_class__school=school,
+            is_active=True,
+        ).values_list('school_class_id', flat=True).distinct()
     )
     delegated = set(
         school.classes.filter(notes_delegates=user, is_active=True)
@@ -116,7 +119,7 @@ def teacher_dashboard(request):
 
     classes = list(
         SchoolClass.objects
-        .filter(pk__in=all_class_ids, is_active=True)
+        .filter(pk__in=all_class_ids, school=school, is_active=True)
         .prefetch_related(
             Prefetch(
                 'class_subjects',
@@ -228,7 +231,7 @@ def attendance_list(request):
 
     classes = list(
         SchoolClass.objects
-        .filter(pk__in=all_class_ids, is_active=True)
+        .filter(pk__in=all_class_ids, school=school, is_active=True)
         .annotate(student_count=Count('students', filter=Q(students__is_active=True)))
         .order_by('level', 'name')
     )
@@ -406,7 +409,7 @@ def teacher_students(request):
     class_ids = _teacher_class_ids(user, school)
 
     classes = (SchoolClass.objects
-               .filter(pk__in=class_ids, is_active=True)
+               .filter(pk__in=class_ids, school=school, is_active=True)
                .prefetch_related(
                    Prefetch(
                        'students',
@@ -581,7 +584,7 @@ def difficulty_dashboard(request):
     class_ids = _teacher_class_ids(user, school)
     classes = list(
         SchoolClass.objects
-        .filter(pk__in=class_ids, is_active=True)
+        .filter(pk__in=class_ids, school=school, is_active=True)
         .order_by('level', 'name')
     )
 
