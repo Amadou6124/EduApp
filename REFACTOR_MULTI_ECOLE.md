@@ -72,9 +72,11 @@ Notes :
 
 ### PHASE D — Fonctionnalités multi-école
 Statut : 🔄 En cours (ordre : D2 → D1 → D3 → D4)
-- [~] Dashboard promoteur consolidé (D1) — fondation faite : app apps/promoter,
-      @promoter_required, stub dashboard, _post_login_url promoter → /promoter/,
-      SchoolGroup de test. RESTE : vue d'agrégation consolidée + template.
+- [x] Dashboard promoteur consolidé (D1) — app apps/promoter, @promoter_required,
+      _post_login_url promoter → /promoter/, dashboard consolidé (hero gradient,
+      stats agrégées zéro N+1, barres recouvrement animées, graphique 6 mois réels,
+      cards par école statut vert/jaune/rouge), cache d'échec get_school().
+      RESTE (futur) : vue lecture seule /promoter/school/<id>/.
 - [ ] Portail parent multi-école
 - [ ] Transfert élève entre écoles
 - [x] StudentGuardian interface (D2) — lier/créer/retirer parent depuis fiche élève,
@@ -121,7 +123,8 @@ Données de test :
 - `048fd6c` fix: isolation multi-école - scope _teacher_class_ids + dashboards (fuite cross-école fermée, prouvée par test)
 - `1c00e52` feat: Phase D2 - interface StudentGuardian
 - `f37566e` feat: Phase D1 - app promoter fondation + stub dashboard
-- _(à venir)_ fix: promoteur - _PromoterNoSchoolError, redirect /promoter/, nav filtrée
+- `2ebf947` fix: promoteur - _PromoterNoSchoolError, redirect /promoter/, nav filtrée
+- _(à venir)_ feat: Phase D1 - dashboard promoteur consolidé + cache get_school()
 
 Note technique (fix promoteur) : l'interception des exceptions de vue se fait
 via SchoolMiddleware.process_exception (PAS un try/except autour de get_response

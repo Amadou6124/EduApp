@@ -28,9 +28,13 @@ def get_school(request):
       5. fallback legacy User.school (compatibilité transitoire Phase C)
     Lève _NoSchoolError si aucune école (ex: superadmin) → redirect /superadmin/.
     """
-    # 1. Cache par requête
+    # 1. Cache par requête : succès (_active_school) OU échec (_active_school_error).
+    #    Évite de re-requêter quand get_school est rappelé (middleware, get_active_role,
+    #    décorateurs) pour un user sans école (promoteur, superadmin).
     if hasattr(request, '_active_school'):
         return request._active_school
+    if hasattr(request, '_active_school_error'):
+        raise request._active_school_error
 
     if not request.user.is_authenticated:
         raise _NoSchoolError()
@@ -62,10 +66,15 @@ def get_school(request):
         if request.user.school:
             request._active_school = request.user.school
             return request.user.school
-        # Promoteur pur (aucune école) → exception dédiée interceptée par le middleware
-        if request.user.owned_groups.exists():
-            raise _PromoterNoSchoolError()
-        raise _NoSchoolError()
+        # Aucune école : promoteur pur → _PromoterNoSchoolError, sinon _NoSchoolError.
+        # Exception cachée sur la requête pour ne pas re-requêter aux appels suivants.
+        exc = (
+            _PromoterNoSchoolError()
+            if request.user.owned_groups.exists()
+            else _NoSchoolError()
+        )
+        request._active_school_error = exc
+        raise exc
 
     request._active_school = membership.school
     request._active_membership = membership
