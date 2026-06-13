@@ -11,6 +11,7 @@ function paymentsPageData() {
     viewMode: localStorage.getItem('paymentsView') || (window.innerWidth < 1024 ? 'cards' : 'table'),
     showPanel: false,
     showHistory: false,
+    showReceiptPanel: false,
     currentStatus: new URLSearchParams(window.location.search).get('status') || 'unpaid',
     setView(m) { this.viewMode = m; localStorage.setItem('paymentsView', m); },
     setStatus(s) {
@@ -25,7 +26,9 @@ function paymentsPageData() {
 
 {% block content %}
 <div x-data="paymentsPageData()"
-     @close-panel.window="showPanel = false">
+     @close-panel.window="showPanel = false"
+     @open-receipt-panel.window="showReceiptPanel = true"
+     @close-receipt-panel.window="showReceiptPanel = false">
 
   {% include "payments/partials/payment_stats.html" %}
 
@@ -128,6 +131,32 @@ function paymentsPageData() {
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100 scale-100 translate-y-0"
          x-transition:leave-end="opacity-0 scale-95 translate-y-2">
+    </div>
+  </div>
+
+  <!-- ── Receipt panel overlay ─────────────────────────────────── -->
+  <div x-show="showReceiptPanel" x-cloak
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[60]"
+       @click="showReceiptPanel = false">
+  </div>
+
+  <!-- ── Receipt panel ─────────────────────────────────────────── -->
+  <div x-show="showReceiptPanel" x-cloak
+       class="fixed top-0 right-0 h-full w-full sm:w-[680px] bg-white shadow-2xl border-l border-gray-200 z-[70] flex flex-col"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="translate-x-full">
+    <div id="receipt-panel-content" class="flex flex-col h-full">
+      <!-- chargé par HTMX -->
     </div>
   </div>
 
