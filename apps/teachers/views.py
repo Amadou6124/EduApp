@@ -14,7 +14,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.core.mixins import get_school
-from apps.schools.models import ClassSubject, Note, SchoolClass
+from apps.schools.models import ClassSubject, Note, SchoolClass, SchoolYear, Period
+from apps.students.models import Student
 
 
 def teacher_required(view_func):
@@ -53,6 +54,27 @@ OBS_BADGE = {
     'health':    ('bg-red-100 text-red-700',        'Santé'),
     'other':     ('bg-gray-100 text-gray-600',      'Autre'),
 }
+
+
+def _relative_date_fr(dt):
+    from django.utils import timezone
+    now = timezone.now()
+    diff = now - dt
+    d = diff.days
+    if d == 0:
+        h = diff.seconds // 3600
+        if h == 0:
+            m = diff.seconds // 60
+            return "à l'instant" if m < 2 else f"il y a {m}min"
+        return f"il y a {h}h"
+    if d == 1:
+        return "hier"
+    if d < 7:
+        return f"il y a {d}j"
+    w = d // 7
+    if w < 5:
+        return f"il y a {w}sem"
+    return dt.strftime("%d/%m/%Y")
 
 
 def _teacher_class_ids(user, school):
@@ -377,16 +399,146 @@ def attendance_save(request, class_id):
 @login_required
 @teacher_required
 def teacher_students(request):
-    return redirect('teacher:dashboard')
+    user   = request.user
+    school = get_school(request)
+    class_ids = _teacher_class_ids(user, school)
+
+    classes = (SchoolClass.objects
+               .filter(pk__in=class_ids, is_active=True)
+               .prefetch_related(
+                   Prefetch(
+                       'students',
+                       queryset=Student.objects.filter(is_active=True).order_by('full_name'),
+                   )
+               )
+               .order_by('level', 'name'))
+
+    class_groups = []
+    total_students = 0
+    for sc in classes:
+        students = list(sc.students.all())
+        total_students += len(students)
+        class_groups.append({
+            'class': sc,
+            'students': students,
+            'level_badge': LEVEL_BADGE.get(sc.level, 'bg-gray-100 text-gray-600'),
+            'names_json': json.dumps([s.full_name.lower() for s in students]),
+        })
+
+    return render(request, 'teachers/students_list.html', {
+        'class_groups':   class_groups,
+        'total_students': total_students,
+    })
 
 
 @login_required
 @teacher_required
 def teacher_student_detail(request, student_id):
-    return redirect('teacher:dashboard')
+    from .models import StudentObservation
+    from datetime import date as date_cls
+
+    user   = request.user
+    school = get_school(request)
+    class_ids = _teacher_class_ids(user, school)
+
+    student = get_object_or_404(Student, pk=student_id, school=school, is_active=True)
+    if student.school_class_id not in class_ids:
+        return HttpResponse(status=403)
+
+    # Période active
+    today = date_cls.today()
+    active_year = school.school_years.filter(is_active=True).first()
+    active_period = None
+    if active_year:
+        active_period = (
+            active_year.periods.filter(start_date__lte=today, end_date__gte=today).first()
+            or active_year.periods.order_by('-order').first()
+        )
+
+    # Matières du prof dans la classe de l'élève
+    my_subjects = list(
+        ClassSubject.objects
+        .filter(school_class=student.school_class, teacher=user, is_active=True)
+        .select_related('subject')
+        .order_by('order', 'subject__name')
+    )
+
+    # Notes de l'élève pour ces matières dans la période active
+    notes_by_cs: dict[int, list] = {}
+    if active_period and my_subjects:
+        cs_ids = [cs.pk for cs in my_subjects]
+        for n in (Note.objects
+                  .filter(class_subject_id__in=cs_ids, student=student,
+                          period=active_period, is_cancelled=False)
+                  .order_by('position')):
+            notes_by_cs.setdefault(n.class_subject_id, []).append(n)
+
+    subject_notes = []
+    for cs in my_subjects:
+        notes = notes_by_cs.get(cs.pk, [])
+        avg = None
+        if notes:
+            avg = round(sum(n.value for n in notes) / len(notes), 2)
+        subject_notes.append({'cs': cs, 'notes': notes, 'avg': avg})
+
+    # Observations du prof sur cet élève
+    raw_obs = list(
+        StudentObservation.objects
+        .filter(teacher=user, student=student)
+        .order_by('-created_at')[:30]
+    )
+    observations = [
+        {
+            'obs':         o,
+            'badge_css':   OBS_BADGE.get(o.observation_type, OBS_BADGE['other'])[0],
+            'badge_label': OBS_BADGE.get(o.observation_type, OBS_BADGE['other'])[1],
+            'rel_date':    _relative_date_fr(o.created_at),
+        }
+        for o in raw_obs
+    ]
+
+    return render(request, 'teachers/student_detail.html', {
+        'student':       student,
+        'active_period': active_period,
+        'subject_notes': subject_notes,
+        'observations':  observations,
+    })
 
 
 @login_required
 @teacher_required
+@require_POST
 def observation_create(request, student_id):
-    return redirect('teacher:dashboard')
+    from .models import StudentObservation
+
+    user   = request.user
+    school = get_school(request)
+    class_ids = _teacher_class_ids(user, school)
+
+    student = get_object_or_404(Student, pk=student_id, school=school, is_active=True)
+    if student.school_class_id not in class_ids:
+        return HttpResponse(status=403)
+
+    obs_type = request.POST.get('observation_type', 'academic')
+    if obs_type not in {'behaviour', 'academic', 'health', 'other'}:
+        obs_type = 'academic'
+
+    content = request.POST.get('content', '').strip()
+    if not content:
+        resp = HttpResponse(status=400)
+        return resp
+
+    StudentObservation.objects.create(
+        school=school,
+        student=student,
+        teacher=user,
+        observation_type=obs_type,
+        content=content,
+    )
+
+    resp = HttpResponse(status=200)
+    resp['HX-Trigger'] = json.dumps({
+        'showToast':      {'message': "Observation envoyée à l'administration.", 'type': 'success'},
+        'close-obs-panel': 'true',
+    })
+    return resp

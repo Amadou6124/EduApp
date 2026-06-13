@@ -70,5 +70,78 @@
     {% endwith %}
   </div>
 
+  {# ── Section 3 — Observations enseignants (directeur/staff uniquement) ── #}
+  {% if observations is not None and request.user.role != 'teacher' %}
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+        Observations enseignants
+      </h3>
+      {% if observations %}
+      <span class="text-xs text-gray-400">{{ observations|length }} observation{{ observations|length|pluralize }}</span>
+      {% endif %}
+    </div>
+
+    {% if observations %}
+    <div class="space-y-3">
+      {% for obs in observations %}
+      <div class="rounded-xl border
+                  {% if not obs.is_read %}border-blue-200 bg-blue-50/30{% else %}border-gray-100 bg-gray-50{% endif %}
+                  p-4">
+        <div class="flex items-start justify-between gap-3 mb-2">
+          <div class="flex items-center gap-2 flex-wrap min-w-0">
+            {# Badge type #}
+            {% if obs.observation_type == 'behaviour' %}
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Comportement</span>
+            {% elif obs.observation_type == 'academic' %}
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">Académique</span>
+            {% elif obs.observation_type == 'health' %}
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Santé</span>
+            {% else %}
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">Autre</span>
+            {% endif %}
+            {# Badge non lu #}
+            {% if not obs.is_read %}
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500 text-white">Nouveau</span>
+            {% endif %}
+            <span class="text-xs text-gray-500 font-medium">{{ obs.teacher.full_name }}</span>
+          </div>
+          <span class="text-[11px] text-gray-400 shrink-0 whitespace-nowrap">
+            {{ obs.created_at|date:"d/m/Y H:i" }}
+          </span>
+        </div>
+
+        <p class="text-sm text-gray-700 leading-relaxed mb-3">{{ obs.content }}</p>
+
+        {# Bouton marquer comme lu #}
+        {% if not obs.is_read %}
+        <button id="obs-mark-btn-{{ obs.pk }}"
+                hx-post="{% url 'students:obs-mark-read' student.pk obs.pk %}"
+                hx-target="#obs-mark-btn-{{ obs.pk }}"
+                hx-swap="outerHTML"
+                class="text-xs px-3 py-1.5 bg-white border border-blue-200 text-blue-600
+                       rounded-lg hover:bg-blue-50 transition font-medium">
+          Marquer comme lu
+        </button>
+        {% else %}
+        <span id="obs-mark-btn-{{ obs.pk }}"
+              class="text-xs text-gray-400 flex items-center gap-1">
+          <i data-lucide="check" class="w-3 h-3"></i>
+          Lu le {{ obs.read_at|date:"d/m/Y" }}
+        </span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="text-center py-8">
+      <i data-lucide="message-square" class="w-8 h-8 mx-auto text-gray-300 mb-2"></i>
+      <p class="text-sm text-gray-400">Aucune observation enregistrée</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
 </div>
 {% endblock %}
