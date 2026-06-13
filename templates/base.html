@@ -157,8 +157,20 @@
         {% endif %}
 
         {% else %}
-        {# ══ Navigation DIRECTEUR / STAFF / AUTRES ══════════════════ #}
+        {# ══ Navigation DIRECTEUR / STAFF / PROMOTEUR ══════════════════ #}
 
+        {% if request.role == 'promoter' %}
+        {# Promoteur : uniquement son dashboard consolidé #}
+        <a href="{% url 'promoter:dashboard' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'promoter' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Mon tableau de bord'">
+          <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mon tableau de bord</span>
+        </a>
+
+        {% else %}
         <!-- Dashboard -->
         <a href="{% url 'dashboard:main' %}"
            class="flex items-center py-2 rounded-lg transition
@@ -238,6 +250,8 @@
           <span x-show="$store.sidebar.open">Équipe</span>
         </a>
         {% endif %}
+
+        {% endif %}{# fin if promoter #}
 
         {% endif %}{# fin if teacher #}
 
@@ -655,6 +669,16 @@
         <span class="text-[10px] text-gray-400 whitespace-nowrap">Suivi</span>
       </span>
       {% endif %}
+    </a>
+
+    {% elif request.role == 'promoter' %}
+    {# ── Nav mobile PROMOTEUR : un seul item centré ── #}
+    <a href="{% url 'promoter:dashboard' %}"
+       class="flex-1 flex flex-col items-center justify-center">
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.app_name == 'promoter' %}bg-brand-blue/10 rounded-xl{% endif %}">
+        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'promoter' %}text-brand-blue{% else %}text-gray-400{% endif %}"></i>
+        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'promoter' %}font-semibold text-brand-blue{% else %}text-gray-400{% endif %}">Tableau de bord</span>
+      </span>
     </a>
 
     {% else %}

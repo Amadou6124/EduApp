@@ -1,0 +1,46 @@
+{# Backdrop #}
+<div x-show="guardianPanel" x-cloak @click="guardianPanel = false"
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black/30 z-30"></div>
+
+{# Panel #}
+<div x-show="guardianPanel" x-cloak
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+     class="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-white shadow-2xl z-40 flex flex-col">
+
+  <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+    <h2 class="text-base font-bold text-gray-900">Ajouter un parent / tuteur</h2>
+    <button @click="guardianPanel = false"
+            class="p-2 rounded-lg hover:bg-gray-100 transition text-gray-400 hover:text-gray-600">
+      <i data-lucide="x" class="w-5 h-5"></i>
+    </button>
+  </div>
+
+  <div class="flex-1 overflow-y-auto p-5 space-y-4">
+    {# Étape 1 — recherche par téléphone #}
+    <form hx-get="{% url 'students:guardian-search' student.id %}"
+          hx-target="#guardian-search-result" hx-swap="innerHTML">
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Numéro de téléphone du parent</label>
+      <div class="flex gap-2 mt-2">
+        <input type="tel" name="phone" required placeholder="70 12 34 56"
+               class="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-brand-blue/30">
+        <button type="submit"
+                class="px-4 rounded-xl bg-[#1E3A5F] hover:bg-[#1E3A5F]/90 text-white text-sm font-medium
+                       flex items-center gap-1.5 transition shrink-0">
+          <i data-lucide="search" class="w-4 h-4"></i> Chercher
+        </button>
+      </div>
+    </form>
+
+    {# Résultat HTMX : carte parent trouvé OU formulaire création #}
+    <div id="guardian-search-result"></div>
+  </div>
+</div>
+<script>if(window.lucide)lucide.createIcons();</script>

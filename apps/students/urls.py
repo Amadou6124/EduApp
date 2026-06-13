@@ -15,4 +15,7 @@ urlpatterns = [
     path('<int:student_id>/',        views.student_detail,           name='detail'),
     path('<int:student_id>/edit/',                          views.student_update,        name='update'),
     path('<int:student_id>/observations/<int:obs_id>/read/', views.observation_mark_read, name='obs-mark-read'),
+    path('<int:student_id>/guardians/search/',                   views.guardian_search, name='guardian-search'),
+    path('<int:student_id>/guardians/add/',                      views.guardian_add,    name='guardian-add'),
+    path('<int:student_id>/guardians/<int:guardian_id>/remove/', views.guardian_remove, name='guardian-remove'),
 ]

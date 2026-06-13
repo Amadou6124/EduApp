@@ -10,6 +10,11 @@ class _NoSchoolError(Exception):
     pass
 
 
+class _PromoterNoSchoolError(_NoSchoolError):
+    """Promoteur (owner de SchoolGroup) sans école active → rediriger vers /promoter/."""
+    pass
+
+
 def get_school(request):
     """
     Retourne l'école ACTIVE de l'utilisateur connecté (multi-école).
@@ -23,9 +28,13 @@ def get_school(request):
       5. fallback legacy User.school (compatibilité transitoire Phase C)
     Lève _NoSchoolError si aucune école (ex: superadmin) → redirect /superadmin/.
     """
-    # 1. Cache par requête
+    # 1. Cache par requête : succès (_active_school) OU échec (_active_school_error).
+    #    Évite de re-requêter quand get_school est rappelé (middleware, get_active_role,
+    #    décorateurs) pour un user sans école (promoteur, superadmin).
     if hasattr(request, '_active_school'):
         return request._active_school
+    if hasattr(request, '_active_school_error'):
+        raise request._active_school_error
 
     if not request.user.is_authenticated:
         raise _NoSchoolError()
@@ -57,7 +66,15 @@ def get_school(request):
         if request.user.school:
             request._active_school = request.user.school
             return request.user.school
-        raise _NoSchoolError()
+        # Aucune école : promoteur pur → _PromoterNoSchoolError, sinon _NoSchoolError.
+        # Exception cachée sur la requête pour ne pas re-requêter aux appels suivants.
+        exc = (
+            _PromoterNoSchoolError()
+            if request.user.owned_groups.exists()
+            else _NoSchoolError()
+        )
+        request._active_school_error = exc
+        raise exc
 
     request._active_school = membership.school
     request._active_membership = membership
@@ -101,6 +118,29 @@ def director_or_staff_required(view_func):
             return HttpResponseForbidden(
                 '<h1 style="font-family:sans-serif;padding:40px">403 — Accès réservé au directeur et au staff.</h1>'
             )
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def promoter_required(view_func):
+    """
+    Réservé aux promoteurs : rôle actif 'promoter', OU propriétaire d'au moins
+    un SchoolGroup, OU superadmin. Sinon → dashboard standard.
+    À placer après @login_required.
+    """
+    from django.shortcuts import redirect
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect(reverse('accounts:login') + f'?next={request.path}')
+        is_promoter = (
+            get_active_role(request) == 'promoter'
+            or request.user.owned_groups.exists()
+            or request.user.is_superuser
+        )
+        if not is_promoter:
+            return redirect('dashboard:main')
         return view_func(request, *args, **kwargs)
     return wrapper
 

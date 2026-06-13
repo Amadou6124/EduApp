@@ -71,11 +71,21 @@ Notes :
   teacher post-login → /teacher/ (au lieu de /notes/). _role_home() helper.
 
 ### PHASE D — Fonctionnalités multi-école
-Statut : 🔄 Prochaine — prête à démarrer
-- [ ] Dashboard promoteur consolidé
+Statut : 🔄 En cours (ordre : D2 → D1 → D3 → D4)
+- [x] Dashboard promoteur consolidé (D1) — ✅ COMPLET. app apps/promoter,
+      @promoter_required, _post_login_url promoter → /promoter/, dashboard consolidé
+      (hero gradient, stats agrégées zéro N+1, barres animées, graphique 6 mois réels,
+      cards par école statut vert/jaune/rouge), cache d'échec get_school(),
+      vue lecture seule /promoter/school/<id>/ (6 requêtes zéro N+1 : répartition
+      par classe, équipe enseignante, alertes impayés>30j/absences).
 - [ ] Portail parent multi-école
 - [ ] Transfert élève entre écoles
-- [ ] StudentGuardian interface
+- [x] StudentGuardian interface (D2) — lier/créer/retirer parent depuis fiche élève,
+      recherche par téléphone, création compte parent à la volée, is_primary auto
+
+Données de test :
+- Promoteur : 77000001 / test123 (rôle promoter, sans Membership)
+- Groupe « Groupe Scolaire Test » → 3 écoles rattachées
 
 ## Risques identifiés
 🔴 R1 — role per-école (5 templates + 2 décorateurs)
@@ -111,4 +121,15 @@ Statut : 🔄 Prochaine — prête à démarrer
 - `57e78ac` feat: multi-école Phase C3 - templates request.role
 - `b38fdca` feat: multi-école Phase C4 - switch école
 - `b994cc3` feat: multi-école Phase C5 - login redirect multi-école
-- _(à venir)_ fix: isolation multi-école - scope _teacher_class_ids + dashboards (fuite cross-école fermée, prouvée par test)
+- `048fd6c` fix: isolation multi-école - scope _teacher_class_ids + dashboards (fuite cross-école fermée, prouvée par test)
+- `1c00e52` feat: Phase D2 - interface StudentGuardian
+- `f37566e` feat: Phase D1 - app promoter fondation + stub dashboard
+- `2ebf947` fix: promoteur - _PromoterNoSchoolError, redirect /promoter/, nav filtrée
+- `ff68928` feat: Phase D1 - dashboard promoteur consolidé + cache get_school()
+- _(à venir)_ feat: Phase D1 - vue lecture seule école promoteur (6 requêtes zéro N+1)
+
+Note technique (fix promoteur) : l'interception des exceptions de vue se fait
+via SchoolMiddleware.process_exception (PAS un try/except autour de get_response
+— Django enveloppe chaque middleware dans convert_exception_to_response, qui
+capture les exceptions de vue avant le __call__). Ce fix répare aussi l'ancien
+cas superadmin qui était du code mort.

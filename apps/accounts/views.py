@@ -44,7 +44,7 @@ def _role_home(role):
     return {
         'director': '/dashboard/',
         'staff':    '/dashboard/',
-        'promoter': '/dashboard/',
+        'promoter': '/promoter/',
         'teacher':  '/teacher/',
         'student':  '/portal/student/',
         'parent':   '/portal/parent/',

@@ -1,0 +1,46 @@
+<div id="guardian-section" class="bg-white rounded-xl border border-gray-200 p-6">
+  <div class="flex items-center justify-between mb-5">
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Parents / Tuteurs</h3>
+    <button type="button" @click="guardianPanel = true"
+            class="flex items-center gap-1.5 text-sm font-medium text-brand-blue hover:underline">
+      <i data-lucide="user-plus" class="w-4 h-4"></i> Ajouter
+    </button>
+  </div>
+
+  {% if guardians %}
+  <div class="space-y-3">
+    {% for g in guardians %}
+    <div class="flex items-center gap-3 p-3 rounded-xl border border-gray-100">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+           style="background:{{ g.guardian.get_avatar_colors.0 }};color:{{ g.guardian.get_avatar_colors.1 }}">
+        {{ g.guardian.get_initials }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-gray-900 truncate">
+          {{ g.guardian.full_name }}
+          {% if g.is_primary %}<i data-lucide="star" class="inline w-3.5 h-3.5 text-amber-500 fill-amber-500 ml-1"></i>{% endif %}
+        </p>
+        <p class="text-xs text-gray-500">
+          {% if g.relationship %}{{ g.get_relationship_display }} · {% endif %}{{ g.guardian.phone_number }}
+        </p>
+      </div>
+      <form hx-post="{% url 'students:guardian-remove' student.id g.id %}"
+            hx-target="#guardian-section" hx-swap="outerHTML"
+            hx-confirm="Retirer {{ g.guardian.full_name }} ?">
+        {% csrf_token %}
+        <button type="submit"
+                class="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="Retirer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-6">
+    <i data-lucide="users" class="w-10 h-10 mx-auto text-gray-200 mb-2"></i>
+    <p class="text-sm text-gray-400">Aucun parent/tuteur lié</p>
+  </div>
+  {% endif %}
+</div>
+<script>if(window.lucide)lucide.createIcons();</script>
