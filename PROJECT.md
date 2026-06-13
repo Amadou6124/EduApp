@@ -454,6 +454,14 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - **Fix seed demo** : `city='Bamako'`, `country='Mali'` — placeholders forms mis à jour
 - **Vues ajoutées** : `receipt_preview`, `receipt_download` + 2 URLs
 
+### QA Testing et corrections sécurité (`feature/qa-testing` → mergé)
+- **21 vues settings protégées** `@director_or_staff_required` — enseignants bloqués sur toutes les routes `/settings/`
+- **XSS `classes_json` corrigée** — `{{ classes_json|safe }}` → `json_script` + `JSON.parse(...)` dans `student_list.html`
+- **Lien Paramètres caché aux enseignants** — desktop dropdown + mobile nav gérés avec `{% if role == 'director' or 'staff' or superuser %}`
+- **Index composite `SchoolClass`** (`school`, `is_active`) — migration `0011`
+- **`RuntimeError` import → 422 propre** — `_unique_access_codes` enveloppé dans try/except, retourne HX-Trigger toast au lieu d'une 500
+- **Table superadmin overflow mobile** — `<div class="overflow-x-auto">` autour du tableau des écoles
+
 ### Authentification custom (`/login/`)
 - **Login par numéro de téléphone** — `PhoneBackend` + `LoginForm` avec messages d'erreur précis
 - **Rate limiting** : 5 échecs consécutifs → blocage 15 minutes (cache Django)
