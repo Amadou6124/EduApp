@@ -2138,11 +2138,6 @@ p {
   background-color: rgb(238 237 254 / var(--tw-bg-opacity, 1));
 }
 
-.bg-\[\#FAEEDA\] {
-  --tw-bg-opacity: 1;
-  background-color: rgb(250 238 218 / var(--tw-bg-opacity, 1));
-}
-
 .bg-amber-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(254 243 199 / var(--tw-bg-opacity, 1));
@@ -2852,11 +2847,6 @@ p {
 .text-\[\#4F46E5\] {
   --tw-text-opacity: 1;
   color: rgb(79 70 229 / var(--tw-text-opacity, 1));
-}
-
-.text-\[\#633806\] {
-  --tw-text-opacity: 1;
-  color: rgb(99 56 6 / var(--tw-text-opacity, 1));
 }
 
 .text-amber-500 {

@@ -17,9 +17,12 @@ Contexte attendu :
         {{ sc.name }}
       </h3>
       <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium
-                   {% if sc.level == 'primary' %}bg-[#EAF3DE] text-[#27500A]
-                   {% elif sc.level == 'middle' %}bg-[#E6F1FB] text-[#0C447C]
-                   {% elif sc.level == 'high' %}bg-[#FAEEDA] text-[#633806]
+                   {% if sc.level == 'prescolaire' %}bg-purple-100 text-purple-700
+                   {% elif sc.level == 'fondamental_1' %}bg-blue-100 text-blue-700
+                   {% elif sc.level == 'fondamental_2' %}bg-indigo-100 text-indigo-700
+                   {% elif sc.level == 'secondaire_gen' %}bg-green-100 text-green-700
+                   {% elif sc.level == 'secondaire_pro' %}bg-teal-100 text-teal-700
+                   {% elif sc.level == 'superieur' %}bg-orange-100 text-orange-700
                    {% else %}bg-gray-100 text-gray-600{% endif %}">
         {{ sc.get_level_display }}
       </span>

@@ -93,6 +93,60 @@
       <!-- ── Navigation ── -->
       <nav class="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
 
+        {% if request.user.role == 'teacher' %}
+        {# ══ Navigation ENSEIGNANT ══════════════════════════════════ #}
+
+        <!-- Mon tableau de bord -->
+        <a href="{% url 'teacher:dashboard' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'teacher' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Tableau de bord'">
+          <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mon tableau de bord</span>
+        </a>
+
+        <!-- Mes notes -->
+        <a href="{% url 'notes:dashboard' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'notes' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Mes notes'">
+          <i data-lucide="book-open" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mes notes</span>
+        </a>
+
+        <!-- Absences -->
+        <a href="{% url 'teacher:attendance-list' %}"
+           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Absences'">
+          <i data-lucide="calendar-x" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Absences</span>
+        </a>
+
+        <!-- Mes élèves (lecture seule) -->
+        <a href="{% url 'teacher:students' %}"
+           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Mes élèves'">
+          <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mes élèves</span>
+        </a>
+
+        <!-- Bulletins (lecture seule) -->
+        <a href="{% url 'bulletins:main' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'bulletins' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Bulletins'">
+          <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Bulletins</span>
+        </a>
+
+        {% else %}
+        {# ══ Navigation DIRECTEUR / STAFF / AUTRES ══════════════════ #}
+
         <!-- Dashboard -->
         <a href="{% url 'dashboard:main' %}"
            class="flex items-center py-2 rounded-lg transition
@@ -164,6 +218,8 @@
           <span x-show="$store.sidebar.open">Équipe</span>
         </a>
         {% endif %}
+
+        {% endif %}{# fin if teacher #}
 
         <!-- Superadmin -->
         {% if request.user.is_superuser %}
@@ -410,6 +466,34 @@
 
   <!-- ─── Navigation mobile (bottom bar) ───────────── -->
   <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-30 shadow-lg">
+
+    {% if request.user.role == 'teacher' %}
+    {# ── Nav mobile ENSEIGNANT : Accueil | Notes | Absences | Bulletins ── #}
+    <a href="{% url 'teacher:dashboard' %}"
+       class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs
+              {% if request.resolver_match.app_name == 'teacher' %}text-brand-blue{% else %}text-gray-500{% endif %}">
+      <i data-lucide="layout-dashboard" class="w-6 h-6 shrink-0"></i>
+      <span>Accueil</span>
+    </a>
+    <a href="{% url 'notes:dashboard' %}"
+       class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs
+              {% if request.resolver_match.app_name == 'notes' %}text-brand-blue{% else %}text-gray-500{% endif %}">
+      <i data-lucide="book-open" class="w-6 h-6 shrink-0"></i>
+      <span>Notes</span>
+    </a>
+    <a href="{% url 'teacher:attendance-list' %}"
+       class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs text-gray-500">
+      <i data-lucide="calendar-x" class="w-6 h-6 shrink-0"></i>
+      <span>Absences</span>
+    </a>
+    <a href="{% url 'teacher:students' %}"
+       class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs text-gray-500">
+      <i data-lucide="users" class="w-6 h-6 shrink-0"></i>
+      <span>Mes élèves</span>
+    </a>
+
+    {% else %}
+    {# ── Nav mobile DIRECTEUR / STAFF : Accueil | Élèves | Paiements | Notes | Plus ── #}
     <a href="{% url 'dashboard:main' %}"
        class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs
               {% if request.resolver_match.app_name == 'dashboard' %}text-brand-blue{% else %}text-gray-500{% endif %}">
@@ -442,6 +526,8 @@
       <span>{% trans "Plus" %}</span>
     </a>
     {% endif %}
+
+    {% endif %}{# fin if teacher #}
   </nav>
 
   <!-- ════════════════════════════════════════════════ -->

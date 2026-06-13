@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db.models import Count, Sum, Q, Avg, Subquery, OuterRef, F, DecimalField
 from django.db.models.functions import Coalesce, TruncMonth
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 
 from apps.core.mixins import get_school
 from apps.students.models import Student
@@ -32,6 +32,8 @@ def invalidate_dashboard_cache(school):
 
 @login_required
 def dashboard_view(request):
+    if request.user.role == 'teacher':
+        return redirect('teacher:dashboard')
     school = get_school(request)
     user = request.user
 

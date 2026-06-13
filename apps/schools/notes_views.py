@@ -175,21 +175,42 @@ def notes_dashboard(request):
 
     open_periods_count = sum(1 for p in periods if p.is_notes_open)
 
+    # Filtre enseignant : uniquement ses classes (assigné ou délégué)
+    teacher_class_ids = None
+    if request.user.role == 'teacher':
+        assigned_ids  = ClassSubject.objects.filter(
+            teacher=request.user, is_active=True,
+        ).values_list('school_class_id', flat=True).distinct()
+        delegated_ids = school.classes.filter(
+            notes_delegates=request.user, is_active=True,
+        ).values_list('pk', flat=True)
+        teacher_class_ids = set(assigned_ids) | set(delegated_ids)
+
+    # Base queryset des classes
+    classes_qs = school.classes.filter(is_active=True)
+    if teacher_class_ids is not None:
+        classes_qs = classes_qs.filter(pk__in=teacher_class_ids)
+
     # Toutes les notes de la période active — 1 seule requête
     notes_meta  = {}   # {cs_id: set(student_id)}
     note_values = []
     if active_period:
-        for row in Note.objects.filter(
+        notes_filter = dict(
             class_subject__school_class__school=school,
             period=active_period,
             is_cancelled=False,
-        ).values('class_subject_id', 'student_id', 'value'):
+        )
+        if teacher_class_ids is not None:
+            notes_filter['class_subject__school_class_id__in'] = teacher_class_ids
+        for row in Note.objects.filter(**notes_filter).values(
+            'class_subject_id', 'student_id', 'value'
+        ):
             notes_meta.setdefault(row['class_subject_id'], set()).add(row['student_id'])
             note_values.append(float(row['value']))
 
     # Classes + matières + élèves — 3 requêtes prefetch
     classes = list(
-        school.classes.filter(is_active=True)
+        classes_qs
         .prefetch_related(
             Prefetch(
                 'class_subjects',
@@ -278,6 +299,17 @@ def notes_class(request, class_id, period_id):
     school_class = get_object_or_404(school.classes.filter(is_active=True), pk=class_id)
     period       = get_object_or_404(Period, pk=period_id, school_year__school=school)
     user         = request.user
+
+    # Sécurité enseignant : accès refusé si la classe ne lui appartient pas
+    if user.role == 'teacher':
+        has_access = (
+            ClassSubject.objects.filter(
+                school_class=school_class, teacher=user, is_active=True,
+            ).exists()
+            or school_class.notes_delegates.filter(pk=user.pk).exists()
+        )
+        if not has_access:
+            return HttpResponse(status=403)
 
     # Matières de la classe selon le rôle
     qs_cs = (

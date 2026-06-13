@@ -47,6 +47,7 @@ urlpatterns = [
     path('settings/', include('apps.schools.settings_urls')),
     path('team/',       include('apps.accounts.team_urls')),
     path('superadmin/', include('apps.accounts.superadmin_urls')),
+    path('teacher/',    include('apps.teachers.urls')),
     path('media/<path:path>', protected_media, name='protected-media'),
 ]
 

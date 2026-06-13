@@ -90,6 +90,8 @@ def compute_student_stats(school):
 
 @login_required
 def student_list(request):
+    if request.user.role == 'teacher':
+        return redirect('teacher:dashboard')
     school = get_school(request)
     filter_type = request.GET.get('filter', 'all')
     class_id    = request.GET.get('class_id')

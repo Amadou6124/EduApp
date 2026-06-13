@@ -8,7 +8,7 @@ from openpyxl.utils import get_column_letter
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
@@ -73,6 +73,8 @@ def compute_class_stats(classes):
 
 @login_required
 def class_list(request):
+    if request.user.role == 'teacher':
+        return redirect('teacher:dashboard')
     school = get_school(request)
     classes = list(_classes_qs(school))
     total_students, avg_fill_rate = compute_class_stats(classes)
