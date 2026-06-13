@@ -481,16 +481,31 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - **Vrai multi-tenant** : `get_school(request)` unique source de vérité, `SchoolMiddleware` → `request.school` dans les templates
 - `get_demo_school()` supprimé intégralement (27 occurrences dans 4 fichiers)
 
+### Portail Professeur (`/teacher/`)
+- **Dashboard mobile-first** avec stats (classes, élèves, absences du jour), classes filtrées par enseignant, section alertes
+- **Sidebar et bottom nav dédiées** : liens Accueil / Notes / Absences / Suivi élèves, pill style iOS état actif exclusif par page
+- **Accès sécurisé** : `@teacher_required`, guards 403 sur classes non-assignées, vues admin bloquées, isolation multi-tenant via `get_school(request)`
+- **Absences révolutionnaires** : grille tactile tap-cycle présent → absent → retard, save atomique, redirect après save, badge "non saisies"
+- **Notes ultra-rapides mobile** : clavier numérique géant, swipe matière, barre progression, `notes_mobile_input.html` partial
+- **Observations élèves** : privées (visible prof seulement) vs admin (notifie le directeur), badge `obs_count`, panel slide-from-right, toggle confidentialité, filtre `is_private=False` côté admin
+- **Suivi élèves en difficulté** :
+  - `QuickAssessment` (oral / écrit / devoir / classe / comportement) — privé, hors bulletins
+  - `services.py` : `compute_difficulty_score()` pondéré 60% notes officielles / 40% QA, `get_class_difficulty_report()` 2 SQL zéro N+1
+  - Niveaux : critical (<8) / warning (<10) / watch (<12) / good (≥12)
+  - Tendance : avg 3 premières vs 3 dernières évals — up / stable / down
+  - Dashboard accordéons par classe, auto-ouvert si critiques
+  - Vue classe : table desktop + cards mobile, filtres tabs par niveau
+  - Panel éval rapide slide-from-right (même style que panel observation)
+- **Modèles** : `Attendance`, `StudentObservation` (`is_private`), `QuickAssessment`
+- **Bottom nav pill style iOS** : `bg-brand-blue/10 rounded-xl`, condition exclusive par `url_name`, `whitespace-nowrap`
+
 ---
 
 ## Roadmap — Prochaines étapes
 
 ### PRIORITÉ HAUTE
 
-**1. Portail Professeur** (2-3 jours)
-- Dashboard prof : ses classes uniquement
-- Saisie notes pour ses matières assignées
-- Changement mot de passe à la 1ère connexion
+**1. ✅ Portail Professeur** — terminé
 
 **2. Portail Parent** (1-2 jours)
 - Voir bulletins de ses enfants
