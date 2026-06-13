@@ -59,7 +59,7 @@ Statut : 🔄 En cours
 - [x] SchoolMiddleware → request.role
 - [x] director_or_staff_required → request.role
 - [x] teacher_required → request.role
-- [ ] 5 templates → request.role
+- [x] templates → request.role (base.html ×9 + student_detail ×1)
 - [ ] Switch école (/switch-school/<id>/)
 - [ ] UI switch dans header
 - [ ] Login redirect multi-école
@@ -101,4 +101,5 @@ Statut : ⏳ En attente Phase C
 - `176142e` feat: multi-école Phase A - modèles + migrations additives zéro régression
 - `9fe8298` feat: multi-école Phase B - backfill données existantes
 - `5f782a2` feat: multi-école Phase C1 - get_school() session + get_active_role() + request.role
-- _(à venir)_ feat: multi-école Phase C2 - décorateurs lisent get_active_role()
+- `80348ce` feat: multi-école Phase C2 - décorateurs lisent get_active_role()
+- _(à venir)_ feat: multi-école Phase C3 - templates request.role
