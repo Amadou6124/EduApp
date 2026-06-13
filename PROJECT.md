@@ -437,6 +437,23 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - **`close-edit-modal`** ajouté dans `class_update` + listener dans `class_list.html` + target aligné `outerHTML` sur `#class-row-{{ id }}` dans `class_edit_modal.html` (fix double toast)
 - **Message modal suppression classe dynamique** : si `student_count > 0` → modal bloquant "Suppression impossible" + `onConfirm: null` ; sinon → modal destructif normal
 
+### Reçus V2 — style malien ASSIA (`feature/receipts-v2` → mergé)
+- **Template noir/blanc style malien** `receipt_standard.html` : A5 portrait, Times New Roman, double bordure, B.P.F. box, *La Somme de* en italique, statut SOLDÉ / RESTE À PAYER / NON PAYÉ
+- **`amount_to_words_fr`** dans `apps/payments/utils.py` — conversion montant FCFA en lettres françaises (22/22 tests) : règles plurielles quatre-vingts, deux cents, mille invariable
+- **Contexte reçu enrichi** : `amount_words`, `date_long` (français), `school_year` (année active), `signer_title` configurable
+- **`receipt_signer_title`** ajouté sur `School` (défaut "Le Caissier / Directeur") — migration `0010`
+- **`primary_color` supprimé** du modèle, `AppearanceForm`, `appearance_form.html`
+- **Aperçu settings** `receipt_standard_preview.html` entièrement réécrit en noir/blanc (données fictives cohérentes)
+- **Champ titre signataire** dans `/settings/receipt/` avec 4 suggestions rapides (Le Directeur / Le Caissier / Le Comptable / La Directrice)
+- **Panel reçu inline** (`receipt_preview_panel.html`) : header fixe + iframe PDF scrollable + footer bar indépendant
+- **Footer bar** `#receipt-footer-bar` `fixed bottom-0` hors panel → évite le stacking context de `<main>` ; offset `left` dynamique via `$store.sidebar.open` (`lg:left-64` / `lg:left-16`) — safelist Tailwind ajouté
+- **`Alpine.store('payments', {...})`** global : `showPanel`, `showHistory`, `showReceiptPanel` migrés depuis les variables locales → communication entre composants Alpine et contenu HTMX
+- **Timeline paiements** réécriture : dots verts/rouges, cards `border-l-4` colorées, bouton "Voir le reçu" HTMX + fermeture modale historique simultanée
+- **Fix N+1** `_students_qs()` : `Prefetch('payments', to_attr='active_payments')` → 1 requête au lieu de N
+- **Fix X-Frame-Options** : `@xframe_options_sameorigin` sur `payment_receipt_download` → iframe PDF fonctionne
+- **Fix seed demo** : `city='Bamako'`, `country='Mali'` — placeholders forms mis à jour
+- **Vues ajoutées** : `receipt_preview`, `receipt_download` + 2 URLs
+
 ### Authentification custom (`/login/`)
 - **Login par numéro de téléphone** — `PhoneBackend` + `LoginForm` avec messages d'erreur précis
 - **Rate limiting** : 5 échecs consécutifs → blocage 15 minutes (cache Django)
