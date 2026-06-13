@@ -36,6 +36,7 @@
     <!-- ════════════════════════════════════════════════ -->
     <!-- SIDEBAR (Desktop)                              -->
     <!-- ════════════════════════════════════════════════ -->
+    {% block sidebar %}
     <aside :class="$store.sidebar.open ? 'w-64' : 'w-16'"
            class="hidden lg:flex flex-col bg-white border-r border-gray-200 min-h-screen fixed top-0 left-0 z-30 transition-all duration-300 overflow-hidden">
 
@@ -322,11 +323,12 @@
         </div>
       </div>
     </aside>
+    {% endblock %}
 
     <!-- ════════════════════════════════════════════════ -->
     <!-- CONTENU PRINCIPAL                              -->
     <!-- ════════════════════════════════════════════════ -->
-    <main :class="$store.sidebar.open ? 'lg:ml-64' : 'lg:ml-16'"
+    <main :class="{% block sidebar_margin %}$store.sidebar.open ? 'lg:ml-64' : 'lg:ml-16'{% endblock %}"
           class="flex-1 pb-20 lg:pb-0 transition-all duration-300">
 
       <!-- ─── HEADER ────────────────────────────────── -->
@@ -337,9 +339,7 @@
           {% block breadcrumb %}{% endblock %}
           <div class="min-w-0">
             <h1 class="text-lg font-semibold text-gray-900 leading-tight">{% block page_title %}{% endblock %}</h1>
-            {% if page_subtitle %}
-            <p class="text-sm text-gray-500 mt-0.5 truncate animate-fade-in">{{ page_subtitle }}</p>
-            {% endif %}
+            {% block page_subtitle %}{% if page_subtitle %}<p class="text-sm text-gray-500 mt-0.5 truncate animate-fade-in">{{ page_subtitle }}</p>{% endif %}{% endblock %}
           </div>
         </div>
 
