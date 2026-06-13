@@ -112,18 +112,21 @@ def team_list(request):
 
     total_active = teachers.count() + staff.count()
 
+    t = teachers.count()
+    s = staff.count()
     return render(request, 'team/team_list.html', {
+        'school':        school,
         'teachers_data': teachers_data,
         'staff_members': staff,
         'stats': {
             'total':    total_active,
-            'teachers': teachers.count(),
-            'staff':    staff.count(),
+            'teachers': t,
+            'staff':    s,
         },
-        'is_director': request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
-        # Formulaire permissions vide — utilisé dans le panel création staff
-        'perm_form': StaffPermissionForm(),
-        'presets':   _PRESETS,
+        'is_director':   request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
+        'perm_form':     StaffPermissionForm(),
+        'presets':       _PRESETS,
+        'page_subtitle': f"{t} enseignant{'s' if t != 1 else ''} · {s} staff",
     })
 
 
@@ -172,7 +175,8 @@ def team_member_detail(request, user_id):
     member = get_object_or_404(User, pk=user_id, school=school)
 
     context = {
-        'member':     member,
+        'school':      school,
+        'member':      member,
         'is_director': request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
     }
 
@@ -203,12 +207,14 @@ def team_member_edit(request, user_id):
             return response
 
         return render(request, 'team/partials/team_edit_form.html', {
+            'school': school,
             'form':   form,
             'member': member,
         }, status=422)
 
     form = TeamMemberEditForm(instance=member)
     return render(request, 'team/partials/team_edit_form.html', {
+        'school': school,
         'form':   form,
         'member': member,
     })
@@ -226,6 +232,7 @@ def team_permissions_update(request, user_id):
     if form.is_valid():
         form.save()
         response = render(request, 'team/partials/staff_permissions.html', {
+            'school':      school,
             'member':      member,
             'perm':        perm,
             'perm_form':   StaffPermissionForm(instance=perm),
@@ -237,6 +244,7 @@ def team_permissions_update(request, user_id):
         return response
 
     response = render(request, 'team/partials/staff_permissions.html', {
+        'school':      school,
         'member':      member,
         'perm':        perm,
         'perm_form':   form,
@@ -256,6 +264,7 @@ def team_member_deactivate(request, user_id):
     # Empêche l'auto-désactivation du directeur connecté
     if member.pk == request.user.pk:
         response = render(request, 'team/partials/member_card_refresh.html', {
+            'school':      school,
             'member':      member,
             'is_director': True,
         })
@@ -271,6 +280,7 @@ def team_member_deactivate(request, user_id):
     member.save(update_fields=['is_active'])
 
     response = render(request, 'team/partials/member_card_deactivated.html', {
+        'school': school,
         'member': member,
     })
     response['HX-Trigger'] = json.dumps({
@@ -301,6 +311,7 @@ def _teacher_subjects_ctx(school, member, saved=False):
         .order_by('level', 'name')
     )
     return {
+        'school':             school,
         'member':             member,
         'all_class_subjects': all_class_subjects,
         'assigned_ids':       assigned_ids,

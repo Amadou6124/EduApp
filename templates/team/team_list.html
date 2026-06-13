@@ -71,7 +71,7 @@ function teamPageData() {
     <div></div>
     {% if is_director %}
       <button @click="showPanel = true"
-              class="flex items-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+              class="flex items-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
         <i data-lucide="user-plus" class="w-4 h-4 shrink-0"></i>
         Ajouter un membre
       </button>
@@ -154,7 +154,7 @@ function teamPageData() {
         <p class="text-sm text-gray-400 mb-5">Ajoutez le premier enseignant de votre école.</p>
         {% if is_director %}
           <button @click="showPanel = true; selectedRole = 'teacher'"
-                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[40px]">
+                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[40px]">
             <i data-lucide="user-plus" class="w-4 h-4"></i>
             Ajouter un enseignant
           </button>
@@ -210,7 +210,7 @@ function teamPageData() {
         <p class="text-sm text-gray-400 mb-5">Ajoutez un secrétaire, comptable ou censeur.</p>
         {% if is_director %}
           <button @click="showPanel = true; selectedRole = 'staff'"
-                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[40px]">
+                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[40px]">
             <i data-lucide="user-plus" class="w-4 h-4"></i>
             Ajouter un membre
           </button>
@@ -465,7 +465,7 @@ function teamPageData() {
             Annuler
           </button>
           <button type="submit"
-                  class="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+                  class="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
             <svg id="create-spinner" class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>

@@ -29,7 +29,7 @@
             </div>
             {% if school_class.max_capacity %}
               <div x-data="{ pct: Math.min({{ school_class.get_student_count }} / {{ school_class.max_capacity }} * 100, 100) }" class="bg-gray-100 rounded-full h-2">
-                <div class="h-2 rounded-full transition-all" :class="pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-orange-400' : 'bg-[#1E3A5F]'" :style="`width: ${pct}%`"></div>
+                <div class="h-2 rounded-full transition-all" :class="pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-orange-400' : 'bg-brand-blue'" :style="`width: ${pct}%`"></div>
               </div>
             {% else %}
               <div class="bg-gray-100 rounded-full h-2"></div>

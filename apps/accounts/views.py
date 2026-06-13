@@ -1,6 +1,7 @@
 from django.contrib.auth import login, logout
 from django.contrib import messages
 from django.core.cache import cache
+from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
@@ -109,4 +110,27 @@ def portal_coming_soon(request):
     return render(request, 'accounts/portal_coming_soon.html', {
         'role_label': role_label,
         'role_key':   role_key,
+    })
+
+
+@login_required
+def search_global(request):
+    from apps.core.mixins import get_school
+    from apps.students.models import Student
+
+    school = get_school(request)
+    q = request.GET.get('q', '').strip()
+
+    students = []
+    if len(q) >= 2:
+        students = (
+            Student.objects
+            .filter(school=school, full_name__icontains=q, is_active=True)
+            .select_related('school_class')
+            .order_by('full_name')[:8]
+        )
+
+    return render(request, 'partials/search_results.html', {
+        'students': students,
+        'q': q,
     })

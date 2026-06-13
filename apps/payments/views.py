@@ -114,15 +114,17 @@ def payment_dashboard(request):
         ('paid',    'Soldés'),
     ]
 
+    encaisse_fmt = f"{int(stats['encaisse_mois']):,}".replace(',', ' ')
     ctx = {
-        'students': filtered,
-        'stats':    stats,
-        'classes':  classes,
-        'tab_list': tab_list,
-        'q':        q,
-        'status':   status,
-        'class_id': class_id,
-        'school':   school,
+        'students':      filtered,
+        'stats':         stats,
+        'classes':       classes,
+        'tab_list':      tab_list,
+        'q':             q,
+        'status':        status,
+        'class_id':      class_id,
+        'school':        school,
+        'page_subtitle': f"{encaisse_fmt} FCFA collecté ce mois",
     }
 
     if request.htmx:
