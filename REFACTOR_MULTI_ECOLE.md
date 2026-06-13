@@ -72,11 +72,17 @@ Notes :
 
 ### PHASE D — Fonctionnalités multi-école
 Statut : 🔄 En cours (ordre : D2 → D1 → D3 → D4)
-- [ ] Dashboard promoteur consolidé
+- [~] Dashboard promoteur consolidé (D1) — fondation faite : app apps/promoter,
+      @promoter_required, stub dashboard, _post_login_url promoter → /promoter/,
+      SchoolGroup de test. RESTE : vue d'agrégation consolidée + template.
 - [ ] Portail parent multi-école
 - [ ] Transfert élève entre écoles
 - [x] StudentGuardian interface (D2) — lier/créer/retirer parent depuis fiche élève,
       recherche par téléphone, création compte parent à la volée, is_primary auto
+
+Données de test :
+- Promoteur : 77000001 / test123 (rôle promoter, sans Membership)
+- Groupe « Groupe Scolaire Test » → 3 écoles rattachées
 
 ## Risques identifiés
 🔴 R1 — role per-école (5 templates + 2 décorateurs)
@@ -113,4 +119,5 @@ Statut : 🔄 En cours (ordre : D2 → D1 → D3 → D4)
 - `b38fdca` feat: multi-école Phase C4 - switch école
 - `b994cc3` feat: multi-école Phase C5 - login redirect multi-école
 - `048fd6c` fix: isolation multi-école - scope _teacher_class_ids + dashboards (fuite cross-école fermée, prouvée par test)
-- _(à venir)_ feat: Phase D2 - interface StudentGuardian
+- `1c00e52` feat: Phase D2 - interface StudentGuardian
+- _(à venir)_ feat: Phase D1 - app promoter fondation + stub dashboard

@@ -105,6 +105,29 @@ def director_or_staff_required(view_func):
     return wrapper
 
 
+def promoter_required(view_func):
+    """
+    Réservé aux promoteurs : rôle actif 'promoter', OU propriétaire d'au moins
+    un SchoolGroup, OU superadmin. Sinon → dashboard standard.
+    À placer après @login_required.
+    """
+    from django.shortcuts import redirect
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect(reverse('accounts:login') + f'?next={request.path}')
+        is_promoter = (
+            get_active_role(request) == 'promoter'
+            or request.user.owned_groups.exists()
+            or request.user.is_superuser
+        )
+        if not is_promoter:
+            return redirect('dashboard:main')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 class SchoolMixin(AccessMixin):
     """
     Mixin pour les vues basées sur les classes (CBV).
