@@ -4,15 +4,157 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Espace Parent — EduApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config={theme:{extend:{colors:{'brand-blue':'#1E3A5F'}}}}</script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { 'brand-blue':'#1E3A5F' },
+      fontFamily: { sans: ['Manrope','ui-sans-serif','system-ui'] },
+    } } }
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family:'Manrope',sans-serif; }
+    .bar-fill { transition: width 1s ease-out; }
+    .no-scrollbar::-webkit-scrollbar { display:none; }
+    .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+  </style>
 </head>
-<body class="min-h-screen bg-[#F8F9FC] flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center max-w-sm">
-    <div class="w-12 h-12 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center mx-auto mb-3 font-bold text-xl">👨‍👩‍👧</div>
-    <h1 class="text-lg font-bold text-gray-900">Espace Parent</h1>
-    <p class="text-sm text-gray-400 mt-1">En cours de développement…</p>
-    <a href="/logout/" class="inline-block mt-5 text-sm text-gray-400 hover:text-gray-600">Se déconnecter</a>
-  </div>
+<body class="min-h-screen bg-[#F8F9FC] text-gray-900 pb-24">
+
+  {# ── HEADER FIXE ── #}
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14 flex items-center justify-between px-4">
+    <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+         style="background:{{ request.user.get_avatar_colors.0 }};color:{{ request.user.get_avatar_colors.1 }}">
+      {{ request.user.get_initials }}
+    </div>
+    <span class="text-base font-extrabold text-brand-blue">EduApp</span>
+    <button class="p-2 rounded-lg text-gray-300" title="Notifications"><i data-lucide="bell" class="w-5 h-5"></i></button>
+  </header>
+
+  {% if not active_child %}
+    {# ── ÉTAT VIDE ── #}
+    <div class="flex flex-col items-center justify-center text-center px-6 py-24">
+      <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+        <i data-lucide="users" class="w-9 h-9 text-gray-300"></i>
+      </div>
+      <h1 class="text-lg font-bold">Aucun enfant lié à votre compte</h1>
+      <p class="text-sm text-gray-400 mt-1 max-w-xs">Contactez l'administration de l'école pour rattacher votre/vos enfant(s).</p>
+      <a href="/logout/" class="mt-6 text-sm text-gray-400 hover:text-gray-600">Se déconnecter</a>
+    </div>
+  {% else %}
+
+    {# ── SÉLECTEUR ENFANT (si plusieurs) ── #}
+    {% if has_multiple %}
+    <div class="flex gap-2 overflow-x-auto no-scrollbar px-4 pt-4">
+      {% for c in children %}
+      <a href="?child={{ c.student.id }}"
+         class="shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition
+                {% if c.student.id == active_child.student.id %}bg-brand-blue text-white{% else %}bg-white border border-gray-200 text-gray-600{% endif %}">
+        <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+              style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">{{ c.student.get_initials }}</span>
+        {{ c.student.full_name }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% with c=active_child %}
+    {# ── CARTE ENFANT ── #}
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 mx-4 mt-4 p-6">
+      <div class="flex items-center gap-4">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-extrabold shrink-0"
+             style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">
+          {{ c.student.get_initials }}
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-xl font-bold truncate">{{ c.student.full_name }}</h1>
+          <p class="text-sm text-gray-400 truncate">{{ c.student.school_class.name }} · {{ c.student.school.name }}</p>
+        </div>
+      </div>
+
+      {# ── STATUT PAIEMENT ── #}
+      <div class="mt-5 rounded-2xl p-4
+          {% if c.status == 'paid' %}bg-green-50{% elif c.status == 'partial' %}bg-amber-50{% else %}bg-red-50{% endif %}">
+        {% if c.status == 'paid' %}
+          <div class="flex items-center gap-2 text-green-700 font-bold"><i data-lucide="check-circle" class="w-5 h-5"></i> Scolarité à jour</div>
+        {% elif c.status == 'partial' %}
+          <div class="flex items-center gap-2 text-amber-700 font-bold mb-2"><i data-lucide="alert-triangle" class="w-5 h-5"></i> Il reste <span class="js-money" data-money="{{ c.balance }}">—</span> à payer</div>
+          <div class="h-2.5 bg-amber-100 rounded-full overflow-hidden">
+            <div class="bar-fill h-full rounded-full bg-amber-500" style="width:0%" data-bar="{{ c.pct_paid }}"></div>
+          </div>
+          <p class="text-xs text-amber-600 mt-1">{{ c.pct_paid }}% payé</p>
+        {% else %}
+          <div class="flex items-center gap-2 text-red-700 font-bold"><i data-lucide="x-circle" class="w-5 h-5"></i> Scolarité non réglée</div>
+          <p class="text-sm text-red-600 mt-1"><span class="js-money" data-money="{{ c.balance }}">—</span> à payer</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── GRILLE ACTIONS 2×2 ── #}
+    <div class="grid grid-cols-2 gap-3 mx-4 mt-4">
+      <div class="bg-blue-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
+        <i data-lucide="file-text" class="w-6 h-6 text-blue-600"></i>
+        <div><p class="font-bold text-gray-900">Bulletins</p><p class="text-xs text-gray-500">{{ c.bulletins_count }} disponible{{ c.bulletins_count|pluralize }}</p></div>
+      </div>
+      <div class="bg-green-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
+        <i data-lucide="wallet" class="w-6 h-6 text-green-600"></i>
+        <div><p class="font-bold text-gray-900">Paiements</p><p class="text-xs text-gray-500">Encaissé <span class="js-money" data-money="{{ c.total_paid }}">—</span></p></div>
+      </div>
+      <div class="bg-purple-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
+        <i data-lucide="bar-chart-3" class="w-6 h-6 text-purple-600"></i>
+        <div><p class="font-bold text-gray-900">Mes notes</p><p class="text-xs text-gray-500">{% if c.last_bulletin and c.last_bulletin.general_average %}moy. {{ c.last_bulletin.general_average|floatformat:"-2" }}/20{% else %}—{% endif %}</p></div>
+      </div>
+      <div class="relative bg-orange-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
+        {% if c.absences_count %}<span class="absolute top-3 right-3 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">{{ c.absences_count }}</span>{% endif %}
+        <i data-lucide="calendar-x" class="w-6 h-6 text-orange-600"></i>
+        <div><p class="font-bold text-gray-900">Absences</p><p class="text-xs text-gray-500">{{ c.absences_count }} ce mois</p></div>
+      </div>
+    </div>
+
+    {# ── BULLETIN RÉCENT ── #}
+    {% if c.last_bulletin %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mx-4 mt-4 p-5">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Dernier bulletin</p>
+      <p class="font-bold text-gray-900">{{ c.last_bulletin.period.name }} · {{ c.last_bulletin.period.school_year.name }}</p>
+      <div class="flex items-center gap-4 text-sm text-gray-500 mt-1">
+        {% if c.last_bulletin.general_average %}<span>Moyenne <strong class="text-gray-900">{{ c.last_bulletin.general_average|floatformat:"-2" }}/20</strong></span>{% endif %}
+        {% if c.last_bulletin.rank %}<span>Rang <strong class="text-gray-900">{{ c.last_bulletin.rank }}/{{ c.last_bulletin.class_size }}</strong></span>{% endif %}
+      </div>
+      <a href="{% url 'parent:bulletin-pdf' c.last_bulletin.id %}" target="_blank"
+         class="mt-4 w-full h-12 rounded-xl bg-[#1E3A5F] text-white font-semibold text-sm flex items-center justify-center gap-2">
+        <i data-lucide="download" class="w-4 h-4"></i> Voir le bulletin
+      </a>
+    </div>
+    {% endif %}
+    {% endwith %}
+
+  {% endif %}
+
+  {# ── BOTTOM NAV FIXE ── #}
+  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white rounded-t-2xl shadow-[0_-4px_12px_rgba(0,0,0,0.08)] border-t border-gray-100 h-[68px] flex">
+    <a href="{% url 'parent:dashboard' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 text-brand-blue">
+      <i data-lucide="home" class="w-5 h-5"></i><span class="text-[10px] font-semibold">Accueil</span>
+    </a>
+    <span class="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-300">
+      <i data-lucide="file-text" class="w-5 h-5"></i><span class="text-[10px]">Bulletins</span>
+    </span>
+    <span class="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-300">
+      <i data-lucide="wallet" class="w-5 h-5"></i><span class="text-[10px]">Paiements</span>
+    </span>
+    <a href="/logout/" class="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-300">
+      <i data-lucide="user" class="w-5 h-5"></i><span class="text-[10px]">Mon compte</span>
+    </a>
+  </nav>
+
+  <script>
+    lucide.createIcons();
+    const nf = new Intl.NumberFormat('fr-FR');
+    document.querySelectorAll('.js-money').forEach(el => {
+      el.textContent = nf.format(Math.round(parseFloat(el.dataset.money || '0'))) + ' FCFA';
+    });
+    requestAnimationFrame(() => document.querySelectorAll('[data-bar]').forEach(b => { b.style.width = (b.dataset.bar||0)+'%'; }));
+  </script>
 </body>
 </html>
