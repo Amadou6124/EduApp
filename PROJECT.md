@@ -481,6 +481,23 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - **Vrai multi-tenant** : `get_school(request)` unique source de vérité, `SchoolMiddleware` → `request.school` dans les templates
 - `get_demo_school()` supprimé intégralement (27 occurrences dans 4 fichiers)
 
+### Multi-école Phase A-C (`feature/multi-school`)
+- **Membership** (user, school, role, is_default) — source de vérité multi-école
+- **SchoolGroup** (promoteur → groupe d'écoles)
+- **StudentGuardian** (parent ↔ enfant)
+- **StudentEnrollment** (historique transferts)
+- **UserRole.PROMOTER** ajouté
+- **get_school()** lit session `active_school_id` avec fallback legacy `User.school`
+- **get_active_role()** helper per-école
+- **SchoolMiddleware** expose `request.role`
+- Décorateurs lisent `get_active_role()`
+- 10 templates migrent `request.user.role` → `request.role`
+- Vue **switch_school** sécurisée
+- Page **select-school** au login multi-école
+- Context processor **user_memberships**
+- UI switch dropdown admin + mobile teacher
+- **Fix isolation** : `_teacher_class_ids` scopé par school, 6 vues corrigées
+
 ### Portail Professeur (`/teacher/`)
 - **Dashboard mobile-first** avec stats (classes, élèves, absences du jour), classes filtrées par enseignant, section alertes
 - **Sidebar et bottom nav dédiées** : liens Accueil / Notes / Absences / Suivi élèves, pill style iOS état actif exclusif par page
@@ -506,6 +523,13 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 ### PRIORITÉ HAUTE
 
 **1. ✅ Portail Professeur** — terminé
+
+**1bis. Multi-école — Phase D** (en attente)
+Phases A-C terminées (modèles, migration données, bascule logique). Reste :
+- Dashboard promoteur consolidé
+- Portail parent multi-école
+- Transfert élève entre écoles
+- Interface StudentGuardian
 
 **2. Portail Parent** (1-2 jours)
 - Voir bulletins de ses enfants
