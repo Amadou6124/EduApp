@@ -5,6 +5,7 @@
 {% block page_title %}Élèves{% endblock %}
 
 {% block extra_head %}
+{{ classes_json|json_script:"classes-data" }}
 <script>
   function studentsPageData() {
     return {
@@ -16,7 +17,7 @@
       selectedClassId: null,
       groupNames: [''],
       groupClassId: null,
-      classes: {{ classes_json|safe }},
+      classes: JSON.parse(document.getElementById('classes-data').textContent),
       viewMode: localStorage.getItem('studentsView') || 'cards',
       get selectedClass() { return this.classes.find(c => c.id == this.selectedClassId) },
       get selectedFee() { return this.selectedClass ? this.selectedClass.annual_fee : null },

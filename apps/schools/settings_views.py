@@ -17,7 +17,7 @@ from .forms import (
     BulletinConfigForm,
 )
 from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note, BulletinConfig
-from apps.core.mixins import get_school
+from apps.core.mixins import get_school, director_or_staff_required
 
 # Variables disponibles pour le mapping de reçu personnalisé
 _RECEIPT_VARIABLES = [
@@ -70,6 +70,7 @@ def _receipt_ctx(school, **extra):
 
 
 @login_required
+@director_or_staff_required
 def general(request):
     school = get_school(request)
     if request.method == 'POST':
@@ -95,6 +96,7 @@ def general(request):
 
 
 @login_required
+@director_or_staff_required
 def appearance(request):
     school = get_school(request)
     if request.method == 'POST':
@@ -131,6 +133,7 @@ def appearance(request):
 
 
 @login_required
+@director_or_staff_required
 def receipt(request):
     school = get_school(request)
     if request.method == 'POST':
@@ -198,6 +201,7 @@ def receipt(request):
 
 
 @login_required
+@director_or_staff_required
 def bulletin(request):
     school = get_school(request)
     config, _ = BulletinConfig.objects.get_or_create(school=school)
@@ -228,6 +232,7 @@ def bulletin(request):
 # ─────────────────────────────────────────────────────────────
 
 @login_required
+@director_or_staff_required
 def school_years(request):
     school = get_school(request)
     years  = (
@@ -248,6 +253,7 @@ def school_years(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def school_year_create(request):
     school = get_school(request)
@@ -289,6 +295,7 @@ def school_year_create(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def school_year_toggle(request, year_id):
     school = get_school(request)
@@ -337,6 +344,7 @@ def school_year_toggle(request, year_id):
 # ─────────────────────────────────────────────────────────────
 
 @login_required
+@director_or_staff_required
 def school_year_periods(request, year_id):
     school  = get_school(request)
     year    = get_object_or_404(SchoolYear, id=year_id, school=school)
@@ -352,6 +360,7 @@ def school_year_periods(request, year_id):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def period_generate(request, year_id):
     """Génère automatiquement les périodes depuis un template prédéfini."""
@@ -410,6 +419,7 @@ def period_generate(request, year_id):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def period_create(request, year_id):
     school = get_school(request)
@@ -439,6 +449,7 @@ def period_create(request, year_id):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def period_toggle_notes(request, period_id):
     school          = get_school(request)
@@ -451,6 +462,7 @@ def period_toggle_notes(request, period_id):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['DELETE'])
 def period_delete(request, period_id):
     school = get_school(request)
@@ -497,6 +509,7 @@ _QUICK_SUBJECTS = [
 
 
 @login_required
+@director_or_staff_required
 def subjects(request):
     school     = get_school(request)
     subj_list  = Subject.objects.filter(school=school, is_active=True)
@@ -513,6 +526,7 @@ def subjects(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def subject_create(request):
     school = get_school(request)
@@ -546,6 +560,7 @@ def subject_create(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['DELETE'])
 def subject_delete(request, subject_id):
     school  = get_school(request)
@@ -588,6 +603,7 @@ def _class_subjects_ctx(school, school_class):
 
 
 @login_required
+@director_or_staff_required
 def class_subjects_panel(request, class_id):
     school       = get_school(request)
     school_class = get_object_or_404(school.classes.filter(is_active=True), id=class_id)
@@ -596,6 +612,7 @@ def class_subjects_panel(request, class_id):
 
 
 @login_required
+@director_or_staff_required
 def class_subjects_search(request):
     """Répond aux requêtes HTMX du select de classe (GET ?class_id=X)."""
     class_id = request.GET.get('class_id', '').strip()
@@ -611,6 +628,7 @@ def class_subjects_search(request):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def class_subject_add(request, class_id):
     school       = get_school(request)
@@ -629,6 +647,7 @@ def class_subject_add(request, class_id):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['POST'])
 def class_subject_update(request, cs_id):
     school = get_school(request)
@@ -648,6 +667,7 @@ def class_subject_update(request, cs_id):
 
 
 @login_required
+@director_or_staff_required
 @require_http_methods(['DELETE'])
 def class_subject_remove(request, cs_id):
     school = get_school(request)
@@ -671,6 +691,7 @@ def class_subject_remove(request, cs_id):
 
 
 @login_required
+@director_or_staff_required
 def coming_soon(request, section):
     title, description, icon = _COMING_SOON_META.get(
         section, ('Section', 'Cette section sera disponible prochainement.', 'document'),

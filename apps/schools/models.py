@@ -130,6 +130,9 @@ class SchoolClass(models.Model):
                 name='unique_active_class_per_school',
             ),
         ]
+        indexes = [
+            models.Index(fields=['school', 'is_active'], name='schoolclass_school_active_idx'),
+        ]
 
     def __str__(self):
         return f'{self.name} — {self.school.name}'
