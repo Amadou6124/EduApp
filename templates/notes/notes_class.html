@@ -2,21 +2,117 @@
 {% comment %}
 Page de saisie des notes pour une classe et une période.
 Contexte attendu :
-  - school         : School
-  - school_class   : SchoolClass
-  - period         : Period
-  - class_subjects : list[ClassSubject]
-  - active_cs      : ClassSubject | None
-  - can_enter      : bool
-  - reason         : str | None
-  - positions      : list[int]
-  - rows           : list[dict]
-  - class_stats    : dict
-  - active_section : str
+  - school            : School
+  - school_class      : SchoolClass
+  - period            : Period
+  - class_subjects    : list[ClassSubject]
+  - active_cs         : ClassSubject | None
+  - can_enter         : bool
+  - reason            : str | None
+  - positions         : list[int]
+  - rows              : list[dict]
+  - class_stats       : dict
+  - mobile_students   : list[dict]
+  - mobile_existing   : dict
+  - mobile_position   : int
+  - active_section    : str
 {% endcomment %}
 {% load i18n %}
 
 {% block title %}{{ school_class.name }} — Notes{% endblock %}
+
+{# ── Fonction Alpine pour le clavier mobile (chargée avant Alpine defer) ── #}
+{% block extra_head %}
+{% if active_cs and can_enter and rows %}
+<script>
+function mobileNoteInput(students, existingNotes) {
+  const _saveUrl = "{% url 'notes:save' %}";
+  const _csId    = {{ active_cs.pk }};
+  const _pid     = {{ period.pk }};
+  const _pos     = {{ mobile_position|default:1 }};
+  const _max     = parseFloat("{{ active_cs.max_grade }}");
+
+  return {
+    students,
+    notes: Object.assign({}, existingNotes),
+    currentIndex: 0,
+    inputValue: existingNotes[String(students[0] && students[0].id)] || '',
+    error: '',
+
+    get current()     { return this.students[this.currentIndex]; },
+    get isFirst()     { return this.currentIndex === 0; },
+    get isLast()      { return this.currentIndex >= this.students.length - 1; },
+    get progress()    { return (this.currentIndex + 1) + ' / ' + this.students.length; },
+    get notedCount()  { return Object.values(this.notes).filter(function(v){ return v !== ''; }).length; },
+    get progressPct() {
+      return this.students.length
+        ? Math.round(this.notedCount / this.students.length * 100)
+        : 0;
+    },
+
+    pressKey: function(key) {
+      this.error = '';
+      if (key === '←') { this.inputValue = this.inputValue.slice(0, -1); return; }
+      if (key === '.' && this.inputValue.includes('.')) return;
+      if (this.inputValue.length >= 5) return;
+      this.inputValue += key;
+    },
+
+    saveAndNext: function() {
+      var val = this.inputValue.trim();
+      if (val !== '') {
+        var parsed = parseFloat(val.replace(',', '.'));
+        if (isNaN(parsed) || parsed < 0 || parsed > _max) {
+          this.error = 'Note invalide (0 – ' + _max + ')';
+          this.inputValue = '';
+          return;
+        }
+        this.notes[String(this.current.id)] = val;
+        htmx.ajax('POST', _saveUrl, {
+          source: document.body,
+          swap: 'none',
+          values: {
+            student_id:       this.current.id,
+            class_subject_id: _csId,
+            value:            val,
+            position:         _pos,
+            period_id:        _pid,
+          },
+        });
+      }
+      this.error = '';
+      if (!this.isLast) {
+        this.currentIndex++;
+        this.inputValue = this.notes[String(this.current.id)] || '';
+      }
+    },
+
+    goTo: function(idx) {
+      if (idx < 0 || idx >= this.students.length) return;
+      this.currentIndex = idx;
+      this.inputValue = this.notes[String(this.current.id)] || '';
+      this.error = '';
+    },
+    prev: function() { this.goTo(this.currentIndex - 1); },
+    next: function() { this.goTo(this.currentIndex + 1); },
+
+    _tx: 0, _ty: 0,
+    touchStart: function(e) {
+      this._tx = e.touches[0].clientX;
+      this._ty = e.touches[0].clientY;
+    },
+    touchEnd: function(e) {
+      var dx = e.changedTouches[0].clientX - this._tx;
+      var dy = Math.abs(e.changedTouches[0].clientY - this._ty);
+      if (Math.abs(dx) > 50 && dy < 40) {
+        if (dx < 0) { this.next(); } else { this.prev(); }
+      }
+    },
+  };
+}
+</script>
+{% endif %}
+{% endblock %}
 
 {% block page_title %}
   <div class="flex items-center gap-3 flex-wrap">
@@ -49,8 +145,8 @@ Contexte attendu :
 
 {% block content %}
 
-{# ── Fil d'Ariane période ──────────────────────────────────────── #}
-<div class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+{# ── Fil d'Ariane période (desktop uniquement, mobile a le contexte dans le partial) ── #}
+<div class="hidden sm:flex items-center gap-2 text-sm text-gray-500 mb-4">
   <span>{{ period.school_year.name }}</span>
   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -61,52 +157,84 @@ Contexte attendu :
   </span>
 </div>
 
-{# ── Sélecteur de matière (onglets) avec état Alpine ───────────── #}
-{% if class_subjects %}
-  <div x-data="{ activeTab: '{{ active_cs.pk|default:'' }}' }"
-       class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 overflow-x-auto mb-6">
-    {% for cs in class_subjects %}
-      <button type="button"
-              x-on:click="activeTab = '{{ cs.pk }}'"
-              x-bind:class="activeTab === '{{ cs.pk }}'
-                ? 'bg-white shadow-sm text-gray-900 font-medium'
-                : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
-              class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all whitespace-nowrap"
-              hx-get="{% url 'notes:subject-table' school_class.pk period.pk cs.pk %}"
-              hx-target="#notes-table-container"
-              hx-swap="innerHTML"
-              hx-push-url="?subject={{ cs.pk }}">
-        {# Pastille couleur matière #}
-        <span class="w-2 h-2 rounded-full flex-shrink-0"
-              style="background-color: {{ cs.subject.color|default:'#1E3A5F' }}"></span>
-        <span>{{ cs.subject.short_name|default:cs.subject.name }}</span>
-        <span class="text-[10px] opacity-60 ml-0.5">coeff.{{ cs.coefficient|floatformat:'1' }}</span>
-      </button>
-    {% endfor %}
-  </div>
-
-  {# ── Conteneur du tableau HTMX (la barre recherche est dans le partial) ── #}
-  <div id="notes-table-container">
-    {% if active_cs %}
-      {% include "notes/partials/notes_table.html" with cs=active_cs period=period school_class=school_class positions=positions rows=rows class_stats=class_stats can_enter=can_enter reason=reason %}
+{# ══════════════════════════════════════════════════════════════════ #}
+{# MOBILE — Mode saisie rapide (clavier numérique, un élève à la fois) #}
+{# ══════════════════════════════════════════════════════════════════ #}
+<div class="block sm:hidden">
+  {% if active_cs %}
+    {% if can_enter and rows %}
+      {% include "notes/partials/notes_mobile_input.html" %}
+    {% elif not can_enter %}
+      <div class="bg-white rounded-xl border border-amber-200 p-8 text-center">
+        <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="lock" class="w-6 h-6 text-amber-500"></i>
+        </div>
+        <p class="text-sm font-medium text-gray-700 mb-1">Saisie non disponible</p>
+        <p class="text-xs text-gray-400">{{ reason|default:"Votre rôle ne permet pas la saisie des notes." }}</p>
+      </div>
+    {% else %}
+      <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+        <i data-lucide="users" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i>
+        <p class="text-sm font-medium text-gray-500">Aucun élève dans cette classe</p>
+      </div>
     {% endif %}
-  </div>
-
-{% else %}
-  {# ── Aucune matière assignée ──────────────────────────────────── #}
-  <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
-    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-      <i data-lucide="layers" class="w-7 h-7 text-gray-400"></i>
+  {% else %}
+    <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+      <i data-lucide="layers" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i>
+      <p class="text-sm font-medium text-gray-500">Aucune matière assignée</p>
     </div>
-    <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucune matière assignée</h3>
-    <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
-      Cette classe n'a aucune matière configurée pour la saisie des notes.
-    </p>
-    <a href="{% url 'settings:subjects' %}" class="btn-primary text-sm">
-      <i data-lucide="settings" class="w-4 h-4"></i>
-      Configurer les matières
-    </a>
-  </div>
-{% endif %}
+  {% endif %}
+</div>
+
+{# ══════════════════════════════════════════════════════════════════ #}
+{# DESKTOP — Tableau de saisie classique                            #}
+{# ══════════════════════════════════════════════════════════════════ #}
+<div class="hidden sm:block">
+
+  {% if class_subjects %}
+    <div x-data="{ activeTab: '{{ active_cs.pk|default:'' }}' }"
+         class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 overflow-x-auto mb-6">
+      {% for cs in class_subjects %}
+        <button type="button"
+                x-on:click="activeTab = '{{ cs.pk }}'"
+                x-bind:class="activeTab === '{{ cs.pk }}'
+                  ? 'bg-white shadow-sm text-gray-900 font-medium'
+                  : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
+                class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all whitespace-nowrap"
+                hx-get="{% url 'notes:subject-table' school_class.pk period.pk cs.pk %}"
+                hx-target="#notes-table-container"
+                hx-swap="innerHTML"
+                hx-push-url="?subject={{ cs.pk }}">
+          <span class="w-2 h-2 rounded-full flex-shrink-0"
+                style="background-color: {{ cs.subject.color|default:'#1E3A5F' }}"></span>
+          <span>{{ cs.subject.short_name|default:cs.subject.name }}</span>
+          <span class="text-[10px] opacity-60 ml-0.5">coeff.{{ cs.coefficient|floatformat:'1' }}</span>
+        </button>
+      {% endfor %}
+    </div>
+
+    <div id="notes-table-container">
+      {% if active_cs %}
+        {% include "notes/partials/notes_table.html" with cs=active_cs period=period school_class=school_class positions=positions rows=rows class_stats=class_stats can_enter=can_enter reason=reason %}
+      {% endif %}
+    </div>
+
+  {% else %}
+    <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="layers" class="w-7 h-7 text-gray-400"></i>
+      </div>
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucune matière assignée</h3>
+      <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
+        Cette classe n'a aucune matière configurée pour la saisie des notes.
+      </p>
+      <a href="{% url 'settings:subjects' %}" class="btn-primary text-sm">
+        <i data-lucide="settings" class="w-4 h-4"></i>
+        Configurer les matières
+      </a>
+    </div>
+  {% endif %}
+
+</div>
 
 {% endblock %}

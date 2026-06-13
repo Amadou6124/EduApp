@@ -352,18 +352,42 @@ def notes_class(request, class_id, period_id):
         )
         positions, rows, class_stats = _build_table_data(active_cs, students, period)
 
+    # Données pour le mode saisie rapide mobile (Phase 5)
+    mobile_position = positions[0] if positions else 1
+    mobile_students = []
+    mobile_existing = {}
+    if rows:
+        mobile_students = [
+            {
+                'id':          r['student'].pk,
+                'name':        r['student'].full_name,
+                'short':       r['student'].full_name.split()[0] if r['student'].full_name else '—',
+                'initials':    r['student'].get_initials(),
+                'avatar_bg':   r['student'].get_avatar_colors()[0],
+                'avatar_text': r['student'].get_avatar_colors()[1],
+            }
+            for r in rows
+        ]
+        for r in rows:
+            val = json.loads(r['notes_js']).get(str(mobile_position), '')
+            if val:
+                mobile_existing[str(r['student'].pk)] = val
+
     return render(request, 'notes/notes_class.html', {
-        'school':         school,
-        'school_class':   school_class,
-        'period':         period,
-        'class_subjects': class_subjects,
-        'active_cs':      active_cs,
-        'can_enter':      can_enter,
-        'reason':         reason,
-        'positions':      positions,
-        'rows':           rows,
-        'class_stats':    class_stats,
-        'active_section': 'notes',
+        'school':           school,
+        'school_class':     school_class,
+        'period':           period,
+        'class_subjects':   class_subjects,
+        'active_cs':        active_cs,
+        'can_enter':        can_enter,
+        'reason':           reason,
+        'positions':        positions,
+        'rows':             rows,
+        'class_stats':      class_stats,
+        'mobile_students':  mobile_students,
+        'mobile_existing':  mobile_existing,
+        'mobile_position':  mobile_position,
+        'active_section':   'notes',
     })
 
 

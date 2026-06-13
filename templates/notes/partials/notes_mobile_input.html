@@ -1,0 +1,141 @@
+{% comment %}
+Mode saisie rapide mobile — un élève à la fois, clavier numérique géant.
+Inclus depuis notes_class.html (block sm:hidden).
+Requiert : mobile_students, mobile_existing, mobile_position, active_cs,
+           period, school_class, rows (pour nb_students).
+La fonction Alpine mobileNoteInput() est définie dans notes_class.html extra_head.
+{% endcomment %}
+{% load i18n %}
+
+{{ mobile_students|json_script:"mobile-students" }}
+{{ mobile_existing|json_script:"mobile-existing" }}
+
+<div x-data="mobileNoteInput(
+    JSON.parse(document.getElementById('mobile-students').textContent),
+    JSON.parse(document.getElementById('mobile-existing').textContent)
+  )"
+  @touchstart.passive="touchStart($event)"
+  @touchend.passive="touchEnd($event)"
+  class="max-w-sm mx-auto space-y-3">
+
+  {# ── Barre de progression ─────────────────────────────────── #}
+  <div>
+    <div class="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+      <span>
+        <span class="font-semibold text-gray-800" x-text="notedCount"></span>
+        / {{ rows|length }} notés
+      </span>
+      <span x-text="progressPct + '%'"></span>
+    </div>
+    <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+      <div class="h-full bg-brand-blue rounded-full transition-all duration-300"
+           :style="'width:' + progressPct + '%'">
+      </div>
+    </div>
+  </div>
+
+  {# ── Navigation élève ─────────────────────────────────────── #}
+  <div class="flex items-center justify-between">
+    <button type="button" @click="prev()" :disabled="isFirst"
+            class="p-2.5 rounded-xl text-gray-400 hover:bg-gray-100
+                   disabled:opacity-25 transition active:scale-90">
+      <i data-lucide="chevron-left" class="w-6 h-6"></i>
+    </button>
+
+    <div class="text-center">
+      <p class="text-sm font-semibold text-gray-700" x-text="progress"></p>
+      <p class="text-xs text-brand-blue font-medium">
+        {{ active_cs.subject.name }}
+        <span class="text-gray-400 font-normal">&nbsp;·&nbsp;coeff&nbsp;{{ active_cs.coefficient|floatformat:0 }}</span>
+      </p>
+      <p class="text-[10px] text-gray-400 mt-0.5">
+        {{ period.name }}
+        · colonne {{ mobile_position }}
+      </p>
+    </div>
+
+    <button type="button" @click="next()" :disabled="isLast"
+            class="p-2.5 rounded-xl text-gray-400 hover:bg-gray-100
+                   disabled:opacity-25 transition active:scale-90">
+      <i data-lucide="chevron-right" class="w-6 h-6"></i>
+    </button>
+  </div>
+
+  {# ── Carte élève ──────────────────────────────────────────── #}
+  <div class="bg-white rounded-2xl border border-gray-200 px-6 py-5 text-center shadow-sm">
+
+    {# Avatar #}
+    <div class="w-20 h-20 rounded-full mx-auto mb-3
+                flex items-center justify-center text-2xl font-bold
+                transition-colors duration-200"
+         :style="'background:' + current.avatar_bg + ';color:' + current.avatar_text">
+      <span x-text="current.initials"></span>
+    </div>
+
+    {# Nom #}
+    <h2 class="text-lg font-bold text-gray-900 leading-tight"
+        x-text="current.name">
+    </h2>
+    <p class="text-xs text-gray-400 mt-0.5">{{ school_class.name }}</p>
+
+    {# Note saisie / existante #}
+    <div class="mt-4 flex items-baseline justify-center gap-1.5">
+      <span class="text-5xl font-black tracking-tight transition-all duration-100"
+            :class="inputValue ? 'text-brand-blue' : 'text-gray-200'"
+            x-text="inputValue || '—'">
+      </span>
+      <span class="text-xl text-gray-300 font-light">
+        / {{ active_cs.max_grade|floatformat:"0" }}
+      </span>
+    </div>
+
+    {# Message erreur #}
+    <p x-show="error" x-text="error" x-cloak
+       class="mt-2 text-xs font-semibold text-red-500 bg-red-50 rounded-lg px-3 py-1 inline-block">
+    </p>
+  </div>
+
+  {# ── Clavier numérique ────────────────────────────────────── #}
+  <div class="grid grid-cols-3 gap-2">
+    <template x-for="key in ['1','2','3','4','5','6','7','8','9','.','0','←']">
+      <button type="button"
+              @click="pressKey(key)"
+              :class="key === '←'
+                ? 'bg-red-50 text-red-500 active:bg-red-100'
+                : 'bg-gray-100 text-gray-800 active:bg-gray-200'"
+              class="h-16 rounded-2xl text-2xl font-bold
+                     flex items-center justify-center
+                     transition active:scale-95 select-none">
+        <span x-text="key === '←' ? '⌫' : key"></span>
+      </button>
+    </template>
+  </div>
+
+  {# ── Bouton enregistrer et suivant ────────────────────────── #}
+  <button type="button"
+          @click="saveAndNext()"
+          class="w-full h-16 rounded-2xl bg-[#1E3A5F] hover:bg-[#1E3A5F]/90
+                 text-white font-bold text-base
+                 flex items-center justify-center gap-2
+                 active:scale-[0.99] transition select-none">
+    <i data-lucide="check" class="w-5 h-5 shrink-0"></i>
+    <span x-text="isLast ? '✓ Terminer' : '✓ Enregistrer et suivant'"></span>
+    <i data-lucide="arrow-right" class="w-4 h-4 shrink-0" x-show="!isLast"></i>
+  </button>
+
+  {# ── Indicateurs élèves (points) ──────────────────────────── #}
+  <div class="flex items-center justify-center gap-1 pb-2 overflow-x-auto">
+    <template x-for="(student, idx) in students" :key="student.id">
+      <button type="button"
+              @click="goTo(idx)"
+              :class="{
+                'w-3 h-3 bg-brand-blue': idx === currentIndex,
+                'w-2 h-2 bg-green-400':  idx !== currentIndex && notes[String(student.id)],
+                'w-2 h-2 bg-gray-200':   idx !== currentIndex && !notes[String(student.id)],
+              }"
+              class="rounded-full transition-all duration-200 shrink-0">
+      </button>
+    </template>
+  </div>
+
+</div>
