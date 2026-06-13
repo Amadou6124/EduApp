@@ -71,11 +71,12 @@ Notes :
   teacher post-login → /teacher/ (au lieu de /notes/). _role_home() helper.
 
 ### PHASE D — Fonctionnalités multi-école
-Statut : 🔄 Prochaine — prête à démarrer
+Statut : 🔄 En cours (ordre : D2 → D1 → D3 → D4)
 - [ ] Dashboard promoteur consolidé
 - [ ] Portail parent multi-école
 - [ ] Transfert élève entre écoles
-- [ ] StudentGuardian interface
+- [x] StudentGuardian interface (D2) — lier/créer/retirer parent depuis fiche élève,
+      recherche par téléphone, création compte parent à la volée, is_primary auto
 
 ## Risques identifiés
 🔴 R1 — role per-école (5 templates + 2 décorateurs)
@@ -111,4 +112,5 @@ Statut : 🔄 Prochaine — prête à démarrer
 - `57e78ac` feat: multi-école Phase C3 - templates request.role
 - `b38fdca` feat: multi-école Phase C4 - switch école
 - `b994cc3` feat: multi-école Phase C5 - login redirect multi-école
-- _(à venir)_ fix: isolation multi-école - scope _teacher_class_ids + dashboards (fuite cross-école fermée, prouvée par test)
+- `048fd6c` fix: isolation multi-école - scope _teacher_class_ids + dashboards (fuite cross-école fermée, prouvée par test)
+- _(à venir)_ feat: Phase D2 - interface StudentGuardian

@@ -70,6 +70,13 @@
     {% endwith %}
   </div>
 
+  {# ── Section 2.5 — Parents / Tuteurs ── #}
+  <div x-data="{ guardianPanel: false }"
+       @close-guardian-panel.document="guardianPanel = false">
+    {% include "students/partials/guardian_section.html" %}
+    {% include "students/partials/guardian_form.html" %}
+  </div>
+
   {# ── Section 3 — Observations enseignants (directeur/staff uniquement) ── #}
   {% if observations is not None and request.role != 'teacher' %}
   <div class="bg-white rounded-xl border border-gray-200 p-6">

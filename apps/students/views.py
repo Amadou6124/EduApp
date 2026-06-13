@@ -24,7 +24,7 @@ from apps.core.mixins import get_school, director_or_staff_required
 from apps.dashboard.views import invalidate_dashboard_cache
 
 from .forms import StudentCreateForm, StudentUpdateForm
-from .models import Student
+from .models import Student, StudentGuardian, ParentRelationship
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +213,7 @@ def student_detail(request, student_id):
     )
 
     observations = None
-    if request.user.role in ('director', 'staff') or request.user.is_superuser:
+    if request.role in ('director', 'staff') or request.user.is_superuser:
         from apps.teachers.models import StudentObservation
         observations = list(
             StudentObservation.objects
@@ -222,10 +222,16 @@ def student_detail(request, student_id):
             .order_by('-created_at')
         )
 
+    guardians = (
+        student.guardians.select_related('guardian')
+        .order_by('-is_primary', 'created_at')
+    )
+
     return render(request, 'students/student_detail.html', {
         'student':      student,
         'school':       school,
         'observations': observations,
+        'guardians':    guardians,
     })
 
 
@@ -604,3 +610,129 @@ def student_import_confirm(request):
         return response
 
     return redirect('students:list')
+
+
+# ─────────────────────────────────────────────────────────────
+# Phase D2 — Parents / Tuteurs (StudentGuardian)
+# ─────────────────────────────────────────────────────────────
+
+def _toast_error(message):
+    resp = HttpResponse(status=422)
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': 'error'}})
+    return resp
+
+
+def _render_guardian_section(request, student, *, toast=None, toast_type='success', close_panel=False):
+    """Re-rend la section parents/tuteurs avec HX-Trigger (toast + fermeture panel)."""
+    guardians = (
+        student.guardians.select_related('guardian')
+        .order_by('-is_primary', 'created_at')
+    )
+    resp = render(request, 'students/partials/guardian_section.html', {
+        'student': student, 'guardians': guardians,
+    })
+    triggers = {}
+    if toast:
+        triggers['showToast'] = {'message': toast, 'type': toast_type}
+    if close_panel:
+        triggers['close-guardian-panel'] = True
+    if triggers:
+        resp['HX-Trigger'] = json.dumps(triggers)
+    return resp
+
+
+@login_required
+@director_or_staff_required
+def guardian_search(request, student_id):
+    """GET ?phone= → cherche un compte parent. Partial HTMX (carte ou formulaire création)."""
+    from apps.accounts.models import User
+    from apps.accounts.team_forms import generate_temp_password
+
+    school  = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school)
+    phone   = request.GET.get('phone', '').strip()
+
+    found, already_linked, blocked_role = None, False, None
+    if phone:
+        candidate = User.objects.filter(phone_number=phone).first()
+        if candidate and candidate.role != 'parent':
+            blocked_role = candidate.get_role_display()
+        elif candidate:
+            found = candidate
+            already_linked = student.guardians.filter(guardian=candidate).exists()
+
+    return render(request, 'students/partials/guardian_search_result.html', {
+        'student': student, 'phone': phone, 'searched': bool(phone),
+        'found': found, 'already_linked': already_linked, 'blocked_role': blocked_role,
+        'gen_password': generate_temp_password(),
+        'relationships': ParentRelationship.choices,
+    })
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def guardian_add(request, student_id):
+    """Lier un parent existant (user_id) OU créer un compte parent (full_name+phone+password) + lier."""
+    from apps.accounts.models import User
+    from apps.accounts.team_forms import generate_temp_password
+
+    school  = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school)
+
+    relationship = request.POST.get('relationship', '')
+    if relationship not in {c[0] for c in ParentRelationship.choices}:
+        relationship = ''
+
+    user_id = request.POST.get('user_id', '').strip()
+
+    if user_id:
+        parent = get_object_or_404(User, id=user_id, role='parent')
+    else:
+        full_name = request.POST.get('full_name', '').strip()
+        phone     = request.POST.get('phone', '').strip()
+        if not full_name or not phone:
+            return _toast_error('Nom et téléphone obligatoires.')
+        if User.objects.filter(phone_number=phone).exists():
+            return _toast_error('Ce numéro est déjà utilisé par un compte.')
+        parent = User.objects.create_user(
+            phone_number=phone,
+            password=request.POST.get('password', '').strip() or generate_temp_password(),
+            full_name=full_name, role='parent',
+        )
+
+    is_first = not student.guardians.exists()
+    link, created = StudentGuardian.objects.get_or_create(
+        guardian=parent, student=student,
+        defaults={'relationship': relationship, 'is_primary': is_first},
+    )
+    if not created:
+        return _render_guardian_section(
+            request, student,
+            toast=f'{parent.full_name} est déjà lié à cet élève.', toast_type='info',
+            close_panel=True,
+        )
+    return _render_guardian_section(
+        request, student,
+        toast=f'{parent.full_name} lié à l\'élève.', close_panel=True,
+    )
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def guardian_remove(request, student_id, guardian_id):
+    """Retire un lien parent (StudentGuardian.pk). Réassigne le contact principal si besoin."""
+    school  = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school)
+    link = get_object_or_404(StudentGuardian, id=guardian_id, student=student)
+
+    name, was_primary = link.guardian.full_name, link.is_primary
+    link.delete()
+    if was_primary:
+        nxt = student.guardians.order_by('created_at').first()
+        if nxt:
+            nxt.is_primary = True
+            nxt.save(update_fields=['is_primary'])
+
+    return _render_guardian_section(request, student, toast=f'{name} retiré.', toast_type='info')

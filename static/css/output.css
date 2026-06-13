@@ -2561,6 +2561,10 @@ p {
   --tw-gradient-to: #eff6ff var(--tw-gradient-to-position);
 }
 
+.fill-amber-500 {
+  fill: #f59e0b;
+}
+
 .object-contain {
   -o-object-fit: contain;
      object-fit: contain;
