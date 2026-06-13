@@ -54,12 +54,7 @@
 
       {# Infos classe #}
       <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-sm font-semibold text-gray-900">{{ item.class.name }}</span>
-          <span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold {{ item.level_badge }}">
-            {{ item.class.get_level_display }}
-          </span>
-        </div>
+        <p class="text-sm font-semibold text-gray-900">{{ item.class.name }}</p>
         <p class="text-xs text-gray-500 mt-0.5">
           {{ item.student_count }} élève{{ item.student_count|pluralize }}
         </p>
@@ -67,9 +62,13 @@
 
       {# Badge fait / en attente #}
       <div class="shrink-0 flex items-center gap-2">
-        <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+        <span class="px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1
                      {% if item.done %}bg-green-100 text-green-700{% else %}bg-amber-100 text-amber-700{% endif %}">
-          {% if item.done %}✅ Fait{% else %}⏳ En attente{% endif %}
+          {% if item.done %}
+            <i data-lucide="check-circle" class="w-3.5 h-3.5 shrink-0"></i> Fait
+          {% else %}
+            <i data-lucide="clock" class="w-3.5 h-3.5 shrink-0"></i> En attente
+          {% endif %}
         </span>
         <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-gray-600"></i>
       </div>

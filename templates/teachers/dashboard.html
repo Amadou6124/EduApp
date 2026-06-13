@@ -46,7 +46,7 @@
 
     <div class="bg-white rounded-xl border border-gray-200 p-4">
       <div class="flex items-center gap-2 mb-1">
-        <span class="text-lg">📚</span>
+        <i data-lucide="book-open" class="w-5 h-5 text-brand-blue shrink-0"></i>
         <span class="text-xs text-gray-500 font-medium">Mes classes</span>
       </div>
       <p class="text-2xl font-bold text-gray-900">{{ nb_classes }}</p>
@@ -54,7 +54,7 @@
 
     <div class="bg-white rounded-xl border border-gray-200 p-4">
       <div class="flex items-center gap-2 mb-1">
-        <span class="text-lg">👥</span>
+        <i data-lucide="users" class="w-5 h-5 text-indigo-500 shrink-0"></i>
         <span class="text-xs text-gray-500 font-medium">Total élèves</span>
       </div>
       <p class="text-2xl font-bold text-gray-900">{{ total_students }}</p>
@@ -62,7 +62,7 @@
 
     <div class="bg-white rounded-xl border border-gray-200 p-4">
       <div class="flex items-center gap-2 mb-1">
-        <span class="text-lg">✅</span>
+        <i data-lucide="check-circle" class="w-5 h-5 text-green-500 shrink-0"></i>
         <span class="text-xs text-gray-500 font-medium">Notes saisies</span>
       </div>
       <p class="text-2xl font-bold {% if notes_pct >= 80 %}text-green-600{% elif notes_pct >= 40 %}text-amber-600{% else %}text-gray-900{% endif %}">
@@ -72,7 +72,7 @@
 
     <div class="bg-white rounded-xl border border-gray-200 p-4">
       <div class="flex items-center gap-2 mb-1">
-        <span class="text-lg">⚠️</span>
+        <i data-lucide="alert-circle" class="w-5 h-5 text-amber-500 shrink-0"></i>
         <span class="text-xs text-gray-500 font-medium">Absences auj.</span>
       </div>
       <p class="text-2xl font-bold {% if absences_today > 0 %}text-red-600{% else %}text-green-600{% endif %}">

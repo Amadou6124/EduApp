@@ -31,7 +31,7 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
             flex flex-col overflow-hidden">
 
   {# En-tête panel #}
-  <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+  <div class="flex items-center justify-between px-5 pt-14 pb-4 sm:pt-4 border-b border-gray-100 shrink-0">
     <div>
       <h2 class="text-base font-bold text-gray-900">Nouvelle observation</h2>
       <p class="text-xs text-gray-400 mt-0.5">{{ student.full_name }}</p>
@@ -64,7 +64,7 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
                     ? 'border-orange-400 bg-orange-50 text-orange-700 shadow-sm'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'"
                   class="flex items-center gap-2 px-3 py-3 rounded-xl border text-sm font-medium transition">
-            <span class="text-lg leading-none">🎭</span>
+            <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i>
             <span>Comportement</span>
           </button>
 
@@ -73,7 +73,7 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
                     ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'"
                   class="flex items-center gap-2 px-3 py-3 rounded-xl border text-sm font-medium transition">
-            <span class="text-lg leading-none">📚</span>
+            <i data-lucide="book-open" class="w-5 h-5 shrink-0"></i>
             <span>Académique</span>
           </button>
 
@@ -82,7 +82,7 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
                     ? 'border-red-400 bg-red-50 text-red-700 shadow-sm'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'"
                   class="flex items-center gap-2 px-3 py-3 rounded-xl border text-sm font-medium transition">
-            <span class="text-lg leading-none">🏥</span>
+            <i data-lucide="heart-pulse" class="w-5 h-5 shrink-0"></i>
             <span>Santé</span>
           </button>
 
@@ -91,7 +91,7 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
                     ? 'border-gray-400 bg-gray-100 text-gray-700 shadow-sm'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'"
                   class="flex items-center gap-2 px-3 py-3 rounded-xl border text-sm font-medium transition">
-            <span class="text-lg leading-none">📝</span>
+            <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
             <span>Autre</span>
           </button>
 

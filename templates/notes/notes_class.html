@@ -26,7 +26,7 @@ Contexte attendu :
 {% if active_cs and can_enter and rows %}
 <script>
 function mobileNoteInput(students, existingNotes) {
-  const _saveUrl = "{% url 'notes:save' %}";
+  const _saveUrl = "{% url 'notes:note-save' %}";
   const _csId    = {{ active_cs.pk }};
   const _pid     = {{ period.pk }};
   const _pos     = {{ mobile_position|default:1 }};

@@ -28,6 +28,10 @@
 {# ── Fonction Alpine définie dans le head ──────────────── #}
 {% block extra_head %}
 <script>
+document.addEventListener('attendance-saved', function() {
+  setTimeout(function() { window.location.href = '/teacher/absences/'; }, 1200);
+});
+
 function attendanceGrid(students, existing) {
   return {
     students: students,
@@ -46,9 +50,9 @@ function attendanceGrid(students, existing) {
 
     cardClass(id) {
       const s = this.statuses[id];
-      if (s === 'absent') return 'bg-red-50 border-red-400 border-2 shadow-sm';
-      if (s === 'late')   return 'bg-amber-50 border-amber-400 border-2 shadow-sm';
-      return 'bg-white border-gray-200';
+      if (s === 'absent') return 'bg-red-50 border-red-400 border-2 shadow-md shadow-red-100';
+      if (s === 'late')   return 'bg-amber-50 border-amber-400 border-2 shadow-md shadow-amber-100';
+      return 'bg-white border-gray-200 shadow-sm';
     },
 
     avatarStyle(student) {
@@ -67,9 +71,9 @@ function attendanceGrid(students, existing) {
 
     statusLabel(id) {
       const s = this.statuses[id];
-      if (s === 'absent') return '❌ Absent';
-      if (s === 'late')   return '⚠️ Retard';
-      return '✅ Présent';
+      if (s === 'absent') return 'Absent';
+      if (s === 'late')   return 'Retard';
+      return 'Présent';
     },
 
     getPayload() {
@@ -142,26 +146,26 @@ function attendanceGrid(students, existing) {
       <button type="button"
               @click="toggle(student.id)"
               :class="cardClass(student.id)"
-              class="rounded-xl border p-2.5 flex flex-col items-center gap-1.5
-                     active:scale-95 transition-all duration-150 cursor-pointer
+              class="rounded-2xl border p-4 flex flex-col items-center gap-2
+                     active:scale-95 transition-all duration-200 cursor-pointer
                      focus:outline-none focus:ring-2 focus:ring-brand-blue/40">
 
         {# Avatar initiales #}
-        <div class="w-12 h-12 rounded-full flex items-center justify-center
-                    text-base font-bold shrink-0 transition-colors duration-150"
+        <div class="w-14 h-14 rounded-full flex items-center justify-center
+                    text-lg font-bold shrink-0 transition-colors duration-200"
              :style="avatarStyle(student)">
           <span x-text="student.initials"></span>
         </div>
 
         {# Nom court (1ère partie) #}
-        <span class="text-[11px] font-medium text-gray-800 text-center leading-tight
+        <span class="text-sm font-medium text-gray-800 text-center leading-tight
                      w-full truncate px-1"
               x-text="student.short">
         </span>
 
         {# Badge statut #}
-        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full
-                     transition-colors duration-150"
+        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full
+                     transition-colors duration-200"
               :class="badgeClass(student.id)"
               x-text="statusLabel(student.id)">
         </span>
