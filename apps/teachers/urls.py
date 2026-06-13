@@ -21,4 +21,11 @@ urlpatterns = [
     path('students/', views.teacher_students, name='students'),
     path('students/<int:student_id>/', views.teacher_student_detail, name='student-detail'),
     path('students/<int:student_id>/observe/', views.observation_create, name='observe'),
+
+    # ── Suivi difficulté ──────────────────────────────────────
+    path('difficulty/', views.difficulty_dashboard, name='difficulty'),
+    path('difficulty/<int:class_id>/', views.difficulty_class, name='difficulty-class'),
+
+    # ── Évaluation rapide ─────────────────────────────────────
+    path('quick-assessment/save/', views.quick_assessment_save, name='quick-assessment-save'),
 ]

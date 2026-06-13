@@ -4,6 +4,7 @@ Namespace URL : teacher
 """
 import json
 from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from functools import wraps
 
 from django.contrib.auth.decorators import login_required
@@ -549,5 +550,244 @@ def observation_create(request, student_id):
     resp['HX-Trigger'] = json.dumps({
         'showToast':      {'message': msg, 'type': 'success'},
         'close-obs-panel': 'true',
+    })
+    return resp
+
+
+# ─────────────────────────────────────────────────────────────
+# Suivi des élèves en difficulté
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+@teacher_required
+def difficulty_dashboard(request):
+    from .services import (
+        get_class_difficulty_report,
+        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_WATCH,
+    )
+
+    user   = request.user
+    school = get_school(request)
+
+    active_year = school.school_years.filter(is_active=True).first()
+    active_period = None
+    if active_year:
+        active_period = (
+            active_year.periods.filter(is_notes_open=True).first()
+            or active_year.periods.order_by('-order').first()
+        )
+
+    class_ids = _teacher_class_ids(user, school)
+    classes = list(
+        SchoolClass.objects
+        .filter(pk__in=class_ids, is_active=True)
+        .order_by('level', 'name')
+    )
+
+    classes_data = []
+    total_critical = 0
+    total_warning  = 0
+
+    for sc in classes:
+        report = get_class_difficulty_report(user, sc, active_period) if active_period else []
+
+        critical = sum(1 for r in report if r['level'] == LEVEL_CRITICAL)
+        warning  = sum(1 for r in report if r['level'] == LEVEL_WARNING)
+        watch    = sum(1 for r in report if r['level'] == LEVEL_WATCH)
+
+        total_critical += critical
+        total_warning  += warning
+
+        classes_data.append({
+            'school_class':      sc,
+            'level_badge':       LEVEL_BADGE.get(sc.level, 'bg-gray-100 text-gray-600'),
+            'report':            report,
+            'critical_count':    critical,
+            'warning_count':     warning,
+            'watch_count':       watch,
+            'total_struggling':  critical + warning + watch,
+            'critical_students': [r for r in report if r['level'] == LEVEL_CRITICAL],
+            'warning_students':  [r for r in report if r['level'] == LEVEL_WARNING],
+            'watch_students':    [r for r in report if r['level'] == LEVEL_WATCH],
+        })
+
+    classes_data.sort(key=lambda c: -c['critical_count'])
+
+    return render(request, 'teachers/difficulty_dashboard.html', {
+        'classes_data':     classes_data,
+        'total_critical':   total_critical,
+        'total_warning':    total_warning,
+        'total_struggling': sum(c['total_struggling'] for c in classes_data),
+        'active_period':    active_period,
+    })
+
+
+@login_required
+@teacher_required
+def difficulty_class(request, class_id):
+    from .services import (
+        get_class_difficulty_report,
+        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_WATCH, LEVEL_GOOD,
+    )
+
+    user   = request.user
+    school = get_school(request)
+    class_ids = _teacher_class_ids(user, school)
+
+    school_class = get_object_or_404(SchoolClass, pk=class_id, school=school, is_active=True)
+    if school_class.pk not in class_ids:
+        return HttpResponse(status=403)
+
+    active_year = school.school_years.filter(is_active=True).first()
+    active_period = None
+    if active_year:
+        active_period = (
+            active_year.periods.filter(is_notes_open=True).first()
+            or active_year.periods.order_by('-order').first()
+        )
+
+    report_full = (
+        get_class_difficulty_report(user, school_class, active_period)
+        if active_period else []
+    )
+
+    active_filter = request.GET.get('level', 'all')
+    valid_filters = {LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_WATCH, LEVEL_GOOD}
+    if active_filter in valid_filters:
+        report = [r for r in report_full if r['level'] == active_filter]
+    else:
+        active_filter = 'all'
+        report = report_full
+
+    my_subjects = list(
+        ClassSubject.objects
+        .filter(school_class=school_class, teacher=user, is_active=True)
+        .select_related('subject')
+        .order_by('order', 'subject__name')
+    )
+
+    counts = {
+        'all':      len(report_full),
+        'critical': sum(1 for r in report_full if r['level'] == LEVEL_CRITICAL),
+        'warning':  sum(1 for r in report_full if r['level'] == LEVEL_WARNING),
+        'watch':    sum(1 for r in report_full if r['level'] == LEVEL_WATCH),
+        'good':     sum(1 for r in report_full if r['level'] == LEVEL_GOOD),
+    }
+
+    return render(request, 'teachers/difficulty_class.html', {
+        'school_class':  school_class,
+        'level_badge':   LEVEL_BADGE.get(school_class.level, 'bg-gray-100 text-gray-600'),
+        'report':        report,
+        'period':        active_period,
+        'active_filter': active_filter,
+        'my_subjects':   my_subjects,
+        'counts':        counts,
+    })
+
+
+@login_required
+@teacher_required
+@require_POST
+def quick_assessment_save(request):
+    from .models import QuickAssessment
+    from datetime import datetime as _dt, date as _date
+
+    user   = request.user
+    school = get_school(request)
+
+    try:
+        student_id       = int(request.POST.get('student_id', ''))
+        class_subject_id = int(request.POST.get('class_subject_id', ''))
+        value            = Decimal(request.POST.get('value', '').strip())
+    except (ValueError, TypeError, InvalidOperation):
+        return HttpResponse(status=400)
+
+    try:
+        max_value = Decimal(request.POST.get('max_value', '20').strip())
+        if max_value < Decimal('1'):
+            max_value = Decimal('20')
+    except (ValueError, TypeError, InvalidOperation):
+        max_value = Decimal('20')
+
+    assessment_type = request.POST.get('assessment_type', 'oral')
+    valid_types = {t[0] for t in QuickAssessment.AssessmentType.choices}
+    if assessment_type not in valid_types:
+        assessment_type = 'oral'
+
+    note_text = request.POST.get('note', '').strip()[:200]
+
+    try:
+        assessed_at = _dt.strptime(
+            request.POST.get('assessed_at', '').strip(), '%Y-%m-%d'
+        ).date()
+    except (ValueError, TypeError):
+        assessed_at = _date.today()
+
+    if not (Decimal('0') <= value <= max_value):
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({
+            'showToast': {
+                'message': f'La note doit être entre 0 et {max_value}.',
+                'type': 'error',
+            },
+        })
+        return resp
+
+    class_subject = get_object_or_404(
+        ClassSubject,
+        pk=class_subject_id,
+        teacher=user,
+        is_active=True,
+        school_class__school=school,
+    )
+
+    student = get_object_or_404(
+        Student,
+        pk=student_id,
+        school=school,
+        is_active=True,
+        school_class=class_subject.school_class,
+    )
+
+    active_year = school.school_years.filter(is_active=True).first()
+    if not active_year:
+        return HttpResponse(status=400)
+    period = (
+        active_year.periods.filter(is_notes_open=True).first()
+        or active_year.periods.order_by('-order').first()
+    )
+    if not period:
+        return HttpResponse(status=400)
+
+    QuickAssessment.objects.create(
+        teacher=user,
+        student=student,
+        class_subject=class_subject,
+        period=period,
+        assessment_type=assessment_type,
+        value=value,
+        max_value=max_value,
+        note=note_text,
+        assessed_at=assessed_at,
+    )
+
+    from .services import compute_difficulty_score
+    score_dict = compute_difficulty_score(student, user, class_subject, period)
+    score_display = f"{score_dict['score']}/20" if score_dict['score'] is not None else '—'
+
+    resp = HttpResponse(status=200)
+    resp['HX-Trigger'] = json.dumps({
+        'showToast': {
+            'message': f'Évaluation enregistrée · {score_display}',
+            'type': 'success',
+        },
+        'close-qa-panel': 'true',
+        'score-updated': {
+            'student_id':       student.pk,
+            'class_subject_id': class_subject.pk,
+            'score': str(score_dict['score']) if score_dict['score'] is not None else None,
+            'level': score_dict['level'],
+            'trend': score_dict['trend'],
+        },
     })
     return resp

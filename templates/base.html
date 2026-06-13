@@ -125,6 +125,16 @@
           <span x-show="$store.sidebar.open">Absences</span>
         </a>
 
+        <!-- Suivi élèves -->
+        <a href="{% url 'teacher:difficulty' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Suivi élèves'">
+          <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Suivi élèves</span>
+        </a>
+
         <!-- Mes élèves (lecture seule) -->
         <a href="{% url 'teacher:students' %}"
            class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-100 hover:text-gray-900"
@@ -558,15 +568,15 @@
       <span class="text-[11px] font-medium">Absences</span>
     </a>
 
-    {# Mes élèves #}
-    <a href="{% url 'teacher:students' %}"
+    {# Suivi élèves #}
+    <a href="{% url 'teacher:difficulty' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.url_name == 'students' or request.resolver_match.url_name == 'student-detail' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if request.resolver_match.url_name == 'students' or request.resolver_match.url_name == 'student-detail' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
-        <i data-lucide="users" class="w-6 h-6 shrink-0"></i>
+        {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        <i data-lucide="alert-triangle" class="w-6 h-6 shrink-0"></i>
       </div>
-      <span class="text-[11px] font-medium">Mes élèves</span>
+      <span class="text-[11px] font-medium">Suivi</span>
     </a>
 
     {% else %}

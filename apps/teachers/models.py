@@ -1,3 +1,7 @@
+from decimal import Decimal
+from datetime import date
+
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -139,4 +143,91 @@ class StudentObservation(models.Model):
         return (
             f'{self.teacher.full_name} → {self.student.full_name}'
             f' ({self.get_observation_type_display()})'
+        )
+
+
+class QuickAssessment(models.Model):
+    """
+    Évaluation rapide privée — oral, contrôle, devoir maison, travail classe.
+    Ne figure pas dans les bulletins officiels.
+    Visible uniquement par l'enseignant qui l'a saisie.
+    Utilisée pour calculer le score de difficulté de l'élève.
+    """
+
+    class AssessmentType(models.TextChoices):
+        ORAL      = 'oral',      _('Interrogation orale')
+        WRITTEN   = 'written',   _('Petit contrôle écrit')
+        HOMEWORK  = 'homework',  _('Devoir maison')
+        CLASSWORK = 'classwork', _('Travail en classe')
+        BEHAVIOR  = 'behavior',  _('Comportement / Participation')
+
+    teacher = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quick_assessments',
+        verbose_name=_('enseignant'),
+    )
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.PROTECT,
+        related_name='quick_assessments',
+        verbose_name=_('élève'),
+    )
+    class_subject = models.ForeignKey(
+        'schools.ClassSubject',
+        on_delete=models.PROTECT,
+        related_name='quick_assessments',
+        verbose_name=_('matière de classe'),
+    )
+    period = models.ForeignKey(
+        'schools.Period',
+        on_delete=models.PROTECT,
+        related_name='quick_assessments',
+        verbose_name=_('période'),
+    )
+    assessment_type = models.CharField(
+        _('type'),
+        max_length=20,
+        choices=AssessmentType.choices,
+        default=AssessmentType.ORAL,
+    )
+    value = models.DecimalField(
+        _('note obtenue'),
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+    )
+    max_value = models.DecimalField(
+        _('note maximale'),
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('20.00'),
+        validators=[MinValueValidator(Decimal('1.00'))],
+    )
+    note        = models.CharField(_('remarque'), max_length=200, blank=True)
+    assessed_at = models.DateField(_('date'), default=date.today)
+    created_at  = models.DateTimeField(_('créée le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name        = _('évaluation rapide')
+        verbose_name_plural = _('évaluations rapides')
+        ordering            = ['-assessed_at', '-created_at']
+        indexes = [
+            models.Index(
+                fields=['teacher', 'student', 'period'],
+                name='qa_teacher_student_per_idx',
+            ),
+            models.Index(
+                fields=['class_subject', 'period'],
+                name='qa_cs_period_idx',
+            ),
+        ]
+
+    def __str__(self):
+        teacher_name = self.teacher.full_name if self.teacher else '(supprimé)'
+        return (
+            f'{teacher_name} → {self.student.full_name}'
+            f' [{self.get_assessment_type_display()}] : {self.value}/{self.max_value}'
         )
