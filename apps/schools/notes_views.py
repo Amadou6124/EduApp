@@ -177,7 +177,7 @@ def notes_dashboard(request):
 
     # Filtre enseignant : uniquement ses classes (assigné ou délégué)
     teacher_class_ids = None
-    if request.user.role == 'teacher':
+    if request.role == 'teacher':
         assigned_ids  = ClassSubject.objects.filter(
             teacher=request.user, is_active=True,
         ).values_list('school_class_id', flat=True).distinct()

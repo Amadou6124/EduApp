@@ -84,14 +84,25 @@ def school_context(request):
 
     # ── Requête 3 : observations non lues (directeur/staff uniquement) ───────
     unread_observations_count = 0
-    if request.user.role in ('director', 'staff') or request.user.is_superuser:
+    if request.role in ('director', 'staff') or request.user.is_superuser:
         from apps.teachers.models import StudentObservation
         unread_observations_count = StudentObservation.objects.filter(
             school=school, is_read=False, is_private=False,
         ).count()
 
+    # ── Requête 4 : autres écoles de l'utilisateur (switch multi-école) ──────
+    from apps.accounts.models import Membership
+    user_memberships = list(
+        Membership.objects
+        .filter(user=request.user, is_active=True)
+        .select_related('school')
+        .exclude(school=school)
+        .order_by('school__name')
+    )
+
     return {
         'badge_year':                active_year,
         'alert_count':               alert_count,
         'unread_observations_count': unread_observations_count,
+        'user_memberships':          user_memberships,
     }

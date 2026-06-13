@@ -9,6 +9,7 @@ class UserRole(models.TextChoices):
     TEACHER = 'teacher', _('Professeur')
     STUDENT = 'student', _('Élève')
     PARENT = 'parent', _('Parent')
+    PROMOTER = 'promoter', _('Promoteur')
 
 
 class UserManager(BaseUserManager):
@@ -102,6 +103,55 @@ class User(AbstractBaseUser, PermissionsMixin):
         return '#FAECE7', '#712B13'
 
 
+class Membership(models.Model):
+    """
+    Appartenance d'un utilisateur à une école avec un rôle donné.
+    Source de vérité du couple (utilisateur, école, rôle) en multi-école.
+    Remplace progressivement User.school (conservé 1 release en fallback).
+    """
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='memberships', verbose_name=_('utilisateur'),
+    )
+    school = models.ForeignKey(
+        'schools.School', on_delete=models.CASCADE,
+        related_name='memberships', verbose_name=_('école'),
+    )
+    role = models.CharField(_('rôle'), max_length=20, choices=UserRole.choices)
+    job_title = models.CharField(
+        _('titre du poste'), max_length=100, blank=True,
+        help_text=_('Ex : Censeur, Comptable, Surveillant'),
+    )
+    is_default = models.BooleanField(
+        _('école par défaut'), default=False,
+        help_text=_('École ouverte automatiquement à la connexion'),
+    )
+    is_active  = models.BooleanField(_('actif'), default=True)
+    created_at = models.DateTimeField(_('créé le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('appartenance')
+        verbose_name_plural = _('appartenances')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'school'],
+                name='unique_user_school_membership',
+            ),
+            models.UniqueConstraint(
+                fields=['user'],
+                condition=models.Q(is_default=True),
+                name='uniq_default_membership_user',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'is_active'], name='membership_user_active_idx'),
+            models.Index(fields=['school', 'role'],    name='membership_school_role_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.full_name} @ {self.school.name} ({self.get_role_display()})'
+
+
 class StaffPermission(models.Model):
     """
     Permissions granulaires pour les membres staff d'une école.
@@ -113,6 +163,14 @@ class StaffPermission(models.Model):
         on_delete=models.PROTECT,
         related_name='staff_permission',
         verbose_name=_('utilisateur'),
+    )
+    # Lien vers l'appartenance (per-école). Nullable en Phase A, backfill Phase B.
+    membership = models.OneToOneField(
+        'Membership',
+        on_delete=models.PROTECT,
+        related_name='staff_permission',
+        null=True, blank=True,
+        verbose_name=_('appartenance'),
     )
 
     # ── Paiements ─────────────────────────────────────────────────
