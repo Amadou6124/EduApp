@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Absences — {{ today_label }}{% endblock %}
+{% block page_title %}Absences{% endblock %}
+{% block page_subtitle %}<p class="text-sm text-gray-500 mt-0.5">{{ today_label }}</p>{% endblock %}
+
+{% block content %}
+<div class="space-y-4 max-w-2xl mx-auto">
+
+  {# ── Progression du jour ──────────────────────────── #}
+  {% if nb_total %}
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-sm font-medium text-gray-700">Avancement du jour</span>
+      <span class="text-sm font-semibold
+                   {% if nb_done == nb_total %}text-green-600{% else %}text-gray-500{% endif %}">
+        {{ nb_done }}/{{ nb_total }} classe{{ nb_total|pluralize }}
+      </span>
+    </div>
+    <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+      {% with pct=nb_done|floatformat:0 %}
+      <div class="h-full rounded-full transition-all duration-500
+                  {% if nb_done == nb_total %}bg-green-400{% else %}bg-brand-blue{% endif %}"
+           style="width: {% if nb_total %}{{ nb_done|floatformat:0 }}00{% else %}0{% endif %}%">
+      </div>
+      {% endwith %}
+    </div>
+    {% if nb_done == nb_total and nb_total > 0 %}
+    <p class="text-xs text-green-600 font-medium mt-2 flex items-center gap-1">
+      <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+      Toutes les classes traitées aujourd'hui
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ── Liste des classes ───────────────────────────── #}
+  {% if class_items %}
+  <div class="space-y-2">
+    {% for item in class_items %}
+    <a href="{% url 'teacher:attendance-class' item.class.pk %}"
+       class="flex items-center gap-3 bg-white rounded-xl border
+              {% if item.done %}border-green-200{% else %}border-gray-200{% endif %}
+              p-4 hover:shadow-sm active:scale-[0.99] transition group">
+
+      {# Icône statut #}
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
+                  {% if item.done %}bg-green-50{% else %}bg-amber-50{% endif %}">
+        <i data-lucide="{% if item.done %}calendar-check{% else %}calendar-x{% endif %}"
+           class="w-5 h-5 {% if item.done %}text-green-600{% else %}text-amber-600{% endif %}">
+        </i>
+      </div>
+
+      {# Infos classe #}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-gray-900">{{ item.class.name }}</span>
+          <span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold {{ item.level_badge }}">
+            {{ item.class.get_level_display }}
+          </span>
+        </div>
+        <p class="text-xs text-gray-500 mt-0.5">
+          {{ item.student_count }} élève{{ item.student_count|pluralize }}
+        </p>
+      </div>
+
+      {# Badge fait / en attente #}
+      <div class="shrink-0 flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+                     {% if item.done %}bg-green-100 text-green-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+          {% if item.done %}✅ Fait{% else %}⏳ En attente{% endif %}
+        </span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-gray-600"></i>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-200 p-10 text-center">
+    <i data-lucide="calendar-x" class="w-12 h-12 mx-auto text-gray-300 mb-3"></i>
+    <p class="text-sm font-medium text-gray-500">Aucune classe assignée</p>
+    <p class="text-xs text-gray-400 mt-1">Contactez le directeur pour être affecté à des classes.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

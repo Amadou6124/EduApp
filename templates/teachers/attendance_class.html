@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Absences — {{ school_class.name }}{% endblock %}
+
+{# ── Bouton retour dans le breadcrumb ──────────────────── #}
+{% block breadcrumb %}
+<a href="{% url 'teacher:attendance-list' %}"
+   class="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-500 hover:text-gray-700 shrink-0">
+  <i data-lucide="arrow-left" class="w-5 h-5"></i>
+</a>
+{% endblock %}
+
+{% block page_title %}{{ school_class.name }}{% endblock %}
+{% block page_subtitle %}<p class="text-sm text-gray-500 mt-0.5">{{ today_label }}</p>{% endblock %}
+
+{# ── Sélecteur de date (header droite) ─────────────────── #}
+{% block header_actions %}
+<input type="date"
+       value="{{ selected_date|date:'Y-m-d' }}"
+       max="{{ today|date:'Y-m-d' }}"
+       onchange="window.location.href = '?date=' + this.value"
+       class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600
+              focus:outline-none focus:ring-2 focus:ring-brand-blue/30
+              cursor-pointer bg-white">
+{% endblock %}
+
+{# ── Fonction Alpine définie dans le head ──────────────── #}
+{% block extra_head %}
+<script>
+function attendanceGrid(students, existing) {
+  return {
+    students: students,
+    statuses: Object.fromEntries(
+      students.map(s => [s.id, existing[s.id] || 'present'])
+    ),
+    saved: false,
+
+    toggle(id) {
+      const cur = this.statuses[id];
+      this.statuses[id] = cur === 'present' ? 'absent'
+                        : cur === 'absent'  ? 'late'
+                        : 'present';
+      this.saved = false;
+    },
+
+    cardClass(id) {
+      const s = this.statuses[id];
+      if (s === 'absent') return 'bg-red-50 border-red-400 border-2 shadow-sm';
+      if (s === 'late')   return 'bg-amber-50 border-amber-400 border-2 shadow-sm';
+      return 'bg-white border-gray-200';
+    },
+
+    avatarStyle(student) {
+      const s = this.statuses[student.id];
+      if (s === 'absent') return 'background:#ef4444;color:white';
+      if (s === 'late')   return 'background:#f59e0b;color:white';
+      return `background:${student.avatar_bg};color:${student.avatar_text}`;
+    },
+
+    badgeClass(id) {
+      const s = this.statuses[id];
+      if (s === 'absent') return 'bg-red-100 text-red-700';
+      if (s === 'late')   return 'bg-amber-100 text-amber-700';
+      return 'bg-green-100 text-green-700';
+    },
+
+    statusLabel(id) {
+      const s = this.statuses[id];
+      if (s === 'absent') return '❌ Absent';
+      if (s === 'late')   return '⚠️ Retard';
+      return '✅ Présent';
+    },
+
+    getPayload() {
+      return JSON.stringify(
+        Object.entries(this.statuses)
+          .filter(([, v]) => v !== 'present')
+          .map(([k, v]) => ({ id: parseInt(k), status: v }))
+      );
+    },
+
+    get presentCount() {
+      return Object.values(this.statuses).filter(s => s === 'present').length;
+    },
+    get absentCount() {
+      return Object.values(this.statuses).filter(s => s === 'absent').length;
+    },
+    get lateCount() {
+      return Object.values(this.statuses).filter(s => s === 'late').length;
+    },
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+{# Données JSON injectées de façon sécurisée #}
+{{ students_data|json_script:"students-data" }}
+{{ existing_map|json_script:"existing-data" }}
+
+<div x-data="attendanceGrid(
+    JSON.parse(document.getElementById('students-data').textContent),
+    JSON.parse(document.getElementById('existing-data').textContent)
+  )"
+  class="max-w-2xl mx-auto">
+
+  {# ══════════════════════════════════════════════════════ #}
+  {# COMPTEUR STICKY (sous le header)                     #}
+  {# ══════════════════════════════════════════��═══════════ #}
+  <div class="sticky top-14 sm:top-16 z-10 -mx-6 lg:-mx-8 px-6 lg:px-8
+              bg-white border-b border-gray-100 py-2.5 mb-4">
+    <div class="flex items-center justify-between max-w-2xl mx-auto">
+      <div class="flex items-center gap-4 text-sm">
+        <span class="flex items-center gap-1.5 font-medium text-green-600">
+          <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+          <span x-text="presentCount"></span>
+          <span class="text-gray-500 font-normal">présent<span x-show="presentCount !== 1">s</span></span>
+        </span>
+        <span class="flex items-center gap-1.5 font-medium text-red-600">
+          <span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+          <span x-text="absentCount"></span>
+          <span class="text-gray-500 font-normal">absent<span x-show="absentCount !== 1">s</span></span>
+        </span>
+        <span class="flex items-center gap-1.5 font-medium text-amber-600">
+          <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
+          <span x-text="lateCount"></span>
+          <span class="text-gray-500 font-normal">retard<span x-show="lateCount !== 1">s</span></span>
+        </span>
+      </div>
+      <span class="text-xs text-gray-400">{{ nb_students }} élève{{ nb_students|pluralize }}</span>
+    </div>
+  </div>
+
+  {# ══════════════════════════════════════════════���═══════ #}
+  {# GRILLE ÉLÈVES                                        #}
+  {# ══════════════════════════════════════════════════════ #}
+  {% if nb_students %}
+  <div class="grid grid-cols-3 sm:grid-cols-4 gap-3 pb-36 lg:pb-6">
+    <template x-for="student in students" :key="student.id">
+      <button type="button"
+              @click="toggle(student.id)"
+              :class="cardClass(student.id)"
+              class="rounded-xl border p-2.5 flex flex-col items-center gap-1.5
+                     active:scale-95 transition-all duration-150 cursor-pointer
+                     focus:outline-none focus:ring-2 focus:ring-brand-blue/40">
+
+        {# Avatar initiales #}
+        <div class="w-12 h-12 rounded-full flex items-center justify-center
+                    text-base font-bold shrink-0 transition-colors duration-150"
+             :style="avatarStyle(student)">
+          <span x-text="student.initials"></span>
+        </div>
+
+        {# Nom court (1ère partie) #}
+        <span class="text-[11px] font-medium text-gray-800 text-center leading-tight
+                     w-full truncate px-1"
+              x-text="student.short">
+        </span>
+
+        {# Badge statut #}
+        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full
+                     transition-colors duration-150"
+              :class="badgeClass(student.id)"
+              x-text="statusLabel(student.id)">
+        </span>
+
+      </button>
+    </template>
+  </div>
+
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-200 p-10 text-center mt-4">
+    <i data-lucide="users" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i>
+    <p class="text-sm font-medium text-gray-500">Aucun élève dans cette classe</p>
+  </div>
+  {% endif %}
+
+  {# ════════════════════════════════════════════════════���═ #}
+  {# BOUTON ENREGISTRER                                   #}
+  {# ═���═════════════════════════════���══════════════════════ #}
+  {% if nb_students %}
+  <form id="save-form"
+        hx-post="{% url 'teacher:attendance-save' school_class.pk %}"
+        hx-swap="none"
+        @attendance-saved.document="saved = true">
+
+    <input type="hidden" name="absences" :value="getPayload()">
+    <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+    {% csrf_token %}
+
+    {# Mobile : fixé juste au-dessus de la bottom nav #}
+    <div class="lg:hidden fixed bottom-16 left-0 right-0 z-20
+                bg-white border-t border-gray-200 px-4 py-3 shadow-lg">
+      <button type="submit"
+              :disabled="saved"
+              :class="saved
+                ? 'bg-green-600 hover:bg-green-600'
+                : 'bg-[#1E3A5F] hover:bg-[#1E3A5F]/90'"
+              class="w-full min-h-[52px] rounded-xl text-white font-semibold text-sm
+                     flex items-center justify-center gap-2 transition
+                     disabled:cursor-default active:scale-[0.99]">
+        <template x-if="saved">
+          <i data-lucide="check-circle" class="w-5 h-5 shrink-0"></i>
+        </template>
+        <template x-if="!saved">
+          <i data-lucide="save" class="w-5 h-5 shrink-0"></i>
+        </template>
+        <span x-text="saved ? 'Présences enregistrées ✓' : 'Enregistrer les présences'"></span>
+      </button>
+    </div>
+
+    {# Desktop : dans le flux normal #}
+    <div class="hidden lg:block mt-4 pb-4">
+      <button type="submit"
+              :disabled="saved"
+              :class="saved ? 'bg-green-600' : 'bg-[#1E3A5F] hover:bg-[#1E3A5F]/90'"
+              class="w-full min-h-[48px] rounded-xl text-white font-semibold text-sm
+                     flex items-center justify-center gap-2 transition
+                     disabled:cursor-default active:scale-[0.99]">
+        <template x-if="saved">
+          <i data-lucide="check-circle" class="w-5 h-5 shrink-0"></i>
+        </template>
+        <template x-if="!saved">
+          <i data-lucide="save" class="w-5 h-5 shrink-0"></i>
+        </template>
+        <span x-text="saved ? 'Présences enregistrées ✓' : 'Enregistrer les présences'"></span>
+      </button>
+    </div>
+
+  </form>
+  {% endif %}
+
+</div>
+{% endblock %}
