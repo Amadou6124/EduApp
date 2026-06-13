@@ -120,23 +120,29 @@
 
         <p class="text-sm text-gray-700 leading-relaxed mb-3">{{ obs.content }}</p>
 
-        {# Bouton marquer comme lu #}
-        {% if not obs.is_read %}
-        <button id="obs-mark-btn-{{ obs.pk }}"
-                hx-post="{% url 'students:obs-mark-read' student.pk obs.pk %}"
-                hx-target="#obs-mark-btn-{{ obs.pk }}"
-                hx-swap="outerHTML"
-                class="text-xs px-3 py-1.5 bg-white border border-blue-200 text-blue-600
-                       rounded-lg hover:bg-blue-50 transition font-medium">
-          Marquer comme lu
-        </button>
-        {% else %}
-        <span id="obs-mark-btn-{{ obs.pk }}"
-              class="text-xs text-gray-400 flex items-center gap-1">
-          <i data-lucide="check" class="w-3 h-3"></i>
-          Lu le {{ obs.read_at|date:"d/m/Y" }}
-        </span>
-        {% endif %}
+        {# Actions admin #}
+        <div class="flex items-center gap-2 flex-wrap">
+          {# Bouton marquer comme lu #}
+          {% if not obs.is_read %}
+          <button id="obs-mark-btn-{{ obs.pk }}"
+                  hx-post="{% url 'students:obs-mark-read' student.pk obs.pk %}"
+                  hx-target="#obs-mark-btn-{{ obs.pk }}"
+                  hx-swap="outerHTML"
+                  class="text-xs px-3 py-1.5 bg-white border border-blue-200 text-blue-600
+                         rounded-lg hover:bg-blue-50 transition font-medium">
+            Marquer comme lu
+          </button>
+          {% else %}
+          <span id="obs-mark-btn-{{ obs.pk }}"
+                class="text-xs text-gray-400 flex items-center gap-1">
+            <i data-lucide="check" class="w-3 h-3"></i>
+            Lu le {{ obs.read_at|date:"d/m/Y" }}
+          </span>
+          {% endif %}
+
+          {# Bouton partager au parent (toggle instantané via swap du partial) #}
+          {% include "students/partials/obs_share_button.html" %}
+        </div>
       </div>
       {% endfor %}
     </div>

@@ -264,6 +264,53 @@ def observation_mark_read(request, student_id, obs_id):
 
 @login_required
 @director_or_staff_required
+@require_http_methods(['POST'])
+def observation_share_parent(request, student_id, obs_id):
+    """Toggle le partage d'une observation (non-privée) vers les parents + notifie."""
+    from apps.teachers.models import StudentObservation
+    from apps.notifications.services import notify_guardians
+    from apps.notifications.models import NotificationCategory
+
+    school = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school)
+    obs = get_object_or_404(
+        StudentObservation,
+        id=obs_id,
+        student=student,
+        is_private=False,
+    )
+
+    if obs.is_visible_to_parent:
+        # Déjà partagé → retirer
+        obs.is_visible_to_parent = False
+        obs.save(update_fields=['is_visible_to_parent'])
+        msg, notif_type = 'Observation retirée du portail parent.', 'info'
+    else:
+        # Partager + notifier les parents
+        obs.is_visible_to_parent = True
+        obs.save(update_fields=['is_visible_to_parent'])
+        message = obs.parent_message or obs.content[:100]
+        notify_guardians(
+            student=student,
+            category=NotificationCategory.OBSERVATION,
+            title=f"Message de l'école concernant {student.full_name}",
+            body=message,
+            url='/portal/parent/',
+            target=obs,
+        )
+        msg, notif_type = 'Observation partagée avec les parents.', 'success'
+
+    resp = render(request, 'students/partials/obs_share_button.html', {
+        'obs': obs, 'student': student,
+    })
+    resp['HX-Trigger'] = json.dumps({
+        'showToast': {'message': msg, 'type': notif_type},
+    })
+    return resp
+
+
+@login_required
+@director_or_staff_required
 def student_update(request, student_id):
     school = get_school(request)
     student = get_object_or_404(
