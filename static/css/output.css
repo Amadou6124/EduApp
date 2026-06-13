@@ -911,6 +911,10 @@ p {
   bottom: 0.75rem;
 }
 
+.bottom-\[68px\] {
+  bottom: 68px;
+}
+
 .left-0 {
   left: 0px;
 }
@@ -929,6 +933,10 @@ p {
 
 .left-3 {
   left: 0.75rem;
+}
+
+.left-5 {
+  left: 1.25rem;
 }
 
 .left-\[9px\] {
@@ -1352,6 +1360,10 @@ p {
 
 .max-h-\[90vh\] {
   max-height: 90vh;
+}
+
+.min-h-0 {
+  min-height: 0px;
 }
 
 .min-h-\[200px\] {
@@ -2354,6 +2366,11 @@ p {
 
 .bg-gray-50\/50 {
   background-color: rgb(249 250 251 / 0.5);
+}
+
+.bg-gray-600 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(75 85 99 / var(--tw-bg-opacity, 1));
 }
 
 .bg-green-100 {
@@ -3664,6 +3681,11 @@ p {
   background-color: rgb(249 250 251 / 0.5);
 }
 
+.hover\:bg-gray-700:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(55 65 81 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:bg-green-100:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(220 252 231 / var(--tw-bg-opacity, 1));
@@ -4181,8 +4203,8 @@ p {
     padding-bottom: 1.25rem;
   }
 
-  .sm\:pt-4 {
-    padding-top: 1rem;
+  .sm\:pt-\[60px\] {
+    padding-top: 60px;
   }
 
   .sm\:text-2xl {
@@ -4219,12 +4241,20 @@ p {
 }
 
 @media (min-width: 1024px) {
+  .lg\:bottom-0 {
+    bottom: 0px;
+  }
+
   .lg\:left-16 {
     left: 4rem;
   }
 
   .lg\:left-64 {
     left: 16rem;
+  }
+
+  .lg\:top-\[64px\] {
+    top: 64px;
   }
 
   .lg\:col-span-1 {
@@ -4283,6 +4313,10 @@ p {
 
   .lg\:pb-6 {
     padding-bottom: 1.5rem;
+  }
+
+  .lg\:pt-4 {
+    padding-top: 1rem;
   }
 }
 

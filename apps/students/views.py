@@ -217,7 +217,7 @@ def student_detail(request, student_id):
         from apps.teachers.models import StudentObservation
         observations = list(
             StudentObservation.objects
-            .filter(student=student, school=school)
+            .filter(student=student, school=school, is_private=False)
             .select_related('teacher', 'read_by')
             .order_by('-created_at')
         )
@@ -240,6 +240,7 @@ def observation_mark_read(request, student_id, obs_id):
         pk=obs_id,
         student_id=student_id,
         school=school,
+        is_private=False,
     )
     if not obs.is_read:
         obs.is_read = True

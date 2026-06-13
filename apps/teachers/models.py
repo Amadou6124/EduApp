@@ -108,7 +108,8 @@ class StudentObservation(models.Model):
     )
     content    = models.TextField(_('contenu'))
     created_at = models.DateTimeField(_('rédigée le'), auto_now_add=True)
-    # Badge "non-lu" pour notification admin (Phase 6)
+    is_private = models.BooleanField(_('note privée'), default=True)
+    # Badge "non-lu" pour notification admin (visible uniquement si is_private=False)
     is_read = models.BooleanField(_('lue par admin'), default=False)
     read_at = models.DateTimeField(_('lue le'), null=True, blank=True)
     read_by = models.ForeignKey(

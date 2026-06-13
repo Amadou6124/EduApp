@@ -59,7 +59,14 @@
 
           {# Identité #}
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate">{{ student.full_name }}</p>
+            <div class="flex items-center gap-2">
+              <p class="text-sm font-medium text-gray-900 truncate">{{ student.full_name }}</p>
+              {% if student.obs_count %}
+              <span class="shrink-0 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold">
+                {{ student.obs_count }}
+              </span>
+              {% endif %}
+            </div>
             <p class="text-xs text-gray-400">{{ group.class.name }}</p>
           </div>
 

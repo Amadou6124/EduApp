@@ -1,6 +1,6 @@
 {% comment %}
 Panel slide-from-right pour créer une observation.
-Requiert que le parent ait x-data avec { obsPanel, obsType }.
+Requiert que le parent ait x-data avec { obsPanel, obsType, isPrivate }.
 L'événement HX-Trigger close-obs-panel ferme le panel.
 {% endcomment %}
 {% load i18n %}
@@ -27,11 +27,12 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
      x-transition:leave="transition ease-in duration-200"
      x-transition:leave-start="translate-x-0"
      x-transition:leave-end="translate-x-full"
-     class="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-white shadow-2xl z-40
+     class="fixed right-0 top-0 lg:top-[64px] bottom-[68px] lg:bottom-0
+            w-full sm:w-[420px] bg-white shadow-2xl z-40
             flex flex-col overflow-hidden">
 
   {# En-tête panel #}
-  <div class="flex items-center justify-between px-5 pt-14 pb-4 sm:pt-4 border-b border-gray-100 shrink-0">
+  <div class="flex items-center justify-between px-5 pt-14 pb-4 sm:pt-[60px] lg:pt-4 border-b border-gray-100 shrink-0">
     <div>
       <h2 class="text-base font-bold text-gray-900">Nouvelle observation</h2>
       <p class="text-xs text-gray-400 mt-0.5">{{ student.full_name }}</p>
@@ -48,11 +49,11 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
         hx-swap="none"
         @submit.prevent
         hx-on::after-request="if(event.detail.xhr.status === 200){ $dispatch('htmx:trigger'); }"
-        class="flex flex-col flex-1 overflow-y-auto">
+        class="flex flex-col flex-1">
 
     {% csrf_token %}
 
-    <div class="flex-1 p-5 space-y-5">
+    <div class="flex-1 p-5 space-y-5 overflow-y-auto min-h-0">
 
       {# ── 4 boutons type d'observation ── #}
       <div>
@@ -103,7 +104,7 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
       <div>
         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Observation</p>
         <textarea name="content"
-                  rows="6"
+                  rows="5"
                   required
                   placeholder="Décrivez l'observation de façon claire et factuelle…"
                   class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm
@@ -112,17 +113,54 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
         </textarea>
       </div>
 
+      {# ── Toggle visibilité privée / admin ── #}
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Visibilité</p>
+        <button type="button"
+                @click="isPrivate = !isPrivate"
+                class="w-full flex items-center justify-between p-3 rounded-xl border transition"
+                :class="isPrivate ? 'border-gray-200 bg-gray-50' : 'border-blue-200 bg-blue-50'">
+          <div class="flex items-center gap-2.5 text-left">
+            <template x-if="isPrivate">
+              <i data-lucide="lock" class="w-4 h-4 text-gray-500 shrink-0"></i>
+            </template>
+            <template x-if="!isPrivate">
+              <i data-lucide="send" class="w-4 h-4 text-brand-blue shrink-0"></i>
+            </template>
+            <div>
+              <p class="text-sm font-medium"
+                 :class="isPrivate ? 'text-gray-700' : 'text-brand-blue'"
+                 x-text="isPrivate ? 'Note privée' : 'Envoyer à l\'administration'"></p>
+              <p class="text-xs mt-0.5"
+                 :class="isPrivate ? 'text-gray-400' : 'text-blue-400'"
+                 x-text="isPrivate ? 'Visible uniquement par vous' : 'Notifie le directeur'"></p>
+            </div>
+          </div>
+          <div class="relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0"
+               :class="isPrivate ? 'bg-gray-300' : 'bg-brand-blue'">
+            <span class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200"
+                  :class="isPrivate ? 'left-0.5' : 'left-5'"></span>
+          </div>
+        </button>
+        <input type="hidden" name="is_private" :value="isPrivate ? 'true' : 'false'">
+      </div>
+
     </div>
 
     {# ── Bouton envoyer (fixe en bas) ── #}
     <div class="px-5 py-4 border-t border-gray-100 bg-white shrink-0">
       <button type="submit"
-              class="w-full h-12 rounded-xl bg-[#1E3A5F] hover:bg-[#1E3A5F]/90
-                     text-white font-semibold text-sm
+              :class="isPrivate ? 'bg-gray-600 hover:bg-gray-700' : 'bg-[#1E3A5F] hover:bg-[#1E3A5F]/90'"
+              class="w-full h-12 rounded-xl text-white font-semibold text-sm
                      flex items-center justify-center gap-2
                      transition active:scale-[0.99] select-none">
-        <i data-lucide="send" class="w-4 h-4"></i>
-        Envoyer à l'administration
+        <template x-if="isPrivate">
+          <i data-lucide="lock" class="w-4 h-4"></i>
+        </template>
+        <template x-if="!isPrivate">
+          <i data-lucide="send" class="w-4 h-4"></i>
+        </template>
+        <span x-text="isPrivate ? 'Enregistrer en privé' : 'Envoyer à l\'administration'"></span>
       </button>
     </div>
 

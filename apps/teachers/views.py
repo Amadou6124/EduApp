@@ -408,7 +408,12 @@ def teacher_students(request):
                .prefetch_related(
                    Prefetch(
                        'students',
-                       queryset=Student.objects.filter(is_active=True).order_by('full_name'),
+                       queryset=Student.objects.filter(is_active=True).annotate(
+                           obs_count=Count(
+                               'observations',
+                               filter=Q(observations__teacher=user),
+                           )
+                       ).order_by('full_name'),
                    )
                )
                .order_by('level', 'name'))
@@ -528,17 +533,21 @@ def observation_create(request, student_id):
         resp = HttpResponse(status=400)
         return resp
 
+    is_private = request.POST.get('is_private', 'true').lower() not in ('false', '0', 'no')
+
     StudentObservation.objects.create(
         school=school,
         student=student,
         teacher=user,
         observation_type=obs_type,
         content=content,
+        is_private=is_private,
     )
 
+    msg = 'Note privée enregistrée.' if is_private else "Observation envoyée à l'administration."
     resp = HttpResponse(status=200)
     resp['HX-Trigger'] = json.dumps({
-        'showToast':      {'message': "Observation envoyée à l'administration.", 'type': 'success'},
+        'showToast':      {'message': msg, 'type': 'success'},
         'close-obs-panel': 'true',
     })
     return resp
