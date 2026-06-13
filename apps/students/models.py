@@ -12,6 +12,7 @@ class ParentRelationship(models.TextChoices):
     FATHER   = 'father',   _('Père')
     MOTHER   = 'mother',   _('Mère')
     GUARDIAN = 'guardian', _('Tuteur/Tutrice')
+    OTHER    = 'other',    _('Autre')
 
 
 class Student(models.Model):
@@ -119,3 +120,91 @@ class Student(models.Model):
         if len(parts) >= 2:
             return f'{parts[0][0]}{parts[-1][0]}'.upper()
         return self.full_name[:2].upper() if self.full_name else '??'
+
+
+class StudentGuardian(models.Model):
+    """
+    Lien parent/tuteur ↔ élève. Permet à un compte parent de suivre
+    plusieurs enfants, éventuellement dans des écoles différentes.
+    """
+    guardian = models.ForeignKey(
+        'accounts.User', on_delete=models.CASCADE,
+        related_name='guarded_students', verbose_name=_('parent / tuteur'),
+    )
+    student = models.ForeignKey(
+        'Student', on_delete=models.CASCADE,
+        related_name='guardians', verbose_name=_('élève'),
+    )
+    relationship = models.CharField(
+        _('lien de parenté'), max_length=10,
+        choices=ParentRelationship.choices, blank=True,
+    )
+    is_primary = models.BooleanField(_('contact principal'), default=False)
+    created_at = models.DateTimeField(_('créé le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('parent d\'élève')
+        verbose_name_plural = _('parents d\'élèves')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['guardian', 'student'], name='unique_guardian_student',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['guardian'], name='guardian_idx'),
+            models.Index(fields=['student'],  name='guardian_student_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.guardian.full_name} → {self.student.full_name}'
+
+
+class EnrollmentStatus(models.TextChoices):
+    ACTIVE      = 'active',      _('En cours')
+    TRANSFERRED = 'transferred', _('Transféré')
+    GRADUATED   = 'graduated',   _('Diplômé / Passé')
+    WITHDRAWN   = 'withdrawn',   _('Retiré')
+
+
+class StudentEnrollment(models.Model):
+    """
+    Historique des inscriptions, école par école et année par année.
+    Student.school = inscription courante ; StudentEnrollment = passé
+    préservé en lecture seule lors d'un transfert.
+    """
+    student = models.ForeignKey(
+        'Student', on_delete=models.PROTECT,
+        related_name='enrollments', verbose_name=_('élève'),
+    )
+    school = models.ForeignKey(
+        'schools.School', on_delete=models.PROTECT,
+        related_name='enrollments', verbose_name=_('école'),
+    )
+    school_class = models.ForeignKey(
+        'schools.SchoolClass', on_delete=models.PROTECT,
+        related_name='enrollments', verbose_name=_('classe'),
+    )
+    school_year = models.ForeignKey(
+        'schools.SchoolYear', on_delete=models.PROTECT,
+        related_name='enrollments', verbose_name=_('année scolaire'),
+        null=True, blank=True,
+    )
+    status = models.CharField(
+        _('statut'), max_length=20,
+        choices=EnrollmentStatus.choices, default=EnrollmentStatus.ACTIVE,
+    )
+    enrolled_at = models.DateField(_('inscrit le'), null=True, blank=True)
+    ended_at    = models.DateField(_('terminé le'), null=True, blank=True)
+    created_at  = models.DateTimeField(_('créé le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('inscription')
+        verbose_name_plural = _('inscriptions')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['student', 'status'],    name='enrollment_student_status_idx'),
+            models.Index(fields=['school', 'school_year'], name='enrollment_school_year_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.student.full_name} @ {self.school.name} [{self.get_status_display()}]'

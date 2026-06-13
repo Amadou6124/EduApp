@@ -13,10 +13,10 @@ Permettre à un utilisateur d'appartenir
 ## Architecture décidée
 
 ### Nouveaux modèles
-- [ ] Membership (user, school, role, is_default)
-- [ ] SchoolGroup (promoteur → écoles)
-- [ ] StudentGuardian (parent → enfant)
-- [ ] StudentEnrollment (historique transferts)
+- [x] Membership (user, school, role, is_default)
+- [x] SchoolGroup (promoteur → écoles)
+- [x] StudentGuardian (parent → enfant)
+- [x] StudentEnrollment (historique transferts)
 
 ### Modifications existantes
 - [ ] get_school() → lit session active_school_id
@@ -29,16 +29,21 @@ Permettre à un utilisateur d'appartenir
 ## Phases
 
 ### PHASE A — Schéma additif
-Statut : 🔄 En cours
-- [ ] Créer Membership
-- [ ] Créer SchoolGroup + School.group
-- [ ] Créer StudentGuardian
-- [ ] Créer StudentEnrollment
-- [ ] Ajouter membership FK nullable sur StaffPermission
-- [ ] Migration appliquée
+Statut : ✅ Terminée
+- [x] Créer Membership
+- [x] Créer SchoolGroup + School.group
+- [x] Créer StudentGuardian
+- [x] Créer StudentEnrollment
+- [x] Ajouter membership FK nullable sur StaffPermission
+- [x] Migration appliquée
+
+Migrations générées (ordre strict schools → accounts → students) :
+- `schools/0012_add_school_group.py`
+- `accounts/0003_add_membership_promoter_role.py`
+- `students/0004_add_guardian_enrollment.py`
 
 ### PHASE B — Migration données
-Statut : ⏳ En attente Phase A
+Statut : 🔄 Prochaine — prête à démarrer
 - [ ] RunPython : User → Membership
 - [ ] RunPython : StaffPermission → membership FK
 - [ ] RunPython : Student → StudentEnrollment
@@ -88,4 +93,5 @@ Statut : ⏳ En attente Phase C
 - [ ] Révocation accès : prise en compte immédiate
 
 ## Commits
-(mis à jour à chaque commit)
+- `dee97c4` chore: REFACTOR_MULTI_ECOLE.md - plan architecture multi-école
+- _(à venir)_ feat: Phase A - modèles Membership, SchoolGroup, StudentGuardian, StudentEnrollment + migrations

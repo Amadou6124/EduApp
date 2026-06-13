@@ -29,6 +29,28 @@ class ReceiptMode(models.TextChoices):
     CUSTOM   = 'custom',   _('Reçu personnalisé')
 
 
+class SchoolGroup(models.Model):
+    """
+    Groupe d'écoles appartenant à un même promoteur.
+    Le promoteur (owner) supervise toutes les écoles du groupe ;
+    chaque école conserve son propre directeur.
+    """
+    name = models.CharField(_('nom du groupe'), max_length=200)
+    owner = models.ForeignKey(
+        'accounts.User', on_delete=models.PROTECT,
+        related_name='owned_groups', verbose_name=_('promoteur'),
+    )
+    created_at = models.DateTimeField(_('créé le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('groupe scolaire')
+        verbose_name_plural = _('groupes scolaires')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class School(models.Model):
     # ── Informations générales ─────────────────────────────────────
     name         = models.CharField(_('nom de l\'école'), max_length=200)
@@ -66,6 +88,13 @@ class School(models.Model):
     receipt_signer_title = models.CharField(
         _('titre du signataire'), max_length=100,
         default='Le Caissier / Directeur', blank=True,
+    )
+
+    # ── Multi-école ────────────────────────────────────────────────
+    group = models.ForeignKey(
+        'schools.SchoolGroup', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='schools', verbose_name=_('groupe scolaire'),
     )
 
     # ── Métadonnées ────────────────────────────────────────────────
