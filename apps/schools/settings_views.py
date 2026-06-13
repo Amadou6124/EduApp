@@ -668,4 +668,5 @@ def coming_soon(request, section):
         'section_title':  title,
         'section_desc':   description,
         'section_icon':   icon,
+        'school':         get_school(request),
     })

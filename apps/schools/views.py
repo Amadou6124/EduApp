@@ -78,12 +78,14 @@ def class_list(request):
     total_students, avg_fill_rate = compute_class_stats(classes)
 
     form = SchoolClassForm()
+    nb_classes = len(classes)
     return render(request, 'schools/class_list.html', {
-        'classes': classes,
-        'form': form,
-        'school': school,
+        'classes':        classes,
+        'form':           form,
+        'school':         school,
         'total_students': total_students,
-        'avg_fill_rate': avg_fill_rate,
+        'avg_fill_rate':  avg_fill_rate,
+        'page_subtitle':  f"{nb_classes} classe{'s' if nb_classes != 1 else ''} · {total_students} élève{'s' if total_students != 1 else ''}",
     })
 
 

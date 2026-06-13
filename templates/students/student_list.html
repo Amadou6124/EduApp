@@ -43,7 +43,7 @@
         <span class="hidden sm:inline">Importer</span>
       </button>
       <button @click="showPanel = true; panelMode = 'individual'"
-              class="flex items-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+              class="flex items-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
@@ -271,7 +271,7 @@
             Annuler
           </button>
           <button type="submit"
-                  class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-yellow-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px] flex items-center justify-center gap-2">
+                  class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px] flex items-center justify-center gap-2">
             <svg class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -337,7 +337,7 @@
           </button>
           <button type="submit"
                   :disabled="!groupClassId || groupNames.filter(n => n.trim()).length === 0"
-                  class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-yellow-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition min-h-[44px]"
+                  class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition min-h-[44px]"
                   x-text="'Inscrire ' + groupNames.filter(n => n.trim()).length + ' élève(s)'">
           </button>
         </div>
