@@ -43,14 +43,18 @@ Migrations générées (ordre strict schools → accounts → students) :
 - `students/0004_add_guardian_enrollment.py`
 
 ### PHASE B — Migration données
-Statut : 🔄 Prochaine — prête à démarrer
-- [ ] RunPython : User → Membership
-- [ ] RunPython : StaffPermission → membership FK
-- [ ] RunPython : Student → StudentEnrollment
-- [ ] Validation données migrées
+Statut : ✅ Terminée
+- [x] RunPython : User → Membership
+- [x] RunPython : StaffPermission → membership FK
+- [x] RunPython : Student → StudentEnrollment
+- [x] Validation données migrées
+
+Migration : `accounts/0004_backfill_memberships_phase_b.py`
+(3 RunPython idempotents, reverse=noop)
+Résultat backfill : 11 Memberships · 640 Enrollments · 3/3 StaffPermissions liées
 
 ### PHASE C — Bascule logique
-Statut : ⏳ En attente Phase B
+Statut : 🔄 Prochaine — prête à démarrer
 - [ ] get_school() → session + Membership
 - [ ] SchoolMiddleware → request.role
 - [ ] director_or_staff_required → request.role
@@ -94,4 +98,5 @@ Statut : ⏳ En attente Phase C
 
 ## Commits
 - `dee97c4` chore: REFACTOR_MULTI_ECOLE.md - plan architecture multi-école
-- _(à venir)_ feat: Phase A - modèles Membership, SchoolGroup, StudentGuardian, StudentEnrollment + migrations
+- `176142e` feat: multi-école Phase A - modèles + migrations additives zéro régression
+- _(à venir)_ feat: multi-école Phase B - backfill données existantes
