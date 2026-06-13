@@ -1,80 +1,71 @@
 {% load humanize %}
-<div class="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+<div class="rounded-xl border border-gray-200 overflow-hidden shadow-sm bg-white font-serif text-gray-900 text-sm">
 
-  <!-- Bandeau couleur école -->
-  <div class="h-1.5" style="background-color: {{ school.primary_color|default:'#1E3A5F' }};"></div>
-
-  <!-- En-tête reçu -->
-  <div class="bg-white px-6 py-4 flex items-start gap-4 border-b border-gray-100">
+  <!-- Header : logo + école -->
+  <div class="flex items-start gap-3 px-6 pt-5 pb-4 border-b-2 border-gray-900">
     {% if school.logo %}
-      <img src="{{ school.logo.url }}" alt="Logo" class="h-14 w-auto object-contain">
+      <img src="{{ school.logo.url }}" alt="Logo" class="h-12 w-12 object-contain flex-shrink-0">
     {% else %}
-      <div class="h-14 w-14 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0"
-           style="border: 2px solid {{ school.primary_color|default:'#1E3A5F' }}20;">
-        <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
-        </svg>
+      <div class="h-12 w-12 border border-gray-400 flex items-center justify-center flex-shrink-0 text-lg font-bold text-gray-700">
+        {{ school.name|first|upper }}
       </div>
     {% endif %}
-    <div class="flex-1">
-      <p class="font-bold text-gray-900 text-base">{{ school.name }}</p>
-      {% if school.address %}<p class="text-xs text-gray-500 mt-0.5">{{ school.address }}</p>{% endif %}
-      <p class="text-xs text-gray-500">
-        {{ school.city }}{% if school.phone_number %} · {{ school.phone_number }}{% endif %}
-        {% if school.email %} · {{ school.email }}{% endif %}
-      </p>
-    </div>
-    <div class="text-right">
-      <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Reçu de paiement</p>
-      <p class="font-mono font-bold text-sm" style="color: {{ school.primary_color|default:'#1E3A5F' }};">
-        N° REC-000001
+    <div class="flex-1 text-center">
+      <p class="font-bold text-base uppercase tracking-wide leading-tight">{{ school.name }}</p>
+      <p class="text-xs text-gray-600 mt-1 leading-relaxed">
+        {% if school.address %}{{ school.address }} — {% endif %}
+        {{ school.city }}{% if school.phone_number %} &bull; Tél : {{ school.phone_number }}{% endif %}
       </p>
     </div>
   </div>
 
-  <!-- Corps reçu -->
-  <div class="bg-gray-50 px-6 py-5">
-    <div class="grid grid-cols-2 gap-y-3 text-sm">
-      <div>
-        <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-0.5">Élève</p>
-        <p class="text-gray-800 font-medium">Jean Kouassi</p>
-      </div>
-      <div>
-        <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-0.5">Classe</p>
-        <p class="text-gray-800 font-medium">CP1</p>
-      </div>
-      <div>
-        <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-0.5">Date</p>
-        <p class="text-gray-800 font-medium">10/06/2025</p>
-      </div>
-      <div>
-        <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-0.5">Mode</p>
-        <p class="text-gray-800 font-medium">Espèces</p>
-      </div>
-    </div>
-
-    <!-- Montants -->
-    <div class="mt-4 pt-4 border-t border-gray-200">
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-sm text-gray-600">Montant versé</span>
-        <span class="font-bold text-gray-900 text-base">50 000 FCFA</span>
-      </div>
-      <div class="flex justify-between items-center">
-        <span class="text-sm text-gray-500">Solde restant</span>
-        <span class="text-sm font-medium text-red-600">100 000 FCFA</span>
-      </div>
-    </div>
+  <!-- Titre + N° reçu -->
+  <div class="flex justify-between items-baseline px-6 py-2 border-b border-gray-700">
+    <span class="font-bold uppercase tracking-wide text-sm">Reçu de Paiement</span>
+    <span class="font-mono font-bold text-sm">N° REC-000001</span>
   </div>
 
-  <!-- Pied reçu -->
-  <div class="bg-white px-6 py-3 border-t border-gray-100 flex items-center justify-between">
-    <p class="text-xs text-gray-400 italic">Espace cachet et signature</p>
-    <p class="text-xs text-gray-300">EduApp · {{ school.name }}</p>
+  <!-- Corps -->
+  <div class="px-6 py-4 space-y-2">
+    <p><span class="font-bold">Nom et Prénom(s) :</span> Habi DIOP</p>
+    <p><span class="font-bold">Classe :</span> 8ème Année</p>
+
+    <!-- Somme en lettres -->
+    <div class="pt-1">
+      <p class="font-bold">La Somme de :</p>
+      <p class="italic border-b border-gray-700 pb-1">Vingt-cinq mille Francs CFA</p>
+    </div>
+
+    <!-- B.P.F. -->
+    <div class="flex items-center gap-3 py-1">
+      <span class="font-bold">B.P.F :</span>
+      <span class="border-2 border-gray-900 px-4 py-1 font-bold text-base">25 000 FCFA</span>
+    </div>
+
+    <!-- Séparateur -->
+    <hr class="border-gray-400">
+
+    <p><span class="font-bold">Motif :</span> Frais de scolarité</p>
+    <p><span class="font-bold">Mode de paiement :</span> Espèces</p>
+
+    <!-- Statut -->
+    <p class="font-bold pt-1">RESTE À PAYER : 75 000 FCFA</p>
+  </div>
+
+  <!-- Footer -->
+  <div class="px-6 py-4 border-t border-gray-700">
+    <p class="text-xs mb-5">{{ school.city|default:"Bamako" }}, le 13 Juin 2026</p>
+    <div class="flex justify-end">
+      <div class="text-center w-36">
+        <p class="text-xs font-bold mb-6">{{ school.receipt_signer_title|default:"Le Caissier / Directeur" }}</p>
+        <div class="border-t border-gray-700"></div>
+        <p class="text-xs italic mt-1 text-gray-500">Cachet et signature</p>
+      </div>
+    </div>
   </div>
 
 </div>
 
 <p class="text-xs text-gray-400 text-center mt-3">
-  Aperçu — les données réelles seront utilisées à la génération
+  Aperçu — données fictives à titre indicatif
 </p>

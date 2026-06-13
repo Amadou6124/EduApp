@@ -98,12 +98,7 @@ class AppearanceForm(forms.ModelForm):
 
     class Meta:
         model = School
-        fields = ['logo', 'primary_color']
-        widgets = {
-            'primary_color': forms.TextInput(attrs={
-                'class': _F, 'placeholder': '#1E3A5F', 'maxlength': '7',
-            }),
-        }
+        fields = ['logo']
 
     def clean_logo(self):
         logo = self.cleaned_data.get('logo')
@@ -114,18 +109,24 @@ class AppearanceForm(forms.ModelForm):
                 raise forms.ValidationError('Le logo ne doit pas dépasser 2 Mo.')
         return logo
 
-    def clean_primary_color(self):
-        color = self.cleaned_data.get('primary_color', '').strip()
-        if not re.match(r'^#[0-9A-Fa-f]{6}$', color):
-            raise forms.ValidationError('Format invalide. Utilisez #RRGGBB (ex : #1E3A5F).')
-        return color
-
 
 class ReceiptModeForm(forms.ModelForm):
 
     class Meta:
         model = School
         fields = ['receipt_mode']
+
+
+class ReceiptSignerForm(forms.ModelForm):
+
+    class Meta:
+        model = School
+        fields = ['receipt_signer_title']
+        widgets = {
+            'receipt_signer_title': forms.TextInput(attrs={
+                'class': _F, 'placeholder': 'Ex : Le Directeur',
+            }),
+        }
 
 
 class ReceiptUploadForm(forms.ModelForm):
