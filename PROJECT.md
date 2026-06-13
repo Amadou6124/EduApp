@@ -481,6 +481,21 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - **Vrai multi-tenant** : `get_school(request)` unique source de vérité, `SchoolMiddleware` → `request.school` dans les templates
 - `get_demo_school()` supprimé intégralement (27 occurrences dans 4 fichiers)
 
+### Multi-école Phase D1 — Dashboard Promoteur (`feature/phase-d-multi-ecole`)
+- App `apps/promoter/` dédiée (sans modèle)
+- Décorateur `@promoter_required`
+- `_PromoterNoSchoolError` + cache d'échec `get_school()` (intercepté via `process_exception`)
+- **Dashboard consolidé groupe** : hero gradient, stats agrégées zéro N+1 (4 GROUP BY + fusion mémoire), graphique 6 mois réels, cards par école, statuts vert/jaune/rouge, alertes
+- **Vue lecture seule école** (`/promoter/school/<id>/`) : 6 requêtes zéro N+1 — répartition par classe (effectif, recouvrement, prof principal), équipe enseignante, alertes impayés>30j/absences
+- Sidebar + bottom nav filtrées pour le promoteur
+- Fix `_post_login_url` → `/promoter/`
+
+### Multi-école Phase D2 — StudentGuardian
+- Interface admin lier/créer/retirer parent depuis la fiche élève
+- Recherche par téléphone
+- Création compte parent à la volée (mot de passe temporaire)
+- Section Parents/Tuteurs dans la fiche élève, `is_primary` auto
+
 ### Multi-école Phase A-C (`feature/multi-school`)
 - **Membership** (user, school, role, is_default) — source de vérité multi-école
 - **SchoolGroup** (promoteur → groupe d'écoles)
