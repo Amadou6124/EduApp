@@ -533,50 +533,70 @@
               flex h-[68px]">
 
     {% if request.user.role == 'teacher' %}
-    {# ── Nav mobile ENSEIGNANT : Accueil | Notes | Absences | Mes élèves ── #}
+    {# ── Nav mobile ENSEIGNANT : Accueil | Notes | Absences | Suivi ── #}
 
-    {# Accueil #}
+    {# Accueil — actif UNIQUEMENT sur teacher:dashboard #}
     <a href="{% url 'teacher:dashboard' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'teacher' %}text-brand-blue{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.app_name == 'teacher' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
-        <i data-lucide="layout-dashboard" class="w-6 h-6 shrink-0"></i>
-      </div>
-      <span class="text-[11px] font-medium">Accueil</span>
+       class="flex-1 flex flex-col items-center justify-center">
+      {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'teacher' %}
+      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
+        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-brand-blue"></i>
+        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Accueil</span>
+      </span>
+      {% else %}
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
+        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-gray-400"></i>
+        <span class="text-[10px] text-gray-400 whitespace-nowrap">Accueil</span>
+      </span>
+      {% endif %}
     </a>
 
     {# Notes #}
     <a href="{% url 'notes:dashboard' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'notes' %}text-brand-blue{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.app_name == 'notes' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
-        <i data-lucide="book-open" class="w-6 h-6 shrink-0"></i>
-      </div>
-      <span class="text-[11px] font-medium">Notes</span>
+       class="flex-1 flex flex-col items-center justify-center">
+      {% if request.resolver_match.app_name == 'notes' %}
+      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
+        <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-brand-blue"></i>
+        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Notes</span>
+      </span>
+      {% else %}
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
+        <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-gray-400"></i>
+        <span class="text-[10px] text-gray-400 whitespace-nowrap">Notes</span>
+      </span>
+      {% endif %}
     </a>
 
     {# Absences #}
     <a href="{% url 'teacher:attendance-list' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}text-brand-blue{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
-        <i data-lucide="calendar-x" class="w-6 h-6 shrink-0"></i>
-      </div>
-      <span class="text-[11px] font-medium">Absences</span>
+       class="flex-1 flex flex-col items-center justify-center">
+      {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}
+      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
+        <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-brand-blue"></i>
+        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Absences</span>
+      </span>
+      {% else %}
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
+        <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-gray-400"></i>
+        <span class="text-[10px] text-gray-400 whitespace-nowrap">Absences</span>
+      </span>
+      {% endif %}
     </a>
 
-    {# Suivi élèves #}
+    {# Suivi #}
     <a href="{% url 'teacher:difficulty' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}text-brand-blue{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
-        <i data-lucide="alert-triangle" class="w-6 h-6 shrink-0"></i>
-      </div>
-      <span class="text-[11px] font-medium">Suivi</span>
+       class="flex-1 flex flex-col items-center justify-center">
+      {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}
+      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
+        <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 text-brand-blue"></i>
+        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Suivi</span>
+      </span>
+      {% else %}
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
+        <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 text-gray-400"></i>
+        <span class="text-[10px] text-gray-400 whitespace-nowrap">Suivi</span>
+      </span>
+      {% endif %}
     </a>
 
     {% else %}
