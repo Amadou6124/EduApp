@@ -1,0 +1,168 @@
+{% comment %}
+Panel slide-from-right pour créer une observation.
+Requiert que le parent ait x-data avec { obsPanel, obsType, isPrivate }.
+L'événement HX-Trigger close-obs-panel ferme le panel.
+{% endcomment %}
+{% load i18n %}
+
+{# ── Backdrop ─────────────────────────────────────────── #}
+<div x-show="obsPanel"
+     x-cloak
+     @click="obsPanel = false"
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black/30 z-30">
+</div>
+
+{# ── Panel ────────────────────────────────────────────── #}
+<div x-show="obsPanel"
+     x-cloak
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="translate-x-full"
+     x-transition:enter-end="translate-x-0"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="translate-x-0"
+     x-transition:leave-end="translate-x-full"
+     class="fixed right-0 top-0 lg:top-[64px] bottom-[68px] lg:bottom-0
+            w-full sm:w-[420px] bg-white shadow-2xl z-40
+            flex flex-col overflow-hidden">
+
+  {# En-tête panel #}
+  <div class="flex items-center justify-between px-5 pt-14 pb-4 sm:pt-[60px] lg:pt-4 border-b border-gray-100 shrink-0">
+    <div>
+      <h2 class="text-base font-bold text-gray-900">Nouvelle observation</h2>
+      <p class="text-xs text-gray-400 mt-0.5">{{ student.full_name }}</p>
+    </div>
+    <button @click="obsPanel = false"
+            class="p-2 rounded-lg hover:bg-gray-100 transition text-gray-400 hover:text-gray-600">
+      <i data-lucide="x" class="w-5 h-5"></i>
+    </button>
+  </div>
+
+  {# Formulaire HTMX #}
+  <form id="obs-form"
+        hx-post="{% url 'teacher:observe' student.pk %}"
+        hx-swap="none"
+        @submit.prevent
+        hx-on::after-request="if(event.detail.xhr.status === 200){ $dispatch('htmx:trigger'); }"
+        class="flex flex-col flex-1">
+
+    {% csrf_token %}
+
+    <div class="flex-1 p-5 space-y-5 overflow-y-auto min-h-0">
+
+      {# ── 4 boutons type d'observation ── #}
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Type</p>
+        <div class="grid grid-cols-2 gap-2">
+
+          <button type="button" @click="obsType = 'behaviour'"
+                  :class="obsType === 'behaviour'
+                    ? 'border-orange-400 bg-orange-50 text-orange-700 shadow-sm'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'"
+                  class="flex items-center gap-2 px-3 py-3 rounded-xl border text-sm font-medium transition">
+            <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i>
+            <span>Comportement</span>
+          </button>
+
+          <button type="button" @click="obsType = 'academic'"
+                  :class="obsType === 'academic'
+                    ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'"
+                  class="flex items-center gap-2 px-3 py-3 rounded-xl border text-sm font-medium transition">
+            <i data-lucide="book-open" class="w-5 h-5 shrink-0"></i>
+            <span>Académique</span>
+          </button>
+
+          <button type="button" @click="obsType = 'health'"
+                  :class="obsType === 'health'
+                    ? 'border-red-400 bg-red-50 text-red-700 shadow-sm'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'"
+                  class="flex items-center gap-2 px-3 py-3 rounded-xl border text-sm font-medium transition">
+            <i data-lucide="heart-pulse" class="w-5 h-5 shrink-0"></i>
+            <span>Santé</span>
+          </button>
+
+          <button type="button" @click="obsType = 'other'"
+                  :class="obsType === 'other'
+                    ? 'border-gray-400 bg-gray-100 text-gray-700 shadow-sm'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'"
+                  class="flex items-center gap-2 px-3 py-3 rounded-xl border text-sm font-medium transition">
+            <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
+            <span>Autre</span>
+          </button>
+
+        </div>
+        <input type="hidden" name="observation_type" :value="obsType">
+      </div>
+
+      {# ── Contenu observation ── #}
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Observation</p>
+        <textarea name="content"
+                  rows="5"
+                  required
+                  placeholder="Décrivez l'observation de façon claire et factuelle…"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-brand-blue/30
+                         resize-none leading-relaxed text-gray-700 placeholder-gray-300">
+        </textarea>
+      </div>
+
+      {# ── Toggle visibilité privée / admin ── #}
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Visibilité</p>
+        <button type="button"
+                @click="isPrivate = !isPrivate"
+                class="w-full flex items-center justify-between p-3 rounded-xl border transition"
+                :class="isPrivate ? 'border-gray-200 bg-gray-50' : 'border-blue-200 bg-blue-50'">
+          <div class="flex items-center gap-2.5 text-left">
+            <template x-if="isPrivate">
+              <i data-lucide="lock" class="w-4 h-4 text-gray-500 shrink-0"></i>
+            </template>
+            <template x-if="!isPrivate">
+              <i data-lucide="send" class="w-4 h-4 text-brand-blue shrink-0"></i>
+            </template>
+            <div>
+              <p class="text-sm font-medium"
+                 :class="isPrivate ? 'text-gray-700' : 'text-brand-blue'"
+                 x-text="isPrivate ? 'Note privée' : 'Envoyer à l\'administration'"></p>
+              <p class="text-xs mt-0.5"
+                 :class="isPrivate ? 'text-gray-400' : 'text-blue-400'"
+                 x-text="isPrivate ? 'Visible uniquement par vous' : 'Notifie le directeur'"></p>
+            </div>
+          </div>
+          <div class="relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0"
+               :class="isPrivate ? 'bg-gray-300' : 'bg-brand-blue'">
+            <span class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200"
+                  :class="isPrivate ? 'left-0.5' : 'left-5'"></span>
+          </div>
+        </button>
+        <input type="hidden" name="is_private" :value="isPrivate ? 'true' : 'false'">
+      </div>
+
+    </div>
+
+    {# ── Bouton envoyer (fixe en bas) ── #}
+    <div class="px-5 py-4 border-t border-gray-100 bg-white shrink-0">
+      <button type="submit"
+              :class="isPrivate ? 'bg-gray-600 hover:bg-gray-700' : 'bg-[#1E3A5F] hover:bg-[#1E3A5F]/90'"
+              class="w-full h-12 rounded-xl text-white font-semibold text-sm
+                     flex items-center justify-center gap-2
+                     transition active:scale-[0.99] select-none">
+        <template x-if="isPrivate">
+          <i data-lucide="lock" class="w-4 h-4"></i>
+        </template>
+        <template x-if="!isPrivate">
+          <i data-lucide="send" class="w-4 h-4"></i>
+        </template>
+        <span x-text="isPrivate ? 'Enregistrer en privé' : 'Envoyer à l\'administration'"></span>
+      </button>
+    </div>
+
+  </form>
+</div>

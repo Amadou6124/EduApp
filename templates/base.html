@@ -93,6 +93,72 @@
       <!-- ── Navigation ── -->
       <nav class="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
 
+        {% if request.user.role == 'teacher' %}
+        {# ══ Navigation ENSEIGNANT ══════════════════════════════════ #}
+
+        <!-- Mon tableau de bord -->
+        <a href="{% url 'teacher:dashboard' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'teacher' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Tableau de bord'">
+          <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mon tableau de bord</span>
+        </a>
+
+        <!-- Mes notes -->
+        <a href="{% url 'notes:dashboard' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'notes' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Mes notes'">
+          <i data-lucide="book-open" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mes notes</span>
+        </a>
+
+        <!-- Absences -->
+        <a href="{% url 'teacher:attendance-list' %}"
+           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Absences'">
+          <i data-lucide="calendar-x" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Absences</span>
+        </a>
+
+        <!-- Suivi élèves -->
+        <a href="{% url 'teacher:difficulty' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Suivi élèves'">
+          <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Suivi élèves</span>
+        </a>
+
+        <!-- Mes élèves (lecture seule) -->
+        <a href="{% url 'teacher:students' %}"
+           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Mes élèves'">
+          <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mes élèves</span>
+        </a>
+
+        {% if request.user.role != 'teacher' %}
+        <!-- Bulletins -->
+        <a href="{% url 'bulletins:main' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'bulletins' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Bulletins'">
+          <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Bulletins</span>
+        </a>
+        {% endif %}
+
+        {% else %}
+        {# ══ Navigation DIRECTEUR / STAFF / AUTRES ══════════════════ #}
+
         <!-- Dashboard -->
         <a href="{% url 'dashboard:main' %}"
            class="flex items-center py-2 rounded-lg transition
@@ -120,7 +186,15 @@
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Élèves'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">{% trans "Élèves" %}</span>
+          <span x-show="$store.sidebar.open" class="flex-1">{% trans "Élèves" %}</span>
+          {% if unread_observations_count %}
+          <span x-show="$store.sidebar.open"
+                class="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full
+                       bg-red-500 text-white text-[10px] font-bold
+                       flex items-center justify-center leading-none">
+            {{ unread_observations_count }}
+          </span>
+          {% endif %}
         </a>
 
         <!-- Paiements -->
@@ -164,6 +238,8 @@
           <span x-show="$store.sidebar.open">Équipe</span>
         </a>
         {% endif %}
+
+        {% endif %}{# fin if teacher #}
 
         <!-- Superadmin -->
         {% if request.user.is_superuser %}
@@ -334,55 +410,96 @@
           class="flex-1 pb-20 lg:pb-0 transition-all duration-300">
 
       <!-- ─── HEADER ────────────────────────────────── -->
-      <header class="bg-white border-b border-gray-200 min-h-[56px] sm:min-h-[64px] flex items-center justify-between px-6 py-3 sticky top-0 z-20">
+      <header class="bg-white border-b border-gray-200 sticky top-0 z-20">
 
-        <!-- Gauche : titre + sous-titre contextuel -->
-        <div class="flex items-center gap-3 min-w-0">
-          {% block breadcrumb %}{% endblock %}
-          <div class="min-w-0">
-            <h1 class="text-lg font-semibold text-gray-900 leading-tight">{% block page_title %}{% endblock %}</h1>
-            {% block page_subtitle %}{% if page_subtitle %}<p class="text-sm text-gray-500 mt-0.5 truncate animate-fade-in">{{ page_subtitle }}</p>{% endif %}{% endblock %}
-          </div>
-        </div>
+        {# ── Header mobile ENSEIGNANT : avatar | école | cloche ── #}
+        {% if request.user.role == 'teacher' %}
+        <div class="flex lg:hidden items-center justify-between px-4 min-h-[56px]">
 
-        <!-- Droite : actions + badge année + notifications -->
-        <div class="flex items-center gap-2 shrink-0 ml-4">
-
-          {% block header_actions %}{% endblock %}
-
-          <!-- Badge année scolaire -->
-          {% if badge_year %}
-          <a href="{% url 'settings:school-years' %}"
-             class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg
-                    bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-600
-                    transition-colors whitespace-nowrap">
-            <i data-lucide="calendar" class="w-3.5 h-3.5 shrink-0"></i>
-            <span>{{ badge_year.name }}{% if badge_year.period_name %} · {{ badge_year.period_name }}{% endif %}</span>
+          <!-- Avatar → paramètres -->
+          <a href="{% url 'settings:general' %}"
+             class="w-9 h-9 rounded-full bg-brand-blue flex items-center justify-center
+                    text-white text-sm font-bold shrink-0 active:opacity-80">
+            {{ request.user.full_name|first|upper }}
           </a>
-          {% endif %}
 
-          <!-- Recherche (header, mobile) -->
-          <button type="button"
-                  @click="$store.search.open = true"
-                  class="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
-            <i data-lucide="search" class="w-5 h-5 shrink-0"></i>
-          </button>
+          <!-- Nom école (tronqué) -->
+          <span class="flex-1 text-center text-sm font-semibold text-gray-800 truncate mx-3">
+            {% if request.school %}{{ request.school.name|truncatechars:20 }}{% endif %}
+          </span>
 
-          <!-- Cloche notifications -->
-          <div class="relative">
-            <button type="button" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+          <!-- Cloche + badge -->
+          <div class="relative shrink-0">
+            <button type="button"
+                    class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
               <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
             </button>
             {% if alert_count > 0 %}
             <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
                          bg-red-500 rounded-full text-white text-[9px] font-bold
-                         flex items-center justify-center leading-none
-                         {% if alert_count > 5 %}animate-pulse{% endif %}">
+                         flex items-center justify-center leading-none">
               {{ alert_count }}
             </span>
             {% endif %}
           </div>
+        </div>
+        {% endif %}
 
+        {# ── Header standard : desktop (tous) + mobile non-teacher ── #}
+        <div class="{% if request.user.role == 'teacher' %}hidden lg:flex{% else %}flex{% endif %}
+                    items-center justify-between px-6 py-3 min-h-[56px] sm:min-h-[64px]">
+
+          <!-- Gauche : titre + sous-titre contextuel -->
+          <div class="flex items-center gap-3 min-w-0">
+            {% block breadcrumb %}{% endblock %}
+            <div class="min-w-0">
+              <h1 class="text-lg font-semibold text-gray-900 leading-tight">{% block page_title %}{% endblock %}</h1>
+              {% block page_subtitle %}{% if page_subtitle %}<p class="text-sm text-gray-500 mt-0.5 truncate animate-fade-in">{{ page_subtitle }}</p>{% endif %}{% endblock %}
+            </div>
+          </div>
+
+          <!-- Droite : actions + badge année + notifications -->
+          <div class="flex items-center gap-2 shrink-0 ml-4">
+
+            {% block header_actions %}{% endblock %}
+
+            <!-- Badge année scolaire -->
+            {% if badge_year %}
+            <a href="{% url 'settings:school-years' %}"
+               class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+                      bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-600
+                      transition-colors whitespace-nowrap">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>{{ badge_year.name }}{% if badge_year.period_name %} · {{ badge_year.period_name }}{% endif %}</span>
+            </a>
+            {% endif %}
+
+            <!-- Recherche (mobile non-teacher) -->
+            {% if request.user.role != 'teacher' %}
+            <button type="button"
+                    @click="$store.search.open = true"
+                    class="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+              <i data-lucide="search" class="w-5 h-5 shrink-0"></i>
+            </button>
+            {% endif %}
+
+            <!-- Cloche notifications -->
+            <div class="relative">
+              <button type="button"
+                      class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
+              </button>
+              {% if alert_count > 0 %}
+              <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
+                           bg-red-500 rounded-full text-white text-[9px] font-bold
+                           flex items-center justify-center leading-none
+                           {% if alert_count > 5 %}animate-pulse{% endif %}">
+                {{ alert_count }}
+              </span>
+              {% endif %}
+            </div>
+
+          </div>
         </div>
       </header>
 
@@ -409,39 +526,147 @@
   </div>
 
   <!-- ─── Navigation mobile (bottom bar) ───────────── -->
-  <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-30 shadow-lg">
-    <a href="{% url 'dashboard:main' %}"
-       class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs
-              {% if request.resolver_match.app_name == 'dashboard' %}text-brand-blue{% else %}text-gray-500{% endif %}">
-      <i data-lucide="layout-dashboard" class="w-6 h-6 shrink-0"></i>
-      <span>{% trans "Accueil" %}</span>
+  <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-30
+              bg-white border-t border-gray-200
+              shadow-[0_-4px_12px_rgba(0,0,0,0.08)]
+              rounded-t-2xl overflow-hidden
+              flex h-[68px]">
+
+    {% if request.user.role == 'teacher' %}
+    {# ── Nav mobile ENSEIGNANT : Accueil | Notes | Absences | Suivi ── #}
+
+    {# Accueil — actif UNIQUEMENT sur teacher:dashboard #}
+    <a href="{% url 'teacher:dashboard' %}"
+       class="flex-1 flex flex-col items-center justify-center">
+      {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'teacher' %}
+      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
+        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-brand-blue"></i>
+        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Accueil</span>
+      </span>
+      {% else %}
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
+        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-gray-400"></i>
+        <span class="text-[10px] text-gray-400 whitespace-nowrap">Accueil</span>
+      </span>
+      {% endif %}
     </a>
-    <a href="{% url 'students:list' %}"
-       class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs
-              {% if request.resolver_match.app_name == 'students' %}text-brand-blue{% else %}text-gray-500{% endif %}">
-      <i data-lucide="users" class="w-6 h-6 shrink-0"></i>
-      <span>{% trans "Élèves" %}</span>
-    </a>
-    <a href="{% url 'payments:dashboard' %}"
-       class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs
-              {% if request.resolver_match.app_name == 'payments' %}text-brand-blue{% else %}text-gray-500{% endif %}">
-      <i data-lucide="credit-card" class="w-6 h-6 shrink-0"></i>
-      <span>{% trans "Paiements" %}</span>
-    </a>
+
+    {# Notes #}
     <a href="{% url 'notes:dashboard' %}"
-       class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs
-              {% if request.resolver_match.app_name == 'notes' %}text-brand-blue{% else %}text-gray-500{% endif %}">
-      <i data-lucide="book-open" class="w-6 h-6 shrink-0"></i>
-      <span>{% trans "Notes" %}</span>
+       class="flex-1 flex flex-col items-center justify-center">
+      {% if request.resolver_match.app_name == 'notes' %}
+      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
+        <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-brand-blue"></i>
+        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Notes</span>
+      </span>
+      {% else %}
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
+        <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-gray-400"></i>
+        <span class="text-[10px] text-gray-400 whitespace-nowrap">Notes</span>
+      </span>
+      {% endif %}
     </a>
+
+    {# Absences #}
+    <a href="{% url 'teacher:attendance-list' %}"
+       class="flex-1 flex flex-col items-center justify-center">
+      {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}
+      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
+        <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-brand-blue"></i>
+        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Absences</span>
+      </span>
+      {% else %}
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
+        <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-gray-400"></i>
+        <span class="text-[10px] text-gray-400 whitespace-nowrap">Absences</span>
+      </span>
+      {% endif %}
+    </a>
+
+    {# Suivi #}
+    <a href="{% url 'teacher:difficulty' %}"
+       class="flex-1 flex flex-col items-center justify-center">
+      {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}
+      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
+        <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 text-brand-blue"></i>
+        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Suivi</span>
+      </span>
+      {% else %}
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
+        <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 text-gray-400"></i>
+        <span class="text-[10px] text-gray-400 whitespace-nowrap">Suivi</span>
+      </span>
+      {% endif %}
+    </a>
+
+    {% else %}
+    {# ── Nav mobile DIRECTEUR / STAFF : Accueil | Élèves | Paiements | Notes | Plus ── #}
+
+    {# Accueil #}
+    <a href="{% url 'dashboard:main' %}"
+       class="flex-1 flex flex-col items-center justify-center gap-1
+              {% if request.resolver_match.app_name == 'dashboard' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+      <div class="relative">
+        {% if request.resolver_match.app_name == 'dashboard' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        <i data-lucide="layout-dashboard" class="w-6 h-6 shrink-0"></i>
+      </div>
+      <span class="text-[11px] font-medium">{% trans "Accueil" %}</span>
+    </a>
+
+    {# Élèves #}
+    <a href="{% url 'students:list' %}"
+       class="flex-1 flex flex-col items-center justify-center gap-1
+              {% if request.resolver_match.app_name == 'students' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+      <div class="relative">
+        {% if request.resolver_match.app_name == 'students' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        <i data-lucide="users" class="w-6 h-6 shrink-0"></i>
+        {% if unread_observations_count %}
+        <span class="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full
+                     bg-red-500 text-white text-[9px] font-bold
+                     flex items-center justify-center leading-none">
+          {{ unread_observations_count }}
+        </span>
+        {% endif %}
+      </div>
+      <span class="text-[11px] font-medium">{% trans "Élèves" %}</span>
+    </a>
+
+    {# Paiements #}
+    <a href="{% url 'payments:dashboard' %}"
+       class="flex-1 flex flex-col items-center justify-center gap-1
+              {% if request.resolver_match.app_name == 'payments' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+      <div class="relative">
+        {% if request.resolver_match.app_name == 'payments' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        <i data-lucide="credit-card" class="w-6 h-6 shrink-0"></i>
+      </div>
+      <span class="text-[11px] font-medium">{% trans "Paiements" %}</span>
+    </a>
+
+    {# Notes #}
+    <a href="{% url 'notes:dashboard' %}"
+       class="flex-1 flex flex-col items-center justify-center gap-1
+              {% if request.resolver_match.app_name == 'notes' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+      <div class="relative">
+        {% if request.resolver_match.app_name == 'notes' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        <i data-lucide="book-open" class="w-6 h-6 shrink-0"></i>
+      </div>
+      <span class="text-[11px] font-medium">{% trans "Notes" %}</span>
+    </a>
+
+    {# Plus (directeur/staff) #}
     {% if request.user.role == 'director' or request.user.role == 'staff' or request.user.is_superuser %}
     <a href="{% url 'settings:general' %}"
-       class="flex-1 flex flex-col items-center py-3 gap-0.5 text-xs
-              {% if request.resolver_match.app_name == 'settings' %}text-brand-blue{% else %}text-gray-500{% endif %}">
-      <i data-lucide="settings" class="w-6 h-6 shrink-0"></i>
-      <span>{% trans "Plus" %}</span>
+       class="flex-1 flex flex-col items-center justify-center gap-1
+              {% if request.resolver_match.app_name == 'settings' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+      <div class="relative">
+        {% if request.resolver_match.app_name == 'settings' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        <i data-lucide="settings" class="w-6 h-6 shrink-0"></i>
+      </div>
+      <span class="text-[11px] font-medium">{% trans "Plus" %}</span>
     </a>
     {% endif %}
+
+    {% endif %}{# fin if teacher #}
   </nav>
 
   <!-- ════════════════════════════════════════════════ -->

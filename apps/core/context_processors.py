@@ -82,7 +82,16 @@ def school_context(request):
         .count()
     )
 
+    # ── Requête 3 : observations non lues (directeur/staff uniquement) ───────
+    unread_observations_count = 0
+    if request.user.role in ('director', 'staff') or request.user.is_superuser:
+        from apps.teachers.models import StudentObservation
+        unread_observations_count = StudentObservation.objects.filter(
+            school=school, is_read=False, is_private=False,
+        ).count()
+
     return {
-        'badge_year':  active_year,   # .name, .period_name (annoté) — clé distincte pour éviter collision avec les vues
-        'alert_count': alert_count,
+        'badge_year':                active_year,
+        'alert_count':               alert_count,
+        'unread_observations_count': unread_observations_count,
     }

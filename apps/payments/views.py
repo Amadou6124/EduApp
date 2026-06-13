@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, DecimalField, F, Prefetch, Q, Subquery, OuterRef, Sum, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
@@ -106,6 +106,8 @@ def _apply_filters(qs, q, status, class_id):
 
 @login_required
 def payment_dashboard(request):
+    if request.user.role == 'teacher':
+        return redirect('teacher:dashboard')
     school = get_school(request)
     q        = request.GET.get('q', '').strip()
     status   = request.GET.get('status', 'unpaid')

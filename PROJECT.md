@@ -7,7 +7,7 @@
 **Nom** : EduApp
 **Description** : SaaS de gestion scolaire pour établissements privés en Afrique francophone.
 Couvre la gestion des classes, l'inscription des élèves, les paiements, les bulletins et la communication avec les parents.
-**Cible marché** : Écoles primaires, collèges et lycées privés — Côte d'Ivoire en premier, puis expansion UEMOA.
+**Cible marché** : Écoles primaires, collèges et lycées privés — Mali en premier, puis expansion UEMOA.
 **Langue** : Français (i18n activé, base pour ajout arabe/anglais)
 **Seed démo** : `python manage.py seed_demo` → école id=1, 6 classes CP1→CM2, superuser `tel=0000000000` / `pwd=admin123`
 
@@ -67,14 +67,16 @@ EduApp/
 | `brand-gold` | `#F5A623` | Bouton CTA principal, accents |
 | `brand-light` | `#F0F4F8` | Fond de page (`bg-brand-light`) |
 
-### Badges niveaux scolaires
+### Badges niveaux scolaires (niveaux maliens officiels)
 
-| Niveau | `level` (DB) | Fond | Texte |
-|---|---|---|---|
-| Primaire | `primary` | `#EAF3DE` | `#27500A` (vert) |
-| Collège | `middle` | `#E6F1FB` | `#0C447C` (bleu) |
-| Lycée | `high` | `#FAEEDA` | `#633806` (orange) |
-| Université | `university` | `#F3F4F6` | `#374151` (gris) |
+| Niveau | `level` (DB) | Classes Tailwind |
+|---|---|---|
+| Préscolaire | `prescolaire` | `bg-purple-100 text-purple-700 border-purple-200` |
+| Fondamental 1er Cycle | `fondamental_1` | `bg-blue-100 text-blue-700 border-blue-200` |
+| Fondamental 2ème Cycle | `fondamental_2` | `bg-indigo-100 text-indigo-700 border-indigo-200` |
+| Secondaire Général | `secondaire_gen` | `bg-green-100 text-green-700 border-green-200` |
+| Secondaire Pro | `secondaire_pro` | `bg-teal-100 text-teal-700 border-teal-200` |
+| Supérieur | `superieur` | `bg-orange-100 text-orange-700 border-orange-200` |
 
 ### Badges statut classe
 
@@ -89,6 +91,8 @@ EduApp/
 - **Cards** : `bg-white rounded-xl shadow-sm border border-gray-100 p-5`
 - **Modals** : Alpine `x-show` + `x-transition`, overlay `bg-black/40 z-50`, contenu `rounded-2xl shadow-2xl max-w-lg`
 - **Sidebar** : `w-64 bg-brand-blue` fixe desktop, cachée mobile
+- **Sidebar collapsible** : toggle ⊟/⊞ → `w-16` (icônes seules) / `w-64` (icônes + labels) ; préférence persistée `localStorage('sidebarOpen')` ; offset footer et contenu principal calculé via `$store.sidebar.open` (`:class` Alpine)
+- **Recherche globale** : `⌘K` / `Ctrl+K` ouvre modal `$store.search.open`, résultats HTMX live
 - **Nav mobile** : bottom bar 4 items fixe `bg-brand-blue`, icônes + labels
 - **HTMX indicator** : `.htmx-indicator` opacity 0→1, spinner SVG `animate-spin`
 - **Taille tactile min** : `min-h-[44px]` sur tous les boutons interactifs
@@ -137,10 +141,12 @@ EduApp/
 |---|---|
 | `name` | CharField(200) |
 | `city` | CharField(100) |
-| `country` | CharField(100, default="Côte d'Ivoire") |
+| `country` | CharField(100, default='Mali') |
 | `phone_number` | CharField(20, blank) |
 | `email` | EmailField(blank) |
 | `logo` | ImageField(upload_to='schools/logos/', blank) |
+| `receipt_mode` | CharField : `standard` / `custom` |
+| `receipt_signer_title` | CharField(100, default='Le Caissier / Directeur') |
 | `is_active` | BooleanField(default=True) |
 | `created_at` | DateTimeField(auto_now_add) |
 
@@ -253,12 +259,16 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 |---|---|
 | `student` | FK → Student |
 | `amount` | DecimalField(FCFA, validators≥1) |
-| `payment_method` | CharField choices : cash/mobile_money/bank_transfer/check |
-| `paid_at` | DateTimeField(auto_now_add) |
-| `receipt_number` | CharField(50, unique, auto `REC-{uuid[:10]}`) |
+| `payment_date` | DateField(default=today) |
+| `payment_method` | CharField choices : cash/orange_money/wave/other |
+| `payment_type` | CharField — type de versement (scolarité, inscription, autre) — prévu |
+| `receipt_number` | CharField(50, unique, auto `REC-YYYY-XXXX` séquentiel) |
 | `collected_by` | FK → User |
 | `notes` | TextField(blank) |
-| `is_valid` | BooleanField(default=True) — soft cancel |
+| `is_cancelled` | BooleanField(default=False) — soft cancel |
+| `cancelled_at` | DateTimeField(null, blank) |
+| `cancellation_reason` | TextField(blank) |
+| `created_at` | DateTimeField(default=timezone.now) |
 
 ---
 
@@ -473,18 +483,46 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 
 ---
 
-## Prochaines étapes dans l'ordre
+## Roadmap — Prochaines étapes
 
-1. ~~**Inscription élèves**~~ ✅ terminé
-2. ~~**Paiements + reçus PDF**~~ ✅ terminé
-3. ~~**Login custom + vrai multi-tenant**~~ ✅ terminé
-4. **Bulletins PDF** — en cours
-   - ~~**Étape 1** : Modèles fondation (SchoolYear, Period, Subject, ClassSubject, Note) + settings UI~~ ✅
-   - **Étape 2** : Saisie des notes (vue professeur/staff, formulaires notes par période)
-   - **Étape 3** : Génération bulletin PDF (WeasyPrint, layout A4, header école)
-5. **Portail professeur** — liste classes, absences
-6. **Portail élève** — style Duolingo, notes, bulletins, solde
-7. **Portail parent** — bulletin, solde, paiement Orange Money
+### PRIORITÉ HAUTE
+
+**1. Portail Professeur** (2-3 jours)
+- Dashboard prof : ses classes uniquement
+- Saisie notes pour ses matières assignées
+- Changement mot de passe à la 1ère connexion
+
+**2. Portail Parent** (1-2 jours)
+- Voir bulletins de ses enfants
+- Voir statut paiements
+- Lecture seule (pas de paiement en ligne pour l'instant)
+
+**3. Portail Élève** (3-5 jours)
+- Style Duolingo
+- Notes et bulletins
+- Quiz et exercices
+- Gamification : XP, badges, streaks
+
+### PRIORITÉ MOYENNE
+
+**4. Gestion Fin d'Année** (3-4 jours)
+- Assistant transition annuelle (wizard)
+- Promotion automatique des élèves
+- Gestion redoublants et transferts
+- Archivage de l'année précédente
+- Rapport : promus / redoublants / transferts
+- Historique élève multi-années
+
+**5. Déploiement** (1-2 jours)
+- Railway ou Render
+- Objectif : avant septembre 2026 (rentrée scolaire Mali)
+
+### PRIORITÉ BASSE (après premiers clients)
+
+6. Notifications WhatsApp (~3 FCFA/msg via API)
+7. Analytics directeur multi-années
+8. Traduction arabe pour médersas
+9. Portail élève avancé avec IA
 
 ---
 

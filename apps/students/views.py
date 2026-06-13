@@ -90,6 +90,8 @@ def compute_student_stats(school):
 
 @login_required
 def student_list(request):
+    if request.user.role == 'teacher':
+        return redirect('teacher:dashboard')
     school = get_school(request)
     filter_type = request.GET.get('filter', 'all')
     class_id    = request.GET.get('class_id')
@@ -209,10 +211,49 @@ def student_detail(request, student_id):
         Student.objects.select_related('school_class').prefetch_related('payments'),
         id=student_id, school=school,
     )
+
+    observations = None
+    if request.user.role in ('director', 'staff') or request.user.is_superuser:
+        from apps.teachers.models import StudentObservation
+        observations = list(
+            StudentObservation.objects
+            .filter(student=student, school=school, is_private=False)
+            .select_related('teacher', 'read_by')
+            .order_by('-created_at')
+        )
+
     return render(request, 'students/student_detail.html', {
-        'student': student,
-        'school':  school,
+        'student':      student,
+        'school':       school,
+        'observations': observations,
     })
+
+
+@login_required
+@director_or_staff_required
+def observation_mark_read(request, student_id, obs_id):
+    from apps.teachers.models import StudentObservation
+
+    school = get_school(request)
+    obs = get_object_or_404(
+        StudentObservation,
+        pk=obs_id,
+        student_id=student_id,
+        school=school,
+        is_private=False,
+    )
+    if not obs.is_read:
+        obs.is_read = True
+        obs.read_at = timezone.now()
+        obs.read_by = request.user
+        obs.save(update_fields=['is_read', 'read_at', 'read_by'])
+
+    return HttpResponse(
+        f'<span id="obs-mark-btn-{obs.pk}" '
+        f'class="text-xs text-gray-400 flex items-center gap-1">'
+        f'✓ Lu le {obs.read_at.strftime("%d/%m/%Y")}'
+        f'</span>'
+    )
 
 
 @login_required

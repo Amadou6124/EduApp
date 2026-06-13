@@ -13,5 +13,6 @@ urlpatterns = [
     path('import/preview/',         views.student_import_preview,   name='import-preview'),
     path('import/confirm/',         views.student_import_confirm,   name='import-confirm'),
     path('<int:student_id>/',        views.student_detail,           name='detail'),
-    path('<int:student_id>/edit/',   views.student_update,           name='update'),
+    path('<int:student_id>/edit/',                          views.student_update,        name='update'),
+    path('<int:student_id>/observations/<int:obs_id>/read/', views.observation_mark_read, name='obs-mark-read'),
 ]
