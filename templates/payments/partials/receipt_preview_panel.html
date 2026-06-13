@@ -1,0 +1,57 @@
+<div class="flex flex-col bg-white pb-[60px] h-full">
+
+  <!-- En-tête fixe -->
+  <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
+    <div>
+      <h3 class="text-base font-bold text-gray-900">Reçu de paiement</h3>
+      <p class="text-xs text-gray-500 font-mono mt-0.5">{{ payment.receipt_number }}</p>
+    </div>
+    <button type="button"
+            @click="$store.payments.showReceiptPanel = false"
+            class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- PDF scrollable — prend tout l'espace disponible -->
+  <div class="flex-1 overflow-auto bg-gray-100 p-4">
+    <iframe id="receipt-frame"
+            src="{{ receipt_url }}"
+            class="w-full bg-white shadow-md"
+            style="height: 100%; min-height: 500px; border: none;"
+            title="Reçu {{ payment.receipt_number }}">
+    </iframe>
+  </div>
+
+</div>
+
+<!-- OOB : injecte les boutons dans #receipt-footer-bar (dans dashboard.html) -->
+<div id="receipt-footer-bar" hx-swap-oob="innerHTML">
+  <div class="flex gap-2">
+    <button type="button"
+            onclick="document.getElementById('receipt-frame').contentWindow.print()"
+            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+      </svg>
+      Imprimer
+    </button>
+    <a href="{{ download_url }}"
+       class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+      </svg>
+      Télécharger
+    </a>
+  </div>
+  <button type="button"
+          @click="$store.payments.showReceiptPanel = false"
+          class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+    Fermer
+  </button>
+</div>

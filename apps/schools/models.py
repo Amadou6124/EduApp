@@ -47,11 +47,7 @@ class School(models.Model):
     )
 
     # ── Apparence ──────────────────────────────────────────────────
-    logo          = models.ImageField(_('logo'), upload_to='schools/logos/', blank=True)
-    primary_color = models.CharField(
-        _('couleur principale'), max_length=7, default='#1E3A5F',
-        help_text=_('Code hexadécimal, ex : #1E3A5F'),
-    )
+    logo = models.ImageField(_('logo'), upload_to='schools/logos/', blank=True)
 
     # ── Modèle de reçu ─────────────────────────────────────────────
     receipt_mode = models.CharField(
@@ -66,6 +62,10 @@ class School(models.Model):
     )
     receipt_configured_at = models.DateTimeField(
         _('reçu configuré le'), null=True, blank=True,
+    )
+    receipt_signer_title = models.CharField(
+        _('titre du signataire'), max_length=100,
+        default='Le Caissier / Directeur', blank=True,
     )
 
     # ── Métadonnées ────────────────────────────────────────────────

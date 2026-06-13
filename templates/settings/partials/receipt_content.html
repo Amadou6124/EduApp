@@ -76,6 +76,41 @@
   <!-- ── Contenu selon mode ───────────────────────────────────────── -->
   {% if school.receipt_mode == 'standard' %}
     {% include "settings/partials/receipt_standard_preview.html" %}
+
+    <!-- ── Titre signataire ─────────────────────────────────────── -->
+    <div class="mt-6 pt-6 border-t border-gray-100">
+      <h3 class="text-sm font-semibold text-gray-800 mb-1">Titre du signataire</h3>
+      <p class="text-xs text-gray-400 mb-3">Affiché en bas du reçu, sous la zone de signature.</p>
+
+      <form hx-post="{% url 'settings:receipt' %}"
+            hx-target="#receipt-section"
+            hx-swap="outerHTML"
+            class="flex gap-2 items-center flex-wrap">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_signer">
+        <input type="text" name="receipt_signer_title"
+               value="{{ school.receipt_signer_title|default:'Le Caissier / Directeur' }}"
+               placeholder="Ex : Le Directeur"
+               id="signer-input"
+               class="flex-1 min-w-[200px] border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue">
+        <button type="submit" class="btn-primary text-sm shrink-0">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          Enregistrer
+        </button>
+      </form>
+
+      <!-- Suggestions rapides -->
+      <div class="flex flex-wrap gap-2 mt-3">
+        {% for label in signer_suggestions %}
+          <button type="button"
+                  onclick="document.getElementById('signer-input').value = '{{ label }}'"
+                  class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors">
+            {{ label }}
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+
   {% else %}
     {% include "settings/partials/receipt_custom_flow.html" %}
   {% endif %}

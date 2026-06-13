@@ -12,6 +12,13 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.formats import date_format
 
+from apps.payments.utils import amount_to_words_fr
+
+_MOIS_FR = [
+    '', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+]
+
 
 def _fmt_amount(amount):
     """Formate un montant FCFA avec séparateur de milliers."""
@@ -53,12 +60,19 @@ def generate_receipt(payment, school):
 
 def _generate_standard(payment, school):
     from weasyprint import HTML, CSS
+    from apps.schools.models import SchoolYear
 
     student = payment.student
 
     logo_url = None
     if school.logo:
         logo_url = school.logo.path
+
+    active_year = SchoolYear.objects.filter(school=school, is_active=True).first()
+    school_year = active_year.name if active_year else ''
+
+    d = payment.payment_date
+    date_long = f'{d.day} {_MOIS_FR[d.month]} {d.year}'
 
     ctx = {
         'payment':        payment,
@@ -70,10 +84,13 @@ def _generate_standard(payment, school):
         'total_paid_fmt': _fmt_amount(student.get_total_paid()),
         'balance_fmt':    _fmt_amount(student.get_balance_due()),
         'date_fmt':       date_format(payment.payment_date, 'd/m/Y'),
+        'date_long':      date_long,
         'method_label':   _payment_method_label(payment.payment_method),
         'status':         _status_info(payment),
         'logo_path':      logo_url,
-        'primary_color':  school.primary_color or '#1E3A5F',
+        'school_year':    school_year,
+        'amount_words':   amount_to_words_fr(int(payment.amount)),
+        'signer_title':   school.receipt_signer_title or 'Le Caissier / Directeur',
     }
 
     html_string = render_to_string('payments/pdf/receipt_standard.html', ctx)

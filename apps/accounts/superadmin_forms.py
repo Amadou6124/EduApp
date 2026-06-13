@@ -12,10 +12,10 @@ class SchoolCreateForm(forms.ModelForm):
         fields = ['name', 'city', 'country', 'phone_number', 'email', 'logo']
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'Ex: Groupe Scolaire Excellence'}),
-            'city': forms.TextInput(attrs={'placeholder': 'Ex: Abidjan'}),
-            'country': forms.TextInput(attrs={'placeholder': "Côte d'Ivoire"}),
-            'phone_number': forms.TextInput(attrs={'placeholder': '+225 07 00 00 00 00'}),
-            'email': forms.EmailInput(attrs={'placeholder': 'contact@ecole.ci'}),
+            'city': forms.TextInput(attrs={'placeholder': 'Ex: Bamako'}),
+            'country': forms.TextInput(attrs={'placeholder': 'Mali'}),
+            'phone_number': forms.TextInput(attrs={'placeholder': '+223 00 00 00 00'}),
+            'email': forms.EmailInput(attrs={'placeholder': 'contact@ecole.ml'}),
         }
 
 
@@ -25,10 +25,10 @@ class SchoolUpdateForm(forms.ModelForm):
         fields = ['name', 'city', 'country', 'phone_number', 'email', 'logo', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'Ex: Groupe Scolaire Excellence'}),
-            'city': forms.TextInput(attrs={'placeholder': 'Ex: Abidjan'}),
-            'country': forms.TextInput(attrs={'placeholder': "Côte d'Ivoire"}),
-            'phone_number': forms.TextInput(attrs={'placeholder': '+225 07 00 00 00 00'}),
-            'email': forms.EmailInput(attrs={'placeholder': 'contact@ecole.ci'}),
+            'city': forms.TextInput(attrs={'placeholder': 'Ex: Bamako'}),
+            'country': forms.TextInput(attrs={'placeholder': 'Mali'}),
+            'phone_number': forms.TextInput(attrs={'placeholder': '+223 00 00 00 00'}),
+            'email': forms.EmailInput(attrs={'placeholder': 'contact@ecole.ml'}),
         }
 
 
