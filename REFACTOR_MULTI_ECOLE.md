@@ -60,9 +60,12 @@ Statut : 🔄 En cours
 - [x] director_or_staff_required → request.role
 - [x] teacher_required → request.role
 - [x] templates → request.role (base.html ×9 + student_detail ×1)
-- [ ] Switch école (/switch-school/<id>/)
-- [ ] UI switch dans header
+- [x] Switch école (/switch-school/<id>/)
+- [x] UI switch dans header (dropdown admin desktop + header mobile teacher)
 - [ ] Login redirect multi-école
+
+Note : context_processors.py ligne 87 (request.user.role → request.role)
+corrigé en C4 — lecture de rôle hors templates non couverte par C3.
 
 ### PHASE D — Fonctionnalités multi-école
 Statut : ⏳ En attente Phase C
@@ -102,4 +105,5 @@ Statut : ⏳ En attente Phase C
 - `9fe8298` feat: multi-école Phase B - backfill données existantes
 - `5f782a2` feat: multi-école Phase C1 - get_school() session + get_active_role() + request.role
 - `80348ce` feat: multi-école Phase C2 - décorateurs lisent get_active_role()
-- _(à venir)_ feat: multi-école Phase C3 - templates request.role
+- `57e78ac` feat: multi-école Phase C3 - templates request.role
+- _(à venir)_ feat: multi-école Phase C4 - switch école

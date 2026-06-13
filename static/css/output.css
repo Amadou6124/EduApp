@@ -999,6 +999,10 @@ p {
   top: 1.25rem;
 }
 
+.top-full {
+  top: 100%;
+}
+
 .z-10 {
   z-index: 10;
 }
@@ -1508,6 +1512,10 @@ p {
 
 .w-\[19px\] {
   width: 19px;
+}
+
+.w-\[260px\] {
+  width: 260px;
 }
 
 .w-auto {

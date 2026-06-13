@@ -1,10 +1,10 @@
 from django.contrib.auth import login, logout
 from django.contrib import messages
 from django.core.cache import cache
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from .forms import LoginForm
 from .models import UserRole
@@ -95,6 +95,34 @@ def logout_view(request):
     logout(request)
     messages.success(request, 'Vous avez été déconnecté avec succès.')
     return redirect('accounts:login')
+
+
+@login_required
+@require_POST
+def switch_school(request, school_id):
+    """
+    Change l'école active de l'utilisateur.
+    Vérifie que l'user appartient (membership actif) à cette école.
+    """
+    from .models import Membership
+
+    membership = Membership.objects.filter(
+        user=request.user,
+        school_id=school_id,
+        is_active=True,
+    ).select_related('school').first()
+
+    if not membership:
+        return HttpResponseForbidden()
+
+    request.session['active_school_id'] = school_id
+    request.session.cycle_key()  # anti-fixation de session
+
+    role = membership.role
+    if role == 'teacher':
+        return redirect('teacher:dashboard')
+    # promoteur et admin → dashboard consolidé / standard
+    return redirect('dashboard:main')
 
 
 @login_required

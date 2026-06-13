@@ -304,6 +304,31 @@
             {{ request.user.email|default:request.user.phone_number }}
           </div>
 
+          <!-- Changer d'école (multi-école) -->
+          {% if user_memberships %}
+          <div class="px-3 pt-1 pb-0.5">
+            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">École active</p>
+          </div>
+          <div class="px-1.5 pb-1">
+            <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-blue-50">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-brand-blue shrink-0"></i>
+              <span class="truncate text-sm font-medium text-brand-blue">{{ request.school.name }}</span>
+            </div>
+            {% for m in user_memberships %}
+            <form method="post" action="{% url 'accounts:switch-school' m.school_id %}">
+              {% csrf_token %}
+              <button type="submit"
+                      class="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left">
+                <i data-lucide="building-2" class="w-4 h-4 shrink-0 text-gray-400"></i>
+                <span class="truncate">{{ m.school.name }}</span>
+                <span class="ml-auto text-[10px] text-gray-400 shrink-0">{{ m.get_role_display }}</span>
+              </button>
+            </form>
+            {% endfor %}
+          </div>
+          <div class="border-t border-gray-100 my-1 mx-3"></div>
+          {% endif %}
+
           <!-- Paramètres -->
           {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
           <a href="{% url 'settings:general' %}"
@@ -423,10 +448,43 @@
             {{ request.user.full_name|first|upper }}
           </a>
 
-          <!-- Nom école (tronqué) -->
-          <span class="flex-1 text-center text-sm font-semibold text-gray-800 truncate mx-3">
-            {% if request.school %}{{ request.school.name|truncatechars:20 }}{% endif %}
-          </span>
+          <!-- Nom école (cliquable si multi-école) -->
+          <div class="flex-1 flex justify-center mx-3 min-w-0 relative" x-data="{ schoolMenu: false }">
+            {% if user_memberships %}
+            <button type="button" @click="schoolMenu = !schoolMenu"
+                    class="flex items-center gap-1 text-sm font-semibold text-gray-800 truncate max-w-full">
+              <span class="truncate">{% if request.school %}{{ request.school.name|truncatechars:16 }}{% endif %}</span>
+              <i data-lucide="chevron-down" class="w-4 h-4 shrink-0 text-gray-400 transition-transform"
+                 :class="schoolMenu ? 'rotate-180' : ''"></i>
+            </button>
+            <div x-show="schoolMenu" x-cloak @click.away="schoolMenu = false"
+                 class="absolute top-full mt-3 left-1/2 -translate-x-1/2 w-[260px]
+                        bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-50"
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 -translate-y-2"
+                 x-transition:enter-end="opacity-100 translate-y-0">
+              <div class="flex items-center gap-2 px-3 py-1.5 mx-1.5 rounded-lg bg-blue-50">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-brand-blue shrink-0"></i>
+                <span class="truncate text-sm font-medium text-brand-blue">{{ request.school.name }}</span>
+              </div>
+              {% for m in user_memberships %}
+              <form method="post" action="{% url 'accounts:switch-school' m.school_id %}" class="mx-1.5">
+                {% csrf_token %}
+                <button type="submit"
+                        class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 text-left">
+                  <i data-lucide="building-2" class="w-4 h-4 shrink-0 text-gray-400"></i>
+                  <span class="truncate">{{ m.school.name }}</span>
+                  <span class="ml-auto text-[10px] text-gray-400 shrink-0">{{ m.get_role_display }}</span>
+                </button>
+              </form>
+              {% endfor %}
+            </div>
+            {% else %}
+            <span class="text-sm font-semibold text-gray-800 truncate">
+              {% if request.school %}{{ request.school.name|truncatechars:20 }}{% endif %}
+            </span>
+            {% endif %}
+          </div>
 
           <!-- Cloche + badge -->
           <div class="relative shrink-0">
