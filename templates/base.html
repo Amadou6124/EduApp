@@ -526,80 +526,69 @@
     {# ── Nav mobile ENSEIGNANT : Accueil | Notes | Absences | Mes élèves ── #}
 
     {# Accueil #}
-    {% with active=request.resolver_match.app_name == 'teacher' %}
     <a href="{% url 'teacher:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if active %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'teacher' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if active %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'teacher' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
         <i data-lucide="layout-dashboard" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">Accueil</span>
     </a>
-    {% endwith %}
 
     {# Notes #}
-    {% with active=request.resolver_match.app_name == 'notes' %}
     <a href="{% url 'notes:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if active %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'notes' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if active %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'notes' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
         <i data-lucide="book-open" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">Notes</span>
     </a>
-    {% endwith %}
 
     {# Absences #}
-    {% with active=request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}
     <a href="{% url 'teacher:attendance-list' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if active %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if active %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
         <i data-lucide="calendar-x" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">Absences</span>
     </a>
-    {% endwith %}
 
     {# Mes élèves #}
-    {% with active=request.resolver_match.url_name == 'students' or request.resolver_match.url_name == 'student-detail' %}
     <a href="{% url 'teacher:students' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if active %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.url_name == 'students' or request.resolver_match.url_name == 'student-detail' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if active %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.url_name == 'students' or request.resolver_match.url_name == 'student-detail' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
         <i data-lucide="users" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">Mes élèves</span>
     </a>
-    {% endwith %}
 
     {% else %}
     {# ── Nav mobile DIRECTEUR / STAFF : Accueil | Élèves | Paiements | Notes | Plus ── #}
 
     {# Accueil #}
-    {% with active=request.resolver_match.app_name == 'dashboard' %}
     <a href="{% url 'dashboard:main' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if active %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'dashboard' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if active %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'dashboard' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
         <i data-lucide="layout-dashboard" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">{% trans "Accueil" %}</span>
     </a>
-    {% endwith %}
 
     {# Élèves #}
-    {% with active=request.resolver_match.app_name == 'students' %}
     <a href="{% url 'students:list' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if active %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'students' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if active %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'students' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
         <i data-lucide="users" class="w-6 h-6 shrink-0"></i>
         {% if unread_observations_count %}
         <span class="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full
@@ -611,47 +600,40 @@
       </div>
       <span class="text-[11px] font-medium">{% trans "Élèves" %}</span>
     </a>
-    {% endwith %}
 
     {# Paiements #}
-    {% with active=request.resolver_match.app_name == 'payments' %}
     <a href="{% url 'payments:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if active %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'payments' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if active %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'payments' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
         <i data-lucide="credit-card" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">{% trans "Paiements" %}</span>
     </a>
-    {% endwith %}
 
     {# Notes #}
-    {% with active=request.resolver_match.app_name == 'notes' %}
     <a href="{% url 'notes:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if active %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'notes' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if active %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'notes' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
         <i data-lucide="book-open" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">{% trans "Notes" %}</span>
     </a>
-    {% endwith %}
 
     {# Plus (directeur/staff) #}
     {% if request.user.role == 'director' or request.user.role == 'staff' or request.user.is_superuser %}
-    {% with active=request.resolver_match.app_name == 'settings' %}
     <a href="{% url 'settings:general' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if active %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'settings' %}text-brand-blue{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if active %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'settings' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
         <i data-lucide="settings" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">{% trans "Plus" %}</span>
     </a>
-    {% endwith %}
     {% endif %}
 
     {% endif %}{# fin if teacher #}
