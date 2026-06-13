@@ -1,11 +1,12 @@
 {% load humanize %}
 
+<!-- En-tête : nom + fermer -->
 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
   <div>
     <h3 class="text-base font-bold text-gray-900">{{ student.full_name }}</h3>
     <p class="text-xs text-gray-500 mt-0.5">{{ student.school_class.name }}</p>
   </div>
-  <button type="button" @click="showHistory = false"
+  <button type="button" @click="$store.payments.showHistory = false"
           class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -13,62 +14,85 @@
   </button>
 </div>
 
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 px-6 py-4 border-b border-gray-100">
-  <div class="text-center">
-    <p class="text-xs text-gray-400 mb-0.5">Total dû</p>
-    <p class="text-sm font-bold text-gray-800">{{ student.tuition_fee|floatformat:0|intcomma }}</p>
+<!-- Stats -->
+<div class="grid grid-cols-3 gap-px bg-gray-100 border-b border-gray-100">
+  <div class="bg-white text-center px-4 py-3">
+    <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium mb-0.5">Total dû</p>
+    <p class="text-sm font-bold text-gray-800 tabular-nums">{{ student.tuition_fee|floatformat:0|intcomma }}</p>
   </div>
-  <div class="text-center">
-    <p class="text-xs text-gray-400 mb-0.5">Versé</p>
-    <p class="text-sm font-bold text-green-600">{{ total_paid|floatformat:0|intcomma }}</p>
+  <div class="bg-white text-center px-4 py-3">
+    <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium mb-0.5">Versé</p>
+    <p class="text-sm font-bold text-green-600 tabular-nums">{{ total_paid|floatformat:0|intcomma }}</p>
   </div>
-  <div class="text-center">
-    <p class="text-xs text-gray-400 mb-0.5">Solde</p>
-    {% with balance=student.tuition_fee|add:"-0" %}
-    <p class="text-sm font-bold {% if student.get_balance_due <= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-      {{ student.get_balance_due|floatformat:0|intcomma }}
+  <div class="bg-white text-center px-4 py-3">
+    <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium mb-0.5">Solde</p>
+    {% with bal=student.get_balance_due %}
+    <p class="text-sm font-bold tabular-nums {% if bal <= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+      {% if bal <= 0 %}0{% else %}{{ bal|floatformat:0|intcomma }}{% endif %}
     </p>
     {% endwith %}
   </div>
 </div>
 
-<div class="px-6 py-4">
+<!-- Timeline -->
+<div class="px-6 py-5 overflow-y-auto">
 
   {% if not payments %}
-    <div class="flex flex-col items-center justify-center py-8 text-center">
+    <div class="flex flex-col items-center justify-center py-10 text-center">
       <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
         <i data-lucide="credit-card" class="w-6 h-6 text-gray-400"></i>
       </div>
       <p class="text-sm text-gray-500">Aucun paiement enregistré</p>
     </div>
+
   {% else %}
     <div class="relative">
-      <div class="absolute left-3 top-0 bottom-0 w-px bg-gray-200"></div>
+      <!-- Ligne verticale -->
+      <div class="absolute left-[9px] top-3 bottom-3 w-0.5 bg-gray-200"></div>
 
       <div class="space-y-4">
         {% for payment in payments %}
-          <div class="relative pl-9">
-            <div class="absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center border-2
-                        {% if payment.is_cancelled %}border-gray-300 bg-white{% else %}border-brand-blue bg-brand-blue{% endif %}">
+          <div class="relative pl-8">
+
+            <!-- Dot -->
+            <div class="absolute left-0 top-2 w-[19px] h-[19px] rounded-full flex items-center justify-center border-2
+                        {% if payment.is_cancelled %}border-red-300 bg-red-50{% else %}border-green-500 bg-green-500{% endif %}">
               {% if payment.is_cancelled %}
-                <div class="w-2 h-2 rounded-full bg-gray-300"></div>
+                <svg class="w-2.5 h-2.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
               {% else %}
-                <div class="w-2 h-2 rounded-full bg-white"></div>
+                <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                </svg>
               {% endif %}
             </div>
 
-            <div class="bg-gray-50 rounded-xl px-4 py-3 {% if payment.is_cancelled %}opacity-60{% endif %}">
-              <div class="flex items-start justify-between gap-2">
-                <div class="flex-1">
-                  <p class="text-xs text-gray-400 mb-0.5">{{ payment.payment_date|date:"d M Y" }}</p>
-                  <p class="text-sm font-bold {% if payment.is_cancelled %}line-through text-gray-400{% else %}text-gray-900{% endif %}">
-                    {{ payment.amount|floatformat:0|intcomma }} FCFA
-                  </p>
-                  <p class="text-xs text-gray-500 mt-0.5">
-                    {{ payment.get_payment_method_display }}
-                    {% if payment.collected_by %} · {{ payment.collected_by.full_name }}{% endif %}
-                  </p>
-                  <p class="text-xs text-gray-400 font-mono mt-0.5">{{ payment.receipt_number }}</p>
+            <!-- Card -->
+            <div class="bg-white rounded-xl border border-gray-100 border-l-4 px-4 py-3
+                        {% if payment.is_cancelled %}border-l-red-300 opacity-70{% else %}border-l-green-500{% endif %}">
+              <div class="flex items-start justify-between gap-3">
+
+                <!-- Infos paiement -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-baseline gap-2 flex-wrap">
+                    <span class="text-sm font-bold
+                                 {% if payment.is_cancelled %}line-through text-gray-400{% else %}text-green-700{% endif %}">
+                      {{ payment.amount|floatformat:0|intcomma }} FCFA
+                    </span>
+                    <span class="text-xs text-gray-400">{{ payment.payment_date|date:"d M Y" }}</span>
+                  </div>
+
+                  <div class="flex items-center gap-2 mt-1 flex-wrap">
+                    <span class="text-xs text-gray-500">{{ payment.get_payment_method_display }}</span>
+                    {% if payment.collected_by %}
+                      <span class="text-gray-300">·</span>
+                      <span class="text-xs text-gray-500">{{ payment.collected_by.full_name }}</span>
+                    {% endif %}
+                  </div>
+
+                  <p class="text-xs text-gray-400 font-mono mt-1">{{ payment.receipt_number }}</p>
+
                   {% if payment.is_cancelled %}
                     <p class="text-xs text-red-500 mt-1">
                       Annulé le {{ payment.cancelled_at|date:"d/m/Y" }}
@@ -77,21 +101,32 @@
                   {% endif %}
                 </div>
 
-                <div class="flex items-center gap-1.5 flex-shrink-0">
+                <!-- Actions -->
+                <div class="flex items-center gap-1 flex-shrink-0">
                   {% if not payment.is_cancelled %}
-                    <a href="{% url 'payments:receipt' payment.id %}" target="_blank"
-                       class="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition" title="Télécharger reçu">
+                    <!-- Voir reçu -->
+                    <button type="button"
+                            hx-get="{% url 'payments:receipt-preview' payment.id %}"
+                            hx-target="#receipt-panel-content"
+                            hx-swap="innerHTML"
+                            @click="$store.payments.showHistory = false; $store.payments.showReceiptPanel = true"
+                            class="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
+                            title="Voir le reçu">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                       </svg>
-                    </a>
+                    </button>
+
+                    <!-- Annuler -->
                     <div x-data="{ showCancel: false }">
                       <button type="button" @click="showCancel = !showCancel"
-                              class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Annuler ce paiement">
+                              class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                              title="Annuler ce paiement">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                       </button>
+
                       <div x-show="showCancel" x-cloak
                            class="mt-2 bg-red-50 border border-red-200 rounded-xl p-3"
                            x-transition:enter="transition ease-out duration-150"
@@ -112,16 +147,18 @@
                             </button>
                             <button type="submit"
                                     class="flex-1 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium">
-                              Confirmer l'annulation
+                              Confirmer
                             </button>
                           </div>
                         </form>
                       </div>
                     </div>
+
                   {% else %}
                     <span class="text-xs px-2 py-0.5 bg-red-100 text-red-600 rounded-full font-medium">Annulé</span>
                   {% endif %}
                 </div>
+
               </div>
             </div>
           </div>
@@ -129,4 +166,5 @@
       </div>
     </div>
   {% endif %}
+
 </div>

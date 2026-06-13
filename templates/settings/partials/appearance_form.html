@@ -5,26 +5,8 @@
       hx-encoding="multipart/form-data"
       hx-indicator="#appearance-saving"
       x-data="{
-        color: '{{ school.primary_color|default:"#1E3A5F" }}',
         logoUrl: '{% if school.logo %}{{ school.logo.url }}{% endif %}',
         dragOver: false,
-        presets: ['#1E3A5F','#2E7D32','#C62828','#6A1B9A','#E65100','#00695C'],
-        pickPreset(c) {
-          this.color = c;
-          this.$refs.colorPicker.value = c;
-          this.$refs.colorText.value = c;
-        },
-        onPickerChange(e) {
-          this.color = e.target.value;
-          this.$refs.colorText.value = e.target.value;
-        },
-        onHexInput(e) {
-          const v = e.target.value.trim();
-          if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
-            this.color = v;
-            this.$refs.colorPicker.value = v;
-          }
-        },
         onFileChange(e) {
           const file = e.target.files[0];
           if (!file) return;
@@ -44,15 +26,14 @@
           reader.onload = (ev) => { this.logoUrl = ev.target.result; };
           reader.readAsDataURL(file);
         }
-      }"
-      x-init="$refs.colorPicker.value = color; $refs.colorText.value = color;">
+      }">
 
   {% csrf_token %}
 
   <!-- ── Bloc 1 : Logo ──────────────────────────────────────────── -->
   <div class="mb-8">
     <h3 class="text-sm font-semibold text-gray-800 mb-1">Logo</h3>
-    <p class="text-xs text-gray-400 mb-4">PNG, JPG ou SVG — max 2 Mo</p>
+    <p class="text-xs text-gray-400 mb-4">PNG, JPG ou SVG — max 2 Mo. Affiché sur les reçus et bulletins.</p>
 
     <!-- Logo existant -->
     <template x-if="logoUrl">
@@ -110,51 +91,11 @@
     {% endif %}
   </div>
 
-  <!-- ── Bloc 2 : Couleur principale ───────────────────────────── -->
-  <div class="mb-8 pb-8 border-b border-gray-100">
-    <h3 class="text-sm font-semibold text-gray-800 mb-1">Couleur principale</h3>
-    <p class="text-xs text-gray-400 mb-4">Utilisée sur vos documents (reçus, bulletins)</p>
-
-    <div class="flex items-center gap-4 flex-wrap">
-
-      <!-- Picker natif -->
-      <div class="flex items-center gap-3">
-        <input x-ref="colorPicker" type="color" name="_color_picker"
-               class="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5"
-               @input="onPickerChange($event)">
-        <!-- Hex texte -->
-        <input x-ref="colorText" type="text" name="primary_color"
-               class="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-blue"
-               maxlength="7" placeholder="#1E3A5F"
-               @input="onHexInput($event)">
-      </div>
-
-      <!-- Presets -->
-      <div class="flex items-center gap-2">
-        <template x-for="c in presets" :key="c">
-          <button type="button"
-                  class="w-7 h-7 rounded-full border-2 transition-all hover:scale-110"
-                  :style="{ backgroundColor: c }"
-                  :class="color === c ? 'border-gray-800 scale-110' : 'border-transparent'"
-                  @click="pickPreset(c)">
-          </button>
-        </template>
-      </div>
-    </div>
-
-    {% if form.primary_color.errors %}
-      <p class="text-xs text-red-600 mt-2">{{ form.primary_color.errors.0 }}</p>
-    {% endif %}
-  </div>
-
-  <!-- ── Bloc 3 : Aperçu en temps réel ─────────────────────────── -->
+  <!-- ── Bloc 2 : Aperçu ────────────────────────────────────────── -->
   <div class="mb-8">
     <h3 class="text-sm font-semibold text-gray-800 mb-4">Aperçu de l'en-tête document</h3>
 
     <div class="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-      <!-- Bandeau couleur -->
-      <div class="h-2 w-full" :style="{ backgroundColor: color }"></div>
-      <!-- Corps aperçu -->
       <div class="bg-white px-6 py-4 flex items-center gap-4">
         <div class="w-14 h-14 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
           <img x-show="logoUrl" :src="logoUrl" class="w-full h-full object-contain p-1">
@@ -168,12 +109,6 @@
           <p class="text-sm text-gray-500 mt-0.5">
             {{ school.city }}{% if school.phone_number %} — {{ school.phone_number }}{% endif %}
           </p>
-        </div>
-        <div class="ml-auto">
-          <span class="text-xs font-semibold px-2.5 py-1 rounded-full text-white"
-                :style="{ backgroundColor: color }">
-            Aperçu
-          </span>
         </div>
       </div>
     </div>
@@ -191,7 +126,7 @@
     </span>
     <button type="submit"
             class="bg-brand-blue hover:bg-[#16304F] text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]">
-      Enregistrer l'apparence
+      Enregistrer le logo
     </button>
   </div>
 

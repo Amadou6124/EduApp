@@ -28,5 +28,9 @@ module.exports = {
       },
     },
   },
+  safelist: [
+    'lg:left-16',
+    'lg:left-64',
+  ],
   plugins: [],
 }

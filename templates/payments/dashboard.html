@@ -6,11 +6,13 @@
 
 {% block extra_head %}
 <script>
+document.addEventListener('alpine:init', () => {
+  Alpine.store('payments', { showPanel: false, showHistory: false, showReceiptPanel: false });
+});
+
 function paymentsPageData() {
   return {
     viewMode: localStorage.getItem('paymentsView') || (window.innerWidth < 1024 ? 'cards' : 'table'),
-    showPanel: false,
-    showHistory: false,
     currentStatus: new URLSearchParams(window.location.search).get('status') || 'unpaid',
     setView(m) { this.viewMode = m; localStorage.setItem('paymentsView', m); },
     setStatus(s) {
@@ -24,8 +26,7 @@ function paymentsPageData() {
 {% endblock %}
 
 {% block content %}
-<div x-data="paymentsPageData()"
-     @close-panel.window="showPanel = false">
+<div x-data="paymentsPageData()">
 
   {% include "payments/partials/payment_stats.html" %}
 
@@ -88,7 +89,7 @@ function paymentsPageData() {
 
   {% include "payments/partials/payment_list_refresh.html" %}
 
-  <div x-show="showPanel" x-cloak
+  <div x-show="$store.payments.showPanel" x-cloak
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
        x-transition:enter-end="opacity-100"
@@ -96,10 +97,10 @@ function paymentsPageData() {
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
        class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40"
-       @click="showPanel = false">
+       @click="$store.payments.showPanel = false">
   </div>
 
-  <div x-show="showPanel" x-cloak
+  <div x-show="$store.payments.showPanel" x-cloak
        id="payment-panel"
        class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col overflow-y-auto animate-slide-in-right"
        x-transition:enter="transition ease-out duration-300"
@@ -110,7 +111,7 @@ function paymentsPageData() {
        x-transition:leave-end="translate-x-full">
   </div>
 
-  <div x-show="showHistory" x-cloak
+  <div x-show="$store.payments.showHistory" x-cloak
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
        x-transition:enter-end="opacity-100"
@@ -118,7 +119,7 @@ function paymentsPageData() {
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
        class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
-       @click.self="showHistory = false">
+       @click.self="$store.payments.showHistory = false">
     <div id="payment-history-modal"
          class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-xl max-h-[85vh] overflow-y-auto"
          @click.stop
@@ -129,6 +130,41 @@ function paymentsPageData() {
          x-transition:leave-start="opacity-100 scale-100 translate-y-0"
          x-transition:leave-end="opacity-0 scale-95 translate-y-2">
     </div>
+  </div>
+
+  <!-- ── Receipt panel overlay ─────────────────────────────────── -->
+  <div x-show="$store.payments.showReceiptPanel" x-cloak
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[60]"
+       @click="$store.payments.showReceiptPanel = false">
+  </div>
+
+  <!-- ── Receipt panel ─────────────────────────────────────────── -->
+  <div x-show="$store.payments.showReceiptPanel" x-cloak
+       class="fixed top-0 right-0 h-full w-full sm:w-[680px] bg-white shadow-2xl border-l border-gray-200 z-[70] flex flex-col"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="translate-x-full">
+    <div id="receipt-panel-content" class="flex flex-col h-full">
+      <!-- chargé par HTMX -->
+    </div>
+  </div>
+
+  <!-- ── Receipt footer bar ───────────────────────────────────────── -->
+  <!-- left suit la sidebar (lg:left-16 collapsed / lg:left-64 open)  -->
+  <div id="receipt-footer-bar"
+       x-show="$store.payments.showReceiptPanel" x-cloak
+       :class="$store.sidebar.open ? 'lg:left-64' : 'lg:left-16'"
+       class="fixed bottom-0 left-0 right-0 lg:left-16 z-[80] bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between">
+    <!-- contenu injecté par HTMX OOB depuis receipt_preview_panel.html -->
   </div>
 
 </div>

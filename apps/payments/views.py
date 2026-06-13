@@ -2,11 +2,12 @@ import json
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, DecimalField, F, Q, Subquery, OuterRef, Sum, ExpressionWrapper
+from django.db.models import Count, DecimalField, F, Prefetch, Q, Subquery, OuterRef, Sum, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
 from apps.schools.models import SchoolClass
@@ -38,6 +39,15 @@ def _students_qs(school):
         Student.objects
         .filter(school=school, is_active=True)
         .select_related('school_class')
+        .prefetch_related(
+            Prefetch(
+                'payments',
+                queryset=Payment.objects.filter(
+                    is_cancelled=False
+                ).order_by('-payment_date'),
+                to_attr='active_payments',
+            )
+        )
         .annotate(
             total_paid=Coalesce(Subquery(paid_sq), Decimal('0'), output_field=DecimalField()),
             balance=ExpressionWrapper(
@@ -256,6 +266,42 @@ def payment_cancel(request, payment_id):
 
 
 @login_required
+def receipt_preview(request, payment_id):
+    from django.urls import reverse
+    school  = get_school(request)
+    payment = get_object_or_404(
+        Payment.objects.select_related('student__school_class'),
+        id=payment_id, student__school=school, is_cancelled=False,
+    )
+    return render(request, 'payments/partials/receipt_preview_panel.html', {
+        'payment':      payment,
+        'receipt_url':  reverse('payments:receipt',          args=[payment_id]),
+        'download_url': reverse('payments:receipt-download', args=[payment_id]),
+    })
+
+
+@login_required
+def receipt_download(request, payment_id):
+    school  = get_school(request)
+    payment = get_object_or_404(
+        Payment.objects.select_related('student__school_class'),
+        id=payment_id, student__school=school, is_cancelled=False,
+    )
+    from .services.receipt_generator import generate_receipt
+    try:
+        pdf_bytes = generate_receipt(payment, school)
+    except Exception as exc:
+        return HttpResponse(f'Erreur génération PDF : {exc}', status=500, content_type='text/plain')
+
+    safe_name = payment.student.full_name.replace(' ', '_')
+    filename  = f'recu_{safe_name}_{payment.receipt_number}.pdf'
+    response  = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@xframe_options_sameorigin
 def payment_receipt_download(request, payment_id):
     school = get_school(request)
     payment = get_object_or_404(
