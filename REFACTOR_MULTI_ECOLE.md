@@ -54,9 +54,9 @@ Migration : `accounts/0004_backfill_memberships_phase_b.py`
 Résultat backfill : 11 Memberships · 640 Enrollments · 3/3 StaffPermissions liées
 
 ### PHASE C — Bascule logique
-Statut : 🔄 Prochaine — prête à démarrer
-- [ ] get_school() → session + Membership
-- [ ] SchoolMiddleware → request.role
+Statut : 🔄 En cours
+- [x] get_school() → session + Membership
+- [x] SchoolMiddleware → request.role
 - [ ] director_or_staff_required → request.role
 - [ ] teacher_required → request.role
 - [ ] 5 templates → request.role
@@ -99,4 +99,5 @@ Statut : ⏳ En attente Phase C
 ## Commits
 - `dee97c4` chore: REFACTOR_MULTI_ECOLE.md - plan architecture multi-école
 - `176142e` feat: multi-école Phase A - modèles + migrations additives zéro régression
-- _(à venir)_ feat: multi-école Phase B - backfill données existantes
+- `9fe8298` feat: multi-école Phase B - backfill données existantes
+- _(à venir)_ feat: multi-école Phase C1 - get_school() session + get_active_role() + request.role
