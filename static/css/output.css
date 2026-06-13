@@ -2051,11 +2051,6 @@ p {
   border-top-color: transparent;
 }
 
-.bg-\[\#1E3A5F\] {
-  --tw-bg-opacity: 1;
-  background-color: rgb(30 58 95 / var(--tw-bg-opacity, 1));
-}
-
 .bg-\[\#E6F1FB\] {
   --tw-bg-opacity: 1;
   background-color: rgb(230 241 251 / var(--tw-bg-opacity, 1));
@@ -3498,11 +3493,6 @@ p {
   background-color: rgb(254 252 232 / 0.5);
 }
 
-.hover\:bg-yellow-500:hover {
-  --tw-bg-opacity: 1;
-  background-color: rgb(234 179 8 / var(--tw-bg-opacity, 1));
-}
-
 .hover\:text-amber-700:hover {
   --tw-text-opacity: 1;
   color: rgb(180 83 9 / var(--tw-text-opacity, 1));
@@ -3689,6 +3679,11 @@ p {
 
 .disabled\:opacity-50:disabled {
   opacity: 0.5;
+}
+
+.group:hover .group-hover\:-translate-x-0\.5 {
+  --tw-translate-x: -0.125rem;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
 .group:hover .group-hover\:scale-110 {
