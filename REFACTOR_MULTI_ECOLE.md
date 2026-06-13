@@ -54,7 +54,7 @@ Migration : `accounts/0004_backfill_memberships_phase_b.py`
 Résultat backfill : 11 Memberships · 640 Enrollments · 3/3 StaffPermissions liées
 
 ### PHASE C — Bascule logique
-Statut : 🔄 En cours
+Statut : ✅ Terminée
 - [x] get_school() → session + Membership
 - [x] SchoolMiddleware → request.role
 - [x] director_or_staff_required → request.role
@@ -62,13 +62,16 @@ Statut : 🔄 En cours
 - [x] templates → request.role (base.html ×9 + student_detail ×1)
 - [x] Switch école (/switch-school/<id>/)
 - [x] UI switch dans header (dropdown admin desktop + header mobile teacher)
-- [ ] Login redirect multi-école
+- [x] Login redirect multi-école (page /select-school/ si >1 école)
 
-Note : context_processors.py ligne 87 (request.user.role → request.role)
-corrigé en C4 — lecture de rôle hors templates non couverte par C3.
+Notes :
+- context_processors.py ligne 87 (request.user.role → request.role)
+  corrigé en C4 — lecture de rôle hors templates non couverte par C3.
+- _post_login_url garde la signature (request, user) pour préserver ?next=.
+  teacher post-login → /teacher/ (au lieu de /notes/). _role_home() helper.
 
 ### PHASE D — Fonctionnalités multi-école
-Statut : ⏳ En attente Phase C
+Statut : 🔄 Prochaine — prête à démarrer
 - [ ] Dashboard promoteur consolidé
 - [ ] Portail parent multi-école
 - [ ] Transfert élève entre écoles
@@ -106,4 +109,5 @@ Statut : ⏳ En attente Phase C
 - `5f782a2` feat: multi-école Phase C1 - get_school() session + get_active_role() + request.role
 - `80348ce` feat: multi-école Phase C2 - décorateurs lisent get_active_role()
 - `57e78ac` feat: multi-école Phase C3 - templates request.role
-- _(à venir)_ feat: multi-école Phase C4 - switch école
+- `b38fdca` feat: multi-école Phase C4 - switch école
+- _(à venir)_ feat: multi-école Phase C5 - login redirect multi-école

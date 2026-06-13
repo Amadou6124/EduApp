@@ -39,21 +39,47 @@ def _clear_failures(key):
 
 # ── Redirect post-login selon rôle ────────────────────────────────────────
 
+def _role_home(role):
+    """Page d'accueil selon le rôle."""
+    return {
+        'director': '/dashboard/',
+        'staff':    '/dashboard/',
+        'promoter': '/dashboard/',
+        'teacher':  '/teacher/',
+        'student':  '/portal/student/',
+        'parent':   '/portal/parent/',
+    }.get(role, '/dashboard/')
+
+
 def _post_login_url(request, user):
+    """
+    Page de redirection après connexion.
+    Priorité : ?next= sûr → superadmin → sélection multi-école (>1 école)
+    → dashboard du membership par défaut → fallback legacy User.role.
+    """
     next_url = request.POST.get('next') or request.GET.get('next', '')
     if next_url and next_url.startswith('/') and not next_url.startswith('//'):
         return next_url
+
     if user.is_superuser:
         return '/superadmin/'
-    if user.role in (UserRole.DIRECTOR, UserRole.STAFF):
-        return '/dashboard/'
-    if user.role == UserRole.TEACHER:
-        return '/notes/'
-    if user.role == UserRole.STUDENT:
-        return '/portal/student/'
-    if user.role == UserRole.PARENT:
-        return '/portal/parent/'
-    return '/classes/'
+
+    from .models import Membership
+    memberships = list(
+        Membership.objects.filter(user=user, is_active=True).select_related('school')
+    )
+
+    # Plusieurs écoles → l'utilisateur choisit laquelle ouvrir
+    if len(memberships) > 1:
+        return '/select-school/'
+
+    # Membership par défaut → première active → fallback legacy User.role
+    default_membership = next((m for m in memberships if m.is_default), None)
+    if default_membership is None and memberships:
+        default_membership = memberships[0]
+    role = default_membership.role if default_membership else user.role
+
+    return _role_home(role)
 
 
 # ── Vues ──────────────────────────────────────────────────────────────────
@@ -123,6 +149,24 @@ def switch_school(request, school_id):
         return redirect('teacher:dashboard')
     # promoteur et admin → dashboard consolidé / standard
     return redirect('dashboard:main')
+
+
+@login_required
+def select_school(request):
+    """
+    Sélection d'école pour les comptes multi-école.
+    Une seule école (ou moins) → bascule directe, pas de page intermédiaire.
+    """
+    from .models import Membership
+    memberships = list(
+        Membership.objects.filter(user=request.user, is_active=True)
+        .select_related('school').order_by('school__name')
+    )
+    if len(memberships) <= 1:
+        return redirect(_post_login_url(request, request.user))
+    return render(request, 'accounts/select_school.html', {
+        'memberships': memberships,
+    })
 
 
 @login_required
