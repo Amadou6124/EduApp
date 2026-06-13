@@ -3121,6 +3121,14 @@ p {
   opacity: 0.75;
 }
 
+.opacity-80 {
+  opacity: 0.8;
+}
+
+.opacity-90 {
+  opacity: 0.9;
+}
+
 .shadow {
   --tw-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
@@ -3458,6 +3466,10 @@ p {
   background-color: rgb(30 58 95 / 0.05);
 }
 
+.hover\:bg-brand-blue\/90:hover {
+  background-color: rgb(30 58 95 / 0.9);
+}
+
 .hover\:bg-brand-gold\/20:hover {
   background-color: rgb(245 166 35 / 0.2);
 }
@@ -3730,6 +3742,12 @@ p {
 .active\:scale-95:active {
   --tw-scale-x: .95;
   --tw-scale-y: .95;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+
+.active\:scale-\[0\.98\]:active {
+  --tw-scale-x: 0.98;
+  --tw-scale-y: 0.98;
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
