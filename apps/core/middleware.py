@@ -1,7 +1,10 @@
 from django.contrib import messages
 from django.shortcuts import redirect
 
-from .mixins import _NoSchoolError, _PromoterNoSchoolError, get_school, get_active_role
+from .mixins import (
+    _NoSchoolError, _PromoterNoSchoolError, _ParentNoSchoolError,
+    get_school, get_active_role,
+)
 
 
 class SchoolMiddleware:
@@ -41,9 +44,11 @@ class SchoolMiddleware:
         return self.get_response(request)
 
     def process_exception(self, request, exception):
-        # _PromoterNoSchoolError d'abord (sous-classe de _NoSchoolError).
+        # Sous-classes d'abord (toutes héritent de _NoSchoolError).
         if isinstance(exception, _PromoterNoSchoolError):
             return redirect('/promoter/')
+        if isinstance(exception, _ParentNoSchoolError):
+            return redirect('/portal/parent/')
         if isinstance(exception, _NoSchoolError):
             messages.warning(
                 request,

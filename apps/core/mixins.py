@@ -15,6 +15,11 @@ class _PromoterNoSchoolError(_NoSchoolError):
     pass
 
 
+class _ParentNoSchoolError(_NoSchoolError):
+    """Parent (role=parent) sans école active → rediriger vers /portal/parent/."""
+    pass
+
+
 def get_school(request):
     """
     Retourne l'école ACTIVE de l'utilisateur connecté (multi-école).
@@ -66,13 +71,14 @@ def get_school(request):
         if request.user.school:
             request._active_school = request.user.school
             return request.user.school
-        # Aucune école : promoteur pur → _PromoterNoSchoolError, sinon _NoSchoolError.
-        # Exception cachée sur la requête pour ne pas re-requêter aux appels suivants.
-        exc = (
-            _PromoterNoSchoolError()
-            if request.user.owned_groups.exists()
-            else _NoSchoolError()
-        )
+        # Aucune école : promoteur / parent / superadmin → exception dédiée.
+        # Cachée sur la requête pour ne pas re-requêter aux appels suivants.
+        if request.user.owned_groups.exists():
+            exc = _PromoterNoSchoolError()
+        elif request.user.role == 'parent':
+            exc = _ParentNoSchoolError()
+        else:
+            exc = _NoSchoolError()
         request._active_school_error = exc
         raise exc
 
@@ -141,6 +147,28 @@ def promoter_required(view_func):
         )
         if not is_promoter:
             return redirect('dashboard:main')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def parent_required(view_func):
+    """
+    Réservé aux parents (rôle actif/legacy 'parent') et superadmins.
+    Sinon → login. À placer après @login_required.
+    """
+    from django.shortcuts import redirect
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect(reverse('accounts:login') + f'?next={request.path}')
+        is_parent = (
+            get_active_role(request) == 'parent'
+            or request.user.role == 'parent'
+            or request.user.is_superuser
+        )
+        if not is_parent:
+            return redirect('accounts:login')
         return view_func(request, *args, **kwargs)
     return wrapper
 

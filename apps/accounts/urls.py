@@ -7,7 +7,6 @@ urlpatterns = [
     path('login/',           views.login_view,          name='login'),
     path('logout/',          views.logout_view,         name='logout'),
     path('portal/student/',  views.portal_coming_soon,  name='portal-student'),
-    path('portal/parent/',   views.portal_coming_soon,  name='portal-parent'),
     path('search/',          views.search_global,       name='search-global'),
     path('switch-school/<int:school_id>/', views.switch_school, name='switch-school'),
     path('select-school/', views.select_school, name='select-school'),

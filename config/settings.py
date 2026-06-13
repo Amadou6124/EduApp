@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'apps.dashboard',
     'apps.teachers',
     'apps.promoter',
+    'apps.parent',
 ]
 
 MIDDLEWARE = [
