@@ -120,4 +120,11 @@ Données de test :
 - `b994cc3` feat: multi-école Phase C5 - login redirect multi-école
 - `048fd6c` fix: isolation multi-école - scope _teacher_class_ids + dashboards (fuite cross-école fermée, prouvée par test)
 - `1c00e52` feat: Phase D2 - interface StudentGuardian
-- _(à venir)_ feat: Phase D1 - app promoter fondation + stub dashboard
+- `f37566e` feat: Phase D1 - app promoter fondation + stub dashboard
+- _(à venir)_ fix: promoteur - _PromoterNoSchoolError, redirect /promoter/, nav filtrée
+
+Note technique (fix promoteur) : l'interception des exceptions de vue se fait
+via SchoolMiddleware.process_exception (PAS un try/except autour de get_response
+— Django enveloppe chaque middleware dans convert_exception_to_response, qui
+capture les exceptions de vue avant le __call__). Ce fix répare aussi l'ancien
+cas superadmin qui était du code mort.

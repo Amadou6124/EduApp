@@ -10,6 +10,11 @@ class _NoSchoolError(Exception):
     pass
 
 
+class _PromoterNoSchoolError(_NoSchoolError):
+    """Promoteur (owner de SchoolGroup) sans école active → rediriger vers /promoter/."""
+    pass
+
+
 def get_school(request):
     """
     Retourne l'école ACTIVE de l'utilisateur connecté (multi-école).
@@ -57,6 +62,9 @@ def get_school(request):
         if request.user.school:
             request._active_school = request.user.school
             return request.user.school
+        # Promoteur pur (aucune école) → exception dédiée interceptée par le middleware
+        if request.user.owned_groups.exists():
+            raise _PromoterNoSchoolError()
         raise _NoSchoolError()
 
     request._active_school = membership.school
