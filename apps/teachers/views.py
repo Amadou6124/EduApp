@@ -14,7 +14,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.core.mixins import get_school
+from apps.core.mixins import get_school, get_active_role
 from apps.schools.models import ClassSubject, Note, SchoolClass, SchoolYear, Period
 from apps.students.models import Student
 
@@ -25,7 +25,8 @@ def teacher_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('accounts:login')
-        if request.user.role != 'teacher' and not request.user.is_superuser:
+        # Rôle de l'école active (multi-école), fallback legacy User.role
+        if get_active_role(request) != 'teacher' and not request.user.is_superuser:
             return redirect('notes:dashboard')
         return view_func(request, *args, **kwargs)
     return wrapper

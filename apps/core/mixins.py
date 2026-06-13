@@ -96,7 +96,8 @@ def director_or_staff_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect(reverse('accounts:login') + f'?next={request.path}')
-        if request.user.role not in ('director', 'staff') and not request.user.is_superuser:
+        # Rôle de l'école active (multi-école), fallback legacy User.role
+        if get_active_role(request) not in ('director', 'staff') and not request.user.is_superuser:
             return HttpResponseForbidden(
                 '<h1 style="font-family:sans-serif;padding:40px">403 — Accès réservé au directeur et au staff.</h1>'
             )

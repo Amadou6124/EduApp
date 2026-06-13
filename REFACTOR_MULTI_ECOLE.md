@@ -57,8 +57,8 @@ Résultat backfill : 11 Memberships · 640 Enrollments · 3/3 StaffPermissions l
 Statut : 🔄 En cours
 - [x] get_school() → session + Membership
 - [x] SchoolMiddleware → request.role
-- [ ] director_or_staff_required → request.role
-- [ ] teacher_required → request.role
+- [x] director_or_staff_required → request.role
+- [x] teacher_required → request.role
 - [ ] 5 templates → request.role
 - [ ] Switch école (/switch-school/<id>/)
 - [ ] UI switch dans header
@@ -100,4 +100,5 @@ Statut : ⏳ En attente Phase C
 - `dee97c4` chore: REFACTOR_MULTI_ECOLE.md - plan architecture multi-école
 - `176142e` feat: multi-école Phase A - modèles + migrations additives zéro régression
 - `9fe8298` feat: multi-école Phase B - backfill données existantes
-- _(à venir)_ feat: multi-école Phase C1 - get_school() session + get_active_role() + request.role
+- `5f782a2` feat: multi-école Phase C1 - get_school() session + get_active_role() + request.role
+- _(à venir)_ feat: multi-école Phase C2 - décorateurs lisent get_active_role()
