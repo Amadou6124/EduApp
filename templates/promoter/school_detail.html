@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ school.name }} — Promoteur</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { 'brand-blue':'#1E3A5F','brand-gold':'#F5A623','brand-light':'#F0F4F8' },
+      fontFamily: { sans: ['Manrope','ui-sans-serif','system-ui'] },
+    } } }
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: 'Manrope', sans-serif; }
+    @keyframes fadeUp { from {opacity:0;transform:translateY(16px);} to {opacity:1;transform:translateY(0);} }
+    .fade-up { animation: fadeUp .5s ease-out forwards; opacity:0; }
+    .bar-fill { transition: width 1s ease-out; }
+  </style>
+</head>
+<body class="min-h-screen bg-[#F8F9FC] text-gray-900">
+
+  {# ── HEADER FIXE (identique au dashboard) ── #}
+  <header class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-lg bg-brand-blue flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 14l9-5-9-5-9 5 9 5z"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <p class="text-[11px] text-gray-400 leading-none">Groupe</p>
+          <p class="text-sm font-bold truncate">{{ group.name }}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="hidden sm:flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+               style="background:{{ request.user.get_avatar_colors.0 }};color:{{ request.user.get_avatar_colors.1 }}">
+            {{ request.user.get_initials }}
+          </div>
+          <span class="text-sm font-medium text-gray-700">{{ request.user.get_short_name }}</span>
+        </div>
+        <a href="{% url 'accounts:logout' %}"
+           class="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition" title="Se déconnecter">
+          <i data-lucide="log-out" class="w-5 h-5"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+    {# ── En-tête page : retour + identité école ── #}
+    <a href="{% url 'promoter:dashboard' %}"
+       class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-blue mb-4 transition">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Retour au groupe
+    </a>
+
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-14 h-14 rounded-2xl bg-brand-blue/10 text-brand-blue flex items-center justify-center font-extrabold text-2xl shrink-0">
+        {{ school.name|first|upper }}
+      </div>
+      <div class="min-w-0">
+        <h1 class="text-xl font-extrabold truncate">{{ school.name }}</h1>
+        <div class="flex items-center gap-2 text-sm text-gray-400">
+          <span>{{ school.city|default:"—" }}</span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold
+              {% if status == 'green' %}bg-green-100 text-green-700{% elif status == 'yellow' %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">
+            <span class="w-1.5 h-1.5 rounded-full {% if status == 'green' %}bg-green-500{% elif status == 'yellow' %}bg-amber-500{% else %}bg-red-500{% endif %}"></span>
+            {{ taux_global }}% recouvrement
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {# ── HERO CARD ── #}
+    <div class="fade-up bg-gradient-to-br from-[#1E3A5F] to-[#2D5A8E] rounded-2xl p-6 sm:p-8 text-white shadow-xl mb-8">
+      <div class="grid lg:grid-cols-2 gap-8 items-center">
+        <div>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-white/10 rounded-xl p-4">
+              <div class="flex items-center gap-1.5 text-white/60 text-xs mb-1"><i data-lucide="users" class="w-4 h-4"></i> Élèves</div>
+              <p class="text-2xl font-extrabold"><span class="js-count" data-count="{{ total_students }}" data-type="int">0</span></p>
+            </div>
+            <div class="bg-white/10 rounded-xl p-4">
+              <div class="flex items-center gap-1.5 text-white/60 text-xs mb-1"><i data-lucide="graduation-cap" class="w-4 h-4"></i> Profs</div>
+              <p class="text-2xl font-extrabold"><span class="js-count" data-count="{{ total_teachers }}" data-type="int">0</span></p>
+            </div>
+            <div class="bg-white/10 rounded-xl p-4">
+              <div class="flex items-center gap-1.5 text-white/60 text-xs mb-1"><i data-lucide="layout-grid" class="w-4 h-4"></i> Classes</div>
+              <p class="text-2xl font-extrabold"><span class="js-count" data-count="{{ total_classes }}" data-type="int">0</span></p>
+            </div>
+          </div>
+
+          <div class="mt-6">
+            <div class="flex items-center justify-between text-sm mb-1.5">
+              <span class="text-white/60">Recouvrement global</span>
+              <span class="font-bold">{{ taux_global }}%</span>
+            </div>
+            <div class="h-2.5 bg-white/15 rounded-full overflow-hidden">
+              <div class="bar-fill h-full rounded-full bg-white/90" style="width:0%" data-bar="{{ taux_global }}"></div>
+            </div>
+            <p class="text-xs text-white/50 mt-1.5">
+              <span class="js-money" data-money="{{ total_paid }}">—</span> encaissé sur <span class="js-money" data-money="{{ total_due }}">—</span> dus
+            </p>
+          </div>
+        </div>
+
+        <div class="hidden lg:block">
+          <p class="text-white/60 text-xs mb-3">Paiements · 6 derniers mois</p>
+          <div class="bg-white/5 rounded-xl p-4"><canvas id="paymentsChart" height="150"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    {# ── ALERTES ── #}
+    {% if unpaid_30 or absences_month %}
+    <div class="grid sm:grid-cols-2 gap-3 mb-8">
+      {% if unpaid_30 %}
+      <div class="fade-up bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0"><i data-lucide="alert-circle" class="w-5 h-5 text-red-600"></i></div>
+        <div><p class="text-lg font-bold text-red-700">{{ unpaid_30 }}</p>
+             <p class="text-xs text-red-600">élève{{ unpaid_30|pluralize }} avec solde impayé &gt; 30 jours</p></div>
+      </div>
+      {% endif %}
+      {% if absences_month %}
+      <div class="fade-up bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0"><i data-lucide="calendar-x" class="w-5 h-5 text-amber-600"></i></div>
+        <div><p class="text-lg font-bold text-amber-700">{{ absences_month }}</p>
+             <p class="text-xs text-amber-600">absence{{ absences_month|pluralize }} enregistrée{{ absences_month|pluralize }} ce mois</p></div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# ── SECTION — PAR CLASSE ── #}
+    <h2 class="text-lg font-bold mb-4">Répartition par classe</h2>
+    <div class="fade-up bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-8">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
+              <th class="px-4 py-3 font-semibold">Classe</th>
+              <th class="px-4 py-3 font-semibold text-center">Élèves</th>
+              <th class="px-4 py-3 font-semibold text-right">Dû</th>
+              <th class="px-4 py-3 font-semibold text-right">Encaissé</th>
+              <th class="px-4 py-3 font-semibold w-40">Recouvrement</th>
+              <th class="px-4 py-3 font-semibold">Prof principal</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for d in classes_data %}
+            <tr class="hover:bg-gray-50/50">
+              <td class="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{{ d.cls.name }}</td>
+              <td class="px-4 py-3 text-center text-gray-600">{{ d.n_students }}</td>
+              <td class="px-4 py-3 text-right text-gray-500 js-money" data-money="{{ d.due }}">—</td>
+              <td class="px-4 py-3 text-right font-medium text-green-600 js-money" data-money="{{ d.paid }}">—</td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div class="bar-fill h-full rounded-full {% if d.status == 'green' %}bg-green-500{% elif d.status == 'yellow' %}bg-amber-500{% else %}bg-red-500{% endif %}" style="width:0%" data-bar="{{ d.taux }}"></div>
+                  </div>
+                  <span class="text-xs font-semibold {% if d.status == 'green' %}text-green-600{% elif d.status == 'yellow' %}text-amber-600{% else %}text-red-600{% endif %} w-9 text-right">{{ d.taux }}%</span>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
+                {% if d.principal %}{{ d.principal.full_name }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# ── SECTION — ÉQUIPE ENSEIGNANTE ── #}
+    <h2 class="text-lg font-bold mb-4">Équipe enseignante</h2>
+    {% if teachers_data %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for t in teachers_data %}
+      <div class="fade-up bg-white rounded-2xl border border-gray-100 shadow-sm p-5" style="animation-delay:{{ forloop.counter0 }}0ms">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+               style="background:{{ t.teacher.get_avatar_colors.0 }};color:{{ t.teacher.get_avatar_colors.1 }}">
+            {{ t.teacher.get_initials }}
+          </div>
+          <div class="min-w-0">
+            <p class="font-semibold text-gray-900 truncate">{{ t.teacher.full_name }}</p>
+            <p class="text-xs text-gray-400">{{ t.class_count }} classe{{ t.class_count|pluralize }}</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500">
+          <span class="font-medium text-gray-400">Matières :</span> {{ t.subjects|join:" · " }}
+        </p>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-400">
+      Aucun enseignant assigné dans cette école.
+    </div>
+    {% endif %}
+
+    <div class="mt-8">
+      <a href="{% url 'promoter:dashboard' %}"
+         class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-600 hover:border-brand-blue hover:text-brand-blue transition">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i> Retour au groupe
+      </a>
+    </div>
+  </main>
+
+  {{ chart_labels|json_script:"chartLabels" }}
+  {{ chart_values|json_script:"chartValues" }}
+
+  <script>
+    lucide.createIcons();
+    const nfFull = new Intl.NumberFormat('fr-FR');
+    function compact(n){
+      if (n >= 1e6) return (n/1e6).toFixed(n%1e6===0?0:1).replace('.',',') + 'M';
+      if (n >= 1e3) return Math.round(n/1e3) + 'K';
+      return String(Math.round(n));
+    }
+    document.querySelectorAll('.js-money').forEach(el => {
+      el.textContent = nfFull.format(Math.round(parseFloat(el.dataset.money || '0'))) + ' FCFA';
+    });
+    document.querySelectorAll('.js-count').forEach(el => {
+      const target = parseFloat(el.dataset.count || '0'), dur = 1000, t0 = performance.now();
+      (function frame(t){
+        const p = Math.min((t - t0) / dur, 1), val = target * (1 - Math.pow(1 - p, 3));
+        el.textContent = nfFull.format(Math.round(val));
+        if (p < 1) requestAnimationFrame(frame);
+      })(t0);
+    });
+    requestAnimationFrame(() => document.querySelectorAll('[data-bar]').forEach(b => { b.style.width = (b.dataset.bar || 0) + '%'; }));
+
+    const cv = document.getElementById('paymentsChart');
+    if (cv) {
+      const labels = JSON.parse(document.getElementById('chartLabels').textContent);
+      const values = JSON.parse(document.getElementById('chartValues').textContent);
+      new Chart(cv, {
+        type: 'line',
+        data: { labels, datasets: [{ data: values, borderColor: 'rgba(255,255,255,0.9)',
+          backgroundColor: 'rgba(255,255,255,0.12)', fill: true, tension: 0.35,
+          pointBackgroundColor: '#fff', pointRadius: 3, borderWidth: 2 }]},
+        options: { plugins: { legend: { display: false } },
+          scales: { x: { ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { display: false } },
+            y: { ticks: { color: 'rgba(255,255,255,0.5)', callback: v => compact(v) }, grid: { color: 'rgba(255,255,255,0.08)' } } } },
+      });
+    }
+  </script>
+</body>
+</html>

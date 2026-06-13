@@ -3,10 +3,14 @@ Vues Promoteur — supervision multi-écoles (cross-école, lecture seule).
 Le dashboard consolidé agrège sur owned_groups → schools.
 Ne PAS utiliser get_school() ici : un promoteur peut n'avoir aucune école active.
 """
+import datetime
+from collections import defaultdict
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Sum
-from django.db.models.functions import TruncMonth
-from django.shortcuts import render
+from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum
+from django.db.models.functions import Coalesce, TruncMonth
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
 from apps.core.mixins import promoter_required
@@ -144,4 +148,146 @@ def promoter_dashboard(request):
         'now':              now,
         'chart_labels':     chart_labels,
         'chart_values':     chart_values,
+    })
+
+
+@login_required
+@promoter_required
+def promoter_school_detail(request, school_id):
+    """Vue lecture seule d'une école du groupe du promoteur. 6 requêtes, zéro N+1."""
+    from apps.schools.models import School, SchoolClass, ClassSubject
+    from apps.students.models import Student
+    from apps.payments.models import Payment
+    from apps.teachers.models import Attendance, AttendanceStatus
+
+    # 0. Sécurité : le promoteur ne voit QUE les écoles de son groupe
+    school = get_object_or_404(
+        School.objects.select_related('group'),
+        pk=school_id, group__owner=request.user, is_active=True,
+    )
+    now = timezone.now()
+    today = now.date()
+
+    # 1. Classes : effectif + dû par classe (étudiants actifs) — pas de jointure paiements (fan-out)
+    classes = list(
+        SchoolClass.objects.filter(school=school, is_active=True)
+        .annotate(
+            n_students=Count('students', filter=Q(students__is_active=True)),
+            due=Coalesce(
+                Sum('students__tuition_fee', filter=Q(students__is_active=True)),
+                Decimal('0'),
+            ),
+        )
+        .order_by('level', 'name')
+    )
+
+    # 2. Paiements par (classe, mois) — un seul scan → payé/classe + payé/mois
+    pay_rows = (
+        Payment.objects.filter(student__school=school, is_cancelled=False)
+        .annotate(month=TruncMonth('payment_date'))
+        .values('student__school_class_id', 'month')
+        .annotate(p=Sum('amount'))
+    )
+    paid_by_class = defaultdict(lambda: Decimal('0'))
+    paid_by_month = defaultdict(float)
+    for r in pay_rows:
+        amt = r['p'] or Decimal('0')
+        paid_by_class[r['student__school_class_id']] += amt
+        if r['month']:
+            paid_by_month[(r['month'].year, r['month'].month)] += float(amt)
+
+    # 3. ClassSubject : équipe + prof principal + comptage profs (1 requête, select_related)
+    cs_rows = list(
+        ClassSubject.objects.filter(school_class__school=school, is_active=True)
+        .select_related('teacher', 'subject', 'school_class')
+        .order_by('order', 'subject__name')
+    )
+    # Prof principal = teacher du ClassSubject de plus petit order (puis subject.name)
+    principal = {}
+    for cs in cs_rows:
+        if cs.school_class_id not in principal:
+            principal[cs.school_class_id] = cs.teacher
+
+    # Équipe : teacher_id → matières + classes
+    tmap = {}
+    for cs in cs_rows:
+        if cs.teacher_id is None:
+            continue
+        entry = tmap.setdefault(cs.teacher_id, {'teacher': cs.teacher, 'subjects': [], 'classes': set()})
+        if cs.subject.name not in entry['subjects']:
+            entry['subjects'].append(cs.subject.name)
+        entry['classes'].add(cs.school_class_id)
+    teachers_data = sorted(
+        ({'teacher': v['teacher'], 'subjects': v['subjects'], 'class_count': len(v['classes'])}
+         for v in tmap.values()),
+        key=lambda d: d['teacher'].full_name,
+    )
+
+    # Fusion par classe
+    classes_data = []
+    total_students = 0
+    total_due = Decimal('0')
+    for c in classes:
+        due = c.due or Decimal('0')
+        paid = paid_by_class.get(c.id, Decimal('0'))
+        taux = int(paid / due * 100) if due else 0
+        classes_data.append({
+            'cls': c, 'n_students': c.n_students, 'due': due, 'paid': paid,
+            'taux': taux, 'status': _status(taux), 'principal': principal.get(c.id),
+        })
+        total_students += c.n_students
+        total_due += due
+    total_paid = sum(paid_by_class.values(), Decimal('0'))
+    taux_global = int(total_paid / total_due * 100) if total_due else 0
+
+    # 4. Alerte impayés > 30 jours : balance > 0 ET enrolled_at < today - 30j
+    paid_sq = (
+        Payment.objects.filter(student=OuterRef('pk'), is_cancelled=False)
+        .values('student').annotate(s=Sum('amount')).values('s')
+    )
+    unpaid_30 = (
+        Student.objects
+        .filter(
+            school=school, is_active=True,
+            enrolled_at__date__lte=today - datetime.timedelta(days=30),
+        )
+        .annotate(paid=Coalesce(Subquery(paid_sq), Decimal('0'), output_field=DecimalField()))
+        .filter(paid__lt=F('tuition_fee'))
+        .count()
+    )
+
+    # 5. Alerte absences ce mois
+    absences_month = Attendance.objects.filter(
+        school=school, status=AttendanceStatus.ABSENT,
+        date__year=now.year, date__month=now.month,
+    ).count()
+
+    # Graphique 6 derniers mois
+    y, m = now.year, now.month
+    months_seq = []
+    for _ in range(6):
+        months_seq.append((y, m))
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    months_seq.reverse()
+    chart_labels = [_MOIS[mm - 1] for (yy, mm) in months_seq]
+    chart_values = [paid_by_month.get((yy, mm), 0) for (yy, mm) in months_seq]
+
+    return render(request, 'promoter/school_detail.html', {
+        'group':          school.group,
+        'school':         school,
+        'status':         _status(taux_global),
+        'total_students': total_students,
+        'total_teachers': len(teachers_data),
+        'total_classes':  len(classes_data),
+        'total_due':      total_due,
+        'total_paid':     total_paid,
+        'taux_global':    taux_global,
+        'classes_data':   classes_data,
+        'teachers_data':  teachers_data,
+        'unpaid_30':      unpaid_30,
+        'absences_month': absences_month,
+        'chart_labels':   chart_labels,
+        'chart_values':   chart_values,
     })

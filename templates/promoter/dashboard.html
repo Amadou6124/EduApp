@@ -182,10 +182,10 @@
           </button>
         </form>
         {% else %}
-        <button type="button" disabled
-                class="w-full h-10 rounded-xl bg-gray-100 text-gray-400 text-sm font-medium flex items-center justify-center gap-1.5 cursor-not-allowed">
-          <i data-lucide="lock" class="w-4 h-4"></i> Détail (lecture seule à venir)
-        </button>
+        <a href="{% url 'promoter:school-detail' d.school.id %}"
+           class="w-full h-10 rounded-xl bg-[#1E3A5F] hover:bg-[#1E3A5F]/90 text-white text-sm font-semibold flex items-center justify-center gap-1.5 transition">
+          Voir le détail <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </a>
         {% endif %}
       </div>
       {% endfor %}
