@@ -701,3 +701,70 @@ def story_finish(request, lesson_id):
         award_xp(student, xp_earned, 'story_completee')
 
     return JsonResponse({'xp_earned': xp_earned, 'score': score})
+
+
+# ─── Notes & Rangs (Phase 11) ────────────────────────────────────────────────
+
+@student_required
+def learn_grades(request):
+    """Rang, notes par matière (BulletinLine) et bulletins publiés de l'élève."""
+    from apps.schools.models import Bulletin, BulletinLine, Note
+
+    student = request.student
+
+    bulletins = list(
+        Bulletin.objects
+        .filter(student=student, is_published=True, is_cancelled=False)
+        .select_related('period', 'period__school_year')
+        .order_by('-published_at')
+    )
+    current_bulletin = bulletins[0] if bulletins else None
+    previous_bulletin = bulletins[1] if len(bulletins) > 1 else None
+
+    # Tendance de rang (rang plus petit = meilleur).
+    rank_trend = None
+    if current_bulletin and previous_bulletin and current_bulletin.rank and previous_bulletin.rank:
+        diff = previous_bulletin.rank - current_bulletin.rank
+        rank_trend = 'up' if diff > 0 else 'down' if diff < 0 else 'stable'
+
+    # Notes par matière = lignes du bulletin courant (1 par matière, moyenne finale).
+    subject_lines = []
+    if current_bulletin:
+        subject_lines = list(
+            current_bulletin.lines
+            .filter(final_average__isnull=False)
+            .select_related('class_subject__subject')
+            .order_by('class_subject__order', 'class_subject__subject__name')
+        )
+
+    return render(request, 'learn/grades.html', {
+        'student': student,
+        'bulletins': bulletins,
+        'current_bulletin': current_bulletin,
+        'rank_trend': rank_trend,
+        'subject_lines': subject_lines,
+        'has_pending_notes': Note.objects.filter(student=student, is_cancelled=False).exists(),
+    })
+
+
+@student_required
+def learn_bulletin_pdf(request, bulletin_id):
+    """PDF d'un bulletin — uniquement celui de l'élève connecté, publié."""
+    from apps.schools.models import Bulletin
+    from apps.schools.services.bulletin_pdf import generate_bulletin_pdf
+
+    bulletin = get_object_or_404(
+        Bulletin, pk=bulletin_id,
+        student=request.student, is_published=True, is_cancelled=False,
+    )
+    try:
+        pdf_bytes = generate_bulletin_pdf(bulletin)
+    except Exception as e:
+        logger.error('PDF bulletin élève %s erreur: %s', bulletin_id, e)
+        return HttpResponse('Erreur génération PDF', status=500)
+
+    name = request.student.full_name.replace(' ', '_')
+    period = str(bulletin.period).replace(' ', '_').replace('—', '-')
+    resp = HttpResponse(pdf_bytes, content_type='application/pdf')
+    resp['Content-Disposition'] = f'inline; filename="bulletin_{name}_{period}.pdf"'
+    return resp

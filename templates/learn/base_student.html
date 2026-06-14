@@ -51,10 +51,10 @@
         <i data-lucide="home" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Accueil</span>
       </a>
-      <a href="{% url 'learn:dashboard' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition text-gray-400 hover:text-gray-600">
-        <i data-lucide="book-open" class="w-5 h-5"></i>
-        <span class="text-[10px] font-medium">Leçons</span>
+      <a href="{% url 'learn:grades' %}"
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'grades' or request.resolver_match.url_name == 'bulletin-pdf' %}text-brand-blue{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+        <i data-lucide="award" class="w-5 h-5"></i>
+        <span class="text-[10px] font-medium">Notes</span>
       </a>
       <a href="{% url 'learn:flashcards' %}"
          class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'flashcards' or request.resolver_match.url_name == 'flashcards-session' %}text-brand-blue{% else %}text-gray-400 hover:text-gray-600{% endif %}">

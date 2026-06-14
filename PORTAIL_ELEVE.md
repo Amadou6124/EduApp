@@ -285,5 +285,14 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] Décisions : dialogue (a) · XP +25/+40 1re fois (b) · `expected` free-text + tolérance inclusion (c)
 - [x] Tests client (anti-leak expected, tolérance, anti-farming, teaser) + **vérif navigateur** (bulles dialogue) — tous verts
 
-### Phases suivantes (à venir)
-11. Répétition espacée · 12. Abonnements
+### PHASE 11 — Notes & Rangs ✅ Terminée
+- [x] `learn_grades` : rang actuel + tendance ↑↓ (vs bulletin publié précédent, via `published_at`), notes par matière (**`BulletinLine.final_average`** — 1 par matière, pas `Note` brut multi-positions), bulletins publiés
+- [x] `learn_bulletin_pdf` (`@student_required`, `student=request.student`, WeasyPrint `generate_bulletin_pdf`) — **sécurisé** (autre élève → 404, vérifié)
+- [x] `grades.html` : card rang dégradée + tendance, barres notes colorées (≥14 vert / ≥10 orange / <10 rouge), bulletins téléchargeables, état vide encourageant
+- [x] Bottom nav : « Leçons » (redondant avec Accueil) **→ « Notes »** (icône `award`)
+- [x] `Note`/`Bulletin`/`BulletinLine.student` → FK `students.Student` → `request.student` mappe direct (zéro indirection User)
+- [x] Décisions : nav Leçons→Notes (a) · PDF gaté élève (b) · Phase 11 = Notes&Rangs, répétition espacée déjà faite Phase 8, rappels hors V1 (c)
+- [x] Tests client (rang/tendance/moyenne/notes/PDF/**sécurité 404**) + **vérif navigateur** (3 sections + nav) — tous verts
+
+### Phase suivante (à venir)
+12. Merge develop/main + déploiement

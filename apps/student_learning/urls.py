@@ -26,5 +26,8 @@ urlpatterns = [
     path('flashcards/', views.learn_flashcards, name='flashcards'),
     path('flashcards/<int:lesson_id>/', views.flashcards_session, name='flashcards-session'),
     path('flashcards/review/<int:card_id>/', views.flashcard_review, name='flashcard-review'),
+    # Notes & Rangs (Phase 11)
+    path('grades/', views.learn_grades, name='grades'),
+    path('grades/bulletin/<int:bulletin_id>/pdf/', views.learn_bulletin_pdf, name='bulletin-pdf'),
     path('profile/', views.learn_profile, name='profile'),
 ]
