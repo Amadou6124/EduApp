@@ -268,5 +268,14 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] **Flip card via classes CSS `.flip-card-*`** (pas de `:style` inline qui clobbe `transform-style` → texte miroir) ; `widthratio` corrigé (`reviewed` calculé en vue)
 - [x] Tests client (SM-2, Option B idempotent, session, review, badge) + **vérif navigateur** (flip recto/verso droit, boutons qualité) — tous verts
 
+### PHASE 9 — Gamification XP/Badges ✅ Terminée
+- [x] `apps/student_learning/services.py` : `award_xp` (recalcule niveau + badges), `check_badges` (13 badges), `student_stats`, `LEVEL_NAMES` 6 niveaux, helpers
+- [x] **Refactor des 3 sites XP inline** (lesson_complete/quiz_submit/quiz_results) → `award_xp` — **corrige le bug** : quiz ne recalculait pas le niveau (`F('total_xp')` sans level)
+- [x] Nouveaux gains : flashcard +2 (1re fois du cycle dû, anti-farming via `was_due`), streak 7→+100 / 30→+500 (idempotent)
+- [x] Page profil `/learn/profile/` : avatar, badge niveau, barre XP, streak, 4 stats, grille badges (gagné coloré / verrou grisé) ; filtre `dict_key`
+- [x] Toast + confettis montée de niveau ; `launchConfetti` **déplacé dans base_student.html** (partagé dashboard + quiz) ; overlay level-up quiz
+- [x] Décisions : niveaux Novice→Génie (a) · 50 flashcards = somme révisions (b) · +2 1re fois cycle (c) · toast+confettis (d) · services student_learning (e)
+- [x] Tests client (award/level-up/badges/anti-farming/streak/profil) + **vérif navigateur** (profil complet) — tous verts
+
 ### Phases suivantes (à venir)
-9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements
+10. Stories · 11. Répétition espacée · 12. Abonnements

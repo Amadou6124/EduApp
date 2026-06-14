@@ -22,5 +22,5 @@ urlpatterns = [
     path('flashcards/', views.learn_flashcards, name='flashcards'),
     path('flashcards/<int:lesson_id>/', views.flashcards_session, name='flashcards-session'),
     path('flashcards/review/<int:card_id>/', views.flashcard_review, name='flashcard-review'),
-    path('profile/', views.learn_profile_stub, name='profile'),
+    path('profile/', views.learn_profile, name='profile'),
 ]

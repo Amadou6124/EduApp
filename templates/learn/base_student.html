@@ -75,5 +75,45 @@
   </nav>
   {% endblock %}
 
+  {# Confettis partagés (complétion leçon, montée de niveau quiz) — window.launchConfetti #}
+  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
+  <script>
+    window.launchConfetti = function () {
+      const canvas = document.getElementById('confetti-canvas');
+      if (!canvas) return;
+      canvas.style.display = 'block';
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+      const particles = Array.from({ length: 80 }, () => ({
+        x: Math.random() * canvas.width, y: -10,
+        r: Math.random() * 6 + 2, d: Math.random() * 80,
+        color: colors[Math.floor(Math.random() * 6)],
+        tilt: Math.random() * 10 - 10, tiltAngle: 0,
+        tiltAngleInc: Math.random() * 0.07 + 0.05,
+      }));
+      let frame = 0;
+      const animate = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          p.tiltAngle += p.tiltAngleInc;
+          p.y += (Math.cos(frame / 10 + p.d) + 3) * 2;
+          p.tilt = Math.sin(p.tiltAngle) * 15;
+          ctx.beginPath();
+          ctx.lineWidth = p.r;
+          ctx.strokeStyle = p.color;
+          ctx.moveTo(p.x + p.tilt + p.r / 3, p.y);
+          ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
+          ctx.stroke();
+        });
+        frame++;
+        if (frame < 150) requestAnimationFrame(animate);
+        else { canvas.style.display = 'none'; }
+      };
+      animate();
+    };
+  </script>
+
 </body>
 </html>

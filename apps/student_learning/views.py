@@ -19,6 +19,7 @@ from apps.lessons.models import Lesson, LessonDeployment, LessonStatus
 from apps.lessons.services import (
     evaluate_answer, calculate_lesson_mastery, sm2_update,
 )
+from apps.student_learning.services import award_xp, student_stats, BADGES_CATALOG
 from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard
 
 logger = logging.getLogger(__name__)
@@ -167,6 +168,10 @@ def _update_streak(student, today):
     student.last_activity_date = today
     student.save(update_fields=['streak_days', 'longest_streak', 'last_activity_date'])
 
+    # Bonus de palier (idempotent : streak_days ne passe qu'une fois par valeur).
+    if student.streak_days in (7, 30):
+        award_xp(student, 100 if student.streak_days == 7 else 500, f'streak_{student.streak_days}')
+
 
 # ─── Stubs phases suivantes ──────────────────────────────────────────────────
 
@@ -295,12 +300,12 @@ def lesson_complete(request, lesson_id):
             if new_cards:
                 Flashcard.objects.bulk_create(new_cards, ignore_conflicts=True)
 
-        # XP minimal (sera migré vers award_xp() en Phase 9). student est chargé frais → pas de course critique ici.
-        student.total_xp += 20
-        student.current_level = student.total_xp // 500 + 1
-        student.save(update_fields=['total_xp', 'current_level'])
-
-        request.session['learn_toast'] = '🎉 Leçon complétée ! +20 XP'
+        # XP centralisé (recalcule niveau + badges, détecte montée de niveau).
+        xp_result = award_xp(student, 20, 'lecon_completee')
+        level_msg = ''
+        if xp_result['leveled_up']:
+            level_msg = f" · {xp_result['level_emoji']} Niveau {xp_result['new_level']} {xp_result['level_name']} !"
+        request.session['learn_toast'] = f"🎉 Leçon complétée ! +20 XP{level_msg}"
 
     return redirect(f"{reverse('learn:dashboard')}?{urlencode({'subject': lesson.subject})}")
 
@@ -377,10 +382,15 @@ def quiz_submit(request, lesson_id):
     )
 
     xp_earned = 0
+    level_payload = {'leveled_up': False, 'new_level': None, 'level_emoji': '', 'level_name': '', 'new_badges': []}
     if is_correct and not already_correct:
         xp_earned = 5
-        from apps.students.models import Student
-        Student.objects.filter(pk=student.pk).update(total_xp=F('total_xp') + 5)
+        r = award_xp(student, 5, 'quiz_correct')   # recalcule niveau + badges (corrige le bug niveau quiz)
+        level_payload = {
+            'leveled_up': r['leveled_up'], 'new_level': r['new_level'],
+            'level_emoji': r['level_emoji'], 'level_name': r['level_name'],
+            'new_badges': r['new_badges'],
+        }
 
     return JsonResponse({
         'correct': is_correct,
@@ -390,6 +400,7 @@ def quiz_submit(request, lesson_id):
         'xp_earned': xp_earned,
         'mastery': calculate_lesson_mastery(student, lesson),
         'hint': quiz.get('hint', ''),
+        **level_payload,
     })
 
 
@@ -425,8 +436,7 @@ def quiz_results(request, lesson_id):
             bonus_xp = 30
             progress.quiz_bonus_awarded = True
             progress.save(update_fields=['quiz_bonus_awarded'])
-            from apps.students.models import Student
-            Student.objects.filter(pk=student.pk).update(total_xp=F('total_xp') + 30)
+            award_xp(student, 30, 'quiz_parfait')   # recalcule niveau + badge quiz_parfait
 
     return render(request, 'learn/quiz_results.html', {
         'student': student,
@@ -521,9 +531,14 @@ def flashcard_review(request, card_id):
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'error': 'Données invalides'}, status=400)
 
+    today = timezone.localdate()
+    # Anti-farming : +2 XP seulement si la carte était DUE (1re révision du cycle).
+    # Les re-passages d'une carte ratée dans la session ont déjà next_review_date > today.
+    was_due = card.next_review_date <= today
+
     new_reps, new_ef, new_interval = sm2_update(
         card.repetitions, card.ease_factor, card.interval_days, quality)
-    next_review = timezone.localdate() + datetime.timedelta(days=new_interval)
+    next_review = today + datetime.timedelta(days=new_interval)
 
     card.repetitions = new_reps
     card.ease_factor = new_ef
@@ -536,6 +551,9 @@ def flashcard_review(request, card_id):
         'next_review_date', 'last_quality', 'total_reviews',
     ])
 
+    if was_due:
+        award_xp(student, 2, 'flashcard_revisee')
+
     return JsonResponse({
         'next_review_days': new_interval,
         'next_review_date': next_review.isoformat(),
@@ -543,6 +561,13 @@ def flashcard_review(request, card_id):
     })
 
 
+# ─── Profil (Phase 9) ────────────────────────────────────────────────────────
+
 @student_required
-def learn_profile_stub(request):
-    return render(request, 'learn/stub.html', {'student': request.student, 'title': 'Mon Profil', 'phase': 9})
+def learn_profile(request):
+    student = request.student
+    return render(request, 'learn/profile.html', {
+        'student': student,
+        'stats': student_stats(student),
+        'badges_catalog': BADGES_CATALOG,
+    })

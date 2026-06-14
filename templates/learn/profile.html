@@ -1,0 +1,89 @@
+{% extends 'learn/base_student.html' %}
+{% load student_filters %}
+
+{% block title %}Mon Profil — EduApp{% endblock %}
+
+{% block content %}
+<div class="px-4 pt-6 pb-6">
+
+  {# Avatar + Nom #}
+  <div class="text-center mb-6">
+    <div class="w-20 h-20 rounded-full bg-gradient-to-br from-brand-blue to-blue-700 text-white text-3xl font-bold flex items-center justify-center mx-auto mb-3 shadow-lg">
+      {{ student.full_name|first|upper }}
+    </div>
+    <h1 class="text-xl font-bold text-gray-900">{{ student.full_name }}</h1>
+    <p class="text-gray-500 text-sm mt-0.5">{{ student.school_class }} · {{ student.school.name }}</p>
+    <span class="inline-block mt-2 bg-brand-blue text-white text-sm font-bold px-4 py-1.5 rounded-full">
+      {{ stats.level_emoji }} Niveau {{ student.current_level }} {{ stats.level_name }}
+    </span>
+  </div>
+
+  {# XP + Barre progression #}
+  <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-sm font-medium text-gray-700">⭐ {{ student.total_xp }} XP</span>
+      <span class="text-xs text-gray-400">{{ stats.xp_to_next }} XP pour niveau {{ student.current_level|add:1 }}</span>
+    </div>
+    <div class="bg-gray-100 rounded-full h-3">
+      <div class="h-3 rounded-full bg-gradient-to-r from-brand-blue to-blue-400 transition-all" style="width: {{ stats.level_pct }}%"></div>
+    </div>
+    <div class="flex justify-between text-xs text-gray-400 mt-1">
+      <span>Niveau {{ student.current_level }}</span>
+      <span>Niveau {{ student.current_level|add:1 }}</span>
+    </div>
+  </div>
+
+  {# Streak #}
+  <div class="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-4 flex items-center gap-4">
+    <div class="text-center">
+      <p class="text-3xl font-bold text-orange-600">🔥 {{ student.streak_days }}</p>
+      <p class="text-xs text-orange-500 mt-0.5">jours consécutifs</p>
+    </div>
+    <div class="h-10 w-px bg-orange-200"></div>
+    <div class="text-center">
+      <p class="text-xl font-bold text-gray-700">{{ student.longest_streak }}</p>
+      <p class="text-xs text-gray-500 mt-0.5">meilleur streak</p>
+    </div>
+  </div>
+
+  {# Stats #}
+  <div class="grid grid-cols-2 gap-3 mb-4">
+    <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 text-center">
+      <p class="text-2xl font-bold text-brand-blue">{{ stats.lessons_done }}</p>
+      <p class="text-xs text-gray-500 mt-0.5">Leçons lues</p>
+    </div>
+    <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 text-center">
+      <p class="text-2xl font-bold text-green-600">{{ stats.score_moyen }}%</p>
+      <p class="text-xs text-gray-500 mt-0.5">Score moyen</p>
+    </div>
+    <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 text-center">
+      <p class="text-2xl font-bold text-purple-600">{{ stats.quiz_sessions }}</p>
+      <p class="text-xs text-gray-500 mt-0.5">Quiz faits</p>
+    </div>
+    <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 text-center">
+      <p class="text-2xl font-bold text-yellow-600">{{ stats.fc_reviews }}</p>
+      <p class="text-xs text-gray-500 mt-0.5">Flashcards révisées</p>
+    </div>
+  </div>
+
+  {# Badges #}
+  <h2 class="text-base font-bold text-gray-900 mb-3">Mes Badges</h2>
+  <div class="grid grid-cols-3 gap-2 mb-4">
+    {% for badge_id, badge_info in badges_catalog.items %}
+    {% with earned=stats.badges_earned|dict_key:badge_id %}
+    <div class="rounded-xl p-3 shadow-sm border text-center {% if earned %}border-yellow-200 bg-yellow-50{% else %}border-gray-100 bg-white opacity-50{% endif %}">
+      <p class="text-2xl mb-1">{% if earned %}{{ badge_info.emoji }}{% else %}🔒{% endif %}</p>
+      <p class="text-[10px] font-semibold leading-tight {% if earned %}text-yellow-700{% else %}text-gray-400{% endif %}">{{ badge_info.name }}</p>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+
+  {# Déconnexion #}
+  <form method="post" action="{% url 'learn:logout' %}">
+    {% csrf_token %}
+    <button type="submit" class="w-full text-red-400 text-sm py-3 border border-red-200 rounded-xl">Se déconnecter</button>
+  </form>
+
+</div>
+{% endblock %}

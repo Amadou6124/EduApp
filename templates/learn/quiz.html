@@ -49,6 +49,9 @@
     totalXpEarned: 0,
     loading: false,
     startTime: Date.now(),
+    showLevelUp: false,
+    newLevelName: '',
+    newLevelEmoji: '',
     init() { this.currentQuiz = this.quizzes[0]; this.initQuestion(); },
     initQuestion() {
       this.selectedAnswer = null; this.answered = false; this.isCorrect = false;
@@ -109,6 +112,13 @@
         this.totalXpEarned += this.xpEarned;
         this.answered = true;
         this.playSound(data.correct);
+        if (data.leveled_up) {
+          this.newLevelName = data.level_name || '';
+          this.newLevelEmoji = data.level_emoji || '';
+          this.showLevelUp = true;
+          if (window.launchConfetti) window.launchConfetti();
+          setTimeout(() => { this.showLevelUp = false; }, 3000);
+        }
       } catch (e) { console.error('Erreur submit:', e); }
       this.loading = false;
     },
@@ -118,6 +128,17 @@
       } else { window.location.href = '{% url 'learn:quiz-results' lesson.id %}'; }
     }
   }">
+
+  {# Overlay montée de niveau #}
+  <div x-show="showLevelUp" x-cloak x-transition
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white rounded-2xl p-8 text-center shadow-2xl mx-4">
+      <p class="text-5xl mb-2" x-text="newLevelEmoji"></p>
+      <h2 class="text-xl font-bold text-gray-900">Niveau supérieur !</h2>
+      <p class="text-brand-blue font-bold mt-1" x-text="newLevelName"></p>
+      <p class="text-gray-500 text-sm mt-2">Continue comme ça ! 🚀</p>
+    </div>
+  </div>
 
   {# Barre de progression (dans le scope Alpine) #}
   <div class="flex items-center gap-2 mb-4">
