@@ -20,7 +20,7 @@ from apps.lessons.services import (
     evaluate_answer, calculate_lesson_mastery, sm2_update,
 )
 from apps.student_learning.services import award_xp, student_stats, BADGES_CATALOG
-from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard
+from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard, StoryAttempt
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +211,7 @@ def learn_lesson(request, lesson_id):
         'initial_pct': initial_pct,
         'has_story': bool(lesson.story_data),
         'has_quiz': lesson.quiz_count > 0,
+        'already_done': StoryAttempt.objects.filter(student=student, lesson=lesson).exists(),
         'learn_toast': request.session.pop('learn_toast', None),
     })
 
@@ -571,3 +572,132 @@ def learn_profile(request):
         'stats': student_stats(student),
         'badges_catalog': BADGES_CATALOG,
     })
+
+
+# ─── Stories interactives (Phase 10) ─────────────────────────────────────────
+
+CHAR_COLORS = {
+    'aminata': '#FF6B6B', 'moussa': '#4ECDC4', 'fatoumata': '#A855F7',
+    'ibrahima': '#F59E0B', 'boubacar': '#10B981', 'mariam': '#EC4899',
+    'kadiatou': '#6366F1', 'oumar': '#14B8A6',
+}
+CHAR_DEFAULT_COLOR = '#6B7280'
+
+
+def _char_color(name: str) -> str:
+    return CHAR_COLORS.get((name or '').lower().strip(), CHAR_DEFAULT_COLOR)
+
+
+@student_required
+def learn_story(request, lesson_id):
+    """Story interactive (dialogue type messagerie). expected jamais exposé au client."""
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    get_object_or_404(LessonDeployment, lesson_id=lesson_id,
+                      school_class=student.school_class, is_active=True)
+
+    if not lesson.story_data:
+        return redirect('learn:lesson', lesson_id=lesson_id)
+
+    story = lesson.story_data
+
+    characters = {}
+    for char in story.get('characters', []):
+        name = char.get('name', '')
+        characters[name] = {
+            'name': name, 'role': char.get('role', ''),
+            'side': char.get('side', 'left'),
+            'color': _char_color(name),
+            'initial': name[0].upper() if name else '?',
+        }
+
+    # Dialogue SANS expected (anti-triche).
+    dialogue_safe = []
+    for item in story.get('dialogue', []):
+        itype = item.get('type', 'narration')
+        entry = {'type': itype, 'text': item.get('text', '')}
+        if itype in ('speech', 'question'):
+            name = item.get('speaker', '')
+            entry['speaker'] = name
+            entry['side'] = characters.get(name, {}).get('side', 'left')
+            entry['color'] = _char_color(name)
+            entry['initial'] = name[0].upper() if name else '?'
+            if itype == 'question':
+                entry['marker'] = item.get('marker', '')
+        dialogue_safe.append(entry)
+
+    questions_safe = {
+        q['marker']: {'question': q.get('question', ''), 'concept_ref': q.get('concept_ref', '')}
+        for q in story.get('questions', []) if q.get('marker')
+    }
+
+    return render(request, 'learn/story.html', {
+        'student': student,
+        'lesson': lesson,
+        'characters': characters,
+        'dialogue': dialogue_safe,
+        'questions_safe': questions_safe,
+        'total_questions': len(questions_safe),
+        'already_done': StoryAttempt.objects.filter(student=student, lesson=lesson).exists(),
+        'setting': story.get('setting', ''),
+        'title': story.get('title', 'Histoire'),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def story_answer(request, lesson_id):
+    """Évalue une réponse de story (expected côté serveur, tolérance inclusion)."""
+    from apps.lessons.services import normalize_text
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+    try:
+        data = json.loads(request.body)
+        marker = str(data.get('marker', ''))
+        student_answer = str(data.get('answer', '')).strip()
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    question = next(
+        (q for q in (lesson.story_data or {}).get('questions', []) if q.get('marker') == marker),
+        None,
+    )
+    if not question:
+        return JsonResponse({'error': 'Question non trouvée'}, status=404)
+
+    s = normalize_text(student_answer)
+    e = normalize_text(question.get('expected', ''))
+    is_correct = bool(e) and (s == e or s in e or e in s)
+
+    feedback = (f"Exactement ! {question['expected']} est la bonne réponse."
+                if is_correct else
+                f"Pas tout à fait... La réponse était : {question['expected']}")
+
+    return JsonResponse({'correct': is_correct, 'feedback': feedback, 'expected': question.get('expected', '')})
+
+
+@student_required
+@require_http_methods(['POST'])
+def story_finish(request, lesson_id):
+    """Crée StoryAttempt + XP (1re complétion uniquement, ≥50% → +25, 100% → +40)."""
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+    try:
+        data = json.loads(request.body)
+        score = max(0, min(int(data.get('score', 0)), 100))
+        answers = data.get('answers', [])
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    # 1re complétion = aucun StoryAttempt avant celui qu'on va créer.
+    first_time = not StoryAttempt.objects.filter(student=student, lesson=lesson).exists()
+    StoryAttempt.objects.create(student=student, lesson=lesson, score=score, answers=answers)
+
+    xp_earned = 0
+    if first_time and score >= 50:
+        xp_earned = 40 if score == 100 else 25
+        award_xp(student, xp_earned, 'story_completee')
+
+    return JsonResponse({'xp_earned': xp_earned, 'score': score})

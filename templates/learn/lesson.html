@@ -159,16 +159,23 @@
   </div>
   {% endfor %}
 
-  {# Teaser story (interactif en Phase 10) #}
+  {# Story interactive (Phase 10) #}
   {% if has_story %}
-  <div class="bg-purple-50 border border-purple-200 rounded-2xl p-4 mb-4">
+  <a href="{% url 'learn:story' lesson.id %}"
+     class="block bg-purple-50 border border-purple-200 rounded-2xl p-4 mb-4 active:scale-[0.98] transition">
     <div class="flex items-center gap-2 mb-1">
       <span class="text-xl">🎭</span>
       <span class="text-sm font-bold text-purple-700">Histoire interactive</span>
-      <span class="ml-auto bg-purple-100 text-purple-600 text-xs px-2 py-0.5 rounded-full">Bientôt</span>
+      {% if already_done %}
+      <span class="ml-auto bg-purple-100 text-purple-600 text-xs px-2 py-0.5 rounded-full">Rejouable</span>
+      {% else %}
+      <span class="ml-auto bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">Nouveau !</span>
+      {% endif %}
     </div>
-    <p class="text-purple-600 text-xs leading-relaxed">Une histoire avec des personnages maliens pour tester ta compréhension. Disponible prochainement !</p>
-  </div>
+    <p class="text-purple-600 text-xs leading-relaxed">
+      {% if already_done %}Tu as déjà joué cette histoire. Rejoue pour réviser !{% else %}Discute avec des personnages maliens et teste ta compréhension.{% endif %}
+    </p>
+  </a>
   {% endif %}
 
   {# CTA final #}

@@ -13,6 +13,10 @@ urlpatterns = [
     path('lesson/<int:lesson_id>/progress/', views.lesson_save_progress, name='lesson-progress'),
     path('lesson/<int:lesson_id>/note/', views.lesson_save_note, name='lesson-note'),
     path('lesson/<int:lesson_id>/complete/', views.lesson_complete, name='lesson-complete'),
+    # Stories interactives (Phase 10)
+    path('lesson/<int:lesson_id>/story/', views.learn_story, name='story'),
+    path('lesson/<int:lesson_id>/story/answer/', views.story_answer, name='story-answer'),
+    path('lesson/<int:lesson_id>/story/finish/', views.story_finish, name='story-finish'),
     # Quiz engine (Phase 6)
     path('quiz/<int:lesson_id>/', views.learn_quiz, name='quiz'),
     path('quiz/<int:lesson_id>/submit/', views.quiz_submit, name='quiz-submit'),

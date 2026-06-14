@@ -81,13 +81,19 @@ STRUCTURE JSON EXACTE À PRODUIRE
     ]
   },
   "story": {
-    "narrative": "Récit immersif avec marqueurs [Q1] [Q2] [Q3] où s'insèrent les questions.",
+    "title": "Titre bref de la situation",
+    "setting": "Lieu et contexte en 1 phrase",
     "characters": [
-      {"name": "Aminata", "role": "..."},
-      {"name": "Moussa", "role": "..."}
+      {"name": "Aminata", "role": "élève curieuse", "side": "left"},
+      {"name": "Moussa", "role": "vendeur malin", "side": "right"}
+    ],
+    "dialogue": [
+      {"type": "speech", "speaker": "Aminata", "text": "réplique du personnage..."},
+      {"type": "narration", "text": "description du contexte..."},
+      {"type": "question", "marker": "Q1", "speaker": "Moussa", "text": "question posée par Moussa ?"}
     ],
     "questions": [
-      {"after_marker": "Q1", "question": "...", "concept_ref": "concept_id", "expected": "..."}
+      {"marker": "Q1", "question": "Question pédagogique complète", "concept_ref": "concept_id", "expected": "réponse attendue en minuscules sans accents"}
     ]
   },
   "quiz": {
@@ -170,8 +176,13 @@ Si subject_type = math :
 
 EXIGENCES DE VOLUME
 - structured_content.blocks : 5 à 12 blocs couvrant TOUT le cours.
-- story : 3 à 5 personnages MALIENS (Aminata, Moussa, Fatoumata, Ibrahima, Boubacar,
-  Mariam, Oumar, Kadiatou...), 3 à 6 questions intercalées.
+- story : dialogue immersif type messagerie. Règles :
+    * 2 à 4 personnages MALIENS (Aminata, Moussa, Fatoumata, Ibrahima, Boubacar, Mariam, Oumar, Kadiatou...), noms maliens UNIQUEMENT, chacun avec side "left" ou "right".
+    * 8 à 15 entrées de dialogue (type speech/narration/question), locuteurs alternés naturellement.
+    * 3 à 6 entrées type=question, chacune posée PAR un personnage (speaker), avec un marker unique (Q1, Q2...) repris à l'identique dans story.questions[].
+    * narration (type=narration) = décor/atmosphère, sans speaker.
+    * Situation de vie quotidienne malienne (marché de Bamako, famille, école, taxi, champs, boutique, mosquée...).
+    * questions[].expected = réponse courte en minuscules sans accents.
 - quiz.quizzes : 8 à 20 questions, difficulté croissante, types variés selon la table ci-dessus.
 - flashcards.flashcards : 6 à 15 cartes, une par concept clé (concept_id réutilisé du contenu).
 - N'utilise QUE les 6 types ci-dessus (mcq, true_false, fill_blank, number_input, ordering, short_answer). Jamais matching, hotspot ni code_completion.

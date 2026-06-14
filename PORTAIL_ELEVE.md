@@ -277,5 +277,13 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] Décisions : niveaux Novice→Génie (a) · 50 flashcards = somme révisions (b) · +2 1re fois cycle (c) · toast+confettis (d) · services student_learning (e)
 - [x] Tests client (award/level-up/badges/anti-farming/streak/profil) + **vérif navigateur** (profil complet) — tous verts
 
+### PHASE 10 — Stories interactives ✅ Terminée
+- [x] `SYSTEM_PROMPT` story → **format dialogue** (Option B) : `title/setting/characters[side]/dialogue[{type:speech|narration|question}]/questions[{marker,expected}]` + règles (2-4 persos maliens, 8-15 échanges, 3-6 questions)
+- [x] Vues `learn_story` (build dialogue **sans `expected`** anti-triche, couleurs persos), `story_answer` (éval serveur `normalize_text` + tolérance inclusion), `story_finish` (StoryAttempt + XP +25/≥50% ou +40/100%, **1re complétion** anti-farming)
+- [x] `story.html` : bulles WhatsApp gauche/droite par personnage, avatars colorés, narration centrée, bulle question violette, input réponse, feedback vert/orange, écran final + confettis si 100%, révélation animée fadeSlideIn
+- [x] Teaser `lesson.html` activé → `learn:story` (Nouveau/Rejouable selon `already_done`)
+- [x] Décisions : dialogue (a) · XP +25/+40 1re fois (b) · `expected` free-text + tolérance inclusion (c)
+- [x] Tests client (anti-leak expected, tolérance, anti-farming, teaser) + **vérif navigateur** (bulles dialogue) — tous verts
+
 ### Phases suivantes (à venir)
-10. Stories · 11. Répétition espacée · 12. Abonnements
+11. Répétition espacée · 12. Abonnements
