@@ -182,6 +182,62 @@ def parent_account(request):
 
 @login_required
 @parent_required
+def parent_notes(request):
+    """Notes de l'enfant actif, groupées par période puis matière. Lecture seule."""
+    from collections import OrderedDict
+    from apps.schools.models import Note
+
+    links = (
+        request.user.guarded_students
+        .select_related('student', 'student__school_class')
+        .order_by('-is_primary', 'student__full_name')
+    )
+    children = [l.student for l in links]
+    if not children:
+        return render(request, 'parent/notes.html', {
+            'children': [], 'active_student': None, 'periods_data': [],
+        })
+
+    active_id = request.GET.get('child')
+    active_student = next((s for s in children if str(s.id) == active_id), None) or children[0]
+
+    notes = (
+        Note.objects
+        .filter(student=active_student, is_cancelled=False)
+        .select_related('class_subject__subject', 'period', 'period__school_year')
+        .order_by('period__order', 'class_subject__order')
+    )
+
+    # Groupage : période → matière → notes
+    grouped = OrderedDict()
+    for n in notes:
+        p = n.period
+        subs = grouped.setdefault(p, OrderedDict())
+        sid = n.class_subject.subject_id
+        if sid not in subs:
+            subs[sid] = {'subject': n.class_subject.subject, 'notes': []}
+        subs[sid]['notes'].append(n)
+
+    periods_data = []
+    for period, subs in grouped.items():
+        subjects = []
+        for entry in subs.values():
+            vals = [x.value for x in entry['notes']]
+            moyenne = (sum(vals) / len(vals)) if vals else None
+            subjects.append({
+                'subject': entry['subject'], 'notes': entry['notes'], 'moyenne': moyenne,
+            })
+        periods_data.append({'period': period, 'subjects': subjects})
+
+    return render(request, 'parent/notes.html', {
+        'children': children,
+        'active_student': active_student,
+        'periods_data': periods_data,
+    })
+
+
+@login_required
+@parent_required
 def parent_notifications(request):
     """Liste des notifications du parent. Ordonné -created_at (Meta)."""
     notifs = list(request.user.notifications.all())

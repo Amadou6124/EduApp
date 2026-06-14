@@ -219,7 +219,7 @@ def student_detail(request, student_id):
         observations = list(
             StudentObservation.objects
             .filter(student=student, school=school, is_private=False)
-            .select_related('teacher', 'read_by')
+            .select_related('student', 'student__school_class', 'teacher', 'read_by')
             .order_by('-created_at')
         )
 
@@ -280,7 +280,9 @@ def observation_mark_read(request, student_id, obs_id):
 
     school = get_school(request)
     obs = get_object_or_404(
-        StudentObservation,
+        StudentObservation.objects.select_related(
+            'student', 'student__school_class', 'teacher', 'read_by',
+        ),
         pk=obs_id,
         student_id=student_id,
         school=school,
@@ -292,12 +294,10 @@ def observation_mark_read(request, student_id, obs_id):
         obs.read_by = request.user
         obs.save(update_fields=['is_read', 'read_at', 'read_by'])
 
-    return HttpResponse(
-        f'<span id="obs-mark-btn-{obs.pk}" '
-        f'class="text-xs text-gray-400 flex items-center gap-1">'
-        f'✓ Lu le {obs.read_at.strftime("%d/%m/%Y")}'
-        f'</span>'
-    )
+    # Retourne la card complète re-rendue (swap closest .obs-card)
+    return render(request, 'students/partials/obs_card.html', {
+        'obs': obs, 'student': obs.student,
+    })
 
 
 @login_required

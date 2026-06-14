@@ -107,10 +107,10 @@
         <i data-lucide="wallet" class="w-6 h-6 text-green-600"></i>
         <div><p class="font-bold text-gray-900">Paiements</p><p class="text-xs text-gray-500">Encaissé <span class="js-money" data-money="{{ c.total_paid }}">—</span></p></div>
       </a>
-      <div class="bg-purple-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
+      <a href="{% url 'parent:notes' %}?child={{ c.student.id }}" class="bg-purple-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between active:scale-[0.98] transition">
         <i data-lucide="bar-chart-3" class="w-6 h-6 text-purple-600"></i>
-        <div><p class="font-bold text-gray-900">Mes notes</p><p class="text-xs text-gray-500">{% if c.last_bulletin and c.last_bulletin.general_average %}moy. {{ c.last_bulletin.general_average|floatformat:"-2" }}/20{% else %}—{% endif %}</p></div>
-      </div>
+        <div><p class="font-bold text-gray-900">Mes notes</p><p class="text-xs text-gray-500">{% if c.last_bulletin and c.last_bulletin.general_average %}moy. {{ c.last_bulletin.general_average|floatformat:"-2" }}/20{% else %}Voir les notes{% endif %}</p></div>
+      </a>
       <div class="relative bg-orange-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
         {% if c.absences_count %}<span class="absolute top-3 right-3 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">{{ c.absences_count }}</span>{% endif %}
         <i data-lucide="calendar-x" class="w-6 h-6 text-orange-600"></i>
