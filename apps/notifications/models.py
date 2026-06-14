@@ -27,6 +27,13 @@ class Notification(models.Model):
         'schools.School', on_delete=models.CASCADE,
         related_name='notifications', verbose_name=_('école'),
     )
+    # Élève concerné (renseigné par notify_guardians) → historique notifs par élève.
+    # Nullable : certaines notifs (info générale) ne ciblent aucun élève.
+    student = models.ForeignKey(
+        'students.Student', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='notifications', verbose_name=_('élève concerné'),
+    )
     category = models.CharField(
         _('catégorie'), max_length=20,
         choices=NotificationCategory.choices, default=NotificationCategory.INFO,

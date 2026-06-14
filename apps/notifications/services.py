@@ -10,13 +10,13 @@ def _target_fields(target):
     return ContentType.objects.get_for_model(target.__class__), target.pk
 
 
-def notify(recipient, school, category, title, body='', url='', target=None):
+def notify(recipient, school, category, title, body='', url='', target=None, student=None):
     """Crée une notification pour UN utilisateur."""
     ct, oid = _target_fields(target)
     return Notification.objects.create(
         recipient=recipient, school=school, category=category,
         title=title, body=body, url=url,
-        content_type=ct, object_id=oid,
+        content_type=ct, object_id=oid, student=student,
     )
 
 
@@ -38,6 +38,7 @@ def notify_guardians(student, category, title, body='', url='', target=None):
         Notification(
             recipient_id=gid, school=student.school, category=category,
             title=title, body=body, url=url, content_type=ct, object_id=oid,
+            student=student,
         )
         for gid in guardian_ids
     ]
