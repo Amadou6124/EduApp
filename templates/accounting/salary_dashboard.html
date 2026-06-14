@@ -18,15 +18,15 @@
   <div class="grid grid-cols-3 gap-3 mb-6">
     <div class="bg-white rounded-xl border border-gray-100 p-4">
       <p class="text-xs text-gray-400">Total prévu</p>
-      <p class="text-lg font-extrabold text-gray-900">{{ totals.estimated|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
+      <p class="text-lg font-extrabold text-gray-900">{{ totals.estimated|floatformat:0|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 p-4">
       <p class="text-xs text-gray-400">Déjà payé</p>
-      <p class="text-lg font-extrabold text-green-600">{{ totals.paid|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
+      <p class="text-lg font-extrabold text-green-600">{{ totals.paid|floatformat:0|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 p-4">
       <p class="text-xs text-gray-400">En attente</p>
-      <p class="text-lg font-extrabold text-amber-600">{{ totals.pending|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
+      <p class="text-lg font-extrabold text-amber-600">{{ totals.pending|floatformat:0|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
     </div>
   </div>
 

@@ -28,7 +28,7 @@
   </td>
 
   {# Montant #}
-  <td class="px-4 py-3 text-right font-bold text-gray-900 whitespace-nowrap">{{ row.computed_amount|default:0|intcomma }} FCFA</td>
+  <td class="px-4 py-3 text-right font-bold text-gray-900 whitespace-nowrap">{{ row.computed_amount|default:0|floatformat:0|intcomma }} FCFA</td>
 
   {# Statut #}
   <td class="px-4 py-3">
