@@ -156,5 +156,79 @@
   </div>
   {% endif %}
 
+  {# ── Section 4 — Absences récentes (30 j) ── #}
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-5">Absences récentes <span class="normal-case text-gray-300">· 30 jours</span></h3>
+    {% if absences_recentes %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-xs text-gray-400 border-b border-gray-100">
+          <th class="py-2 font-medium">Date</th><th class="py-2 font-medium">Statut</th><th class="py-2 font-medium">Professeur</th><th class="py-2 font-medium">Note</th>
+        </tr></thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for a in absences_recentes %}
+          <tr>
+            <td class="py-2 text-gray-600 whitespace-nowrap">{{ a.date|date:"d/m/Y" }}</td>
+            <td class="py-2">{% if a.status == 'absent' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Absent</span>{% else %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Retard</span>{% endif %}</td>
+            <td class="py-2 text-gray-500">{% if a.teacher %}{{ a.teacher.full_name }}{% else %}—{% endif %}</td>
+            <td class="py-2 text-gray-400">{{ a.note|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-4">Aucune absence sur les 30 derniers jours</p>
+    {% endif %}
+  </div>
+
+  {# ── Section 5 — Notes période active ── #}
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Notes</h3>
+      {% if active_period %}<span class="text-xs text-gray-400">{{ active_period.name }}</span>{% endif %}
+    </div>
+    {% if notes_periode %}
+    <div class="space-y-2">
+      {% regroup notes_periode by class_subject.subject.name as par_matiere %}
+      {% for matiere in par_matiere %}
+      <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+        <span class="text-sm font-medium text-gray-700">{{ matiere.grouper }}</span>
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          {% for n in matiere.list %}
+          <span class="px-2 py-0.5 rounded-md text-xs font-semibold {% if n.value < 10 %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ n.value|floatformat:"-2" }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-4">Aucune note saisie pour la période active</p>
+    {% endif %}
+  </div>
+
+  {# ── Section 6 — Notifications envoyées aux parents ── #}
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-5">Notifications aux parents</h3>
+    {% if notifs_parents %}
+    <div class="space-y-2">
+      {% for n in notifs_parents %}
+      <div class="flex items-start gap-3 p-3 rounded-lg {% if not n.is_read %}bg-blue-50/40{% else %}bg-gray-50{% endif %}">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-200 text-gray-600">{{ n.get_category_display }}</span>
+            <span class="text-sm font-medium text-gray-800 truncate">{{ n.title }}</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-0.5">→ {{ n.recipient.full_name }} · {{ n.created_at|date:"d/m/Y H:i" }}</p>
+        </div>
+        {% if n.is_read %}<span class="text-[10px] text-green-600 shrink-0">Lu</span>{% else %}<span class="text-[10px] text-gray-400 shrink-0">Non lu</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-4">Aucune notification envoyée</p>
+    {% endif %}
+  </div>
+
 </div>
 {% endblock %}

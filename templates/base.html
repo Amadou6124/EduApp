@@ -205,7 +205,7 @@
         <!-- Élèves -->
         <a href="{% url 'students:list' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'students' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'students' and request.resolver_match.url_name != 'suivi' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Élèves'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
@@ -218,6 +218,16 @@
             {{ unread_observations_count }}
           </span>
           {% endif %}
+        </a>
+
+        <!-- Suivi élèves -->
+        <a href="{% url 'students:suivi' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'suivi' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Suivi'">
+          <i data-lucide="activity" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Suivi élèves</span>
         </a>
 
         <!-- Paiements -->

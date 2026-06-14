@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Suivi des élèves{% endblock %}
+{% block page_title %}Suivi des élèves{% endblock %}
+{% block page_subtitle %}<p class="text-sm text-gray-500 mt-0.5">{{ school.name }}</p>{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto" x-data="{ tab: '{{ tab }}' }">
+
+  {# ── Stats résumé ── #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white rounded-xl border border-gray-100 p-4">
+      <div class="flex items-center gap-2 text-xs text-gray-400 mb-1"><i data-lucide="calendar-x" class="w-4 h-4"></i> Absents aujourd'hui</div>
+      <p class="text-2xl font-extrabold text-gray-900">{{ stats.absences_today }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 p-4">
+      <div class="flex items-center gap-2 text-xs text-gray-400 mb-1"><i data-lucide="message-square" class="w-4 h-4"></i> Observations non lues</div>
+      <p class="text-2xl font-extrabold text-gray-900">{{ stats.obs_unread }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 p-4">
+      <div class="flex items-center gap-2 text-xs text-gray-400 mb-1"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Signalés difficulté</div>
+      <p class="text-2xl font-extrabold text-amber-600">{{ stats.difficulty_count }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 p-4">
+      <div class="flex items-center gap-2 text-xs text-gray-400 mb-1"><i data-lucide="bell" class="w-4 h-4"></i> Notifications ce mois</div>
+      <p class="text-2xl font-extrabold text-gray-900">{{ stats.notifs_sent_month }}</p>
+    </div>
+  </div>
+
+  {# ── Tabs (style Notion) ── #}
+  <div class="inline-flex bg-gray-100 rounded-xl p-1 mb-5">
+    <button @click="tab='absences'"
+            hx-get="{% url 'students:suivi-absences' %}" hx-target="#tracking-content" hx-swap="innerHTML"
+            :class="tab==='absences' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"
+            class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition">
+      <i data-lucide="calendar-x" class="w-4 h-4"></i> Absences
+    </button>
+    <button @click="tab='observations'"
+            hx-get="{% url 'students:suivi-observations' %}" hx-target="#tracking-content" hx-swap="innerHTML"
+            :class="tab==='observations' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"
+            class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition">
+      <i data-lucide="message-square" class="w-4 h-4"></i> Observations
+    </button>
+    <button @click="tab='difficulty'"
+            hx-get="{% url 'students:suivi-difficulty' %}" hx-target="#tracking-content" hx-swap="innerHTML"
+            :class="tab==='difficulty' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"
+            class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition">
+      <i data-lucide="alert-triangle" class="w-4 h-4"></i> Difficulté
+    </button>
+  </div>
+
+  {# ── Contenu onglet (chargé HTMX au load, selon l'onglet initial) ── #}
+  <div id="tracking-content"
+       hx-get="{% if tab == 'observations' %}{% url 'students:suivi-observations' %}{% elif tab == 'difficulty' %}{% url 'students:suivi-difficulty' %}{% else %}{% url 'students:suivi-absences' %}{% endif %}"
+       hx-trigger="load" hx-swap="innerHTML">
+    <div class="text-center py-12 text-gray-300"><i data-lucide="loader" class="w-6 h-6 mx-auto animate-spin"></i></div>
+  </div>
+
+</div>
+
+<script>
+  // Recharger les icônes après chaque swap HTMX + maj compteur difficulté
+  document.body.addEventListener('htmx:afterSwap', () => { if (window.lucide) lucide.createIcons(); });
+</script>
+{% endblock %}
