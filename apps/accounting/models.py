@@ -56,6 +56,12 @@ class TeacherAttendanceStatus(models.TextChoices):
     REPLACED = 'replaced', _('Remplacé')
 
 
+class SessionType(models.TextChoices):
+    MORNING   = 'morning',   _('Matin')
+    AFTERNOON = 'afternoon', _('Après-midi')
+    FULL_DAY  = 'full',      _('Journée entière')
+
+
 class TeacherAttendance(models.Model):
     """
     Émargement d'un cours. Anti-fraude : recorded_by ≠ teacher (vérifié en vue).
@@ -74,7 +80,11 @@ class TeacherAttendance(models.Model):
         'schools.ClassSubject', on_delete=models.PROTECT,
         related_name='teacher_attendances', verbose_name=_('cours'),
     )
-    date   = models.DateField(_('date'))
+    date    = models.DateField(_('date'))
+    session = models.CharField(
+        _('session'), max_length=10,
+        choices=SessionType.choices, default=SessionType.MORNING,
+    )
     status = models.CharField(
         _('statut'), max_length=10,
         choices=TeacherAttendanceStatus.choices,
@@ -97,8 +107,8 @@ class TeacherAttendance(models.Model):
         ordering = ['-date', 'class_subject']
         constraints = [
             models.UniqueConstraint(
-                fields=['class_subject', 'date'],
-                name='uniq_teacher_att_course_date',
+                fields=['class_subject', 'date', 'session'],
+                name='uniq_tatt_course_date_session',
             ),
         ]
         indexes = [
