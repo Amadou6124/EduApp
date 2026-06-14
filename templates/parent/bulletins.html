@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mes bulletins — EduApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{'brand-blue':'#1E3A5F'},fontFamily:{sans:['Manrope','ui-sans-serif','system-ui']}}}}</script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>body{font-family:'Manrope',sans-serif;}</style>
+</head>
+<body class="min-h-screen bg-[#F8F9FC] text-gray-900 pb-24">
+
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14 flex items-center gap-3 px-4">
+    <a href="{% url 'parent:dashboard' %}" class="p-1.5 -ml-1.5 rounded-lg text-gray-500 hover:bg-gray-100"><i data-lucide="arrow-left" class="w-5 h-5"></i></a>
+    <h1 class="text-base font-bold">Mes bulletins</h1>
+  </header>
+
+  <div class="px-4 py-4 space-y-6">
+    {% for c in children %}
+    <section>
+      {# En-tête enfant #}
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+             style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">{{ c.student.get_initials }}</div>
+        <p class="font-bold text-gray-900">{{ c.student.full_name }} <span class="font-normal text-gray-400">· {{ c.student.school_class.name }}</span></p>
+      </div>
+
+      {% if c.bulletins %}
+      <div class="space-y-3">
+        {% for b in c.bulletins %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center gap-2 text-gray-900 font-bold">
+            <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i>
+            {{ b.period.name }} · {{ b.period.school_year.name }}
+          </div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-2">
+            {% if b.general_average %}<span>Moyenne <strong class="text-gray-900">{{ b.general_average|floatformat:"-2" }}/20</strong></span>{% endif %}
+            {% if b.rank %}<span>Rang <strong class="text-gray-900">{{ b.rank }}/{{ b.class_size }}</strong></span>{% endif %}
+          </div>
+          {% if b.appreciation %}<p class="text-sm text-gray-500 mt-1">Appréciation : <span class="text-gray-700">{{ b.appreciation }}</span></p>{% endif %}
+          <div class="flex gap-2 mt-4">
+            <a href="{% url 'parent:bulletin-pdf' b.id %}" target="_blank"
+               class="flex-1 h-11 rounded-xl bg-[#1E3A5F] text-white text-sm font-semibold flex items-center justify-center gap-1.5">
+              <i data-lucide="eye" class="w-4 h-4"></i> Voir
+            </a>
+            <a href="{% url 'parent:bulletin-pdf' b.id %}?download=1"
+               class="flex-1 h-11 rounded-xl bg-white border border-gray-200 text-gray-700 text-sm font-semibold flex items-center justify-center gap-1.5">
+              <i data-lucide="download" class="w-4 h-4"></i> Télécharger
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-gray-400">Aucun bulletin disponible</div>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+
+  {% include "parent/partials/bottom_nav.html" with active="bulletins" %}
+  <script>lucide.createIcons();</script>
+</body>
+</html>

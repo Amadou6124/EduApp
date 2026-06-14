@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paiements — EduApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{'brand-blue':'#1E3A5F'},fontFamily:{sans:['Manrope','ui-sans-serif','system-ui']}}}}</script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>body{font-family:'Manrope',sans-serif;} .bar-fill{transition:width 1s ease-out;}</style>
+</head>
+<body class="min-h-screen bg-[#F8F9FC] text-gray-900 pb-24">
+
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14 flex items-center gap-3 px-4">
+    <a href="{% url 'parent:dashboard' %}" class="p-1.5 -ml-1.5 rounded-lg text-gray-500 hover:bg-gray-100"><i data-lucide="arrow-left" class="w-5 h-5"></i></a>
+    <h1 class="text-base font-bold">Paiements</h1>
+  </header>
+
+  {# Résumé global #}
+  <div class="grid grid-cols-2 gap-3 px-4 pt-4">
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <p class="text-xs text-gray-400">Total payé</p>
+      <p class="text-lg font-extrabold text-green-600 js-money" data-money="{{ total_paid }}">—</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <p class="text-xs text-gray-400">Total restant</p>
+      <p class="text-lg font-extrabold {% if total_remaining > 0 %}text-red-600{% else %}text-gray-400{% endif %} js-money" data-money="{{ total_remaining }}">—</p>
+    </div>
+  </div>
+
+  <div class="px-4 py-4 space-y-6">
+    {% for c in children %}
+    <section>
+      {# En-tête enfant + barre recouvrement #}
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+             style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">{{ c.student.get_initials }}</div>
+        <p class="font-bold text-gray-900 flex-1 min-w-0 truncate">{{ c.student.full_name }}</p>
+        <span class="text-xs font-bold {% if c.status == 'paid' %}text-green-600{% elif c.status == 'partial' %}text-amber-600{% else %}text-red-600{% endif %}">{{ c.pct }}%</span>
+      </div>
+      <div class="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+        <div class="bar-fill h-full rounded-full {% if c.status == 'paid' %}bg-green-500{% elif c.status == 'partial' %}bg-amber-500{% else %}bg-red-500{% endif %}" style="width:0%" data-bar="{{ c.pct }}"></div>
+      </div>
+
+      {% if c.payments %}
+      <div class="space-y-2">
+        {% for p in c.payments %}
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-start gap-3">
+          <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0"><i data-lucide="check" class="w-4 h-4 text-green-600"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-semibold text-gray-900">{{ p.payment_date|date:"j F Y" }}</p>
+              <p class="text-sm font-bold text-green-600 js-money" data-money="{{ p.amount }}">—</p>
+            </div>
+            <p class="text-xs text-gray-400 mt-0.5">{{ p.get_payment_method_display }}{% if p.receipt_number %} · Reçu N° {{ p.receipt_number }}{% endif %}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="bg-white rounded-2xl border border-gray-100 p-5 text-center text-sm text-gray-400">Aucun versement enregistré</div>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+
+  {% include "parent/partials/bottom_nav.html" with active="payments" %}
+  <script>
+    lucide.createIcons();
+    const nf=new Intl.NumberFormat('fr-FR');
+    document.querySelectorAll('.js-money').forEach(el=>{el.textContent=nf.format(Math.round(parseFloat(el.dataset.money||'0')))+' FCFA';});
+    requestAnimationFrame(()=>document.querySelectorAll('[data-bar]').forEach(b=>{b.style.width=(b.dataset.bar||0)+'%';}));
+  </script>
+</body>
+</html>
