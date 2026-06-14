@@ -74,11 +74,15 @@ Statut : ✅ Terminée
 Routes : accounting:staff-list, staff-remuneration(-save). config/urls.py câblé (/accounting/).
 
 ### PHASE 3 — Émargement professeurs
-Statut : ⏳ En attente Phase 2
-- [ ] Interface émargement /accounting/emargement/
-- [ ] Enregistrement par secrétaire/admin
-- [ ] Vue par jour et par classe
-- [ ] Calcul automatique heures vacataires
+Statut : 🔄 En cours
+- [x] Interface émargement /accounting/emargement/ (cours groupés par classe, accordéons)
+- [x] Enregistrement par secrétaire/admin (décorateur director_or_emargement_required)
+- [x] Vue par jour (nav ◄ Hier / Aujourd'hui / Demain ►) et par classe
+- [x] Sessions matin/après-midi/journée (2 émargements/jour possibles)
+- [x] Anti-fraude : recorded_by ≠ teacher (422 si auto-émargement) + substitute search
+- [x] UI optimiste (Alpine instant + fetch background, stats live)
+- [x] Lien sidebar Émargement (gate accounting_enabled + can_record_emargement)
+- [ ] Calcul automatique heures vacataires (Phase 4 : Σ duration_hours présents)
 
 ### PHASE 4 — Paie mensuelle
 Statut : ⏳ En attente Phase 3

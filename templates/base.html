@@ -277,11 +277,25 @@
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:staff-list' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'accounting' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.url_name == 'staff-list' or request.resolver_match.url_name == 'staff-remuneration' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Comptabilité'">
           <i data-lucide="calculator" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">Comptabilité</span>
+        </a>
+        {% endif %}
+        {% endif %}
+
+        <!-- Émargement (module activé + droit pointage) -->
+        {% if request.school.accounting_enabled %}
+        {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_record_emargement or request.user.staff_permission.can_manage_accounting %}
+        <a href="{% url 'accounting:emargement' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'emargement' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Émargement'">
+          <i data-lucide="clipboard-check" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Émargement</span>
         </a>
         {% endif %}
         {% endif %}
