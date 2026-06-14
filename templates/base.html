@@ -106,6 +106,16 @@
           <span x-show="$store.sidebar.open">Mon tableau de bord</span>
         </a>
 
+        <!-- Mes leçons -->
+        <a href="{% url 'lessons:list' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'lessons' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Mes leçons'">
+          <i data-lucide="sparkles" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mes leçons</span>
+        </a>
+
         <!-- Mes notes -->
         <a href="{% url 'notes:dashboard' %}"
            class="flex items-center py-2 rounded-lg transition

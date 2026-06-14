@@ -5,7 +5,6 @@ Namespace URL : teacher
 import json
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from functools import wraps
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -14,22 +13,9 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.core.mixins import get_school, get_active_role
+from apps.core.mixins import get_school, get_active_role, teacher_required
 from apps.schools.models import ClassSubject, Note, SchoolClass, SchoolYear, Period
 from apps.students.models import Student
-
-
-def teacher_required(view_func):
-    """Décorateur réservé aux enseignants (role='teacher') et superusers."""
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('accounts:login')
-        # Rôle de l'école active (multi-école), fallback legacy User.role
-        if get_active_role(request) != 'teacher' and not request.user.is_superuser:
-            return redirect('notes:dashboard')
-        return view_func(request, *args, **kwargs)
-    return wrapper
 
 
 _JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']

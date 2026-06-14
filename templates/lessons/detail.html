@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lesson.title }}{% endblock %}
+{% block page_title %}{{ lesson.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+
+  <a href="{% url 'lessons:list' %}" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> Mes leçons
+  </a>
+
+  <div class="mb-5">
+    <h2 class="text-xl font-bold text-gray-900">{{ lesson.title }}</h2>
+    <p class="text-sm text-gray-500 mt-0.5">{{ lesson.subject }} · {{ lesson.get_level_display }}{% if lesson.level_detail %} · {{ lesson.level_detail }}{% endif %} · {{ lesson.get_subject_type_display }}</p>
+  </div>
+
+  {% if lesson.status == 'processing' or lesson.status == 'draft' %}
+    {# ── En cours : polling HTMX ── #}
+    {% include "lessons/partials/lesson_status_card.html" %}
+
+  {% elif lesson.status == 'error' %}
+    {# ── Erreur ── #}
+    <div class="bg-red-50 border border-red-200 rounded-2xl p-6">
+      <div class="flex items-center gap-2 text-red-700 mb-2">
+        <i data-lucide="circle-x" class="w-5 h-5"></i><p class="font-semibold">Erreur lors de la génération</p>
+      </div>
+      <p class="text-sm text-red-600 mb-4">{{ lesson.processing_error|default:"Une erreur est survenue." }}</p>
+      <button hx-post="{% url 'lessons:retry' lesson.id %}"
+              class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Relancer la génération
+      </button>
+    </div>
+
+  {% else %}
+    {# ── Prête ── #}
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+        <p class="text-xl font-extrabold text-gray-900">{{ lesson.structured_content.blocks|length }}</p>
+        <p class="text-xs text-gray-500">Blocs</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+        <p class="text-xl font-extrabold text-gray-900">{{ lesson.quiz_count }}</p>
+        <p class="text-xs text-gray-500">Quiz</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+        <p class="text-xl font-extrabold text-gray-900">{{ lesson.flashcard_count }}</p>
+        <p class="text-xs text-gray-500">Flashcards</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+        <p class="text-xl font-extrabold text-gray-900">{% if lesson.story_data %}Oui{% else %}—{% endif %}</p>
+        <p class="text-xs text-gray-500">Story</p>
+      </div>
+    </div>
+
+    {# Aperçu des 3 premiers quiz #}
+    {% if lesson.quiz_data.quizzes %}
+    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+      <p class="text-sm font-bold text-gray-900 mb-4">Aperçu des quiz</p>
+      <div class="space-y-4">
+        {% for q in lesson.quiz_data.quizzes|slice:":3" %}
+        <div class="border border-gray-100 rounded-xl p-4">
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <p class="text-sm font-medium text-gray-800">{{ q.question }}</p>
+            <span class="shrink-0 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ q.type }} · niv.{{ q.difficulty }}</span>
+          </div>
+          {% if q.options %}
+          <ul class="space-y-1">
+            {% for opt in q.options %}
+            <li class="text-xs flex items-center gap-1.5 {% if opt == q.answer %}text-green-700 font-semibold{% else %}text-gray-500{% endif %}">
+              {% if opt == q.answer %}<i data-lucide="check" class="w-3 h-3"></i>{% else %}<span class="w-3"></span>{% endif %}{{ opt }}
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Déploiement (action complète en phase ultérieure) #}
+    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+      <p class="text-sm font-bold text-gray-900 mb-1">Déployer vers mes classes</p>
+      <p class="text-xs text-gray-400 mb-4">Sélection des classes — l'envoi aux élèves arrive dans une prochaine étape.</p>
+      {% if teacher_classes %}
+      <div class="space-y-2">
+        {% for c in teacher_classes %}
+        <label class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-gray-100 hover:bg-gray-50">
+          <span class="flex items-center gap-2.5 text-sm text-gray-700">
+            <input type="checkbox" disabled {% if c.id in deployed_class_ids %}checked{% endif %} class="rounded border-gray-300">
+            {{ c.name }} <span class="text-xs text-gray-400">{{ c.get_level_display }}</span>
+          </span>
+          {% if c.id in deployed_class_ids %}<span class="text-xs font-semibold text-green-600">Déployée</span>{% endif %}
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-400">Aucune classe ne vous est assignée pour le moment.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -65,6 +65,21 @@ class Student(models.Model):
     enrolled_at = models.DateTimeField(_('inscrit le'), auto_now_add=True)
     updated_at = models.DateTimeField(_('modifié le'), auto_now=True)
 
+    # ── Auth portail élève (session isolée — voir apps/core/student_auth.py) ──
+    password = models.CharField(
+        _('mot de passe'), max_length=128, blank=True,
+        help_text=_('Hash du mot de passe élève'),
+    )
+    last_login = models.DateTimeField(_('dernière connexion'), null=True, blank=True)
+
+    # ── Gamification ──────────────────────────────────────────────────
+    total_xp           = models.PositiveIntegerField(_('XP total'), default=0)
+    current_level      = models.PositiveSmallIntegerField(_('niveau'), default=1)
+    streak_days        = models.PositiveSmallIntegerField(_('streak jours'), default=0)
+    last_activity_date = models.DateField(_('dernière activité'), null=True, blank=True)
+    longest_streak     = models.PositiveSmallIntegerField(_('meilleur streak'), default=0)
+    badges             = models.JSONField(_('badges'), default=list)
+
     class Meta:
         verbose_name = _('élève')
         verbose_name_plural = _('élèves')
@@ -120,6 +135,15 @@ class Student(models.Model):
         if len(parts) >= 2:
             return f'{parts[0][0]}{parts[-1][0]}'.upper()
         return self.full_name[:2].upper() if self.full_name else '??'
+
+    # ── Auth portail élève ────────────────────────────────────────────────
+    def set_student_password(self, raw):
+        from django.contrib.auth.hashers import make_password
+        self.password = make_password(raw)
+
+    def check_student_password(self, raw):
+        from django.contrib.auth.hashers import check_password
+        return bool(self.password) and check_password(raw, self.password)
 
 
 class StudentGuardian(models.Model):

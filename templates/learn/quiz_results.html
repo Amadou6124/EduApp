@@ -1,0 +1,86 @@
+{% extends 'learn/base_student.html' %}
+
+{% block title %}Résultats — EduApp{% endblock %}
+
+{% block content %}
+<div class="px-4 pt-8 pb-6 text-center">
+
+  <div class="mb-6">
+    {% if score_pct == 100 %}
+    <span class="text-6xl">🏆</span>
+    <h1 class="text-2xl font-bold text-gray-900 mt-3">Parfait !</h1>
+    {% elif score_pct >= 80 %}
+    <span class="text-6xl">🌟</span>
+    <h1 class="text-2xl font-bold text-gray-900 mt-3">Excellent !</h1>
+    {% elif score_pct >= 60 %}
+    <span class="text-6xl">👍</span>
+    <h1 class="text-2xl font-bold text-gray-900 mt-3">Bien joué !</h1>
+    {% else %}
+    <span class="text-6xl">💪</span>
+    <h1 class="text-2xl font-bold text-gray-900 mt-3">Continue !</h1>
+    {% endif %}
+    <p class="text-gray-500 text-sm mt-1">{{ lesson.title }}</p>
+  </div>
+
+  {# Cercle score #}
+  <div class="relative w-32 h-32 mx-auto mb-6">
+    <svg class="w-32 h-32 -rotate-90" viewBox="0 0 36 36">
+      <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+      <circle cx="18" cy="18" r="15.9" fill="none"
+              stroke="{% if score_pct >= 80 %}#10B981{% elif score_pct >= 60 %}#F59E0B{% else %}#EF4444{% endif %}"
+              stroke-width="3" stroke-dasharray="{{ score_pct }} 100" stroke-linecap="round"/>
+    </svg>
+    <div class="absolute inset-0 flex flex-col items-center justify-center">
+      <span class="text-3xl font-bold text-gray-900">{{ score_pct }}%</span>
+      <span class="text-xs text-gray-500">{{ correct }}/{{ total }}</span>
+    </div>
+  </div>
+
+  {# Stats #}
+  <div class="grid grid-cols-3 gap-3 mb-6">
+    <div class="bg-white rounded-xl p-3 shadow-sm">
+      <p class="text-2xl font-bold text-green-500">{{ correct }}</p>
+      <p class="text-xs text-gray-500 mt-0.5">Correctes</p>
+    </div>
+    <div class="bg-white rounded-xl p-3 shadow-sm">
+      <p class="text-2xl font-bold text-red-400">{{ errors }}</p>
+      <p class="text-xs text-gray-500 mt-0.5">Erreurs</p>
+    </div>
+    <div class="bg-white rounded-xl p-3 shadow-sm">
+      <p class="text-2xl font-bold text-yellow-500">+{{ xp_from_quiz }}</p>
+      <p class="text-xs text-gray-500 mt-0.5">XP gagné</p>
+    </div>
+  </div>
+
+  {% if bonus_xp %}
+  <div class="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 mb-4">
+    <p class="text-yellow-700 font-bold text-sm">🎉 Bonus score parfait ! +{{ bonus_xp }} XP</p>
+  </div>
+  {% endif %}
+
+  {# Maîtrise #}
+  <div class="bg-white rounded-xl p-4 shadow-sm mb-6">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-sm font-medium text-gray-700">Maîtrise de la leçon</span>
+      <span class="text-sm font-bold {% if mastery >= 80 %}text-green-600{% elif mastery >= 40 %}text-amber-600{% else %}text-gray-500{% endif %}">{{ mastery }}%</span>
+    </div>
+    <div class="bg-gray-100 rounded-full h-2">
+      <div class="h-2 rounded-full transition-all {% if mastery >= 80 %}bg-green-500{% elif mastery >= 40 %}bg-amber-500{% else %}bg-gray-400{% endif %}"
+           style="width: {{ mastery }}%"></div>
+    </div>
+  </div>
+
+  {# Actions #}
+  <div class="space-y-3">
+    <a href="{% url 'learn:lesson' lesson.id %}"
+       class="block w-full bg-brand-blue text-white py-3.5 rounded-2xl font-semibold text-base active:scale-95 transition">📖 Revoir la leçon</a>
+    <a href="{% url 'learn:quiz' lesson.id %}"
+       class="block w-full bg-white text-brand-blue py-3.5 rounded-2xl font-semibold text-base border-2 border-brand-blue active:scale-95 transition">🔄 Recommencer le quiz</a>
+    <a href="{% url 'learn:dashboard' %}?subject={{ lesson.subject|urlencode }}"
+       class="block text-gray-400 text-sm py-2">← Retour aux leçons</a>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block bottom_nav %}{% endblock %}

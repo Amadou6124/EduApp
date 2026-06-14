@@ -47,10 +47,12 @@ urlpatterns = [
     path('settings/', include('apps.schools.settings_urls')),
     path('team/',       include('apps.accounts.team_urls')),
     path('superadmin/', include('apps.accounts.superadmin_urls')),
+    path('teacher/lessons/', include('apps.lessons.urls')),
     path('teacher/',    include('apps.teachers.urls')),
     path('promoter/',   include('apps.promoter.urls')),
     path('portal/parent/', include('apps.parent.urls')),
     path('accounting/',  include('apps.accounting.urls')),
+    path('learn/',       include('apps.student_learning.urls')),
     path('media/<path:path>', protected_media, name='protected-media'),
 ]
 

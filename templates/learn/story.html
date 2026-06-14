@@ -1,0 +1,172 @@
+{% extends 'learn/base_student.html' %}
+{% load static %}
+
+{% block title %}{{ title }} — EduApp{% endblock %}
+
+{% block header %}
+<header class="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'learn:lesson' lesson.id %}" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+      <i data-lucide="arrow-left" class="w-4 h-4 text-gray-600"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+      <p class="text-xs text-gray-400">🎭 Histoire</p>
+      <p class="text-sm font-bold text-gray-900 truncate">{{ title }}</p>
+    </div>
+    <div class="flex -space-x-2">
+      {% for name, char in characters.items %}
+      <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white"
+           style="background-color:{{ char.color }}">{{ char.initial }}</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% if setting %}
+  <div class="mt-2 bg-gray-50 rounded-lg px-3 py-1.5">
+    <p class="text-xs text-gray-500 italic">📍 {{ setting }}</p>
+  </div>
+  {% endif %}
+</header>
+{% endblock %}
+
+{% block content %}
+{{ dialogue|json_script:"dialogue-data" }}
+{{ questions_safe|json_script:"questions-data" }}
+<div class="px-4 pt-4 pb-6"
+  x-data="{
+    dialogue: JSON.parse(document.getElementById('dialogue-data').textContent),
+    revealed: 0,
+    answers: {},
+    feedback: {},
+    currentInput: '',
+    score: 0,
+    totalQ: {{ total_questions }},
+    done: false,
+    xpEarned: 0,
+    loading: false,
+    revealNext() {
+      if (this.revealed >= this.dialogue.length) return;
+      const item = this.dialogue[this.revealed];
+      if (item.type === 'question') return;   // stop sur une question
+      this.revealed++;
+      if (this.revealed < this.dialogue.length && this.dialogue[this.revealed].type !== 'question') {
+        setTimeout(() => this.revealNext(), 500);
+      }
+    },
+    async submitAnswer(marker) {
+      if (this.loading) return;
+      const ans = this.currentInput.trim();
+      if (!ans) return;
+      this.loading = true;
+      try {
+        const resp = await fetch('{% url 'learn:story-answer' lesson.id %}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+          body: JSON.stringify({ marker: marker, answer: ans })
+        });
+        const data = await resp.json();
+        this.feedback[marker] = data;
+        this.answers[marker] = { answer: ans, correct: data.correct };
+        if (data.correct) this.score++;
+        this.currentInput = '';
+        this.revealed++;
+        await new Promise(r => setTimeout(r, 600));
+        this.revealNext();
+      } catch (e) { console.error(e); }
+      this.loading = false;
+    },
+    async finishStory() {
+      const scorePct = this.totalQ > 0 ? Math.round(this.score / this.totalQ * 100) : 0;
+      try {
+        const resp = await fetch('{% url 'learn:story-finish' lesson.id %}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+          body: JSON.stringify({ score: scorePct, answers: Object.values(this.answers) })
+        });
+        const data = await resp.json();
+        this.xpEarned = data.xp_earned || 0;
+      } catch (e) {}
+      this.done = true;
+      if (this.score === this.totalQ && this.totalQ > 0 && window.launchConfetti) window.launchConfetti();
+    }
+  }"
+  x-init="setTimeout(() => revealNext(), 300)">
+
+  {# Écran final #}
+  <div x-show="done" x-cloak class="text-center py-8">
+    <div class="text-5xl mb-4"><span x-text="totalQ > 0 && score === totalQ ? '🏆' : score > totalQ/2 ? '🌟' : '💪'"></span></div>
+    <h2 class="text-xl font-bold text-gray-900">Histoire terminée !</h2>
+    <p class="text-gray-500 text-sm mt-1"><span x-text="score"></span>/<span x-text="totalQ"></span> bonnes réponses</p>
+    <div x-show="xpEarned > 0" class="mt-3 bg-yellow-50 border border-yellow-200 rounded-xl p-3 inline-block">
+      <p class="text-yellow-700 font-bold">⭐ +<span x-text="xpEarned"></span> XP !</p>
+    </div>
+    <div>
+      <a href="{% url 'learn:lesson' lesson.id %}" class="inline-block mt-4 bg-brand-blue text-white px-6 py-3 rounded-xl font-semibold">← Retour à la leçon</a>
+    </div>
+  </div>
+
+  {# Dialogue #}
+  <div x-show="!done" class="space-y-3">
+    <template x-for="(item, idx) in dialogue" :key="idx">
+      <div x-show="idx < revealed || (item.type === 'question' && idx === revealed)"
+           x-transition:enter="transition ease-out duration-300"
+           x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+
+        {# Narration #}
+        <div x-show="item.type === 'narration'" class="text-center py-1">
+          <p class="text-xs text-gray-400 italic bg-gray-50 rounded-lg px-3 py-2 inline-block" x-text="item.text"></p>
+        </div>
+
+        {# Speech #}
+        <div x-show="item.type === 'speech'" :class="item.side === 'right' ? 'flex flex-row-reverse items-end gap-2' : 'flex items-end gap-2'">
+          <div class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
+               :style="`background-color:${item.color}`" x-text="item.initial"></div>
+          <div class="max-w-[75%] px-3 py-2 rounded-2xl text-sm leading-relaxed"
+               :class="item.side === 'right' ? 'bg-brand-blue text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'"
+               x-text="item.text"></div>
+        </div>
+
+        {# Question #}
+        <div x-show="item.type === 'question'">
+          <div :class="item.side === 'right' ? 'flex flex-row-reverse items-end gap-2' : 'flex items-end gap-2'" class="mb-3">
+            <div class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                 :style="`background-color:${item.color}`" x-text="item.initial"></div>
+            <div class="max-w-[75%] px-3 py-2 rounded-2xl text-sm leading-relaxed bg-purple-100 text-purple-900 rounded-bl-sm border border-purple-200"
+                 x-text="item.text"></div>
+          </div>
+
+          {# Zone de réponse #}
+          <div x-show="!feedback[item.marker]" class="ml-10 bg-white rounded-2xl border-2 border-purple-200 p-3">
+            <p class="text-xs text-purple-600 font-medium mb-2">✏️ Ta réponse :</p>
+            <div class="flex gap-2">
+              <input type="text" x-model="currentInput"
+                @keydown.enter.prevent="submitAnswer(item.marker)" :disabled="loading"
+                placeholder="Écris ta réponse..."
+                class="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-purple-400">
+              <button @click="submitAnswer(item.marker)" :disabled="loading || !currentInput.trim()"
+                class="bg-purple-500 text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 active:scale-95 transition">→</button>
+            </div>
+          </div>
+
+          {# Feedback #}
+          <div x-show="feedback[item.marker]" x-transition class="ml-10 rounded-2xl p-3 mt-1"
+               :class="feedback[item.marker]?.correct ? 'bg-green-50 border border-green-200' : 'bg-orange-50 border border-orange-200'">
+            <p class="text-sm font-medium" :class="feedback[item.marker]?.correct ? 'text-green-700' : 'text-orange-700'"
+               x-text="(feedback[item.marker]?.correct ? '✅ ' : '💡 ') + feedback[item.marker]?.feedback"></p>
+          </div>
+        </div>
+
+      </div>
+    </template>
+
+    {# Terminer #}
+    <div x-show="revealed >= dialogue.length" x-transition class="pt-4">
+      <button @click="finishStory()" class="w-full bg-purple-600 text-white py-4 rounded-2xl font-bold text-base active:scale-95 transition">
+        Terminer l'histoire ✨
+      </button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block bottom_nav %}{% endblock %}

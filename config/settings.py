@@ -36,6 +36,8 @@ INSTALLED_APPS = [
     'apps.parent',
     'apps.notifications',
     'apps.accounting',
+    'apps.lessons',
+    'apps.student_learning',
 ]
 
 MIDDLEWARE = [
@@ -68,6 +70,7 @@ TEMPLATES = [
                 'django.template.context_processors.i18n',
                 'apps.core.context_processors.school_context',
                 'apps.notifications.context_processors.parent_unread',
+                'apps.lessons.context_processors.student_due_flashcards',
             ],
         },
     },

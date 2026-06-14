@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Nouvelle leçon{% endblock %}
+{% block page_title %}Nouvelle leçon{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <a href="{% url 'lessons:list' %}" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> Mes leçons
+  </a>
+
+  <form method="post" action="{% url 'lessons:upload' %}" enctype="multipart/form-data"
+        x-data="{ fileName: '', dragging: false }" class="space-y-6">
+    {% csrf_token %}
+
+    {# ── Section 1 — Informations ── #}
+    <div class="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+      <p class="text-sm font-bold text-gray-900">Informations</p>
+
+      <div>
+        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Titre de la leçon *</label>
+        <input type="text" name="title" value="{{ post.title|default:'' }}" maxlength="200" required
+               class="w-full border {% if errors.title %}border-red-300{% else %}border-gray-200{% endif %} rounded-xl px-3 py-2.5 text-sm mt-1.5">
+        {% if errors.title %}<p class="text-xs text-red-500 mt-1">{{ errors.title }}</p>{% endif %}
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Matière *</label>
+          <input type="text" name="subject" value="{{ post.subject|default:'' }}" maxlength="100" required placeholder="Ex : Mathématiques"
+                 class="w-full border {% if errors.subject %}border-red-300{% else %}border-gray-200{% endif %} rounded-xl px-3 py-2.5 text-sm mt-1.5">
+          {% if errors.subject %}<p class="text-xs text-red-500 mt-1">{{ errors.subject }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Type de matière *</label>
+          <select name="subject_type" required class="w-full border {% if errors.subject_type %}border-red-300{% else %}border-gray-200{% endif %} rounded-xl px-3 py-2.5 text-sm mt-1.5 bg-white">
+            <option value="">—</option>
+            {% for val, label in subject_types %}<option value="{{ val }}" {% if post.subject_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          {% if errors.subject_type %}<p class="text-xs text-red-500 mt-1">{{ errors.subject_type }}</p>{% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Niveau *</label>
+          <select name="level" required class="w-full border {% if errors.level %}border-red-300{% else %}border-gray-200{% endif %} rounded-xl px-3 py-2.5 text-sm mt-1.5 bg-white">
+            <option value="">—</option>
+            {% for val, label in education_levels %}<option value="{{ val }}" {% if post.level == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          {% if errors.level %}<p class="text-xs text-red-500 mt-1">{{ errors.level }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Précision niveau</label>
+          <input type="text" name="level_detail" value="{{ post.level_detail|default:'' }}" maxlength="50" placeholder="Ex : 6ème Année"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1.5">
+        </div>
+      </div>
+    </div>
+
+    {# ── Section 2 — Fichier ── #}
+    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+      <p class="text-sm font-bold text-gray-900 mb-4">Fichier source</p>
+
+      <label @dragover.prevent="dragging = true" @dragleave.prevent="dragging = false"
+             @drop.prevent="dragging = false; fileName = $event.dataTransfer.files[0]?.name || ''; $refs.file.files = $event.dataTransfer.files"
+             :class="dragging ? 'border-brand-blue bg-blue-50/40' : 'border-gray-300'"
+             class="flex flex-col items-center justify-center border-2 border-dashed rounded-xl px-6 py-10 text-center cursor-pointer transition">
+        <i data-lucide="upload-cloud" class="w-9 h-9 text-gray-400 mb-2"></i>
+        <p class="text-sm text-gray-600" x-show="!fileName">Glissez un fichier ici ou <span class="text-brand-blue font-semibold">parcourez</span></p>
+        <p class="text-sm font-semibold text-gray-800" x-show="fileName" x-text="fileName"></p>
+        <p class="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 10 Mo</p>
+        <input type="file" name="source_file" x-ref="file" accept=".pdf,.jpg,.jpeg,.png" class="hidden"
+               @change="fileName = $event.target.files[0]?.name || ''">
+      </label>
+      {% if errors.source_file %}<p class="text-xs text-red-500 mt-2">{{ errors.source_file }}</p>{% endif %}
+    </div>
+
+    <div>
+      <button type="submit"
+              class="w-full h-12 rounded-xl bg-brand-gold hover:bg-yellow-500 text-white text-sm font-bold flex items-center justify-center gap-2">
+        <i data-lucide="sparkles" class="w-4 h-4"></i> Générer la leçon avec l'IA
+      </button>
+      <p class="text-xs text-gray-400 text-center mt-2">⚡ La génération prend environ 30-60s. Vous serez redirigé automatiquement.</p>
+    </div>
+  </form>
+
+</div>
+{% endblock %}
