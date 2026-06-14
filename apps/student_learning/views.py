@@ -1,7 +1,12 @@
+import json
 import logging
 from datetime import timedelta
+from urllib.parse import urlencode
 
-from django.shortcuts import render, redirect
+from django.db.models import F
+from django.http import HttpResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
@@ -133,6 +138,7 @@ def learn_dashboard(request):
         'lessons_data': lessons_data,
         'current_lesson_progress': current_lesson_progress,
         'today': today,
+        'learn_toast': request.session.pop('learn_toast', None),
     })
 
 
@@ -153,9 +159,123 @@ def _update_streak(student, today):
 
 # ─── Stubs phases suivantes ──────────────────────────────────────────────────
 
+# ─── Lecture leçon (Phase 5) ─────────────────────────────────────────────────
+
 @student_required
-def learn_lesson_stub(request, lesson_id):
-    return render(request, 'learn/stub.html', {'student': request.student, 'title': 'Leçon', 'phase': 5})
+def learn_lesson(request, lesson_id):
+    student = request.student
+
+    deployment = get_object_or_404(
+        LessonDeployment, lesson_id=lesson_id, school_class=student.school_class,
+        is_active=True, lesson__status=LessonStatus.READY,
+    )
+    lesson = deployment.lesson
+
+    progress, _created = LessonProgress.objects.get_or_create(student=student, lesson=lesson)
+
+    blocks = (lesson.structured_content or {}).get('blocks', []) if lesson.structured_content else []
+
+    # Attache la note perso (reflection) à chaque bloc — indexé par block_id.
+    notes_map = {n['block_id']: n['text'] for n in (progress.notes or [])}
+    for b in blocks:
+        b['note'] = notes_map.get(b.get('id'), '')
+
+    total_blocks = len(blocks)
+    if total_blocks:
+        initial_pct = min(int((progress.last_block_index + 1) / total_blocks * 100), 100)
+    else:
+        initial_pct = 0
+
+    return render(request, 'learn/lesson.html', {
+        'student': student,
+        'lesson': lesson,
+        'progress': progress,
+        'blocks': blocks,
+        'total_blocks': total_blocks,
+        'initial_pct': initial_pct,
+        'has_story': bool(lesson.story_data),
+        'has_quiz': lesson.quiz_count > 0,
+        'learn_toast': request.session.pop('learn_toast', None),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def lesson_save_progress(request, lesson_id):
+    """Sauvegarde le dernier bloc lu (background IntersectionObserver). Retourne 204."""
+    student = request.student
+    try:
+        data = json.loads(request.body)
+        block_index = int(data.get('block_index', 0))
+        time_delta = int(data.get('time_seconds', 0))
+    except (ValueError, json.JSONDecodeError):
+        return HttpResponse(status=400)
+
+    LessonProgress.objects.filter(student=student, lesson_id=lesson_id).update(
+        last_block_index=block_index,
+        reading_time_seconds=F('reading_time_seconds') + max(time_delta, 0),
+    )
+    return HttpResponse(status=204)
+
+
+@student_required
+@require_http_methods(['POST'])
+def lesson_save_note(request, lesson_id):
+    """Sauvegarde une note personnelle sur un bloc 'reflection'. Retourne 204."""
+    student = request.student
+    try:
+        data = json.loads(request.body)
+        block_id = str(data.get('block_id', ''))
+        text = str(data.get('text', '')).strip()
+    except (json.JSONDecodeError, ValueError):
+        return HttpResponse(status=400)
+
+    if not block_id:
+        return HttpResponse(status=400)
+
+    progress = get_object_or_404(LessonProgress, student=student, lesson_id=lesson_id)
+    notes = progress.notes or []
+    updated = False
+    for note in notes:
+        if note['block_id'] == block_id:
+            note['text'] = text
+            note['updated_at'] = timezone.now().isoformat()
+            updated = True
+            break
+    if not updated and text:
+        notes.append({'block_id': block_id, 'text': text, 'created_at': timezone.now().isoformat()})
+
+    progress.notes = notes
+    progress.save(update_fields=['notes'])
+    return HttpResponse(status=204)
+
+
+@student_required
+@require_http_methods(['POST'])
+def lesson_complete(request, lesson_id):
+    """Marque la leçon complétée + 20 XP (inline, centralisé en Phase 9). Redirige au dashboard."""
+    student = request.student
+
+    deployment = get_object_or_404(
+        LessonDeployment, lesson_id=lesson_id, school_class=student.school_class, is_active=True,
+    )
+    lesson = deployment.lesson
+
+    progress, _ = LessonProgress.objects.get_or_create(student=student, lesson=lesson)
+
+    if not progress.is_completed:
+        progress.is_completed = True
+        progress.completed_at = timezone.now()
+        progress.save(update_fields=['is_completed', 'completed_at'])
+
+        # XP minimal (sera migré vers award_xp() en Phase 9). student est chargé frais → pas de course critique ici.
+        student.total_xp += 20
+        student.current_level = student.total_xp // 500 + 1
+        student.save(update_fields=['total_xp', 'current_level'])
+
+        request.session['learn_toast'] = '🎉 Leçon complétée ! +20 XP'
+
+    return redirect(f"{reverse('learn:dashboard')}?{urlencode({'subject': lesson.subject})}")
 
 
 @student_required

@@ -121,6 +121,13 @@ TYPES DE QUIZ AUTORISÉS SELON subject_type
 - geography  : mcq, true_false, matching, hotspot, short_answer
 - other      : mcq, true_false, fill_blank, short_answer
 
+CONSIGNES MATHÉMATIQUES
+Si subject_type = math :
+- Écris TOUTES les formules en LaTeX.
+- Inline : $x^2 + y^2 = z^2$
+- Display : $$\\frac{a}{b} = c$$
+- Fractions : $\\frac{3}{4}$  ·  Exposants : $x^2$, $x^{n+1}$  ·  Racines : $\\sqrt{x}$
+
 EXIGENCES DE VOLUME
 - structured_content.blocks : 5 à 12 blocs couvrant TOUT le cours.
 - story : 3 à 5 personnages MALIENS (Aminata, Moussa, Fatoumata, Ibrahima, Boubacar,

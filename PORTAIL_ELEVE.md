@@ -224,5 +224,15 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] Abonnement **non utilisé** (tout gratuit, décision actée)
 - [x] Tests : login (bon/mauvais/vide), session, dashboard (états vide + nodes réels), switch matière, stub, logout — tous OK
 
+### PHASE 5 — Lecture leçon ✅ Terminée
+- [x] `{% block extra_head %}` ajouté à `base_student.html`
+- [x] `SYSTEM_PROMPT` (services.py) : consignes LaTeX `$…$`/`$$…$$` pour subject_type=math
+- [x] `learn_lesson` (remplace le stub) : `get_or_create` progress, blocs + note par bloc, KaTeX si math, teaser story, CTA quiz
+- [x] `lesson_save_progress` (204, IntersectionObserver), `lesson_save_note` (notes reflection), `lesson_complete` (+20 XP inline, redirect dashboard)
+- [x] `lesson.html` : 7 designs de blocs (definition/example/key_points/warning/summary/reflection/pause), IntersectionObserver + reprise scroll, barre de progression, KaTeX, bouton Terminer, teaser story 🎭, bottom nav masquée
+- [x] Toast « +20 XP » via session (popé sur le dashboard, cible du redirect)
+- [x] Navigation : scroll naturel ; Story différée Phase 10 ; XP inline (→ `award_xp()` Phase 9)
+- [x] Tests client (read/progress/note/complete/XP/toast) + **vérif navigateur réel** (7 blocs rendus, KaTeX `\frac` OK) — tous verts
+
 ### Phases suivantes (à venir)
-5. Lecture leçon · 6. Quiz engine · 8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements
+6. Quiz engine · 8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements

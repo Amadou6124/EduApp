@@ -1,0 +1,203 @@
+{% extends 'learn/base_student.html' %}
+{% load static %}
+
+{% block title %}{{ lesson.title }} — EduApp{% endblock %}
+
+{% block extra_head %}
+{% if lesson.subject_type == 'math' %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]})"></script>
+{% endif %}
+{% endblock %}
+
+{% block header %}
+<header class="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm px-4 py-3">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'learn:dashboard' %}?subject={{ lesson.subject|urlencode }}"
+       class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+      <i data-lucide="arrow-left" class="w-4 h-4 text-gray-600"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+      <p class="text-xs text-gray-400 truncate">{{ lesson.subject }}</p>
+      <p class="text-sm font-bold text-gray-900 truncate leading-tight">{{ lesson.title }}</p>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <span class="text-xs font-bold text-yellow-500">⭐{{ student.total_xp }}</span>
+      <span class="text-xs font-bold text-orange-500">🔥{{ student.streak_days }}</span>
+    </div>
+  </div>
+  <div class="mt-2 bg-gray-100 rounded-full h-1">
+    <div id="reading-progress-bar" class="bg-brand-blue h-1 rounded-full transition-all duration-300"
+         style="width: {{ initial_pct }}%"></div>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+{% if learn_toast %}
+<div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg"
+     x-data x-init="setTimeout(() => $el.remove(), 3000)">
+  {{ learn_toast }}
+</div>
+{% endif %}
+
+<div class="px-4 pt-4 pb-6"
+     x-data="{
+       lastSaved: {{ progress.last_block_index }},
+       totalBlocks: {{ total_blocks }},
+       startTime: Date.now(),
+       saveProgress(idx) {
+         if (idx <= this.lastSaved) return;
+         this.lastSaved = idx;
+         const elapsed = Math.round((Date.now() - this.startTime) / 1000);
+         this.startTime = Date.now();
+         fetch('{% url 'learn:lesson-progress' lesson.id %}', {
+           method: 'POST',
+           headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+           body: JSON.stringify({block_index: idx, time_seconds: elapsed})
+         });
+         const pct = Math.min(Math.round((idx + 1) / this.totalBlocks * 100), 100);
+         const bar = document.getElementById('reading-progress-bar');
+         if (bar) bar.style.width = pct + '%';
+       },
+       saveNote(blockId, text) {
+         fetch('{% url 'learn:lesson-note' lesson.id %}', {
+           method: 'POST',
+           headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+           body: JSON.stringify({block_id: blockId, text: text})
+         });
+       }
+     }"
+     x-init="
+       const obs = new IntersectionObserver((entries) => {
+         entries.forEach(e => { if (e.isIntersecting) { saveProgress(parseInt(e.target.dataset.blockIndex)); } });
+       }, {threshold: 0.6, rootMargin: '-10% 0px'});
+       document.querySelectorAll('[data-block-index]').forEach(el => obs.observe(el));
+       {% if progress.last_block_index > 0 %}
+       const lastEl = document.querySelector('[data-block-index=\'{{ progress.last_block_index }}\']');
+       if (lastEl) { setTimeout(() => lastEl.scrollIntoView({behavior: 'smooth', block: 'center'}), 300); }
+       {% endif %}
+     ">
+
+  {% for block in blocks %}
+  <div data-block-index="{{ forloop.counter0 }}" class="mb-4 transition-opacity">
+
+    {% if block.type == 'definition' %}
+    <div class="border-l-4 border-brand-blue bg-white rounded-r-xl p-4 shadow-sm">
+      {% if block.highlight %}<span class="text-xs font-bold text-brand-blue uppercase tracking-wider">Définition</span>{% endif %}
+      <p class="text-gray-900 text-sm leading-relaxed mt-1">{{ block.content }}</p>
+      {% if block.examples %}
+      <div class="flex flex-wrap gap-2 mt-3">
+        {% for ex in block.examples %}<span class="bg-blue-50 text-brand-blue text-xs px-2 py-1 rounded-lg font-mono">{{ ex }}</span>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% elif block.type == 'example' %}
+    <div class="border-2 border-dashed border-gray-200 bg-gray-50 rounded-xl p-4">
+      <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Exemple</span>
+      <p class="text-gray-700 text-sm italic leading-relaxed mt-1">{{ block.content }}</p>
+      {% if block.examples %}
+      <div class="mt-2 space-y-1">
+        {% for ex in block.examples %}<p class="text-gray-600 text-xs font-mono bg-white px-2 py-1 rounded">→ {{ ex }}</p>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% elif block.type == 'key_points' %}
+    <div class="bg-gray-900 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-3"><span class="text-lg">⭐</span><span class="text-white text-xs font-bold uppercase tracking-wider">Points clés</span></div>
+      <div class="space-y-2">
+        {% if block.examples %}
+        {% for point in block.examples %}<div class="flex items-start gap-2"><span class="text-yellow-400 shrink-0 mt-0.5">•</span><p class="text-white text-sm leading-relaxed">{{ point }}</p></div>{% endfor %}
+        {% else %}<p class="text-white text-sm leading-relaxed">{{ block.content }}</p>{% endif %}
+      </div>
+    </div>
+
+    {% elif block.type == 'warning' %}
+    <div class="bg-orange-50 border border-orange-200 rounded-xl p-4">
+      <div class="flex items-start gap-2"><span class="text-xl shrink-0">⚠️</span>
+        <div><span class="text-xs font-bold text-orange-700 uppercase tracking-wider">Attention</span>
+          <p class="text-orange-800 text-sm leading-relaxed mt-1">{{ block.content }}</p></div>
+      </div>
+    </div>
+
+    {% elif block.type == 'summary' %}
+    <div class="bg-gray-900 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-3"><span class="text-green-400 text-lg">✓</span><span class="text-white text-xs font-bold uppercase tracking-wider">À retenir</span></div>
+      {% if block.examples %}
+      <div class="space-y-2">
+        {% for point in block.examples %}<div class="flex items-start gap-3"><span class="bg-green-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{{ forloop.counter }}</span><p class="text-white text-sm leading-relaxed">{{ point }}</p></div>{% endfor %}
+      </div>
+      {% else %}<p class="text-white text-sm leading-relaxed">{{ block.content }}</p>{% endif %}
+    </div>
+
+    {% elif block.type == 'reflection' %}
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-2"><span class="text-lg">✏️</span><span class="text-xs font-bold text-amber-700 uppercase tracking-wider">Réfléchis</span></div>
+      <p class="text-amber-800 text-sm leading-relaxed mb-3">{{ block.content }}</p>
+      <textarea class="w-full bg-white rounded-lg border border-amber-200 p-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+        rows="3" placeholder="Écris ta réponse ici..."
+        @blur="saveNote('{{ block.id }}', $event.target.value)">{{ block.note }}</textarea>
+    </div>
+
+    {% elif block.type == 'pause' %}
+    <div class="flex items-center gap-3 py-2">
+      <div class="flex-1 border-t border-gray-200"></div>
+      <p class="text-gray-400 text-xs italic text-center shrink-0">{{ block.content|default:"❖" }}</p>
+      <div class="flex-1 border-t border-gray-200"></div>
+    </div>
+
+    {% else %}
+    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <p class="text-gray-800 text-sm leading-relaxed">{{ block.content }}</p>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
+  {# Teaser story (interactif en Phase 10) #}
+  {% if has_story %}
+  <div class="bg-purple-50 border border-purple-200 rounded-2xl p-4 mb-4">
+    <div class="flex items-center gap-2 mb-1">
+      <span class="text-xl">🎭</span>
+      <span class="text-sm font-bold text-purple-700">Histoire interactive</span>
+      <span class="ml-auto bg-purple-100 text-purple-600 text-xs px-2 py-0.5 rounded-full">Bientôt</span>
+    </div>
+    <p class="text-purple-600 text-xs leading-relaxed">Une histoire avec des personnages maliens pour tester ta compréhension. Disponible prochainement !</p>
+  </div>
+  {% endif %}
+
+  {# CTA final #}
+  <div class="pt-2 space-y-3">
+    {% if has_quiz %}
+    <a href="{% url 'learn:quiz' lesson.id %}"
+       class="block w-full bg-brand-blue text-white py-4 rounded-2xl font-bold text-center text-base shadow-md active:scale-95 transition">
+      ✏️ Faire les quiz →
+    </a>
+    {% endif %}
+
+    {% if not progress.is_completed %}
+    <form method="post" action="{% url 'learn:lesson-complete' lesson.id %}">
+      {% csrf_token %}
+      <button type="submit" class="w-full bg-green-500 text-white py-3.5 rounded-2xl font-semibold text-base active:scale-95 transition">
+        ✅ Terminer la leçon
+      </button>
+    </form>
+    {% else %}
+    <div class="bg-green-50 border border-green-200 rounded-2xl p-3 text-center">
+      <span class="text-green-600 font-semibold text-sm">✅ Leçon complétée !</span>
+    </div>
+    {% endif %}
+
+    <a href="{% url 'learn:dashboard' %}?subject={{ lesson.subject|urlencode }}"
+       class="block text-center text-gray-400 text-sm py-2">← Retour aux leçons</a>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block bottom_nav %}{% endblock %}

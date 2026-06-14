@@ -4,6 +4,12 @@
 {% block title %}Accueil — EduApp{% endblock %}
 
 {% block content %}
+{% if learn_toast %}
+<div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg"
+     x-data x-init="setTimeout(() => $el.remove(), 3000)">
+  {{ learn_toast }}
+</div>
+{% endif %}
 <div class="px-4 pt-4 pb-2">
 
   {# Leçon en cours #}
