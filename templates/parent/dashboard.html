@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load humanize %}<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -30,7 +30,12 @@
       {{ request.user.get_initials }}
     </div>
     <span class="text-base font-extrabold text-brand-blue">EduApp</span>
-    <button class="p-2 rounded-lg text-gray-300" title="Notifications"><i data-lucide="bell" class="w-5 h-5"></i></button>
+    <a href="{% url 'parent:notifications' %}" class="relative p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition" title="Notifications">
+      <i data-lucide="bell" class="w-5 h-5"></i>
+      {% if parent_unread_count %}
+      <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">{{ parent_unread_count }}</span>
+      {% endif %}
+    </a>
   </header>
 
   {% if not active_child %}
@@ -94,14 +99,14 @@
 
     {# ── GRILLE ACTIONS 2×2 ── #}
     <div class="grid grid-cols-2 gap-3 mx-4 mt-4">
-      <div class="bg-blue-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
+      <a href="{% url 'parent:bulletins' %}" class="bg-blue-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between active:scale-[0.98] transition">
         <i data-lucide="file-text" class="w-6 h-6 text-blue-600"></i>
         <div><p class="font-bold text-gray-900">Bulletins</p><p class="text-xs text-gray-500">{{ c.bulletins_count }} disponible{{ c.bulletins_count|pluralize }}</p></div>
-      </div>
-      <div class="bg-green-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
+      </a>
+      <a href="{% url 'parent:payments' %}" class="bg-green-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between active:scale-[0.98] transition">
         <i data-lucide="wallet" class="w-6 h-6 text-green-600"></i>
         <div><p class="font-bold text-gray-900">Paiements</p><p class="text-xs text-gray-500">Encaissé <span class="js-money" data-money="{{ c.total_paid }}">—</span></p></div>
-      </div>
+      </a>
       <div class="bg-purple-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
         <i data-lucide="bar-chart-3" class="w-6 h-6 text-purple-600"></i>
         <div><p class="font-bold text-gray-900">Mes notes</p><p class="text-xs text-gray-500">{% if c.last_bulletin and c.last_bulletin.general_average %}moy. {{ c.last_bulletin.general_average|floatformat:"-2" }}/20{% else %}—{% endif %}</p></div>
@@ -109,7 +114,7 @@
       <div class="relative bg-orange-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
         {% if c.absences_count %}<span class="absolute top-3 right-3 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">{{ c.absences_count }}</span>{% endif %}
         <i data-lucide="calendar-x" class="w-6 h-6 text-orange-600"></i>
-        <div><p class="font-bold text-gray-900">Absences</p><p class="text-xs text-gray-500">{{ c.absences_count }} ce mois</p></div>
+        <div><p class="font-bold text-gray-900">Absences</p><p class="text-xs text-gray-500">{{ c.absences_count }} · 30 j</p></div>
       </div>
     </div>
 
@@ -128,25 +133,48 @@
       </a>
     </div>
     {% endif %}
+
+    {# ── ABSENCES RÉCENTES (30 j) ── #}
+    {% if c.recent_absences %}
+    <div class="mx-4 mt-4">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Absences récentes</p>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
+        {% for a in c.recent_absences %}
+        <div class="flex items-center gap-2 px-4 py-2.5 text-sm">
+          <i data-lucide="calendar-x" class="w-4 h-4 text-orange-500 shrink-0"></i>
+          <span class="text-gray-700">{{ a.date|date:"j F Y" }}</span>
+          <span class="text-gray-400">· Absent</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── MESSAGES DE L'ÉCOLE (observations partagées) ── #}
+    {% if c.observations %}
+    <div class="mx-4 mt-4">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Messages de l'école</p>
+      <div class="space-y-2">
+        {% for o in c.observations %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-2 mb-1.5">
+            {% if o.observation_type == 'behaviour' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Comportement</span>
+            {% elif o.observation_type == 'academic' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">Académique</span>
+            {% elif o.observation_type == 'health' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Santé</span>
+            {% else %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">Autre</span>{% endif %}
+          </div>
+          <p class="text-sm text-gray-700">{{ o.parent_message|default:o.content|truncatechars:60 }}</p>
+          <p class="text-[11px] text-gray-400 mt-1.5">{% if o.teacher %}{{ o.teacher.full_name }} · {% endif %}{{ o.created_at|naturaltime }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
     {% endwith %}
 
   {% endif %}
 
-  {# ── BOTTOM NAV FIXE ── #}
-  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white rounded-t-2xl shadow-[0_-4px_12px_rgba(0,0,0,0.08)] border-t border-gray-100 h-[68px] flex">
-    <a href="{% url 'parent:dashboard' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 text-brand-blue">
-      <i data-lucide="home" class="w-5 h-5"></i><span class="text-[10px] font-semibold">Accueil</span>
-    </a>
-    <span class="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-300">
-      <i data-lucide="file-text" class="w-5 h-5"></i><span class="text-[10px]">Bulletins</span>
-    </span>
-    <span class="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-300">
-      <i data-lucide="wallet" class="w-5 h-5"></i><span class="text-[10px]">Paiements</span>
-    </span>
-    <a href="/logout/" class="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-300">
-      <i data-lucide="user" class="w-5 h-5"></i><span class="text-[10px]">Mon compte</span>
-    </a>
-  </nav>
+  {% include "parent/partials/bottom_nav.html" with active="home" %}
 
   <script>
     lucide.createIcons();
