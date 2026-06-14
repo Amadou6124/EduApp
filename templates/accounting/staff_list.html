@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Équipe & Rémunération{% endblock %}
+{% block page_title %}Équipe & Rémunération{% endblock %}
+{% block page_subtitle %}<p class="text-sm text-gray-500 mt-0.5">{{ counts.all }} membre{{ counts.all|pluralize }} actif{{ counts.all|pluralize }}</p>{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto" x-data="{ filter: 'all' }">
+
+  {# Alerte profils non configurés #}
+  {% if no_profile_count %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
+    <div>
+      <p class="text-sm font-semibold text-amber-700">{{ no_profile_count }} membre{{ no_profile_count|pluralize }} sans profil de rémunération</p>
+      <p class="text-xs text-amber-600 mt-0.5">Configurez leur rémunération depuis leur fiche.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Filtres #}
+  <div class="inline-flex bg-gray-100 rounded-xl p-1 mb-5 flex-wrap">
+    <button @click="filter='all'"        :class="filter==='all'        ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'" class="px-4 py-2 rounded-lg text-sm font-medium transition">Tous <span class="text-gray-400">{{ counts.all }}</span></button>
+    <button @click="filter='permanent'"  :class="filter==='permanent'  ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'" class="px-4 py-2 rounded-lg text-sm font-medium transition">Permanents <span class="text-gray-400">{{ counts.permanent }}</span></button>
+    <button @click="filter='vacataire'"  :class="filter==='vacataire'  ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'" class="px-4 py-2 rounded-lg text-sm font-medium transition">Vacataires <span class="text-gray-400">{{ counts.vacataire }}</span></button>
+    <button @click="filter='none'"       :class="filter==='none'       ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'" class="px-4 py-2 rounded-lg text-sm font-medium transition">Sans profil <span class="text-gray-400">{{ counts.none }}</span></button>
+  </div>
+
+  {# Liste #}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for it in items %}
+    <div x-show="filter==='all' || filter==='{{ it.cat }}'"
+         class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+             style="background:{{ it.membership.user.get_avatar_colors.0 }};color:{{ it.membership.user.get_avatar_colors.1 }}">
+          {{ it.membership.user.get_initials }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-gray-900 truncate">{{ it.membership.user.full_name }}</p>
+          <p class="text-xs text-gray-400 truncate">{{ it.membership.job_title|default:it.membership.get_role_display }}</p>
+        </div>
+        <span class="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold
+            {% if it.membership.role == 'director' %}bg-purple-100 text-purple-700
+            {% elif it.membership.role == 'teacher' %}bg-blue-100 text-blue-700
+            {% else %}bg-gray-100 text-gray-600{% endif %}">{{ it.membership.get_role_display }}</span>
+      </div>
+
+      {# Rémunération #}
+      {% if it.cat == 'none' %}
+      <div class="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+        <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i> Profil non configuré
+      </div>
+      {% elif it.cat == 'permanent' %}
+      <div class="text-sm mb-3">
+        <p class="text-xs text-gray-400">Permanent · salaire mensuel</p>
+        <p class="font-bold text-gray-900">{{ it.profile.monthly_salary|default:0|intcomma }} FCFA</p>
+      </div>
+      {% else %}
+      <div class="text-sm mb-3">
+        <p class="text-xs text-gray-400">Vacataire · taux horaire</p>
+        <p class="font-bold text-gray-900">{{ it.profile.hourly_rate|default:0|intcomma }} FCFA/h</p>
+      </div>
+      {% endif %}
+
+      <a href="{% url 'team:detail' it.membership.user.id %}"
+         class="w-full h-9 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-700 hover:text-brand-blue hover:border-brand-blue flex items-center justify-center gap-1.5 transition">
+        Voir la fiche <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+      </a>
+    </div>
+    {% empty %}
+    <div class="col-span-full bg-white rounded-xl border border-gray-100 p-10 text-center text-sm text-gray-400">
+      Aucun membre actif.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

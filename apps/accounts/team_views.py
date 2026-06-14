@@ -174,10 +174,13 @@ def team_member_detail(request, user_id):
     school = get_school(request)
     member = get_object_or_404(User, pk=user_id, school=school)
 
+    is_director = request.user.role == UserRole.DIRECTOR or request.user.is_superuser
+    viewer_perm = getattr(request.user, 'staff_permission', None)
     context = {
-        'school':      school,
-        'member':      member,
-        'is_director': request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
+        'school':                school,
+        'member':                member,
+        'is_director':           is_director,
+        'can_manage_accounting': is_director or bool(viewer_perm and viewer_perm.can_manage_accounting),
     }
 
     if member.role == UserRole.STAFF:

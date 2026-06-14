@@ -63,10 +63,15 @@ Migrations (ordre strict schools → accounts → accounting) :
 Index/contraintes tous ≤ 30 car. (max : uniq_teacher_att_course_date = 28).
 
 ### PHASE 2 — Profils employés
-Statut : ⏳ En attente Phase 1
-- [ ] Section Rémunération dans /team/<id>/
-- [ ] EmployeeProfile create/edit via HTMX
-- [ ] Vue liste employés /accounting/staff/
+Statut : ✅ Terminée
+- [x] Section Rémunération dans /team/<id>/ (lazy-load HTMX, tous rôles)
+- [x] EmployeeProfile create/edit via HTMX (panel + save, validation permanent/vacataire)
+- [x] Décorateur director_or_accounting_required (core/mixins.py)
+- [x] Gate school.accounting_enabled (template + vues 403)
+- [x] Vue liste employés /accounting/staff/ (filtres Alpine, alerte sans profil, zéro N+1)
+- [x] Lien sidebar Comptabilité (gate accounting_enabled + director/can_manage_accounting)
+
+Routes : accounting:staff-list, staff-remuneration(-save). config/urls.py câblé (/accounting/).
 
 ### PHASE 3 — Émargement professeurs
 Statut : ⏳ En attente Phase 2

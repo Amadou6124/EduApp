@@ -1,7 +1,14 @@
-from django.urls import path  # noqa: F401
+from django.urls import path
+
+from . import views
 
 app_name = 'accounting'
 
 urlpatterns = [
-    # routes ajoutées en Phase 2+
+    # ── Phase 2 — Liste & rémunération ───────────────────────────
+    path('staff/', views.accounting_staff_list, name='staff-list'),
+    path('staff/<int:user_id>/remuneration/',
+         views.employee_remuneration_panel, name='staff-remuneration'),
+    path('staff/<int:user_id>/remuneration/save/',
+         views.employee_remuneration_save, name='staff-remuneration-save'),
 ]
