@@ -5,6 +5,9 @@ from . import views
 app_name = 'accounting'
 
 urlpatterns = [
+    # ── Phase 7 — Dashboard principal ────────────────────────────
+    path('', views.accounting_dashboard, name='dashboard'),
+
     # ── Phase 2 — Liste & rémunération ───────────────────────────
     path('staff/', views.accounting_staff_list, name='staff-list'),
     path('staff/<int:user_id>/remuneration/',

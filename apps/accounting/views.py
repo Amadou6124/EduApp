@@ -718,3 +718,63 @@ def bilan_export_excel(request):
     resp['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(resp)
     return resp
+
+
+# ─── Phase 7 — Dashboard comptabilité ────────────────────────────────────────
+
+@login_required
+@director_or_accounting_required
+def accounting_dashboard(request):
+    """Dashboard principal : KPI mois courant, graphique 6 mois, alertes, accès rapides."""
+    from datetime import date as _date
+    from .models import SalaryPayment, SalaryStatus, Expense, TeacherAttendance
+    from .services import compute_monthly_balance, compute_balance_series
+    from apps.schools.models import ClassSubject
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+
+    today = _date.today()
+    year, month = today.year, today.month
+
+    balance = compute_monthly_balance(school, year, month)
+    series  = compute_balance_series(school, year, month, n=6)
+
+    salaires_en_attente = SalaryPayment.objects.filter(
+        school=school, status=SalaryStatus.PENDING, is_cancelled=False,
+    ).count()
+
+    depenses_recentes = list(
+        Expense.objects
+        .filter(school=school, is_cancelled=False)
+        .select_related('category')
+        .order_by('-date', '-id')[:5]
+    )
+
+    total_cours = ClassSubject.objects.filter(
+        school_class__school=school, school_class__is_active=True,
+        is_active=True, teacher__isnull=False,
+    ).count()
+    emargements_aujourd_hui = TeacherAttendance.objects.filter(
+        school=school, date=today,
+    ).count()
+    non_emarges = max(0, total_cours - emargements_aujourd_hui)
+
+    chart_labels   = [f"{_MOIS_FR[s['month']][:4].capitalize()}" for s in series]
+    chart_revenus  = [s['revenus']  for s in series]
+    chart_charges  = [s['charges']  for s in series]
+    chart_resultat = [s['resultat'] for s in series]
+
+    return render(request, 'accounting/dashboard.html', {
+        'school': school, 'today': today,
+        'month_label': _MOIS_FR[month].capitalize(), 'year': year, 'month': month,
+        'b': balance,
+        'salaires_en_attente': salaires_en_attente,
+        'depenses_recentes': depenses_recentes,
+        'non_emarges': non_emarges,
+        'emargements_aujourd_hui': emargements_aujourd_hui,
+        'total_cours': total_cours,
+        'chart_labels': chart_labels, 'chart_revenus': chart_revenus,
+        'chart_charges': chart_charges, 'chart_resultat': chart_resultat,
+    })

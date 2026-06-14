@@ -121,13 +121,16 @@ Statut : ✅ Terminée
 Routes : accounting:bilan, bilan-export.
 
 ### PHASE 7 — Dashboard comptabilité
-Statut : ⏳ En attente Phase 6
-- [ ] Page principale /accounting/
-- [ ] 4 KPI cards
-- [ ] Graphique 6 mois
-- [ ] Alertes salaires en attente
-- [ ] Lien sidebar visible
-  director + can_manage_accounting
+Statut : ✅ Terminée
+- [x] Page principale /accounting/ (accounting_dashboard, gate accounting_enabled 403)
+- [x] 4 KPI cards animées Alpine.js (revenus, charges, résultat coloré, salaires en attente)
+- [x] Graphique 6 mois Chart.js (barres Revenus/Charges + ligne Résultat)
+- [x] Alertes conditionnelles (salaires PENDING, cours non émargés aujourd'hui)
+- [x] Accès rapides 3 cards (Émargement, Paie, Dépenses)
+- [x] Dépenses récentes (5 dernières, select_related category)
+- [x] Lien sidebar "Comptabilité → /accounting/" (director + can_manage_accounting)
+
+Route : accounting:dashboard (path='').
 
 ## Décisions prises
 - SalaryPayment.employee → Membership PROTECT
