@@ -481,6 +481,45 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - **Vrai multi-tenant** : `get_school(request)` unique source de vérité, `SchoolMiddleware` → `request.school` dans les templates
 - `get_demo_school()` supprimé intégralement (27 occurrences dans 4 fichiers)
 
+### Portail Parent (`/portal/parent/`)
+- App `apps/parent/` dédiée cross-école
+- `@parent_required` + `_ParentNoSchoolError`
+- Dashboard mobile-first multi-enfants
+- Sélecteur enfants chips scroll
+- Statut paiement coloré (soldé/partiel/impayé)
+- Grille actions 2x2 colorée et cliquable
+- Page Bulletins (voir PDF + télécharger)
+- Page Paiements relevé bancaire + totaux
+- Page Notes groupées période/matière, barres colorées selon moyenne
+- Page Mon Compte
+- Page Notifications (marquer lu/supprimer)
+- Badge cloche avec compteur non lus
+- Absences 30j dans dashboard
+- Observations partagées dans dashboard
+- Bottom nav 4 items mutualisée
+- PDF bulletins sécurisé via garde
+- Zéro N+1 prefetch
+
+### Système Notifications (`apps/notifications/`)
+- Modèle `Notification` découplé GFK + `school` FK + `student` FK
+- Helper `notify()` + `notify_guardians()` bulk
+- Context processor `parent_unread_count`
+- 3 déclencheurs auto : absence dédoublonnée, paiement, publication bulletin
+- Bouton Publier bulletin (Option A)
+- `is_visible_to_parent` sur `StudentObservation`
+- Partage observation admin → parent
+- partial `bulletin_actions` mutualisé
+
+### Suivi Global Admin (`/students/suivi/`)
+- 3 onglets HTMX :
+  - Absences (filtres classe/période)
+  - Observations (actions inline mark-read + partager parent + voir fiche)
+  - Difficulté (score composite pondéré)
+- `obs_card` partial réutilisable
+- Fiche élève enrichie : absences 30j, notes période active, notifications envoyées aux parents
+- Lien sidebar Suivi élèves
+- Zéro N+1 agrégats GROUP BY
+
 ### Multi-école Phase D1 — Dashboard Promoteur (`feature/phase-d-multi-ecole`)
 - App `apps/promoter/` dédiée (sans modèle)
 - Décorateur `@promoter_required`
@@ -546,10 +585,11 @@ Phases A-C terminées (modèles, migration données, bascule logique). Reste :
 - Transfert élève entre écoles
 - Interface StudentGuardian
 
-**2. Portail Parent** (1-2 jours)
-- Voir bulletins de ses enfants
-- Voir statut paiements
-- Lecture seule (pas de paiement en ligne pour l'instant)
+**2. ✅ Portail Parent** — terminé (bulletins, paiements, notes, notifications, lecture seule)
+
+**2bis. ✅ Système Notifications** — terminé (3 déclencheurs auto + inbox parent)
+
+**2ter. ✅ Suivi Global Admin** — terminé (`/students/suivi/` 3 onglets + fiche élève enrichie)
 
 **3. Portail Élève** (3-5 jours)
 - Style Duolingo
