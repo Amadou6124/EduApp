@@ -294,5 +294,10 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] Décisions : nav Leçons→Notes (a) · PDF gaté élève (b) · Phase 11 = Notes&Rangs, répétition espacée déjà faite Phase 8, rappels hors V1 (c)
 - [x] Tests client (rang/tendance/moyenne/notes/PDF/**sécurité 404**) + **vérif navigateur** (3 sections + nav) — tous verts
 
-### Phase suivante (à venir)
-12. Merge develop/main + déploiement
+### PHASE 12 — Merge & Déploiement 🔜
+- [x] Merge `feature/portail-eleve` → `develop` → `main`
+- [ ] Déploiement Railway/Render (MEDIA → Cloudinary, `ANTHROPIC_API_KEY` en prod, `collectstatic`)
+- [ ] Réconcilier `requirements.txt` (pymupdf/Django version) avec l'env réel
+
+## Statut global
+**Phases 1-11 ✅ Terminées** (fondation modèles · service IA Claude · upload prof · dashboard · lecture leçon · quiz engine · Ruche Vivante · flashcards SM-2 · gamification · stories · notes & rangs). Phase 12 = déploiement.
