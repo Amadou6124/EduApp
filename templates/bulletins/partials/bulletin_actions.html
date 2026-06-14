@@ -1,0 +1,25 @@
+{% comment %}Boutons d'action d'un bulletin (mutualisé table + ligne HTMX). Requiert : bulletin.{% endcomment %}
+{% if bulletin.is_published %}
+  <a href="{% url 'bulletins:view-pdf' bulletin.pk %}" target="_blank" title="Voir"
+     class="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors">
+    <i data-lucide="eye" class="w-4 h-4"></i>
+  </a>
+  <a href="{% url 'bulletins:download' bulletin.pk %}" title="Télécharger"
+     class="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
+    <i data-lucide="download" class="w-4 h-4"></i>
+  </a>
+{% else %}
+  <button type="button" title="Aperçu"
+          hx-get="{% url 'bulletins:preview' bulletin.pk %}"
+          hx-target="#preview-modal-container" hx-swap="innerHTML"
+          class="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
+    <i data-lucide="eye" class="w-4 h-4"></i>
+  </button>
+  <button type="button" title="Publier (notifie les parents)"
+          hx-post="{% url 'bulletins:publish' bulletin.pk %}"
+          hx-target="closest tr" hx-swap="outerHTML"
+          hx-confirm="Publier ce bulletin ? Les parents seront notifiés."
+          class="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-2.5 py-1.5 rounded-lg hover:bg-green-700 transition font-medium">
+    <i data-lucide="check" class="w-3.5 h-3.5"></i> Publier
+  </button>
+{% endif %}
