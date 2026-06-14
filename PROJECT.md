@@ -552,6 +552,21 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - UI switch dropdown admin + mobile teacher
 - **Fix isolation** : `_teacher_class_ids` scopé par school, 6 vues corrigées
 
+### Module Comptabilité (`/accounting/`)
+- App `apps/accounting/` dédiée
+- 5 modèles : `EmployeeProfile`, `TeacherAttendance`, `ExpenseCategory`, `Expense`, `SalaryPayment`
+- `accounting_enabled` par école (toggle), `can_manage_accounting` + `can_record_emargement` dans `StaffPermission`, `duration_hours` sur `ClassSubject`
+- **Phase 1** : fondation + migrations additives (schools→accounts→accounting)
+- **Phase 2** : profils employés (permanent/vacataire), section rémunération `/team/<id>/`
+- **Phase 3** : émargement ultra-rapide, sessions matin/après-midi/journée, anti-fraude `recorded_by≠teacher`, remplaçant, UI optimiste Alpine + fetch
+- **Phase 4** : paie mensuelle 2 étapes pending→paid, `compute_teacher_hours` FULL_DAY=2×, snapshots immuables (`employee_name`, `hourly_rate`), fiche de paie PDF WeasyPrint, anti double-paiement (pré-check + IntegrityError)
+- **Phase 5** : dépenses, 12 catégories seedées data migration idempotente, saisie HTMX panel slide, répartition par catégorie
+- **Phase 6** : bilan financier revenus−charges, graphique 6 mois, export Excel openpyxl
+- **Phase 7** : dashboard principal KPI animés Alpine, alertes salaires/émargement, accès rapides, dépenses récentes
+- **Fix** : colonne orpheline `payment_type` supprimée via migration `RunSQL` (drift schéma/modèle hors migrations)
+- Zéro N+1 partout (agrégats GROUP BY, `select_related`, `Case/When`)
+- Décorateurs `director_or_accounting_required` et `director_or_emargement_required`
+
 ### Portail Professeur (`/teacher/`)
 - **Dashboard mobile-first** avec stats (classes, élèves, absences du jour), classes filtrées par enseignant, section alertes
 - **Sidebar et bottom nav dédiées** : liens Accueil / Notes / Absences / Suivi élèves, pill style iOS état actif exclusif par page
@@ -590,6 +605,8 @@ Phases A-C terminées (modèles, migration données, bascule logique). Reste :
 **2bis. ✅ Système Notifications** — terminé (3 déclencheurs auto + inbox parent)
 
 **2ter. ✅ Suivi Global Admin** — terminé (`/students/suivi/` 3 onglets + fiche élève enrichie)
+
+**2quater. ✅ Module Comptabilité** — terminé (7 phases : émargement, paie, dépenses, bilan, dashboard)
 
 **3. Portail Élève** (3-5 jours)
 - Style Duolingo
