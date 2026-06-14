@@ -97,6 +97,11 @@ class School(models.Model):
         related_name='schools', verbose_name=_('groupe scolaire'),
     )
 
+    # ── Comptabilité ───────────────────────────────────────────────
+    accounting_enabled = models.BooleanField(
+        _('module comptabilité activé'), default=False,
+    )
+
     # ── Métadonnées ────────────────────────────────────────────────
     is_active  = models.BooleanField(_('active'), default=True)
     created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
@@ -358,6 +363,14 @@ class ClassSubject(models.Model):
         decimal_places=2,
         default=Decimal('20.00'),
         validators=[MinValueValidator(Decimal('1.00'))],
+    )
+    # Comptabilité : durée d'un cours (heures) pour le calcul de la paie vacataire
+    duration_hours = models.DecimalField(
+        _("durée d'un cours (heures)"),
+        max_digits=3,
+        decimal_places=1,
+        default=Decimal('2.0'),
+        validators=[MinValueValidator(Decimal('0.5'))],
     )
     teacher = models.ForeignKey(
         'accounts.User',

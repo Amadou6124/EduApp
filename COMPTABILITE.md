@@ -15,70 +15,52 @@ dépenses des écoles privées maliennes.
 ## Architecture décidée
 
 ### Nouveaux modèles (apps/accounting/)
-- [ ] EmployeeProfile (Membership OneToOne)
-      type: permanent/vacataire
-      salary ou hourly_rate
-      hire_date, is_active
-
-- [ ] TeacherAttendance (émargement prof)
-      teacher, school, class_subject
-      date, status, signed_at
-      recorded_by (jamais le prof lui-même)
-      SÉPARÉ de Attendance élèves
-
-- [ ] ExpenseCategory (catégories dépenses)
-      name, icon, is_default
-      school FK (null = globale)
-
-- [ ] Expense (dépense école)
-      school, category, amount
-      date, description
-      paid_by, payment_method
-      is_cancelled
-
-- [ ] SalaryPayment (paiement paie)
-      employee (Membership PROTECT)
-      school, year, month
-      amount, hours (vacataire nullable)
-      hourly_rate (snapshot)
-      status: paid/pending
-      payment_method, paid_at
-      paid_by, employee_name (snapshot)
-      is_cancelled
+- [x] EmployeeProfile (Membership OneToOne PROTECT)
+      type: permanent/vacataire ; monthly_salary / hourly_rate ; hire_date ; is_active
+- [x] TeacherAttendance (émargement prof) — SÉPARÉ de Attendance élèves
+      teacher, school, class_subject, date, status (present/absent/replaced),
+      substitute (FK User), signed_at, recorded_by, note
+      → UniqueConstraint(class_subject, date)
+- [x] ExpenseCategory (school FK null=globale, name, icon, is_default, is_active)
+- [x] Expense (school, category PROTECT, amount, date, description, payment_method, paid_by, is_cancelled)
+- [x] SalaryPayment (employee=Membership PROTECT, school, year, month, amount,
+      hours, hourly_rate snapshot, status paid/pending, payment_method, paid_at,
+      paid_by, employee_name snapshot, is_cancelled)
+      → UniqueConstraint(employee, year, month) WHERE not cancelled (1 paie/mois V1)
 
 ### Champ nouveau sur ClassSubject
-- [ ] duration_hours DecimalField(2,1)
-      default=2.0
-      (durée d'un cours en heures)
+- [x] duration_hours DecimalField(max_digits=3, decimal_places=1) default=2.0
 
 ### Champ nouveau sur School
-- [ ] accounting_enabled BooleanField
-      default=False
-      (activer le module par école)
+- [x] accounting_enabled BooleanField default=False
 
 ### Nouvelle permission StaffPermission
-- [ ] can_manage_accounting BooleanField
-      default=False
+- [x] can_manage_accounting BooleanField default=False (+ dans preset_comptable)
 
 ### App apps/accounting/
-- [ ] __init__.py
-- [ ] apps.py
-- [ ] models.py
-- [ ] services.py (compute_monthly_balance,
-      compute_teacher_hours)
-- [ ] views.py
-- [ ] urls.py
+- [x] __init__.py
+- [x] apps.py
+- [x] models.py
+- [ ] services.py (compute_monthly_balance, compute_teacher_hours) — Phase 6
+- [x] views.py (vide, Phases 2-7)
+- [x] urls.py (vide, routes Phase 2+)
 
 ## Phases
 
 ### PHASE 1 — Fondation
-Statut : 🔄 En cours
-- [ ] Créer apps/accounting/
-- [ ] Modèles + migrations
-- [ ] accounting_enabled sur School
-- [ ] can_manage_accounting sur StaffPermission
-- [ ] duration_hours sur ClassSubject
-- [ ] INSTALLED_APPS + URLs
+Statut : ✅ Terminée (migrations appliquées, check OK)
+- [x] Créer apps/accounting/
+- [x] Modèles + migrations
+- [x] accounting_enabled sur School
+- [x] can_manage_accounting sur StaffPermission
+- [x] duration_hours sur ClassSubject
+- [x] INSTALLED_APPS (URLs config à câbler en Phase 2 — routes vides pour l'instant)
+
+Migrations (ordre strict schools → accounts → accounting) :
+- `schools/0013_add_duration_hours_accounting_enabled.py`
+- `accounts/0005_add_can_manage_accounting.py`
+- `accounting/0001_initial_accounting_models.py`
+Index/contraintes tous ≤ 30 car. (max : uniq_teacher_att_course_date = 28).
 
 ### PHASE 2 — Profils employés
 Statut : ⏳ En attente Phase 1
@@ -183,4 +165,5 @@ Statut : ⏳ En attente Phase 6
 - [ ] Soft cancel sans perte données
 
 ## Commits
-(mis à jour à chaque commit)
+- `983782e` chore: COMPTABILITE.md - plan complet module comptabilité écoles maliennes
+- _(à venir)_ feat: Phase 1 - fondation comptabilité (5 modèles, 3 champs, app accounting)
