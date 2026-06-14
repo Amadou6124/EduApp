@@ -1,0 +1,66 @@
+/* ─── Portail élève — nodes hexagonaux + utilitaires ───────────── */
+
+.hex-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.hex-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.hex-row-offset {
+  transform: translateX(53px);
+}
+
+.hex-node {
+  position: relative;
+  width: 100px;
+  height: 115px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.hex-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  padding: 8px;
+  text-align: center;
+}
+
+.hex-node-new {
+  background: linear-gradient(135deg, #3B82F6, #1E3A5F);
+}
+
+.hex-node-progress {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+}
+
+.hex-node-done {
+  background: linear-gradient(135deg, #10B981, #059669);
+}
+
+.hex-node:active {
+  transform: scale(0.95);
+}
+
+/* Masquer la scrollbar horizontale du sélecteur de matières */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

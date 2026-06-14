@@ -1,0 +1,17 @@
+{% extends 'learn/base_student.html' %}
+
+{% block title %}{{ title }} — EduApp{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
+  <span class="text-5xl mb-4">🚀</span>
+  <h2 class="text-gray-900 font-bold text-xl mb-2">{{ title }}</h2>
+  <p class="text-gray-500 text-sm leading-relaxed">
+    Cette section arrive bientôt.<br>(Phase {{ phase }} du développement)
+  </p>
+  <a href="{% url 'learn:dashboard' %}"
+     class="mt-6 bg-brand-blue text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-blue-800 transition">
+    ← Retour à l'accueil
+  </a>
+</div>
+{% endblock %}

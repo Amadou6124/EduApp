@@ -1,0 +1,81 @@
+{% extends 'learn/base_student.html' %}
+{% load static %}
+
+{% block title %}Accueil — EduApp{% endblock %}
+
+{% block content %}
+<div class="px-4 pt-4 pb-2">
+
+  {# Leçon en cours #}
+  {% if current_lesson_progress %}
+  <a href="{% url 'learn:lesson' current_lesson_progress.lesson.id %}"
+     class="block bg-gradient-to-r from-brand-blue to-blue-600 rounded-2xl p-4 mb-4 text-white shadow-md active:scale-[0.98] transition">
+    <div class="flex items-center gap-2 mb-1">
+      <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full">▶ En cours</span>
+    </div>
+    <p class="font-semibold text-sm leading-tight">{{ current_lesson_progress.lesson.title|truncatechars:50 }}</p>
+    <p class="text-blue-200 text-xs mt-0.5">{{ current_lesson_progress.lesson.subject }}</p>
+  </a>
+  {% endif %}
+
+  {# Sélecteur de matières (style Duolingo) #}
+  {% if subjects %}
+  <div class="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide -mx-4 px-4">
+    {% for subject in subjects %}
+    <a href="?subject={{ subject.name|urlencode }}"
+       class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition whitespace-nowrap
+              {% if subject.name == active_subject %}bg-brand-blue text-white shadow-md{% else %}bg-white text-gray-600 border border-gray-200 hover:border-brand-blue{% endif %}">
+      {% if subject.type == 'math' %}🔢{% elif subject.type == 'scientific' %}🔬{% elif subject.type == 'literary' %}📖{% elif subject.type == 'language' %}🌍{% elif subject.type == 'geography' %}🗺️{% elif subject.type == 'accounting' %}💰{% elif subject.type == 'code' %}💻{% else %}📚{% endif %}
+      {{ subject.name }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Titre section + count #}
+  {% if active_subject %}
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-gray-900 font-bold text-base">{{ active_subject }}</h2>
+    <span class="text-xs text-gray-400">{{ lessons_data|length }} leçon{{ lessons_data|length|pluralize }}</span>
+  </div>
+  {% endif %}
+
+  {# NODES HEXAGONAUX #}
+  {% if lessons_data %}
+  <div class="hex-grid mb-6">
+    {% for item in lessons_data %}
+    <div class="hex-row {% if forloop.counter|divisibleby:2 %}hex-row-offset{% endif %}">
+      <a href="{% url 'learn:lesson' item.lesson.id %}"
+         class="hex-node {% if item.node_state == 'completed' %}hex-node-done{% elif item.node_state == 'in_progress' %}hex-node-progress{% else %}hex-node-new{% endif %} active:scale-95">
+        <div class="hex-content">
+          {% if item.node_state == 'completed' %}<span class="text-xl">✅</span>{% elif item.node_state == 'in_progress' %}<span class="text-xl">▶️</span>{% else %}<span class="text-xl">⭐</span>{% endif %}
+          <span class="text-[9px] font-semibold leading-tight text-center mt-0.5 max-w-[60px] overflow-hidden line-clamp-2">{{ item.lesson.title|truncatechars:20 }}</span>
+        </div>
+        {% if item.node_state == 'in_progress' %}
+        <div class="absolute bottom-2 left-[20%] right-[20%] h-1 bg-white/30 rounded-full">
+          <div class="h-1 bg-white rounded-full" style="width:{{ item.progress_pct }}%"></div>
+        </div>
+        {% endif %}
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% elif active_subject %}
+  <div class="text-center py-12">
+    <span class="text-4xl">📭</span>
+    <p class="text-gray-500 text-sm mt-3">Aucune leçon disponible<br>pour {{ active_subject }} pour l'instant.</p>
+  </div>
+
+  {% else %}
+  <div class="text-center py-16">
+    <span class="text-5xl">🎓</span>
+    <h3 class="text-gray-800 font-bold text-lg mt-4 mb-2">Bienvenue !</h3>
+    <p class="text-gray-500 text-sm leading-relaxed">
+      Tes enseignants n'ont pas encore<br>partagé de leçons avec ta classe.<br>Reviens bientôt !
+    </p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

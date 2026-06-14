@@ -213,6 +213,16 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] Génération en thread d'arrière-plan (pas de Celery) ; statut via **polling HTMX** (robuste gunicorn)
 - [x] Tests : list/upload/detail (3 états)/status (HX) — tous OK ; `check` clean
 
+### PHASE 4 — Portail élève dashboard ✅ Terminée
+- [x] `apps/student_learning/urls.py` (`app_name='learn'`) monté `/learn/`
+- [x] Login élève `access_code` + nom (`authenticate_student` → `login_student`), session isolée `student_id`, redirection sûre `next`
+- [x] `learn_dashboard` : matières distinctes (déploiements classe), switcher, nodes hexagonaux (états not_started/in_progress/completed + % blocs lus), leçon en cours, streak quotidien (`_update_streak`)
+- [x] Stubs `lesson/quiz/flashcards/profile` (phases 5-9)
+- [x] `base_student.html` (standalone, `output.css` + `student.css`, header XP/streak, bottom nav 4 items) + `login.html` + `dashboard.html` + `stub.html`
+- [x] `static/css/student.css` : hexagones `clip-path`, rangées décalées, gradients par état, `scrollbar-hide`
+- [x] `request.student` isolé de `request.user` (reste AnonymousUser, aucun crash SchoolMiddleware) — vérifié
+- [x] Abonnement **non utilisé** (tout gratuit, décision actée)
+- [x] Tests : login (bon/mauvais/vide), session, dashboard (états vide + nodes réels), switch matière, stub, logout — tous OK
+
 ### Phases suivantes (à venir)
-4. Dashboard élève · 5. Lecture leçon · 6. Quiz engine
-7. Nodes hexagonaux · 8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements
+5. Lecture leçon · 6. Quiz engine · 8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements

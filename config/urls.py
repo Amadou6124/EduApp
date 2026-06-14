@@ -52,6 +52,7 @@ urlpatterns = [
     path('promoter/',   include('apps.promoter.urls')),
     path('portal/parent/', include('apps.parent.urls')),
     path('accounting/',  include('apps.accounting.urls')),
+    path('learn/',       include('apps.student_learning.urls')),
     path('media/<path:path>', protected_media, name='protected-media'),
 ]
 
