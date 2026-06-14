@@ -16,4 +16,11 @@ urlpatterns = [
     path('emargement/', views.emargement_dashboard, name='emargement'),
     path('emargement/save/', views.emargement_save, name='emargement-save'),
     path('emargement/substitute/', views.emargement_substitute_search, name='emargement-substitute'),
+
+    # ── Phase 4 — Paie mensuelle ─────────────────────────────────
+    path('salaires/', views.salary_dashboard, name='salaires'),
+    path('salaires/pay/', views.salary_pay, name='salary-pay'),
+    path('salaires/<int:payment_id>/confirm/', views.salary_confirm, name='salary-confirm'),
+    path('salaires/<int:payment_id>/cancel/', views.salary_cancel, name='salary-cancel'),
+    path('salaires/<int:payment_id>/pdf/', views.payslip_pdf, name='payslip-pdf'),
 ]

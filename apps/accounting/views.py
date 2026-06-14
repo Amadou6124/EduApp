@@ -300,3 +300,183 @@ def emargement_substitute_search(request):
             .distinct().order_by('full_name')[:8]
         )
     return render(request, 'accounting/partials/substitute_results.html', {'results': results, 'cs': cs})
+
+
+# ─── Phase 4 — Paie mensuelle ────────────────────────────────────────────────
+
+_MOIS_FR = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+            'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+
+
+def _parse_year_month(request):
+    from datetime import date as _date
+    today = _date.today()
+    try:
+        year = int(request.GET.get('year') or request.POST.get('year') or today.year)
+        month = int(request.GET.get('month') or request.POST.get('month') or today.month)
+        if not (1 <= month <= 12):
+            raise ValueError
+    except (ValueError, TypeError):
+        year, month = today.year, today.month
+    return year, month
+
+
+@login_required
+@director_or_accounting_required
+def salary_dashboard(request):
+    """Preview de la paie d'un mois (permanents + vacataires)."""
+    from .services import compute_monthly_salary_preview
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+
+    year, month = _parse_year_month(request)
+    data = compute_monthly_salary_preview(school, year, month)
+
+    prev_y, prev_m = (year, month - 1) if month > 1 else (year - 1, 12)
+    next_y, next_m = (year, month + 1) if month < 12 else (year + 1, 1)
+
+    return render(request, 'accounting/salary_dashboard.html', {
+        'school': school, 'year': year, 'month': month,
+        'month_label': _MOIS_FR[month].capitalize(),
+        'permanents': data['permanents'], 'vacataires': data['vacataires'],
+        'not_configured': data['not_configured'], 'totals': data['totals'],
+        'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
+    })
+
+
+def _render_salary_row(request, membership, year, month, toast=None, toast_type='success'):
+    from .services import salary_row
+    resp = render(request, 'accounting/partials/salary_row.html', {
+        'row': salary_row(request.school, membership, year, month),
+        'year': year, 'month': month,
+    })
+    if toast:
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': toast, 'type': toast_type}})
+    return resp
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def salary_pay(request):
+    """Crée une paie en PENDING (montant recalculé serveur + snapshots). Pré-check double-pay."""
+    from django.db import IntegrityError
+    from apps.accounts.models import Membership
+    from apps.payments.models import PaymentMethod
+    from .models import SalaryPayment, EmploymentType
+    from .services import compute_teacher_hours
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    try:
+        membership_id = int(request.POST.get('membership_id'))
+    except (TypeError, ValueError):
+        return HttpResponse(status=400)
+    m = get_object_or_404(
+        Membership.objects.select_related('user', 'employee_profile'),
+        id=membership_id, school=school,
+    )
+    profile = getattr(m, 'employee_profile', None)
+    if profile is None or not profile.is_active:
+        return _toast_error('Profil de rémunération non configuré.')
+
+    # Pré-check double paiement
+    if SalaryPayment.objects.filter(employee=m, year=year, month=month, is_cancelled=False).exists():
+        return _toast_error(f'{m.user.full_name} a déjà une paie pour ce mois.')
+
+    # Montant + snapshots recalculés SERVEUR (jamais le client)
+    if profile.employment_type == EmploymentType.PERMANENT:
+        amount, hours, rate = (profile.monthly_salary or Decimal('0')), None, None
+    else:
+        hours = compute_teacher_hours(school, year, month).get(m.user_id, Decimal('0'))
+        rate = profile.hourly_rate or Decimal('0')
+        amount = hours * rate
+
+    method = request.POST.get('payment_method', 'cash')
+    if method not in {c[0] for c in PaymentMethod.choices}:
+        method = 'cash'
+
+    try:
+        SalaryPayment.objects.create(
+            employee=m, school=school, year=year, month=month,
+            amount=amount, hours=hours, hourly_rate=rate,
+            status='pending', payment_method=method,
+            employee_name=m.user.full_name,
+        )
+    except IntegrityError:
+        return _toast_error('Paiement déjà enregistré pour ce mois.')
+
+    return _render_salary_row(request, m, year, month, toast='Paie créée (en attente de confirmation).')
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def salary_confirm(request, payment_id):
+    """PENDING → PAID + paid_at/paid_by."""
+    from django.utils import timezone
+    from .models import SalaryPayment
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    sp = get_object_or_404(
+        SalaryPayment.objects.select_related('employee__user', 'employee__employee_profile'),
+        pk=payment_id, school=school, is_cancelled=False,
+    )
+    if sp.status != 'paid':
+        sp.status = 'paid'
+        sp.paid_at = timezone.now()
+        sp.paid_by = request.user
+        sp.save(update_fields=['status', 'paid_at', 'paid_by'])
+    return _render_salary_row(request, sp.employee, year, month, toast='Paiement confirmé.')
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def salary_cancel(request, payment_id):
+    """Annulation soft (is_cancelled=True) → la ligne redevient payable."""
+    from .models import SalaryPayment
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    sp = get_object_or_404(
+        SalaryPayment.objects.select_related('employee__user', 'employee__employee_profile'),
+        pk=payment_id, school=school, is_cancelled=False,
+    )
+    sp.is_cancelled = True
+    sp.save(update_fields=['is_cancelled'])
+    return _render_salary_row(request, sp.employee, year, month, toast='Paie annulée.', toast_type='info')
+
+
+@login_required
+@director_or_accounting_required
+def payslip_pdf(request, payment_id):
+    """Fiche de paie PDF (WeasyPrint) — paiements non annulés."""
+    from .models import SalaryPayment
+    from .services import generate_payslip_pdf
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+
+    sp = get_object_or_404(
+        SalaryPayment.objects.select_related('employee__user', 'school'),
+        pk=payment_id, school=school, is_cancelled=False,
+    )
+    pdf = generate_payslip_pdf(sp)
+    filename = f'paie_{sp.employee_name.replace(" ", "_")}_{sp.month}_{sp.year}.pdf'
+    resp = HttpResponse(pdf, content_type='application/pdf')
+    resp['Content-Disposition'] = f'inline; filename="{filename}"'
+    return resp

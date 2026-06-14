@@ -85,12 +85,15 @@ Statut : 🔄 En cours
 - [ ] Calcul automatique heures vacataires (Phase 4 : Σ duration_hours présents)
 
 ### PHASE 4 — Paie mensuelle
-Statut : ⏳ En attente Phase 3
-- [ ] Page paie mensuelle /accounting/salaires/
-- [ ] Permanents : 1 clic payer
-- [ ] Vacataires : heures auto + validation
-- [ ] Fiche de paie PDF
-- [ ] Historique par employé
+Statut : ✅ Terminée
+- [x] services.py : compute_teacher_hours (FULL_DAY=2×, 2 GROUP BY), compute_monthly_salary_preview, generate_payslip_pdf
+- [x] Page paie /accounting/salaires/ (2 sections permanents/vacataires, sélecteur mois, 3 cards résumé prévu/payé/attente)
+- [x] Permanents : salaire fixe pré-rempli
+- [x] Vacataires : heures auto (depuis émargement) × taux
+- [x] Workflow 2 étapes : pay (PENDING, montant recalculé serveur + snapshots) → confirm (PAID + paid_at/by) ; cancel soft
+- [x] Anti double-paiement : pré-check + IntegrityError
+- [x] Fiche de paie PDF WeasyPrint (snapshots immuables)
+- [x] Lien sidebar Paie mensuelle (gate accounting_enabled + can_manage_accounting)
 
 ### PHASE 5 — Dépenses
 Statut : ⏳ En attente Phase 4

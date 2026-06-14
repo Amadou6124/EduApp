@@ -1577,6 +1577,10 @@ p {
   min-width: 14px;
 }
 
+.min-w-\[160px\] {
+  min-width: 160px;
+}
+
 .min-w-\[16px\] {
   min-width: 16px;
 }
@@ -3098,6 +3102,10 @@ p {
 
 .uppercase {
   text-transform: uppercase;
+}
+
+.capitalize {
+  text-transform: capitalize;
 }
 
 .normal-case {
