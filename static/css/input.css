@@ -140,11 +140,15 @@
   .badge-purple  { @apply badge bg-purple-50  text-purple-700  border-purple-200;  }
   .badge-emerald { @apply badge bg-emerald-50 text-emerald-700 border-emerald-200; }
 
-  /* ─────────────── TOAST (bottom-center) ─────────────── */
-  .toast {
+  /* ─────────────── TOAST (bottom-center, fond sombre) ─────────────── */
+  /* Conteneur empilé, positionné en bas-centre */
+  .toast-stack {
     @apply fixed bottom-6 left-1/2 -translate-x-1/2 z-50
-           min-w-72 max-w-[90vw]
-           flex items-center gap-3
+           flex flex-col items-center gap-2 pointer-events-none;
+  }
+  /* Pilule toast (visuel sombre) */
+  .toast {
+    @apply pointer-events-auto flex items-center gap-3
            bg-gray-900 text-white rounded-xl
            px-4 py-3 text-sm font-medium
            shadow-lg shadow-black/20;

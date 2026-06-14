@@ -1,10 +1,10 @@
 {% comment %}
-Toast notification — haut droite.
-Usage : déclencher via HTMX response header HX-Trigger: {"showToast": {"message": "...", "type": "success"}}
-Ou via Alpine event : $dispatch('show-toast', { message: '...', type: 'success' })
+Toast notification — bas-centre, fond sombre (design system).
+Usage : HX-Trigger {"showToast": {"message": "...", "type": "success"}}
+Ou Alpine : $dispatch('show-toast', { message: '...', type: 'success' })
 {% endcomment %}
 <div id="toast-container"
-     class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"
+     class="toast-stack"
      x-data="{
        toasts: [],
        add(msg, type, receiptUrl) {
@@ -20,32 +20,32 @@ Ou via Alpine event : $dispatch('show-toast', { message: '...', type: 'success' 
 
   <template x-for="toast in toasts" :key="toast.id">
     <div x-show="true"
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 translate-x-8"
-         x-transition:enter-end="opacity-100 translate-x-0"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100 translate-x-0"
-         x-transition:leave-end="opacity-0 translate-x-8"
-         class="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium min-w-[280px] max-w-sm"
-         :class="{
-           'bg-green-50 border-green-200 text-green-800': toast.type === 'success',
-           'bg-red-50   border-red-200   text-red-800':   toast.type === 'error',
-           'bg-blue-50  border-blue-200  text-blue-800':  toast.type === 'info',
-         }">
-      <span class="mt-0.5 flex-shrink-0">
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-4"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-4"
+         class="toast min-w-[280px] max-w-sm">
+      <span class="flex-shrink-0">
         <template x-if="toast.type === 'success'">
-          <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 toast-icon-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
         </template>
         <template x-if="toast.type === 'error'">
-          <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 toast-icon-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </template>
         <template x-if="toast.type === 'info'">
-          <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </template>
+        <template x-if="toast.type === 'warning'">
+          <svg class="w-4 h-4 toast-icon-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
         </template>
       </span>
@@ -53,17 +53,16 @@ Ou via Alpine event : $dispatch('show-toast', { message: '...', type: 'success' 
         <span x-text="toast.message"></span>
         <template x-if="toast.receiptUrl">
           <a :href="toast.receiptUrl" target="_blank"
-             class="block mt-1 text-xs underline opacity-70 hover:opacity-100">
+             class="block mt-1 text-xs underline text-white/70 hover:text-white">
             Télécharger le reçu
           </a>
         </template>
       </span>
-      <button @click="remove(toast.id)" class="text-current opacity-40 hover:opacity-70 transition ml-1 flex-shrink-0">
+      <button @click="remove(toast.id)" class="text-white/40 hover:text-white/80 transition ml-1 flex-shrink-0">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
     </div>
   </template>
-
 </div>
