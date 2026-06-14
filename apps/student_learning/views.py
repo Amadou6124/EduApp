@@ -4,7 +4,7 @@ from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.db.models import F
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
@@ -14,7 +14,8 @@ from apps.core.student_auth import (
     authenticate_student, login_student, logout_student, student_required,
 )
 from apps.lessons.models import LessonDeployment, LessonStatus
-from apps.student_learning.models import LessonProgress
+from apps.lessons.services import evaluate_answer, calculate_lesson_mastery
+from apps.student_learning.models import LessonProgress, QuizAttempt
 
 logger = logging.getLogger(__name__)
 
@@ -104,19 +105,25 @@ def learn_dashboard(request):
 
         for dep in deployments:
             prog = progress_map.get(dep.lesson_id)
-            if not prog:
-                node_state, progress_pct = 'not_started', 0
-            elif prog.is_completed:
+            mastery = calculate_lesson_mastery(student, dep.lesson)
+            # Node done si lecture terminée OU mastery quiz >= 80% (décision Phase 6).
+            if (prog and prog.is_completed) or mastery >= 80:
                 node_state, progress_pct = 'completed', 100
-            else:
+            elif prog or mastery >= 40:
                 node_state = 'in_progress'
-                blocks_total = len((dep.lesson.structured_content or {}).get('blocks', [])) or 1
-                progress_pct = min(int(prog.last_block_index / blocks_total * 100), 99)
+                if prog and not prog.is_completed:
+                    blocks_total = len((dep.lesson.structured_content or {}).get('blocks', [])) or 1
+                    progress_pct = min(int(prog.last_block_index / blocks_total * 100), 99)
+                else:
+                    progress_pct = mastery
+            else:
+                node_state, progress_pct = 'not_started', 0
 
             lessons_data.append({
                 'lesson': dep.lesson,
                 'node_state': node_state,
                 'progress_pct': progress_pct,
+                'mastery': mastery,
             })
 
     # 4. Leçon en cours
@@ -278,9 +285,140 @@ def lesson_complete(request, lesson_id):
     return redirect(f"{reverse('learn:dashboard')}?{urlencode({'subject': lesson.subject})}")
 
 
+# ─── Quiz engine (Phase 6) ───────────────────────────────────────────────────
+
+def _student_deployment(student, lesson_id, require_ready=True):
+    flt = dict(lesson_id=lesson_id, school_class=student.school_class, is_active=True)
+    if require_ready:
+        flt['lesson__status'] = LessonStatus.READY
+    return get_object_or_404(LessonDeployment, **flt)
+
+
 @student_required
-def learn_quiz_stub(request, lesson_id):
-    return render(request, 'learn/stub.html', {'student': request.student, 'title': 'Quiz', 'phase': 6})
+def learn_quiz(request, lesson_id):
+    """Moteur quiz question par question (état client Alpine, réponses jamais envoyées au client)."""
+    student = request.student
+    lesson = _student_deployment(student, lesson_id).lesson
+
+    quizzes = (lesson.quiz_data or {}).get('quizzes', [])
+    if not quizzes:
+        return redirect('learn:lesson', lesson_id=lesson_id)
+
+    # Payload client SANS les réponses (anti-triche : answer/answer_index/explanation/hint retirés).
+    client_quizzes = [{
+        'id': q.get('id'),
+        'type': q.get('type', 'mcq'),
+        'question': q.get('question', ''),
+        'options': q.get('options', []),
+        'image_url': q.get('image_url'),
+    } for q in quizzes]
+    has_ordering = any(q.get('type') == 'ordering' for q in quizzes)
+
+    return render(request, 'learn/quiz.html', {
+        'student': student,
+        'lesson': lesson,
+        'client_quizzes': client_quizzes,   # injecté via |json_script (sûr, sans réponses)
+        'total': len(quizzes),
+        'has_ordering': has_ordering,
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def quiz_submit(request, lesson_id):
+    """Évalue une réponse, crée QuizAttempt, accorde +5 XP à la 1re bonne réponse. JSON."""
+    student = request.student
+    try:
+        data = json.loads(request.body)
+        quiz_id = str(data.get('quiz_id', ''))
+        student_answer = data.get('answer')
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Données invalides'}, status=400)
+
+    lesson = _student_deployment(student, lesson_id, require_ready=False).lesson
+    quizzes = (lesson.quiz_data or {}).get('quizzes', [])
+    quiz = next((q for q in quizzes if q.get('id') == quiz_id), None)
+    if not quiz:
+        return JsonResponse({'error': 'Quiz introuvable'}, status=404)
+
+    # 1re bonne réponse ? (vérifié AVANT de créer la tentative → anti-farming fiable)
+    already_correct = QuizAttempt.objects.filter(
+        student=student, lesson=lesson, quiz_id=quiz_id, is_correct=True,
+    ).exists()
+
+    is_correct = evaluate_answer(quiz, student_answer)
+
+    QuizAttempt.objects.create(
+        student=student, lesson=lesson, quiz_id=quiz_id,
+        question_type=quiz.get('type', 'mcq'),
+        student_answer=student_answer if isinstance(student_answer, (dict, list)) else str(student_answer),
+        is_correct=is_correct,
+        time_spent_seconds=min(int(data.get('time_seconds', 0) or 0), 32000),
+    )
+
+    xp_earned = 0
+    if is_correct and not already_correct:
+        xp_earned = 5
+        from apps.students.models import Student
+        Student.objects.filter(pk=student.pk).update(total_xp=F('total_xp') + 5)
+
+    return JsonResponse({
+        'correct': is_correct,
+        'explanation': quiz.get('explanation', ''),
+        'correct_answer': quiz.get('answer', ''),
+        'correct_index': quiz.get('answer_index', -1),
+        'xp_earned': xp_earned,
+        'mastery': calculate_lesson_mastery(student, lesson),
+        'hint': quiz.get('hint', ''),
+    })
+
+
+@student_required
+def quiz_results(request, lesson_id):
+    """Résultats : score (dernières tentatives), XP, bonus 100% (idempotent)."""
+    student = request.student
+    lesson = _student_deployment(student, lesson_id, require_ready=False).lesson
+
+    quizzes = (lesson.quiz_data or {}).get('quizzes', [])
+    total = len(quizzes)
+    if total == 0:
+        return redirect('learn:lesson', lesson_id=lesson_id)
+
+    # Score = dernière tentative par quiz_id (1 requête, distinct on).
+    quiz_ids = [q['id'] for q in quizzes]
+    latest = (
+        QuizAttempt.objects
+        .filter(student=student, lesson=lesson, quiz_id__in=quiz_ids)
+        .order_by('quiz_id', '-attempted_at')
+        .distinct('quiz_id')
+        .values_list('is_correct', flat=True)
+    )
+    correct = sum(1 for ok in latest if ok)
+    score_pct = int(correct / total * 100)
+    mastery = calculate_lesson_mastery(student, lesson)
+
+    # Bonus 100% accordé UNE SEULE FOIS (flag sur LessonProgress → idempotent).
+    bonus_xp = 0
+    if score_pct == 100:
+        progress, _ = LessonProgress.objects.get_or_create(student=student, lesson=lesson)
+        if not progress.quiz_bonus_awarded:
+            bonus_xp = 30
+            progress.quiz_bonus_awarded = True
+            progress.save(update_fields=['quiz_bonus_awarded'])
+            from apps.students.models import Student
+            Student.objects.filter(pk=student.pk).update(total_xp=F('total_xp') + 30)
+
+    return render(request, 'learn/quiz_results.html', {
+        'student': student,
+        'lesson': lesson,
+        'correct': correct,
+        'total': total,
+        'errors': total - correct,
+        'score_pct': score_pct,
+        'mastery': mastery,
+        'bonus_xp': bonus_xp,
+        'xp_from_quiz': correct * 5 + bonus_xp,
+    })
 
 
 @student_required

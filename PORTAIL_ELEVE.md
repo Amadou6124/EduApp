@@ -234,5 +234,16 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] Navigation : scroll naturel ; Story différée Phase 10 ; XP inline (→ `award_xp()` Phase 9)
 - [x] Tests client (read/progress/note/complete/XP/toast) + **vérif navigateur réel** (7 blocs rendus, KaTeX `\frac` OK) — tous verts
 
+### PHASE 6 — Quiz engine ✅ Terminée
+- [x] `SYSTEM_PROMPT` : formats par type (6 types, **matching/hotspot/code_completion retirés**) + types par matière
+- [x] `services.py` : `normalize_text` (accents), `evaluate_answer` (6 types), `calculate_lesson_mastery` (1 requête DISTINCT ON)
+- [x] `LessonProgress.quiz_bonus_awarded` (idempotence bonus) + migration `0002`
+- [x] Vues `learn_quiz` (réponses **stripées** côté client via `json_script`), `quiz_submit` (eval serveur, +5 1re bonne réponse, `correct_index` renvoyé), `quiz_results` (score, bonus +30 idempotent)
+- [x] `quiz.html` : question par question (Alpine), 6 types de saisie, SortableJS si ordering, KaTeX si math, feedback immédiat, coloration via `correct_index` serveur
+- [x] `quiz_results.html` : score SVG circulaire, stats, bonus, maîtrise
+- [x] Dashboard : node `done` si lu complété **OU** mastery ≥ 80% (décision c)
+- [x] Décisions : question par question + feedback immédiat serveur (a) · +5 anti-farming (b) · 6 types sans matching (d)
+- [x] Tests : 6 evaluateurs · anti-leak réponses · anti-farming · bonus idempotent · mastery node — tous verts
+
 ### Phases suivantes (à venir)
-6. Quiz engine · 8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements
+8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements

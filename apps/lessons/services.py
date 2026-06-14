@@ -13,6 +13,7 @@ import io
 import json
 import logging
 import time
+import unicodedata
 from decimal import Decimal
 from pathlib import Path
 
@@ -111,15 +112,54 @@ STRUCTURE JSON EXACTE À PRODUIRE
   }
 }
 
-TYPES DE QUIZ AUTORISÉS SELON subject_type
-- math       : mcq, true_false, number_input, fill_blank, ordering
-- scientific : mcq, true_false, fill_blank, matching, short_answer
-- literary   : mcq, true_false, short_answer, fill_blank, ordering
-- language   : mcq, fill_blank, matching, true_false, short_answer
-- code       : mcq, true_false, code_completion, ordering, fill_blank
-- accounting : mcq, number_input, true_false, matching, fill_blank
-- geography  : mcq, true_false, matching, hotspot, short_answer
-- other      : mcq, true_false, fill_blank, short_answer
+TYPES DE QUIZ AUTORISÉS + FORMATS
+
+mcq (QCM) :
+  question: "texte de la question"
+  options: ["A", "B", "C", "D"]
+  answer: "texte exact de la bonne option"
+  answer_index: 0 (index dans options)
+
+true_false (Vrai/Faux) :
+  question: "affirmation à évaluer"
+  options: ["Vrai", "Faux"]
+  answer: "Vrai" ou "Faux"
+  answer_index: 0 ou 1
+
+fill_blank (Compléter) :
+  question: "La photosynthèse produit du ___ et de l'eau." (utiliser ___ pour le blanc)
+  options: []
+  answer: "glucose" (réponse attendue exacte)
+  answer_index: -1
+
+number_input (Réponse numérique) :
+  question: "Combien de côtés a un hexagone ?"
+  options: []
+  answer: "6" (nombre sous forme de string)
+  answer_index: -1
+  tolerance: 0 (tolérance optionnelle, ex: 0.5)
+
+ordering (Remettre dans l'ordre) :
+  question: "Remets les étapes dans l'ordre :"
+  options: ["Étape B", "Étape C", "Étape A"] (mélangées aléatoirement)
+  answer: "Étape A|||Étape B|||Étape C" (ordre correct séparé par |||)
+  answer_index: -1
+
+short_answer (Réponse courte) :
+  question: "Qui a découvert la pénicilline ?"
+  options: []
+  answer: "fleming" (en minuscules, sans accents pour comparaison souple)
+  answer_index: -1
+
+TYPES AUTORISÉS PAR MATIÈRE :
+math       : mcq, true_false, number_input, fill_blank, ordering
+scientific : mcq, true_false, fill_blank, ordering, short_answer
+literary   : mcq, true_false, short_answer, fill_blank, ordering
+language   : mcq, fill_blank, true_false, short_answer
+accounting : mcq, number_input, true_false, fill_blank
+geography  : mcq, true_false, short_answer, ordering
+other      : mcq, true_false, fill_blank, short_answer
+code       : mcq, true_false, fill_blank
 
 CONSIGNES MATHÉMATIQUES
 Si subject_type = math :
@@ -134,7 +174,7 @@ EXIGENCES DE VOLUME
   Mariam, Oumar, Kadiatou...), 3 à 6 questions intercalées.
 - quiz.quizzes : 8 à 20 questions, difficulté croissante, types variés selon la table ci-dessus.
 - flashcards.flashcards : 6 à 15 cartes, une par concept clé (concept_id réutilisé du contenu).
-- Ne jamais produire un quiz de type 'code_completion' si subject_type n'est pas 'code'.
+- N'utilise QUE les 6 types ci-dessus (mcq, true_false, fill_blank, number_input, ordering, short_answer). Jamais matching, hotspot ni code_completion.
 """ + _CONTENT_SECTION
 
 EXTRACTION_PROMPT = """Tu es un transcripteur. On te donne la PHOTO d'une page de cahier ou d'un manuel scolaire.
@@ -394,3 +434,68 @@ def validate_lesson_file(file) -> str:
     raise ValueError(
         'Type de fichier non autorisé. Seuls les PDF et images (JPG, PNG) sont acceptés.'
     )
+
+
+# ─── Phase 6 — Évaluation des quiz ───────────────────────────────────────────
+
+def normalize_text(text: str) -> str:
+    """Normalise pour comparaison souple : minuscules, sans accents, espaces réduits."""
+    text = (text or '').strip().lower()
+    text = ''.join(c for c in unicodedata.normalize('NFD', text)
+                   if unicodedata.category(c) != 'Mn')
+    return ' '.join(text.split())
+
+
+def evaluate_answer(quiz: dict, student_answer) -> bool:
+    """Évalue la réponse de l'élève selon le type de quiz. Retourne True si correct."""
+    qtype = quiz.get('type', 'mcq')
+    correct_answer = quiz.get('answer', '')
+
+    if qtype in ('mcq', 'true_false'):
+        try:
+            return int(student_answer) == quiz.get('answer_index', -1)
+        except (TypeError, ValueError):
+            return False
+
+    if qtype in ('fill_blank', 'short_answer'):
+        return normalize_text(str(student_answer)) == normalize_text(str(correct_answer))
+
+    if qtype == 'number_input':
+        try:
+            student_val = float(str(student_answer).replace(',', '.'))
+            correct_val = float(str(correct_answer).replace(',', '.'))
+            tolerance = float(quiz.get('tolerance', 0) or 0)
+            return abs(student_val - correct_val) <= tolerance
+        except (TypeError, ValueError):
+            return False
+
+    if qtype == 'ordering':
+        if not isinstance(student_answer, list):
+            return False
+        correct_order = [s.strip() for s in str(correct_answer).split('|||')]
+        student_order = [str(s).strip() for s in student_answer]
+        return student_order == correct_order
+
+    return False
+
+
+def calculate_lesson_mastery(student, lesson) -> int:
+    """
+    % de maîtrise d'une leçon = dernières tentatives correctes / total quiz.
+    1 requête (PostgreSQL DISTINCT ON quiz_id). Retourne 0-100.
+    """
+    from apps.student_learning.models import QuizAttempt
+
+    quiz_ids = [q['id'] for q in (lesson.quiz_data or {}).get('quizzes', [])]
+    if not quiz_ids:
+        return 0
+
+    latest = (
+        QuizAttempt.objects
+        .filter(student=student, lesson=lesson, quiz_id__in=quiz_ids)
+        .order_by('quiz_id', '-attempted_at')
+        .distinct('quiz_id')
+        .values_list('is_correct', flat=True)
+    )
+    correct = sum(1 for ok in latest if ok)
+    return int(correct / len(quiz_ids) * 100)

@@ -108,6 +108,8 @@ class LessonProgress(models.Model):
         default=list,
         help_text=_('Notes perso : [{block_id, text, created_at}]'),
     )
+    # Bonus quiz 100% accordé une seule fois (idempotence anti-farming).
+    quiz_bonus_awarded = models.BooleanField(default=False)
 
     class Meta:
         unique_together = [('student', 'lesson')]
