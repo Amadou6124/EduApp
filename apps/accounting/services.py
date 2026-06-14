@@ -119,6 +119,85 @@ def salary_row(school, membership, year, month):
     return _row(membership, profile, hours_map, existing)
 
 
+def compute_monthly_balance(school, year, month):
+    """
+    Bilan financier d'un mois : revenus (paiements élèves) − charges (salaires payés + dépenses).
+    ~4 requêtes agrégées, zéro N+1.
+    """
+    from django.db.models import Sum
+    from apps.payments.models import Payment
+    from .models import SalaryPayment, SalaryStatus, Expense
+
+    revenus = Payment.objects.filter(
+        student__school=school, is_cancelled=False,
+        payment_date__year=year, payment_date__month=month,
+    ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+
+    salaires = SalaryPayment.objects.filter(
+        school=school, year=year, month=month,
+        status=SalaryStatus.PAID, is_cancelled=False,
+    ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+
+    depenses = Expense.objects.filter(
+        school=school, date__year=year, date__month=month, is_cancelled=False,
+    ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+
+    by_cat = list(
+        Expense.objects.filter(
+            school=school, date__year=year, date__month=month, is_cancelled=False,
+        ).values('category__name', 'category__icon').annotate(total=Sum('amount')).order_by('-total')
+    )
+    if depenses:
+        for c in by_cat:
+            c['pct'] = int(c['total'] / depenses * 100)
+
+    charges = salaires + depenses
+    return {
+        'revenus': revenus, 'salaires': salaires, 'depenses': depenses,
+        'charges': charges, 'resultat': revenus - charges,
+        'by_cat': by_cat, 'year': year, 'month': month,
+    }
+
+
+def compute_balance_series(school, ref_year, ref_month, n=6):
+    """Série des n derniers mois pour le graphique. 3 requêtes groupées (floats pour Chart.js)."""
+    from datetime import date as _date
+    from django.db.models import Q, Sum
+    from django.db.models.functions import TruncMonth
+    from apps.payments.models import Payment
+    from .models import SalaryPayment, SalaryStatus, Expense
+
+    months = []
+    y, m = ref_year, ref_month
+    for _ in range(n):
+        months.append((y, m))
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    months.reverse()
+    start = _date(months[0][0], months[0][1], 1)
+
+    rev = {(r['mo'].year, r['mo'].month): r['s'] for r in
+           Payment.objects.filter(student__school=school, is_cancelled=False, payment_date__gte=start)
+           .annotate(mo=TruncMonth('payment_date')).values('mo').annotate(s=Sum('amount'))}
+    dep = {(r['mo'].year, r['mo'].month): r['s'] for r in
+           Expense.objects.filter(school=school, is_cancelled=False, date__gte=start)
+           .annotate(mo=TruncMonth('date')).values('mo').annotate(s=Sum('amount'))}
+    qmonths = Q()
+    for (yy, mm) in months:
+        qmonths |= Q(year=yy, month=mm)
+    sal = {(r['year'], r['month']): r['s'] for r in
+           SalaryPayment.objects.filter(school=school, status=SalaryStatus.PAID, is_cancelled=False)
+           .filter(qmonths).values('year', 'month').annotate(s=Sum('amount'))}
+
+    series = []
+    for (yy, mm) in months:
+        r = float(rev.get((yy, mm), 0) or 0)
+        ch = float((sal.get((yy, mm), 0) or 0) + (dep.get((yy, mm), 0) or 0))
+        series.append({'year': yy, 'month': mm, 'revenus': r, 'charges': ch, 'resultat': r - ch})
+    return series
+
+
 def generate_payslip_pdf(payment):
     """Fiche de paie PDF (WeasyPrint) à partir des snapshots immuables de SalaryPayment."""
     from django.template.loader import render_to_string

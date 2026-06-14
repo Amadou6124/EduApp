@@ -107,14 +107,18 @@ Statut : ✅ Terminée
 Migration : accounting/0003_seed_expense_categories.py (RunPython idempotent).
 
 ### PHASE 6 — Bilan financier
-Statut : ⏳ En attente Phase 5
-- [ ] Service compute_monthly_balance()
-- [ ] Page bilan /accounting/bilan/
-- [ ] Revenus (paiements élèves existants)
-- [ ] Charges (salaires + dépenses)
-- [ ] Résultat net
-- [ ] Graphique mensuel Chart.js
-- [ ] Export Excel
+Statut : ✅ Terminée
+- [x] Service compute_monthly_balance() (revenus − charges, by_cat + pct ; ~4 requêtes agrégées)
+- [x] Service compute_balance_series() (6 mois, 3 requêtes groupées, floats pour Chart.js)
+- [x] Page bilan /accounting/bilan/ (sélecteur mois, gate accounting_enabled 403)
+- [x] Revenus (paiements élèves existants, payment_date year/month)
+- [x] Charges (salaires PAID + dépenses, non annulés)
+- [x] Résultat net (card colorée Bénéfice/Déficit)
+- [x] Graphique mensuel Chart.js (barres groupées Revenus/Charges + ligne Résultat)
+- [x] Export Excel (openpyxl : tableau postes + résultat coloré + détail catégories)
+- [x] Lien sidebar Bilan financier (gate accounting_enabled + can_manage_accounting)
+
+Routes : accounting:bilan, bilan-export.
 
 ### PHASE 7 — Dashboard comptabilité
 Statut : ⏳ En attente Phase 6

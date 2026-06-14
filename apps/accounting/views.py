@@ -623,3 +623,98 @@ def expense_cancel(request, expense_id):
     resp = render(request, 'accounting/partials/expense_list.html', ctx)
     resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Dépense annulée.', 'type': 'info'}})
     return resp
+
+
+# ─── Phase 6 — Bilan financier ───────────────────────────────────────────────
+
+@login_required
+@director_or_accounting_required
+def bilan_dashboard(request):
+    from .services import compute_monthly_balance, compute_balance_series
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+
+    year, month = _parse_year_month(request)
+    balance = compute_monthly_balance(school, year, month)
+    series = compute_balance_series(school, year, month, n=6)
+
+    chart_labels = [f'{_MOIS_FR[s["month"]][:4].capitalize()}' for s in series]
+    chart_revenus = [s['revenus'] for s in series]
+    chart_charges = [s['charges'] for s in series]
+    chart_resultat = [s['resultat'] for s in series]
+
+    prev_y, prev_m = (year, month - 1) if month > 1 else (year - 1, 12)
+    next_y, next_m = (year, month + 1) if month < 12 else (year + 1, 1)
+
+    return render(request, 'accounting/bilan_dashboard.html', {
+        'school': school, 'year': year, 'month': month,
+        'month_label': _MOIS_FR[month].capitalize(),
+        'b': balance,
+        'chart_labels': chart_labels, 'chart_revenus': chart_revenus,
+        'chart_charges': chart_charges, 'chart_resultat': chart_resultat,
+        'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
+    })
+
+
+@login_required
+@director_or_accounting_required
+def bilan_export_excel(request):
+    """Export Excel du bilan d'un mois (openpyxl)."""
+    import openpyxl
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from .services import compute_monthly_balance
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+
+    year, month = _parse_year_month(request)
+    b = compute_monthly_balance(school, year, month)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f'Bilan {month}-{year}'[:31]
+
+    bold = Font(bold=True)
+    hdr_font = Font(bold=True, color='FFFFFF')
+    hdr_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
+
+    ws.append([f'{school.name} — Bilan financier {_MOIS_FR[month].capitalize()} {year}'])
+    ws['A1'].font = Font(bold=True, size=14)
+    ws.append([])
+
+    ws.append(['Poste', 'Montant (FCFA)'])
+    for cell in ws[ws.max_row]:
+        cell.font = hdr_font; cell.fill = hdr_fill; cell.alignment = Alignment(horizontal='center')
+    ws.append(['Revenus (paiements élèves)', float(b['revenus'])])
+    ws.append(['Salaires payés', float(b['salaires'])])
+    ws.append(['Dépenses', float(b['depenses'])])
+    ws.append(['Total charges', float(b['charges'])])
+    r = ws.max_row + 1
+    ws.append(['Résultat net', float(b['resultat'])])
+    for cell in ws[ws.max_row]:
+        cell.font = bold
+        cell.fill = PatternFill(
+            start_color='DCFCE7' if b['resultat'] >= 0 else 'FEE2E2',
+            end_color='DCFCE7' if b['resultat'] >= 0 else 'FEE2E2', fill_type='solid',
+        )
+
+    ws.append([])
+    ws.append(['Détail des dépenses par catégorie'])
+    ws[ws.max_row][0].font = bold
+    ws.append(['Catégorie', 'Montant (FCFA)'])
+    for cell in ws[ws.max_row]:
+        cell.font = hdr_font; cell.fill = hdr_fill; cell.alignment = Alignment(horizontal='center')
+    for c in b['by_cat']:
+        ws.append([c['category__name'], float(c['total'])])
+
+    ws.column_dimensions['A'].width = 36
+    ws.column_dimensions['B'].width = 18
+
+    filename = f'bilan_{school.name.replace(" ", "_")}_{month}_{year}.xlsx'
+    resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(resp)
+    return resp

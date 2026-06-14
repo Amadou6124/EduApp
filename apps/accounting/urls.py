@@ -28,4 +28,8 @@ urlpatterns = [
     path('depenses/', views.expense_dashboard, name='depenses'),
     path('depenses/add/', views.expense_create, name='expense-create'),
     path('depenses/<int:expense_id>/cancel/', views.expense_cancel, name='expense-cancel'),
+
+    # ── Phase 6 — Bilan financier ────────────────────────────────
+    path('bilan/', views.bilan_dashboard, name='bilan'),
+    path('bilan/export/', views.bilan_export_excel, name='bilan-export'),
 ]
