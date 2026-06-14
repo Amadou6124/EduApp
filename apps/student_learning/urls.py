@@ -18,6 +18,9 @@ urlpatterns = [
     path('quiz/<int:lesson_id>/submit/', views.quiz_submit, name='quiz-submit'),
     path('quiz/<int:lesson_id>/results/', views.quiz_results, name='quiz-results'),
     # Stubs — phases suivantes
-    path('flashcards/', views.learn_flashcards_stub, name='flashcards'),
+    # Flashcards SM-2 (Phase 8)
+    path('flashcards/', views.learn_flashcards, name='flashcards'),
+    path('flashcards/<int:lesson_id>/', views.flashcards_session, name='flashcards-session'),
+    path('flashcards/review/<int:card_id>/', views.flashcard_review, name='flashcard-review'),
     path('profile/', views.learn_profile_stub, name='profile'),
 ]

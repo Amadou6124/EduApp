@@ -258,5 +258,15 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] Accès libre (pas de lock, décision a) · trait CSS (b) · tap (c) · pas de pagination (d)
 - [x] Vue inchangée (mastery déjà fourni Phase 6) ; `check` OK ; **vérifié navigateur** (glow, pulse, particules, connecteurs, panel)
 
+### PHASE 8 — Flashcards SM-2 ✅ Terminée
+- [x] `services.py` : `sm2_update` (quadratique, clamp 1.3, Decimal) + `get_due_flashcards`
+- [x] Création **Option B** : bulk `get_or_create` à la complétion de la leçon (idempotent via unique_together)
+- [x] Vues `learn_flashcards` (paquets dues/total, 3 requêtes), `flashcards_session`, `flashcard_review` (POST SM-2)
+- [x] Templates `flashcards.html` (paquets + barre), `flashcards_session.html` (flip card 3D + 4 boutons qualité)
+- [x] Mapping qualité 😰1 / 😐2 / 🙂4 / 😄5 (reset sur 1-2) ; carte ratée repasse en fin de file (max 3/session)
+- [x] Context processor `student_due_flashcards` (gate session, 1 COUNT) + badge rouge bottom nav
+- [x] **Flip card via classes CSS `.flip-card-*`** (pas de `:style` inline qui clobbe `transform-style` → texte miroir) ; `widthratio` corrigé (`reviewed` calculé en vue)
+- [x] Tests client (SM-2, Option B idempotent, session, review, badge) + **vérif navigateur** (flip recto/verso droit, boutons qualité) — tous verts
+
 ### Phases suivantes (à venir)
-8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements
+9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements

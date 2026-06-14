@@ -3,7 +3,9 @@ import logging
 from datetime import timedelta
 from urllib.parse import urlencode
 
-from django.db.models import F
+import datetime
+
+from django.db.models import Count, F
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -13,9 +15,11 @@ from django.utils import timezone
 from apps.core.student_auth import (
     authenticate_student, login_student, logout_student, student_required,
 )
-from apps.lessons.models import LessonDeployment, LessonStatus
-from apps.lessons.services import evaluate_answer, calculate_lesson_mastery
-from apps.student_learning.models import LessonProgress, QuizAttempt
+from apps.lessons.models import Lesson, LessonDeployment, LessonStatus
+from apps.lessons.services import (
+    evaluate_answer, calculate_lesson_mastery, sm2_update,
+)
+from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +279,22 @@ def lesson_complete(request, lesson_id):
         progress.completed_at = timezone.now()
         progress.save(update_fields=['is_completed', 'completed_at'])
 
+        # Création des flashcards (Option B — à la complétion, idempotent).
+        flashcards_raw = (lesson.flashcards_data or {}).get('flashcards', [])
+        if flashcards_raw:
+            today = timezone.localdate()
+            existing_ids = set(
+                Flashcard.objects.filter(student=student, lesson=lesson)
+                .values_list('flashcard_id', flat=True)
+            )
+            new_cards = [
+                Flashcard(student=student, lesson=lesson,
+                          flashcard_id=fc['id'], next_review_date=today)
+                for fc in flashcards_raw if fc.get('id') and fc['id'] not in existing_ids
+            ]
+            if new_cards:
+                Flashcard.objects.bulk_create(new_cards, ignore_conflicts=True)
+
         # XP minimal (sera migré vers award_xp() en Phase 9). student est chargé frais → pas de course critique ici.
         student.total_xp += 20
         student.current_level = student.total_xp // 500 + 1
@@ -421,9 +441,106 @@ def quiz_results(request, lesson_id):
     })
 
 
+# ─── Flashcards SM-2 (Phase 8) ───────────────────────────────────────────────
+
 @student_required
-def learn_flashcards_stub(request):
-    return render(request, 'learn/stub.html', {'student': request.student, 'title': 'Flashcards', 'phase': 8})
+def learn_flashcards(request):
+    """Paquets de flashcards par leçon (dues / total). 3 requêtes, zéro N+1."""
+    student = request.student
+    today = timezone.localdate()
+
+    lesson_ids = (Flashcard.objects.filter(student=student)
+                  .values_list('lesson_id', flat=True).distinct())
+    lessons = Lesson.objects.filter(id__in=lesson_ids).only(
+        'id', 'title', 'subject', 'subject_type')
+
+    due_counts = {r['lesson_id']: r['cnt'] for r in (
+        Flashcard.objects.filter(student=student, next_review_date__lte=today)
+        .values('lesson_id').annotate(cnt=Count('id')))}
+    total_counts = {r['lesson_id']: r['cnt'] for r in (
+        Flashcard.objects.filter(student=student)
+        .values('lesson_id').annotate(cnt=Count('id')))}
+
+    paquets = []
+    for l in lessons:
+        due = due_counts.get(l.id, 0)
+        total = total_counts.get(l.id, 0)
+        paquets.append({'lesson': l, 'due': due, 'total': total, 'reviewed': total - due})
+    paquets.sort(key=lambda x: -x['due'])
+
+    return render(request, 'learn/flashcards.html', {
+        'student': student,
+        'paquets': paquets,
+        'total_due': sum(p['due'] for p in paquets),
+    })
+
+
+@student_required
+def flashcards_session(request, lesson_id):
+    """Session de révision : flashcards dues d'une leçon."""
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+    due_cards = list(
+        Flashcard.objects.filter(
+            student=student, lesson=lesson,
+            next_review_date__lte=timezone.localdate(),
+        ).order_by('next_review_date')
+    )
+    if not due_cards:
+        return redirect('learn:flashcards')
+
+    fc_map = {fc['id']: fc for fc in (lesson.flashcards_data or {}).get('flashcards', [])}
+    session_cards = [{
+        'db_id': c.id,
+        'flashcard_id': c.flashcard_id,
+        'front': fc_map.get(c.flashcard_id, {}).get('front', ''),
+        'back': fc_map.get(c.flashcard_id, {}).get('back', ''),
+    } for c in due_cards]
+
+    return render(request, 'learn/flashcards_session.html', {
+        'student': student,
+        'lesson': lesson,
+        'session_cards': session_cards,
+        'total': len(session_cards),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def flashcard_review(request, card_id):
+    """Enregistre la qualité, applique SM-2. JSON."""
+    student = request.student
+    card = get_object_or_404(Flashcard, pk=card_id, student=student)
+
+    try:
+        data = json.loads(request.body)
+        quality = int(data.get('quality', 1))
+        if quality not in (1, 2, 4, 5):
+            quality = 1
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Données invalides'}, status=400)
+
+    new_reps, new_ef, new_interval = sm2_update(
+        card.repetitions, card.ease_factor, card.interval_days, quality)
+    next_review = timezone.localdate() + datetime.timedelta(days=new_interval)
+
+    card.repetitions = new_reps
+    card.ease_factor = new_ef
+    card.interval_days = new_interval
+    card.next_review_date = next_review
+    card.last_quality = quality
+    card.total_reviews += 1
+    card.save(update_fields=[
+        'repetitions', 'ease_factor', 'interval_days',
+        'next_review_date', 'last_quality', 'total_reviews',
+    ])
+
+    return JsonResponse({
+        'next_review_days': new_interval,
+        'next_review_date': next_review.isoformat(),
+        'quality': quality,
+    })
 
 
 @student_required

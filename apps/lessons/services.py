@@ -499,3 +499,41 @@ def calculate_lesson_mastery(student, lesson) -> int:
     )
     correct = sum(1 for ok in latest if ok)
     return int(correct / len(quiz_ids) * 100)
+
+
+# ─── Phase 8 — Répétition espacée SM-2 ───────────────────────────────────────
+
+def sm2_update(repetitions: int, ease_factor, interval: int, quality: int):
+    """
+    Algorithme SM-2. quality : 1=très dur, 2=dur, 4=facile, 5=très facile.
+    Retourne (repetitions, ease_factor[Decimal], interval_days).
+    """
+    ef = float(ease_factor)
+
+    if quality >= 3:
+        if repetitions == 0:
+            interval = 1
+        elif repetitions == 1:
+            interval = 6
+        else:
+            interval = round(interval * ef)
+        ef = ef + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)
+        ef = max(1.3, ef)
+        repetitions += 1
+    else:
+        repetitions = 0
+        interval = 1
+
+    return repetitions, Decimal(str(round(ef, 2))), interval
+
+
+def get_due_flashcards(student, limit=20):
+    """Flashcards dues aujourd'hui, les plus en retard d'abord."""
+    from django.utils import timezone
+    from apps.student_learning.models import Flashcard
+    return list(
+        Flashcard.objects
+        .filter(student=student, next_review_date__lte=timezone.localdate())
+        .select_related('lesson')
+        .order_by('next_review_date')[:limit]
+    )
