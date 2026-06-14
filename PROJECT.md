@@ -552,6 +552,22 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 - UI switch dropdown admin + mobile teacher
 - **Fix isolation** : `_teacher_class_ids` scopé par school, 6 vues corrigées
 
+### Portail Élève (`/learn/`)
+- **Auth élève session isolée** (`access_code` + nom de famille, `request.student`, jamais `request.user` — backend `apps/core/student_auth.py`)
+- **Dashboard** : sélecteur de matières façon Duolingo, leçon en cours, streak quotidien
+- **Nodes hexagonaux « Ruche Vivante »** : glassmorphism `drop-shadow` glow, pulse node actif, particules CSS, connecteurs colorés, tooltip slide-up, fond animé, confettis
+- **Phase 5** : lecture leçon 7 types de blocs (definition/example/key_points/warning/summary/reflection/pause), IntersectionObserver progression, KaTeX math, notes reflection, complétion +20 XP
+- **Phase 6** : quiz engine 6 types (mcq/true_false/fill_blank/number_input/ordering/short_answer), feedback immédiat **évalué serveur (anti-leak)**, XP anti-farming, sons Web Audio API, SortableJS ordering
+- **Phase 8** : flashcards SM-2 Anki (création à la complétion), flip card 3D, 4 boutons qualité 😰1/😐2/🙂4/😄5, carte ratée repasse en session, badge bottom nav (context processor)
+- **Phase 9** : gamification `award_xp` centralisée, 13 badges (`check_badges`), 6 niveaux (🌱→🚀), page profil (avatar/XP/stats/badges), overlay level-up + confettis
+- **Phase 10** : stories interactives WhatsApp dialogue (personnages maliens left/right, avatars colorés, narration), évaluation serveur `normalize_text` tolérante, StoryAttempt XP anti-farming
+- **Phase 11** : notes & rangs (rang + tendance ↑↓, `BulletinLine.final_average` par matière, bulletins PDF sécurisés `@student_required` → 404 autre élève)
+- **IA génération** : Claude Sonnet 4.6, PDF/image single-pass base64, JSON structuré (blocs/quiz/story/flashcards), prefill `{`, coût USD loggé, `validate_lesson_file` magic bytes
+- **Upload prof** `/teacher/lessons/` : génération async thread daemon, statut polling HTMX
+- **Modèles** : `apps/lessons/` (Lesson, LessonDeployment), `apps/student_learning/` (StudentSubscription, LessonProgress, QuizAttempt, StoryAttempt, Flashcard, DailyChallenge) + gamification sur `Student`
+- **Abonnements** : modèle en base, **non activé** (décision équipe — tout gratuit en V1)
+- **Fix** : colonne orpheline `payment_type` supprimée (migration `RunSQL`)
+
 ### Module Comptabilité (`/accounting/`)
 - App `apps/accounting/` dédiée
 - 5 modèles : `EmployeeProfile`, `TeacherAttendance`, `ExpenseCategory`, `Expense`, `SalaryPayment`
@@ -608,11 +624,14 @@ Phases A-C terminées (modèles, migration données, bascule logique). Reste :
 
 **2quater. ✅ Module Comptabilité** — terminé (7 phases : émargement, paie, dépenses, bilan, dashboard)
 
-**3. Portail Élève** (3-5 jours)
-- Style Duolingo
-- Notes et bulletins
-- Quiz et exercices
-- Gamification : XP, badges, streaks
+**3. ✅ Portail Élève** — terminé (Phases 1-11 : IA génération leçons, lecture, quiz, Ruche Vivante, flashcards SM-2, gamification, stories, notes & rangs)
+
+### Reste à faire
+- 🔲 **Déploiement Railway/Render** (MEDIA → Cloudinary, `ANTHROPIC_API_KEY` prod, `collectstatic` ; objectif avant septembre 2026 — rentrée Mali)
+- 🔲 Notifications WhatsApp (V2)
+- 🔲 Abonnements + paiement (décision équipe — modèle en base, non activé)
+- 🔲 Multi-groupes cours de soutien (V2)
+- 🔲 Portail Élève — améliorations : mascotte personnage malien · planning révision examen · classement par classe · mode hors-ligne PWA
 
 ### PRIORITÉ MOYENNE
 
