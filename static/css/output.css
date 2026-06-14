@@ -3960,6 +3960,11 @@ p {
   background-color: rgb(254 252 232 / 0.5);
 }
 
+.hover\:bg-yellow-500:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(234 179 8 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:text-amber-700:hover {
   --tw-text-opacity: 1;
   color: rgb(180 83 9 / var(--tw-text-opacity, 1));

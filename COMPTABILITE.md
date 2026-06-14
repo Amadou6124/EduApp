@@ -96,12 +96,15 @@ Statut : ✅ Terminée
 - [x] Lien sidebar Paie mensuelle (gate accounting_enabled + can_manage_accounting)
 
 ### PHASE 5 — Dépenses
-Statut : ⏳ En attente Phase 4
-- [ ] Catégories prédéfinies (loyer, eau,
-      électricité, fournitures, entretien,
-      transport, communication, autre)
-- [ ] Saisie dépense HTMX
-- [ ] Liste avec filtres mois/catégorie
+Statut : ✅ Terminée
+- [x] 12 catégories prédéfinies seedées (data migration globale school=NULL, idempotent + réversible)
+- [x] Saisie dépense HTMX (panel slide, montant/date/description/mode)
+- [x] Liste + résumé (total + répartition par catégorie en barres) swap OOB après add/cancel
+- [x] Filtres mois/année + catégorie + mode de paiement
+- [x] Annulation soft (is_cancelled)
+- [x] Lien sidebar Dépenses (gate accounting_enabled + can_manage_accounting)
+
+Migration : accounting/0003_seed_expense_categories.py (RunPython idempotent).
 
 ### PHASE 6 — Bilan financier
 Statut : ⏳ En attente Phase 5

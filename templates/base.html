@@ -314,6 +314,20 @@
         {% endif %}
         {% endif %}
 
+        <!-- Dépenses (module activé + droit comptable) -->
+        {% if request.school.accounting_enabled %}
+        {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
+        <a href="{% url 'accounting:depenses' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'depenses' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Dépenses'">
+          <i data-lucide="receipt" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Dépenses</span>
+        </a>
+        {% endif %}
+        {% endif %}
+
         {% endif %}{# fin if promoter #}
 
         {% endif %}{# fin if teacher #}

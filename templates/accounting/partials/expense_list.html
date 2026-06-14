@@ -1,0 +1,64 @@
+{% load humanize %}
+<div id="expense-content">
+  {# Résumé : total + répartition par catégorie #}
+  <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <p class="text-sm text-gray-500">Total ce mois</p>
+      <p class="text-2xl font-extrabold text-gray-900">{{ total|floatformat:0|intcomma }} <span class="text-sm font-normal text-gray-400">FCFA</span></p>
+    </div>
+    {% if by_cat %}
+    <div class="space-y-2.5">
+      {% for c in by_cat %}
+      <div>
+        <div class="flex items-center justify-between text-xs mb-1">
+          <span class="flex items-center gap-1.5 text-gray-600"><i data-lucide="{{ c.category__icon|default:'circle' }}" class="w-3.5 h-3.5"></i> {{ c.category__name }}</span>
+          <span class="font-semibold text-gray-700">{{ c.s|floatformat:0|intcomma }} FCFA · {{ c.pct }}%</span>
+        </div>
+        <div class="h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full bg-brand-blue" style="width:{{ c.pct }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-2">Aucune dépense ce mois</p>
+    {% endif %}
+  </div>
+
+  {# Liste #}
+  {% if expenses %}
+  <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
+        <th class="px-4 py-2.5 font-semibold">Date</th>
+        <th class="px-4 py-2.5 font-semibold">Catégorie</th>
+        <th class="px-4 py-2.5 font-semibold">Description</th>
+        <th class="px-4 py-2.5 font-semibold text-right">Montant</th>
+        <th class="px-4 py-2.5 font-semibold">Mode</th>
+        <th class="px-4 py-2.5 font-semibold"></th>
+      </tr></thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for e in expenses %}
+        <tr class="hover:bg-gray-50/50">
+          <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ e.date|date:"d/m/Y" }}</td>
+          <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 text-gray-700"><i data-lucide="{{ e.category.icon|default:'circle' }}" class="w-3.5 h-3.5 text-gray-400"></i> {{ e.category.name }}</span></td>
+          <td class="px-4 py-3 text-gray-500">{{ e.description|default:"—" }}</td>
+          <td class="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">{{ e.amount|floatformat:0|intcomma }} FCFA</td>
+          <td class="px-4 py-3 text-gray-500">{{ e.get_payment_method_display }}</td>
+          <td class="px-4 py-3 text-right">
+            <form hx-post="{% url 'accounting:expense-cancel' e.id %}" hx-target="#expense-content" hx-swap="outerHTML" hx-confirm="Annuler cette dépense ?">
+              {% csrf_token %}<input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
+              <button type="submit" class="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50" title="Annuler"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-100 p-10 text-center">
+    <i data-lucide="receipt" class="w-10 h-10 mx-auto text-gray-300 mb-2"></i>
+    <p class="text-sm text-gray-400">Aucune dépense pour ce filtre.</p>
+  </div>
+  {% endif %}
+  <script>if(window.lucide)lucide.createIcons();</script>
+</div>

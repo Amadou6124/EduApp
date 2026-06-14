@@ -23,4 +23,9 @@ urlpatterns = [
     path('salaires/<int:payment_id>/confirm/', views.salary_confirm, name='salary-confirm'),
     path('salaires/<int:payment_id>/cancel/', views.salary_cancel, name='salary-cancel'),
     path('salaires/<int:payment_id>/pdf/', views.payslip_pdf, name='payslip-pdf'),
+
+    # ── Phase 5 — Dépenses ───────────────────────────────────────
+    path('depenses/', views.expense_dashboard, name='depenses'),
+    path('depenses/add/', views.expense_create, name='expense-create'),
+    path('depenses/<int:expense_id>/cancel/', views.expense_cancel, name='expense-cancel'),
 ]

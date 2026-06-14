@@ -480,3 +480,146 @@ def payslip_pdf(request, payment_id):
     resp = HttpResponse(pdf, content_type='application/pdf')
     resp['Content-Disposition'] = f'inline; filename="{filename}"'
     return resp
+
+
+# ─── Phase 5 — Dépenses ──────────────────────────────────────────────────────
+
+def _expense_categories(school):
+    """Catégories disponibles : globales (school=NULL) + propres à l'école."""
+    from django.db.models import Q
+    from .models import ExpenseCategory
+    return (ExpenseCategory.objects
+            .filter(Q(school__isnull=True) | Q(school=school), is_active=True)
+            .order_by('-is_default', 'name'))
+
+
+def _expense_context(request, school, year, month, category_id, method):
+    """Liste + totaux d'un mois filtré (mutualisé dashboard + refresh OOB)."""
+    from django.db.models import Sum
+    from .models import Expense
+
+    qs = (Expense.objects
+          .filter(school=school, is_cancelled=False, date__year=year, date__month=month)
+          .select_related('category', 'paid_by')
+          .order_by('-date', '-created_at'))
+    if category_id:
+        qs = qs.filter(category_id=category_id)
+    if method:
+        qs = qs.filter(payment_method=method)
+    expenses = list(qs)
+
+    # Total + répartition par catégorie (sur le mois, hors filtres catégorie/mode)
+    base = Expense.objects.filter(school=school, is_cancelled=False, date__year=year, date__month=month)
+    total = base.aggregate(s=Sum('amount'))['s'] or 0
+    by_cat = list(
+        base.values('category__name', 'category__icon')
+        .annotate(s=Sum('amount')).order_by('-s')
+    )
+    for c in by_cat:
+        c['pct'] = int(c['s'] / total * 100) if total else 0
+
+    return {
+        'expenses': expenses, 'total': total, 'by_cat': by_cat,
+        'year': year, 'month': month, 'category_id': category_id, 'method': method,
+    }
+
+
+@login_required
+@director_or_accounting_required
+def expense_dashboard(request):
+    from apps.payments.models import PaymentMethod
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+
+    year, month = _parse_year_month(request)
+    category_id = request.GET.get('category') or ''
+    method = request.GET.get('method') or ''
+    try:
+        category_id = int(category_id) if category_id else ''
+    except ValueError:
+        category_id = ''
+
+    ctx = _expense_context(request, school, year, month, category_id, method)
+    prev_y, prev_m = (year, month - 1) if month > 1 else (year - 1, 12)
+    next_y, next_m = (year, month + 1) if month < 12 else (year + 1, 1)
+    ctx.update({
+        'school': school, 'categories': _expense_categories(school),
+        'methods': PaymentMethod.choices,
+        'month_label': _MOIS_FR[month].capitalize(),
+        'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
+    })
+    return render(request, 'accounting/expense_dashboard.html', ctx)
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def expense_create(request):
+    from datetime import datetime as _dt, date as _date
+    from apps.payments.models import PaymentMethod
+    from .models import Expense, ExpenseCategory
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+
+    amount = _parse_money(request.POST.get('amount'))
+    if amount is None or amount <= 0:
+        return _toast_error('Montant invalide.')
+
+    # Résolution catégorie : globale (school=NULL) ou propre à l'école
+    from django.db.models import Q
+    cat = ExpenseCategory.objects.filter(
+        Q(school__isnull=True) | Q(school=school),
+        pk=request.POST.get('category'), is_active=True,
+    ).first()
+    if cat is None:
+        return _toast_error('Catégorie invalide.')
+
+    try:
+        d = _dt.strptime(request.POST.get('date', ''), '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        d = _date.today()
+
+    method = request.POST.get('payment_method', 'cash')
+    if method not in {c[0] for c in PaymentMethod.choices}:
+        method = 'cash'
+
+    Expense.objects.create(
+        school=school, category=cat, amount=amount, date=d,
+        description=request.POST.get('description', '').strip()[:300],
+        payment_method=method, paid_by=request.user,
+    )
+
+    # Re-render liste + totaux du mois affiché
+    year, month = _parse_year_month(request)
+    ctx = _expense_context(request, school, year, month, '', '')
+    resp = render(request, 'accounting/partials/expense_list.html', ctx)
+    resp['HX-Trigger'] = json.dumps({
+        'showToast': {'message': 'Dépense enregistrée.', 'type': 'success'},
+        'close-expense-panel': True,
+    })
+    return resp
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def expense_cancel(request, expense_id):
+    from .models import Expense
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+
+    exp = get_object_or_404(Expense, pk=expense_id, school=school, is_cancelled=False)
+    exp.is_cancelled = True
+    exp.save(update_fields=['is_cancelled'])
+
+    year, month = _parse_year_month(request)
+    ctx = _expense_context(request, school, year, month, '', '')
+    resp = render(request, 'accounting/partials/expense_list.html', ctx)
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Dépense annulée.', 'type': 'info'}})
+    return resp
