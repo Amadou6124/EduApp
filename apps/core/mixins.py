@@ -128,6 +128,58 @@ def director_or_staff_required(view_func):
     return wrapper
 
 
+def director_or_accounting_required(view_func):
+    """
+    Réservé au directeur (rôle actif), superadmin, ou détenteur de
+    StaffPermission.can_manage_accounting. Sinon 403. À placer après @login_required.
+    """
+    from django.shortcuts import redirect
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect(reverse('accounts:login') + f'?next={request.path}')
+        allowed = (
+            get_active_role(request) == 'director'
+            or request.user.is_superuser
+        )
+        if not allowed:
+            sp = getattr(request.user, 'staff_permission', None)
+            allowed = bool(sp and sp.can_manage_accounting)
+        if not allowed:
+            return HttpResponseForbidden(
+                '<h1 style="font-family:sans-serif;padding:40px">403 — Accès comptabilité réservé.</h1>'
+            )
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def director_or_emargement_required(view_func):
+    """
+    Émargement : director / superuser / can_record_emargement / can_manage_accounting.
+    Sinon 403. À placer après @login_required.
+    """
+    from django.shortcuts import redirect
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect(reverse('accounts:login') + f'?next={request.path}')
+        allowed = (
+            get_active_role(request) == 'director'
+            or request.user.is_superuser
+        )
+        if not allowed:
+            sp = getattr(request.user, 'staff_permission', None)
+            allowed = bool(sp and (sp.can_record_emargement or sp.can_manage_accounting))
+        if not allowed:
+            return HttpResponseForbidden(
+                '<h1 style="font-family:sans-serif;padding:40px">403 — Accès émargement réservé.</h1>'
+            )
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 def promoter_required(view_func):
     """
     Réservé aux promoteurs : rôle actif 'promoter', OU propriétaire d'au moins

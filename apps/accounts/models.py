@@ -198,6 +198,10 @@ class StaffPermission(models.Model):
     can_view_classes = models.BooleanField(_('voir les classes'),     default=True)
     can_edit_classes = models.BooleanField(_('modifier les classes'), default=False)
 
+    # ── Comptabilité ──────────────────────────────────────────────
+    can_manage_accounting   = models.BooleanField(_('gérer la comptabilité'), default=False)
+    can_record_emargement   = models.BooleanField(_("émarger les enseignants"), default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -218,6 +222,7 @@ class StaffPermission(models.Model):
             can_create_payments=True,
             can_cancel_payments=False,
             can_view_students=True,
+            can_manage_accounting=True,
         )
 
     @classmethod
@@ -262,4 +267,5 @@ class StaffPermission(models.Model):
             can_view_payments=True,
             can_create_payments=True,
             can_view_classes=True,
+            can_record_emargement=True,
         )

@@ -1,0 +1,13 @@
+{% if results %}
+<div class="border border-gray-200 rounded-lg mt-1 bg-white shadow-sm overflow-hidden">
+  {% for u in results %}
+  <button type="button"
+          @click="pickSub('{{ cs }}', '{{ u.id }}', '{{ u.full_name|escapejs }}')"
+          class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+    {{ u.full_name }}
+  </button>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-[11px] text-gray-400 mt-1 px-1">Tapez au moins 2 lettres · aucun enseignant trouvé</p>
+{% endif %}
