@@ -2,7 +2,7 @@ import csv
 import io
 import json
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -10,7 +10,8 @@ from openpyxl.utils import get_column_letter
 
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
-from django.db.models import DecimalField, F, Q, Subquery, OuterRef, Sum
+from django.core.paginator import Paginator
+from django.db.models import Count, DecimalField, F, Q, Subquery, OuterRef, Sum
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -218,7 +219,7 @@ def student_detail(request, student_id):
         observations = list(
             StudentObservation.objects
             .filter(student=student, school=school, is_private=False)
-            .select_related('teacher', 'read_by')
+            .select_related('student', 'student__school_class', 'teacher', 'read_by')
             .order_by('-created_at')
         )
 
@@ -227,11 +228,48 @@ def student_detail(request, student_id):
         .order_by('-is_primary', 'created_at')
     )
 
+    # ── Enrichissement fiche (mono-élève → requêtes directes, pas de N+1) ──
+    from apps.teachers.models import Attendance
+    from apps.schools.models import Note, Period
+
+    today = timezone.now().date()
+    absences_recentes = list(
+        Attendance.objects
+        .filter(student=student, date__gte=today - timedelta(days=30))
+        .select_related('teacher')
+        .order_by('-date')
+    )
+
+    active_period = (
+        Period.objects
+        .filter(school_year__school=school, school_year__is_active=True)
+        .order_by('-is_notes_open', 'order')
+        .first()
+    )
+    notes_periode = []
+    if active_period:
+        notes_periode = list(
+            Note.objects
+            .filter(student=student, period=active_period, is_cancelled=False)
+            .select_related('class_subject', 'class_subject__subject')
+            .order_by('class_subject__order', 'class_subject__subject__name', 'entered_at')
+        )
+
+    notifs_parents = list(
+        student.notifications
+        .select_related('recipient')
+        .order_by('-created_at')[:20]
+    )
+
     return render(request, 'students/student_detail.html', {
-        'student':      student,
-        'school':       school,
-        'observations': observations,
-        'guardians':    guardians,
+        'student':           student,
+        'school':            school,
+        'observations':      observations,
+        'guardians':         guardians,
+        'absences_recentes': absences_recentes,
+        'notes_periode':     notes_periode,
+        'active_period':     active_period,
+        'notifs_parents':    notifs_parents,
     })
 
 
@@ -242,7 +280,9 @@ def observation_mark_read(request, student_id, obs_id):
 
     school = get_school(request)
     obs = get_object_or_404(
-        StudentObservation,
+        StudentObservation.objects.select_related(
+            'student', 'student__school_class', 'teacher', 'read_by',
+        ),
         pk=obs_id,
         student_id=student_id,
         school=school,
@@ -254,12 +294,57 @@ def observation_mark_read(request, student_id, obs_id):
         obs.read_by = request.user
         obs.save(update_fields=['is_read', 'read_at', 'read_by'])
 
-    return HttpResponse(
-        f'<span id="obs-mark-btn-{obs.pk}" '
-        f'class="text-xs text-gray-400 flex items-center gap-1">'
-        f'✓ Lu le {obs.read_at.strftime("%d/%m/%Y")}'
-        f'</span>'
+    # Retourne la card complète re-rendue (swap closest .obs-card)
+    return render(request, 'students/partials/obs_card.html', {
+        'obs': obs, 'student': obs.student,
+    })
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def observation_share_parent(request, student_id, obs_id):
+    """Toggle le partage d'une observation (non-privée) vers les parents + notifie."""
+    from apps.teachers.models import StudentObservation
+    from apps.notifications.services import notify_guardians
+    from apps.notifications.models import NotificationCategory
+
+    school = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school)
+    obs = get_object_or_404(
+        StudentObservation,
+        id=obs_id,
+        student=student,
+        is_private=False,
     )
+
+    if obs.is_visible_to_parent:
+        # Déjà partagé → retirer
+        obs.is_visible_to_parent = False
+        obs.save(update_fields=['is_visible_to_parent'])
+        msg, notif_type = 'Observation retirée du portail parent.', 'info'
+    else:
+        # Partager + notifier les parents
+        obs.is_visible_to_parent = True
+        obs.save(update_fields=['is_visible_to_parent'])
+        message = obs.parent_message or obs.content[:100]
+        notify_guardians(
+            student=student,
+            category=NotificationCategory.OBSERVATION,
+            title=f"Message de l'école concernant {student.full_name}",
+            body=message,
+            url='/portal/parent/',
+            target=obs,
+        )
+        msg, notif_type = 'Observation partagée avec les parents.', 'success'
+
+    resp = render(request, 'students/partials/obs_share_button.html', {
+        'obs': obs, 'student': student,
+    })
+    resp['HX-Trigger'] = json.dumps({
+        'showToast': {'message': msg, 'type': notif_type},
+    })
+    return resp
 
 
 @login_required
@@ -736,3 +821,173 @@ def guardian_remove(request, student_id, guardian_id):
             nxt.save(update_fields=['is_primary'])
 
     return _render_guardian_section(request, student, toast=f'{name} retiré.', toast_type='info')
+
+
+# ─────────────────────────────────────────────────────────────
+# Suivi global des élèves (admin) — /students/suivi/
+# ─────────────────────────────────────────────────────────────
+
+def _difficulty_flagged(school):
+    """(abs_map, bul_map, obs_map, active_period, flagged_ids) — partagé entre la page et l'onglet."""
+    from apps.teachers.models import Attendance, StudentObservation
+    from apps.schools.models import Bulletin
+
+    today = date.today()
+    month_start = today.replace(day=1)
+
+    active_year = school.school_years.filter(is_active=True).first()
+    active_period = None
+    if active_year:
+        active_period = (
+            active_year.periods.filter(is_notes_open=True).first()
+            or active_year.periods.order_by('-order').first()
+        )
+
+    abs_map = dict(
+        Attendance.objects.filter(school=school, status='absent', date__gte=month_start)
+        .values('student_id').annotate(n=Count('id')).values_list('student_id', 'n')
+    )
+    bul_map = {}
+    if active_period:
+        bul_map = dict(
+            Bulletin.objects.filter(student__school=school, is_cancelled=False, period=active_period)
+            .values_list('student_id', 'general_average')
+        )
+    obs_map = dict(
+        StudentObservation.objects.filter(school=school, is_private=False, is_read=False)
+        .values('student_id').annotate(n=Count('id')).values_list('student_id', 'n')
+    )
+    flagged_ids = (
+        {sid for sid, n in abs_map.items() if n >= 3}
+        | {sid for sid, avg in bul_map.items() if avg is not None and avg < 10}
+        | set(obs_map)
+    )
+    return abs_map, bul_map, obs_map, active_period, flagged_ids
+
+
+@login_required
+@director_or_staff_required
+def student_tracking(request):
+    """Page suivi global (3 onglets HTMX). Stats résumé chargées d'emblée."""
+    from apps.teachers.models import Attendance, StudentObservation
+    from apps.notifications.models import Notification
+
+    school = get_school(request)
+    tab = request.GET.get('tab', 'absences')
+
+    classes = school.classes.filter(is_active=True).order_by('level', 'name')
+
+    today = timezone.now().date()
+    month_start = today.replace(day=1)
+    _, _, _, _, flagged_ids = _difficulty_flagged(school)
+    stats = {
+        'absences_today': Attendance.objects.filter(
+            school=school, status='absent', date=today,
+        ).count(),
+        'obs_unread': StudentObservation.objects.filter(
+            school=school, is_private=False, is_read=False,
+        ).count(),
+        'difficulty_count': len(flagged_ids),
+        'notifs_sent_month': Notification.objects.filter(
+            school=school, created_at__date__gte=month_start,
+        ).count(),
+    }
+
+    return render(request, 'students/tracking.html', {
+        'classes': classes,
+        'tab': tab,
+        'stats': stats,
+        'school': school,
+    })
+
+
+@login_required
+@director_or_staff_required
+def tracking_absences(request):
+    from apps.teachers.models import Attendance
+
+    school   = get_school(request)
+    class_id = request.GET.get('class')
+    periode  = request.GET.get('periode', 'today')
+    today    = date.today()
+
+    qs = (
+        Attendance.objects
+        .filter(school=school, status__in=['absent', 'late'])
+        .select_related('student', 'school_class', 'teacher')
+        .order_by('-date')
+    )
+    if class_id:
+        qs = qs.filter(school_class_id=class_id)
+    if periode == 'today':
+        qs = qs.filter(date=today)
+    elif periode == 'week':
+        qs = qs.filter(date__gte=today - timedelta(days=7))
+    elif periode == 'month':
+        qs = qs.filter(date__gte=today.replace(day=1))
+
+    page = Paginator(qs, 50).get_page(request.GET.get('page', 1))
+    classes = school.classes.filter(is_active=True).order_by('level', 'name')
+    return render(request, 'students/partials/tracking_absences.html', {
+        'absences': page, 'periode': periode, 'class_id': class_id, 'classes': classes,
+    })
+
+
+@login_required
+@director_or_staff_required
+def tracking_observations(request):
+    from apps.teachers.models import StudentObservation
+
+    school = get_school(request)
+    filtre = request.GET.get('filtre', 'all')
+
+    qs = (
+        StudentObservation.objects
+        .filter(school=school, is_private=False)
+        .select_related('student', 'student__school_class', 'teacher', 'read_by')
+        .order_by('-created_at')
+    )
+    if filtre == 'unread':
+        qs = qs.filter(is_read=False)
+    elif filtre == 'shared':
+        qs = qs.filter(is_visible_to_parent=True)
+
+    page = Paginator(qs, 50).get_page(request.GET.get('page', 1))
+    return render(request, 'students/partials/tracking_observations.html', {
+        'observations': page, 'filtre': filtre,
+    })
+
+
+@login_required
+@director_or_staff_required
+def tracking_difficulty(request):
+    """Élèves signalés : absences>=3/mois OU moy<10 OU observations non lues. 4 requêtes."""
+    school = get_school(request)
+    abs_map, bul_map, obs_map, active_period, flagged_ids = _difficulty_flagged(school)
+
+    students = (
+        Student.objects
+        .filter(id__in=flagged_ids, school=school, is_active=True)
+        .select_related('school_class')
+    )
+
+    results = []
+    for s in students:
+        abs_count = abs_map.get(s.pk, 0)
+        avg = bul_map.get(s.pk)
+        obs_count = obs_map.get(s.pk, 0)
+        score = (
+            2 * (abs_count >= 3)
+            + 2 * (avg is not None and avg < 10)
+            + 1 * (obs_count > 0)
+        )
+        results.append({
+            'student': s, 'absences': abs_count, 'average': avg,
+            'obs_unread': obs_count, 'score': score,
+            'level': 'critical' if score >= 4 else ('warning' if score >= 2 else 'watch'),
+        })
+    results.sort(key=lambda x: -x['score'])
+
+    return render(request, 'students/partials/tracking_difficulty.html', {
+        'results': results, 'period': active_period,
+    })

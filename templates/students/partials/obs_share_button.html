@@ -1,0 +1,16 @@
+{# Bouton toggle "Partager au parent" — swappé en place après chaque POST. #}
+<div id="obs-share-btn-{{ obs.id }}">
+  {% if not obs.is_private %}
+  <form hx-post="{% url 'students:obs-share-parent' student.id obs.id %}"
+        hx-target="#obs-share-btn-{{ obs.id }}" hx-swap="outerHTML">
+    {% csrf_token %}
+    <button type="submit"
+            class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition
+            {% if obs.is_visible_to_parent %}bg-green-100 text-green-700 hover:bg-green-200{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+      <i data-lucide="{% if obs.is_visible_to_parent %}eye{% else %}eye-off{% endif %}" class="w-3.5 h-3.5"></i>
+      {% if obs.is_visible_to_parent %}Visible par parent{% else %}Partager au parent{% endif %}
+    </button>
+  </form>
+  {% endif %}
+  <script>if(window.lucide)lucide.createIcons();</script>
+</div>

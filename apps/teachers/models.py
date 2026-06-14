@@ -113,6 +113,17 @@ class StudentObservation(models.Model):
     content    = models.TextField(_('contenu'))
     created_at = models.DateTimeField(_('rédigée le'), auto_now_add=True)
     is_private = models.BooleanField(_('note privée'), default=True)
+    # Partage parent : décidé par l'admin sur une observation non-privée
+    is_visible_to_parent = models.BooleanField(
+        _('visible par le parent'),
+        default=False,
+        help_text=_('Coché par l\'admin pour partager avec les parents de l\'élève'),
+    )
+    parent_message = models.TextField(
+        _('message pour le parent'),
+        blank=True,
+        help_text=_('Message reformulé pour le parent (optionnel)'),
+    )
     # Badge "non-lu" pour notification admin (visible uniquement si is_private=False)
     is_read = models.BooleanField(_('lue par admin'), default=False)
     read_at = models.DateTimeField(_('lue le'), null=True, blank=True)

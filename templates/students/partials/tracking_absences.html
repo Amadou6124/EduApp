@@ -1,0 +1,63 @@
+{# Onglet Absences — filtres + tableau paginé #}
+<div>
+  {# Filtres #}
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="inline-flex bg-gray-100 rounded-lg p-0.5">
+      <button hx-get="{% url 'students:suivi-absences' %}?periode=today{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if periode == 'today' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Aujourd'hui</button>
+      <button hx-get="{% url 'students:suivi-absences' %}?periode=week{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if periode == 'week' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Cette semaine</button>
+      <button hx-get="{% url 'students:suivi-absences' %}?periode=month{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if periode == 'month' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Ce mois</button>
+    </div>
+    <select hx-get="{% url 'students:suivi-absences' %}?periode={{ periode }}" hx-target="#tracking-content" name="class"
+            class="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white">
+      <option value="">Toutes les classes</option>
+      {% for c in classes %}<option value="{{ c.id }}" {% if class_id == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </div>
+
+  {% if absences %}
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
+          <th class="px-4 py-2.5 font-semibold">Date</th>
+          <th class="px-4 py-2.5 font-semibold">Classe</th>
+          <th class="px-4 py-2.5 font-semibold">Élève</th>
+          <th class="px-4 py-2.5 font-semibold">Statut</th>
+          <th class="px-4 py-2.5 font-semibold">Professeur</th>
+        </tr></thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for a in absences %}
+          <tr class="hover:bg-gray-50/50">
+            <td class="px-4 py-2.5 whitespace-nowrap text-gray-600">{{ a.date|date:"d/m/Y" }}</td>
+            <td class="px-4 py-2.5 text-gray-500">{{ a.school_class.name }}</td>
+            <td class="px-4 py-2.5"><a href="{% url 'students:detail' a.student.id %}" class="font-medium text-gray-900 hover:text-brand-blue">{{ a.student.full_name }}</a></td>
+            <td class="px-4 py-2.5">
+              {% if a.status == 'absent' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Absent</span>
+              {% else %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Retard</span>{% endif %}
+            </td>
+            <td class="px-4 py-2.5 text-gray-500">{% if a.teacher %}{{ a.teacher.full_name }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if absences.has_other_pages %}
+  <div class="flex items-center justify-center gap-2 mt-4 text-sm">
+    {% if absences.has_previous %}<button hx-get="{% url 'students:suivi-absences' %}?periode={{ periode }}{% if class_id %}&class={{ class_id }}{% endif %}&page={{ absences.previous_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">←</button>{% endif %}
+    <span class="text-gray-400">{{ absences.number }} / {{ absences.paginator.num_pages }}</span>
+    {% if absences.has_next %}<button hx-get="{% url 'students:suivi-absences' %}?periode={{ periode }}{% if class_id %}&class={{ class_id }}{% endif %}&page={{ absences.next_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">→</button>{% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-100 p-10 text-center">
+    <i data-lucide="check-circle" class="w-10 h-10 mx-auto text-green-400 mb-2"></i>
+    <p class="text-sm text-gray-400">Aucune absence sur cette période</p>
+  </div>
+  {% endif %}
+</div>

@@ -366,6 +366,13 @@ def attendance_save(request, class_id):
         and e.get('status') in valid
     ]
 
+    # Absents déjà enregistrés pour ce jour AVANT réécriture → évite de re-notifier
+    existing_absent_ids = set(
+        Attendance.objects.filter(
+            school=school, school_class=school_class, date=session_date, status='absent',
+        ).values_list('student_id', flat=True)
+    )
+
     with transaction.atomic():
         Attendance.objects.filter(
             school=school, school_class=school_class, date=session_date,
@@ -382,6 +389,25 @@ def attendance_save(request, class_id):
                 )
                 for e in absent_entries
             ], ignore_conflicts=True)
+
+    # Notifier les parents des élèves NOUVELLEMENT absents (jamais bloquant)
+    new_absent_ids = {
+        int(e['id']) for e in absent_entries if e['status'] == 'absent'
+    } - existing_absent_ids
+    if new_absent_ids:
+        try:
+            from apps.notifications.services import notify_guardians
+            from apps.notifications.models import NotificationCategory
+            for st in Student.objects.filter(id__in=new_absent_ids, school=school):
+                notify_guardians(
+                    student=st,
+                    category=NotificationCategory.ABSENCE,
+                    title=f'{st.full_name} était absent(e)',
+                    body=f'Absence enregistrée le {session_date}.',
+                    url='/portal/parent/',
+                )
+        except Exception:
+            pass
 
     nb  = len(absent_entries)
     msg = f"Présences de {school_class.name} enregistrées"

@@ -179,6 +179,21 @@ def payment_create(request, student_id):
         payment.save()
         invalidate_dashboard_cache(school)
 
+        # Notifier les parents (jamais bloquant)
+        try:
+            from apps.notifications.services import notify_guardians
+            from apps.notifications.models import NotificationCategory
+            notify_guardians(
+                student=student,
+                category=NotificationCategory.PAYMENT,
+                title='Paiement enregistré',
+                body=f'{payment.amount:,.0f} FCFA reçus le {payment.payment_date}.',
+                url='/portal/parent/payments/',
+                target=payment,
+            )
+        except Exception:
+            pass
+
         balance_after = student.get_balance_due()
 
         # Re-fetch les stats + liste pour OOB

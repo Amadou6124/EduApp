@@ -49,6 +49,7 @@ urlpatterns = [
     path('superadmin/', include('apps.accounts.superadmin_urls')),
     path('teacher/',    include('apps.teachers.urls')),
     path('promoter/',   include('apps.promoter.urls')),
+    path('portal/parent/', include('apps.parent.urls')),
     path('media/<path:path>', protected_media, name='protected-media'),
 ]
 

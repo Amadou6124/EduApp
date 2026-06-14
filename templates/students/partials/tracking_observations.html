@@ -1,0 +1,34 @@
+{% load humanize %}
+{# Onglet Observations — filtres + timeline paginée #}
+<div>
+  <div class="inline-flex bg-gray-100 rounded-lg p-0.5 mb-4">
+    <button hx-get="{% url 'students:suivi-observations' %}?filtre=all" hx-target="#tracking-content"
+            class="px-3 py-1.5 rounded-md text-xs font-medium {% if filtre == 'all' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Toutes</button>
+    <button hx-get="{% url 'students:suivi-observations' %}?filtre=unread" hx-target="#tracking-content"
+            class="px-3 py-1.5 rounded-md text-xs font-medium {% if filtre == 'unread' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Non lues</button>
+    <button hx-get="{% url 'students:suivi-observations' %}?filtre=shared" hx-target="#tracking-content"
+            class="px-3 py-1.5 rounded-md text-xs font-medium {% if filtre == 'shared' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Partagées parent</button>
+  </div>
+
+  {% if observations %}
+  <div class="space-y-3">
+    {% for o in observations %}
+    {% include "students/partials/obs_card.html" with obs=o %}
+    {% endfor %}
+  </div>
+
+  {% if observations.has_other_pages %}
+  <div class="flex items-center justify-center gap-2 mt-4 text-sm">
+    {% if observations.has_previous %}<button hx-get="{% url 'students:suivi-observations' %}?filtre={{ filtre }}&page={{ observations.previous_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">←</button>{% endif %}
+    <span class="text-gray-400">{{ observations.number }} / {{ observations.paginator.num_pages }}</span>
+    {% if observations.has_next %}<button hx-get="{% url 'students:suivi-observations' %}?filtre={{ filtre }}&page={{ observations.next_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">→</button>{% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-100 p-10 text-center">
+    <i data-lucide="message-square" class="w-10 h-10 mx-auto text-gray-300 mb-2"></i>
+    <p class="text-sm text-gray-400">Aucune observation</p>
+  </div>
+  {% endif %}
+</div>

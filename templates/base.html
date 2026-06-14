@@ -170,6 +170,17 @@
           <span x-show="$store.sidebar.open">Mon tableau de bord</span>
         </a>
 
+        {% elif request.role == 'parent' %}
+        {# Parent : uniquement son espace #}
+        <a href="{% url 'parent:dashboard' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.app_name == 'parent' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Mon espace'">
+          <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mon espace</span>
+        </a>
+
         {% else %}
         <!-- Dashboard -->
         <a href="{% url 'dashboard:main' %}"
@@ -194,7 +205,7 @@
         <!-- Élèves -->
         <a href="{% url 'students:list' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'students' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'students' and request.resolver_match.url_name != 'suivi' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Élèves'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
@@ -207,6 +218,16 @@
             {{ unread_observations_count }}
           </span>
           {% endif %}
+        </a>
+
+        <!-- Suivi élèves -->
+        <a href="{% url 'students:suivi' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'suivi' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Suivi'">
+          <i data-lucide="activity" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Suivi élèves</span>
         </a>
 
         <!-- Paiements -->
@@ -678,6 +699,16 @@
       <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.app_name == 'promoter' %}bg-brand-blue/10 rounded-xl{% endif %}">
         <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'promoter' %}text-brand-blue{% else %}text-gray-400{% endif %}"></i>
         <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'promoter' %}font-semibold text-brand-blue{% else %}text-gray-400{% endif %}">Tableau de bord</span>
+      </span>
+    </a>
+
+    {% elif request.role == 'parent' %}
+    {# ── Nav mobile PARENT : un seul item centré ── #}
+    <a href="{% url 'parent:dashboard' %}"
+       class="flex-1 flex flex-col items-center justify-center">
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.app_name == 'parent' %}bg-brand-blue/10 rounded-xl{% endif %}">
+        <i data-lucide="users" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'parent' %}text-brand-blue{% else %}text-gray-400{% endif %}"></i>
+        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'parent' %}font-semibold text-brand-blue{% else %}text-gray-400{% endif %}">Mon espace</span>
       </span>
     </a>
 

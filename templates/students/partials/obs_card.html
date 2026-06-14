@@ -1,0 +1,37 @@
+{% load humanize %}{# Card observation réutilisable (tracking + fiche élève). Requiert : obs (avec .student chargé). #}
+<div class="obs-card rounded-xl border p-4 {% if not obs.is_read %}border-blue-200 bg-blue-50/30{% else %}border-gray-100 bg-white{% endif %}"
+     id="obs-card-{{ obs.id }}">
+  <div class="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+    <div class="flex items-center gap-2">
+      {% if obs.observation_type == 'behaviour' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Comportement</span>
+      {% elif obs.observation_type == 'academic' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">Académique</span>
+      {% elif obs.observation_type == 'health' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Santé</span>
+      {% else %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">Autre</span>{% endif %}
+      {% if not obs.is_read %}<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500 text-white">Nouveau</span>{% endif %}
+      {% if obs.is_visible_to_parent %}<span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700">Partagé parent</span>{% endif %}
+    </div>
+    <span class="text-[11px] text-gray-400 shrink-0">{{ obs.created_at|naturaltime }}</span>
+  </div>
+
+  <p class="text-sm font-medium text-gray-900">{{ obs.student.full_name }} <span class="font-normal text-gray-400">· {{ obs.student.school_class.name }}</span></p>
+  <p class="text-sm text-gray-600 mt-1 leading-relaxed">{{ obs.content }}</p>
+  <p class="text-[11px] text-gray-400 mt-1.5">{% if obs.teacher %}{{ obs.teacher.full_name }}{% endif %}</p>
+
+  <div class="flex items-center gap-2 flex-wrap mt-3">
+    {% if not obs.is_read %}
+    <button hx-post="{% url 'students:obs-mark-read' obs.student.id obs.id %}"
+            hx-target="closest .obs-card" hx-swap="outerHTML"
+            class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 font-medium transition">
+      <i data-lucide="check" class="w-3.5 h-3.5"></i> Marquer lu
+    </button>
+    {% endif %}
+
+    {% include "students/partials/obs_share_button.html" with obs=obs student=obs.student %}
+
+    <a href="{% url 'students:detail' obs.student.id %}"
+       class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium transition">
+      <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Voir fiche
+    </a>
+  </div>
+  <script>if(window.lucide)lucide.createIcons();</script>
+</div>

@@ -341,6 +341,55 @@ def generate_student_bulletin(request, student_id, period_id):
     return response
 
 
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def bulletin_publish(request, bulletin_id):
+    """Publie un bulletin (is_published=True) et notifie les parents. Renvoie la ligne re-rendue."""
+    from django.utils import timezone
+
+    school = get_school(request)
+    bulletin = get_object_or_404(
+        Bulletin.objects.select_related('student', 'period', 'period__school_year'),
+        pk=bulletin_id, student__school=school, is_cancelled=False,
+    )
+
+    if not bulletin.is_published:
+        bulletin.is_published = True
+        bulletin.published_at = timezone.now()
+        bulletin.save(update_fields=['is_published', 'published_at'])
+
+        # Notifier les parents (jamais bloquant)
+        try:
+            from apps.notifications.services import notify_guardians
+            from apps.notifications.models import NotificationCategory
+            notify_guardians(
+                student=bulletin.student,
+                category=NotificationCategory.BULLETIN,
+                title=f'Bulletin disponible — {bulletin.period.name}',
+                body=(
+                    f'Le bulletin de {bulletin.student.full_name} '
+                    f'pour {bulletin.period.name} est disponible.'
+                ),
+                url='/portal/parent/bulletins/',
+                target=bulletin,
+            )
+        except Exception:
+            pass
+
+    response = render(request, 'bulletins/partials/bulletin_row.html', {
+        'student':  bulletin.student,
+        'bulletin': bulletin,
+    })
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {
+            'message': f'Bulletin de {bulletin.student.full_name} publié.',
+            'type': 'success',
+        },
+    })
+    return response
+
+
 # ─────────────────────────────────────────────────────────────
 # Vue 7-9 : Preview / Download
 # ─────────────────────────────────────────────────────────────
