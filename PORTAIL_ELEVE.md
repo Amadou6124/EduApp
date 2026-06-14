@@ -204,6 +204,15 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] `ANTHROPIC_API_KEY` via `decouple.config()` (.env, gitignored) ; modèle `claude-sonnet-4-6`, `max_tokens=16000`
 - [ ] Fallback Gemini : préparé (param `provider`), implémentation V2
 
+### PHASE 3 — Interface upload prof ✅ Terminée
+- [x] `teacher_required` déplacé dans `apps/core/mixins.py` (import mis à jour dans teachers/views.py, `wraps` retiré)
+- [x] `apps/lessons/views.py` : `lesson_list`, `lesson_upload` (validation + génération thread daemon), `lesson_detail` (stats + aperçu quiz + classes déploiement), `lesson_status` (polling HTMX, HX-Refresh sur états terminaux), `lesson_retry`
+- [x] `apps/lessons/urls.py` (namespace `lessons`) monté sur `/teacher/lessons/`
+- [x] Templates : `list.html` (stats + cards + état vide), `upload.html` (form 2 sections + drag&drop Alpine), `detail.html` (3 états processing/ready/error), `partials/lesson_status_card.html` (polling 2s)
+- [x] Sidebar « Mes leçons » (section teacher)
+- [x] Génération en thread d'arrière-plan (pas de Celery) ; statut via **polling HTMX** (robuste gunicorn)
+- [x] Tests : list/upload/detail (3 états)/status (HX) — tous OK ; `check` clean
+
 ### Phases suivantes (à venir)
-3. Upload prof · 4. Dashboard élève · 5. Lecture leçon · 6. Quiz engine
+4. Dashboard élève · 5. Lecture leçon · 6. Quiz engine
 7. Nodes hexagonaux · 8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements

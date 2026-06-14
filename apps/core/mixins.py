@@ -225,6 +225,24 @@ def parent_required(view_func):
     return wrapper
 
 
+def teacher_required(view_func):
+    """
+    Réservé aux enseignants (rôle actif 'teacher') et superadmins.
+    Sinon → notes:dashboard. À placer après @login_required.
+    """
+    from django.shortcuts import redirect
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        # Rôle de l'école active (multi-école), fallback legacy User.role
+        if get_active_role(request) != 'teacher' and not request.user.is_superuser:
+            return redirect('notes:dashboard')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 class SchoolMixin(AccessMixin):
     """
     Mixin pour les vues basées sur les classes (CBV).

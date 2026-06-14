@@ -1,0 +1,17 @@
+{# Partial polling HTMX. Tant que status=processing, ré-interroge toutes les 2s.
+   Le passage à ready/error renvoie HX-Refresh (côté vue) → la page se recharge. #}
+<div id="lesson-status"
+     hx-get="{% url 'lessons:status' lesson.id %}"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML"
+     hx-target="this"
+     class="bg-white rounded-2xl border border-gray-200 p-10 text-center">
+  <div class="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+    <i data-lucide="loader" class="w-7 h-7 text-amber-500 animate-spin"></i>
+  </div>
+  <p class="font-semibold text-gray-800 mb-1">L'IA génère votre leçon…</p>
+  <p class="text-sm text-gray-400 mb-5">Structuration du contenu, quiz, story et flashcards. Cela prend environ 30-60s.</p>
+  <div class="h-1.5 w-48 mx-auto bg-gray-100 rounded-full overflow-hidden">
+    <div class="h-full w-1/3 bg-amber-400 rounded-full animate-pulse"></div>
+  </div>
+</div>
