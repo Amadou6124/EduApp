@@ -193,6 +193,17 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] Migrations : `students/0005`, `lessons/0001`, `student_learning/0001` appliquées, `check` OK
 - [x] Fix : `Flashcard.next_review_date` → `default=timezone.localdate` (date, pas datetime)
 
+### PHASE 2 — Service IA (génération) ✅ Terminée
+- [x] `apps/lessons/services.py`
+- [x] `extract_content_from_file` : pdfplumber (PDF texte) → pypdfium2 rendu images (PDF scanné) → base64 (photo)
+- [x] `build_generation_prompt` : assemblage par `str.replace` (prompt plein d'accolades JSON → `.format` impossible)
+- [x] `generate_lesson_with_ai` : Claude single-pass (texte OU images), prefill `{`, mapping 4 JSONField, coût USD persisté, statut PROCESSING→READY/ERROR
+- [x] `_parse_and_validate` : parse + validation clés obligatoires (`quiz.quizzes`, `flashcards.flashcards`)
+- [x] `validate_lesson_file` : magic bytes (PDF/JPG/PNG) + max 10 Mo
+- [x] `SYSTEM_PROMPT` (single-pass, personnages maliens, types quiz par subject_type, garde `code_completion`) + `EXTRACTION_PROMPT` (option future)
+- [x] `ANTHROPIC_API_KEY` via `decouple.config()` (.env, gitignored) ; modèle `claude-sonnet-4-6`, `max_tokens=16000`
+- [ ] Fallback Gemini : préparé (param `provider`), implémentation V2
+
 ### Phases suivantes (à venir)
-2. Service IA · 3. Upload prof · 4. Dashboard élève · 5. Lecture leçon · 6. Quiz engine
+3. Upload prof · 4. Dashboard élève · 5. Lecture leçon · 6. Quiz engine
 7. Nodes hexagonaux · 8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements
