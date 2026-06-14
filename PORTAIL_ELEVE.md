@@ -245,5 +245,18 @@ Option retenue : **StudentProfile (OneToOne User)** plutôt que champs sur User
 - [x] Décisions : question par question + feedback immédiat serveur (a) · +5 anti-farming (b) · 6 types sans matching (d)
 - [x] Tests : 6 evaluateurs · anti-leak réponses · anti-farming · bonus idempotent · mastery node — tous verts
 
+### PHASE 7 — Nodes hexagonaux « Ruche Vivante » ✅ Terminée
+- [x] Glassmorphism : `backdrop-filter: blur`, bordure lumineuse (hex teinté ::before + verre inset), glow hexagonal via `filter: drop-shadow` (suit la forme, contrairement à box-shadow clippé)
+- [x] Pulse continu sur node actif (`hexPulse` drop-shadow) + particules ⭐✨ flottantes pur CSS (`floatParticle`)
+- [x] Badge numéro `01/02/03` (mono) + % maîtrise sous chaque node
+- [x] Connecteurs verticaux colorés par état (vert lumineux / orange pointillé animé / gris)
+- [x] Tooltip slide-from-bottom (Alpine `openNode`, 1 state partagé, data-* attributes) : badge matière, statut, barre maîtrise, bouton Commencer/Continuer contextuel
+- [x] Fond animé `gradientShift` (background-image sur body, n'écrase pas la couleur Tailwind)
+- [x] Confettis Canvas pur JS (`launchConfetti`) déclenchés à l'arrivée après complétion (`learn_toast`)
+- [x] `[x-cloak]` ajouté à student.css (absent de base_student) — anti-flash du panel
+- [x] Progressive enhancement : nodes = `<a href>` (fallback natif) + `@click.prevent` (panel une fois Alpine hydraté) ; fix CSS `display:block` (un `<a>` ignore width/height sinon) ; fix commentaire `{# #}` mono-ligne
+- [x] Accès libre (pas de lock, décision a) · trait CSS (b) · tap (c) · pas de pagination (d)
+- [x] Vue inchangée (mastery déjà fourni Phase 6) ; `check` OK ; **vérifié navigateur** (glow, pulse, particules, connecteurs, panel)
+
 ### Phases suivantes (à venir)
 8. Flashcards SM-2 · 9. Gamification · 10. Stories · 11. Répétition espacée · 12. Abonnements

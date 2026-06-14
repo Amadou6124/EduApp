@@ -3,6 +3,17 @@
 
 {% block title %}Accueil — EduApp{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* Fond animé du dashboard (background-image → couvre la couleur Tailwind du body) */
+  body {
+    background-image: linear-gradient(-45deg, #F8F9FC, #EEF2FF, #F0FDF4, #FFF7ED);
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 {% if learn_toast %}
 <div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg"
@@ -10,7 +21,10 @@
   {{ learn_toast }}
 </div>
 {% endif %}
-<div class="px-4 pt-4 pb-2">
+
+<canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
+
+<div class="px-4 pt-4 pb-2" x-data="{ openNode: null }">
 
   {# Leçon en cours #}
   {% if current_lesson_progress %}
@@ -24,13 +38,13 @@
   </a>
   {% endif %}
 
-  {# Sélecteur de matières (style Duolingo) #}
+  {# Sélecteur de matières #}
   {% if subjects %}
   <div class="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide -mx-4 px-4">
     {% for subject in subjects %}
     <a href="?subject={{ subject.name|urlencode }}"
        class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition whitespace-nowrap
-              {% if subject.name == active_subject %}bg-brand-blue text-white shadow-md{% else %}bg-white text-gray-600 border border-gray-200 hover:border-brand-blue{% endif %}">
+              {% if subject.name == active_subject %}bg-brand-blue text-white shadow-md{% else %}bg-white/70 backdrop-blur text-gray-600 border border-gray-200 hover:border-brand-blue{% endif %}">
       {% if subject.type == 'math' %}🔢{% elif subject.type == 'scientific' %}🔬{% elif subject.type == 'literary' %}📖{% elif subject.type == 'language' %}🌍{% elif subject.type == 'geography' %}🗺️{% elif subject.type == 'accounting' %}💰{% elif subject.type == 'code' %}💻{% else %}📚{% endif %}
       {{ subject.name }}
     </a>
@@ -46,24 +60,37 @@
   </div>
   {% endif %}
 
-  {# NODES HEXAGONAUX #}
+  {# ── RUCHE VIVANTE : nodes glassmorphism ── #}
   {% if lessons_data %}
   <div class="hex-grid mb-6">
     {% for item in lessons_data %}
+    {% with state=item.node_state %}
     <div class="hex-row {% if forloop.counter|divisibleby:2 %}hex-row-offset{% endif %}">
+      {# Progressive enhancement : href = fallback natif ; @click.prevent ouvre le panel une fois Alpine hydraté #}
       <a href="{% url 'learn:lesson' item.lesson.id %}"
-         class="hex-node {% if item.node_state == 'completed' %}hex-node-done{% elif item.node_state == 'in_progress' %}hex-node-progress{% else %}hex-node-new{% endif %} active:scale-95">
-        <div class="hex-content">
-          {% if item.node_state == 'completed' %}<span class="text-xl">✅</span>{% elif item.node_state == 'in_progress' %}<span class="text-xl">▶️</span>{% else %}<span class="text-xl">⭐</span>{% endif %}
-          <span class="text-[9px] font-semibold leading-tight text-center mt-0.5 max-w-[60px] overflow-hidden line-clamp-2">{{ item.lesson.title|truncatechars:20 }}</span>
+        class="hex-node {% if state == 'completed' %}hex-node-done{% elif state == 'in_progress' %}hex-node-progress hex-pulse{% else %}hex-node-new{% endif %}"
+        data-title="{{ item.lesson.title }}"
+        data-subject="{{ item.lesson.subject }}"
+        data-stype="{{ item.lesson.subject_type }}"
+        data-mastery="{{ item.mastery }}"
+        data-state="{{ state }}"
+        data-url="{% url 'learn:lesson' item.lesson.id %}"
+        @click.prevent="openNode = { ...$el.dataset }">
+        <div class="hex-shape">
+          <span class="hex-num">{{ forloop.counter|stringformat:'02d' }}</span>
+          <span class="hex-icon">{% if state == 'completed' %}✅{% elif state == 'in_progress' %}▶️{% else %}⭐{% endif %}</span>
+          <span class="hex-title">{{ item.lesson.title|truncatechars:24 }}</span>
         </div>
-        {% if item.node_state == 'in_progress' %}
-        <div class="absolute bottom-2 left-[20%] right-[20%] h-1 bg-white/30 rounded-full">
-          <div class="h-1 bg-white rounded-full" style="width:{{ item.progress_pct }}%"></div>
-        </div>
+        {% if state == 'in_progress' %}
+        <span class="hex-particles"><span>⭐</span><span>✨</span><span>⭐</span><span>✨</span></span>
         {% endif %}
       </a>
+      <span class="hex-mastery {% if state == 'completed' %}hex-mastery-done{% elif state == 'in_progress' %}hex-mastery-progress{% else %}hex-mastery-new{% endif %}">
+        {% if item.mastery >= 1 %}{{ item.mastery }}% maîtrise{% else %}À découvrir{% endif %}
+      </span>
     </div>
+    {% if not forloop.last %}<div class="hex-connector hex-connector-{{ state }}"></div>{% endif %}
+    {% endwith %}
     {% endfor %}
   </div>
 
@@ -83,5 +110,79 @@
   </div>
   {% endif %}
 
+  {# ── Panel tooltip slide-from-bottom ── #}
+  <div x-show="openNode" x-cloak @click="openNode = null"
+       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/40 z-50"></div>
+  <div x-show="openNode" x-cloak
+       x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+       x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+       class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white rounded-t-3xl z-50 p-5 pb-7 shadow-2xl">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <div class="flex items-center gap-2 mb-2">
+      <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-brand-blue"
+            x-text="(openNode?.stype === 'math' ? '🔢 ' : openNode?.stype === 'scientific' ? '🔬 ' : openNode?.stype === 'literary' ? '📖 ' : openNode?.stype === 'language' ? '🌍 ' : openNode?.stype === 'geography' ? '🗺️ ' : openNode?.stype === 'accounting' ? '💰 ' : '📚 ') + (openNode?.subject || '')"></span>
+      <span class="text-xs font-semibold px-2.5 py-1 rounded-full"
+            :class="openNode?.state === 'completed' ? 'bg-green-50 text-green-600' : openNode?.state === 'in_progress' ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500'"
+            x-text="openNode?.state === 'completed' ? 'Terminée' : openNode?.state === 'in_progress' ? 'En cours' : 'Nouvelle'"></span>
+    </div>
+    <h3 class="text-gray-900 font-bold text-lg leading-tight mb-3" x-text="openNode?.title"></h3>
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs text-gray-500">Maîtrise</span>
+        <span class="text-xs font-bold text-gray-700" x-text="(openNode?.mastery || 0) + '%'"></span>
+      </div>
+      <div class="bg-gray-100 rounded-full h-2">
+        <div class="h-2 rounded-full transition-all"
+             :class="(openNode?.mastery || 0) >= 80 ? 'bg-green-500' : (openNode?.mastery || 0) >= 40 ? 'bg-amber-500' : 'bg-blue-400'"
+             :style="`width: ${openNode?.mastery || 0}%`"></div>
+      </div>
+    </div>
+    <a :href="openNode?.url"
+       class="block w-full bg-brand-blue text-white py-3.5 rounded-2xl font-bold text-center text-base active:scale-95 transition">
+      <span x-text="openNode?.state === 'not_started' ? 'Commencer →' : 'Continuer →'"></span>
+    </a>
+  </div>
+
 </div>
+
+<script>
+  function launchConfetti() {
+    const canvas = document.getElementById('confetti-canvas');
+    if (!canvas) return;
+    canvas.style.display = 'block';
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+    const particles = Array.from({ length: 80 }, () => ({
+      x: Math.random() * canvas.width, y: -10,
+      r: Math.random() * 6 + 2, d: Math.random() * 80,
+      color: colors[Math.floor(Math.random() * 6)],
+      tilt: Math.random() * 10 - 10, tiltAngle: 0,
+      tiltAngleInc: Math.random() * 0.07 + 0.05,
+    }));
+    let frame = 0;
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.tiltAngle += p.tiltAngleInc;
+        p.y += (Math.cos(frame / 10 + p.d) + 3) * 2;
+        p.tilt = Math.sin(p.tiltAngle) * 15;
+        ctx.beginPath();
+        ctx.lineWidth = p.r;
+        ctx.strokeStyle = p.color;
+        ctx.moveTo(p.x + p.tilt + p.r / 3, p.y);
+        ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
+        ctx.stroke();
+      });
+      frame++;
+      if (frame < 150) requestAnimationFrame(animate);
+      else { canvas.style.display = 'none'; }
+    };
+    animate();
+  }
+  {% if learn_toast %}document.addEventListener('DOMContentLoaded', () => setTimeout(launchConfetti, 350));{% endif %}
+</script>
 {% endblock %}

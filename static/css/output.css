@@ -899,10 +899,6 @@ p {
   bottom: 4rem;
 }
 
-.bottom-2 {
-  bottom: 0.5rem;
-}
-
 .bottom-20 {
   bottom: 5rem;
 }
@@ -943,10 +939,6 @@ p {
   left: 1.25rem;
 }
 
-.left-\[20\%\] {
-  left: 20%;
-}
-
 .left-\[9px\] {
   left: 9px;
 }
@@ -973,10 +965,6 @@ p {
 
 .right-9 {
   right: 2.25rem;
-}
-
-.right-\[20\%\] {
-  right: 20%;
 }
 
 .top-0 {
@@ -1702,10 +1690,6 @@ p {
   max-width: 200px;
 }
 
-.max-w-\[60px\] {
-  max-width: 60px;
-}
-
 .max-w-full {
   max-width: 100%;
 }
@@ -1797,6 +1781,11 @@ p {
 
 .translate-y-2 {
   --tw-translate-y: 0.5rem;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+
+.translate-y-full {
+  --tw-translate-y: 100%;
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
@@ -2151,6 +2140,11 @@ p {
 .rounded-t-2xl {
   border-top-left-radius: 1rem;
   border-top-right-radius: 1rem;
+}
+
+.rounded-t-3xl {
+  border-top-left-radius: 1.5rem;
+  border-top-right-radius: 1.5rem;
 }
 
 .border {
@@ -2700,12 +2694,12 @@ p {
   background-color: rgb(255 255 255 / 0.2);
 }
 
-.bg-white\/30 {
-  background-color: rgb(255 255 255 / 0.3);
-}
-
 .bg-white\/5 {
   background-color: rgb(255 255 255 / 0.05);
+}
+
+.bg-white\/70 {
+  background-color: rgb(255 255 255 / 0.7);
 }
 
 .bg-white\/80 {
@@ -3022,6 +3016,10 @@ p {
 
 .pb-6 {
   padding-bottom: 1.5rem;
+}
+
+.pb-7 {
+  padding-bottom: 1.75rem;
 }
 
 .pb-\[60px\] {
@@ -3723,6 +3721,11 @@ p {
 
 .filter {
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
+}
+
+.backdrop-blur {
+  --tw-backdrop-blur: blur(8px);
+  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
 }
 
 .backdrop-blur-\[2px\] {
