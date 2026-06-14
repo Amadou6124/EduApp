@@ -1,0 +1,59 @@
+{% load humanize %}<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A5 portrait; margin: 1.2cm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Times New Roman', serif; color: #000; font-size: 12px; line-height: 1.5; }
+  .frame { border: 2px solid #000; padding: 0; }
+  .head { border-bottom: 1.5px solid #000; padding: 10px 14px; text-align: center; }
+  .school { font-size: 14px; font-weight: bold; text-transform: uppercase; }
+  .title { margin-top: 4px; font-size: 12px; letter-spacing: 1px; }
+  .block { padding: 10px 14px; border-bottom: 1px solid #000; }
+  .row { display: flex; justify-content: space-between; margin: 2px 0; }
+  .label { color: #333; }
+  .val { font-weight: bold; }
+  .amount { padding: 12px 14px; border-bottom: 1px solid #000; }
+  .amount .big { font-size: 16px; font-weight: bold; }
+  .sign { padding: 16px 14px 28px; }
+  .sign .line { margin-top: 26px; border-top: 1px solid #000; width: 60%; }
+  .muted { color: #444; font-size: 11px; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="head">
+      <div class="school">{{ school.name }}</div>
+      <div class="title">FICHE DE PAIE</div>
+    </div>
+
+    <div class="block">
+      <div class="row"><span class="label">Employé</span><span class="val">{{ p.employee_name }}</span></div>
+      <div class="row"><span class="label">Poste</span><span class="val">{{ p.employee.job_title|default:p.employee.get_role_display }}</span></div>
+      <div class="row"><span class="label">Type</span><span class="val">{% if p.hours is not None %}Vacataire{% else %}Permanent{% endif %}</span></div>
+      <div class="row"><span class="label">Période</span><span class="val">{{ p.month }}/{{ p.year }}</span></div>
+    </div>
+
+    {% if p.hours is not None %}
+    <div class="block">
+      <div class="row"><span class="label">Heures effectuées</span><span class="val">{{ p.hours|floatformat:"-1" }} h</span></div>
+      <div class="row"><span class="label">Taux horaire</span><span class="val">{{ p.hourly_rate|default:0|intcomma }} FCFA/h</span></div>
+    </div>
+    {% endif %}
+
+    <div class="amount">
+      <div class="row"><span class="label">MONTANT BRUT</span><span class="big">{{ p.amount|intcomma }} FCFA</span></div>
+      <div class="row muted"><span>Mode de paiement</span><span>{{ p.get_payment_method_display }}</span></div>
+      <div class="row muted"><span>Date de paiement</span><span>{% if p.paid_at %}{{ p.paid_at|date:"j F Y" }}{% else %}—{% endif %}</span></div>
+    </div>
+
+    <div class="sign">
+      <div class="muted">{{ school.city }}, le {% if p.paid_at %}{{ p.paid_at|date:"j F Y" }}{% else %}{{ p.created_at|date:"j F Y" }}{% endif %}</div>
+      <div style="margin-top:10px;">Le Directeur</div>
+      <div class="line"></div>
+      <div class="muted">Cachet et signature</div>
+    </div>
+  </div>
+</body>
+</html>

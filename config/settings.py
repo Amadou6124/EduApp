@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'apps.promoter',
     'apps.parent',
     'apps.notifications',
+    'apps.accounting',
 ]
 
 MIDDLEWARE = [
