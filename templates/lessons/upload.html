@@ -65,10 +65,10 @@
 
       <label @dragover.prevent="dragging = true" @dragleave.prevent="dragging = false"
              @drop.prevent="dragging = false; fileName = $event.dataTransfer.files[0]?.name || ''; $refs.file.files = $event.dataTransfer.files"
-             :class="dragging ? 'border-brand-blue bg-blue-50/40' : 'border-gray-300'"
+             :class="dragging ? 'border-primary-600 bg-blue-50/40' : 'border-gray-300'"
              class="flex flex-col items-center justify-center border-2 border-dashed rounded-xl px-6 py-10 text-center cursor-pointer transition">
         <i data-lucide="upload-cloud" class="w-9 h-9 text-gray-400 mb-2"></i>
-        <p class="text-sm text-gray-600" x-show="!fileName">Glissez un fichier ici ou <span class="text-brand-blue font-semibold">parcourez</span></p>
+        <p class="text-sm text-gray-600" x-show="!fileName">Glissez un fichier ici ou <span class="text-primary-600 font-semibold">parcourez</span></p>
         <p class="text-sm font-semibold text-gray-800" x-show="fileName" x-text="fileName"></p>
         <p class="text-xs text-gray-400 mt-1">PDF, JPG, PNG — max 10 Mo</p>
         <input type="file" name="source_file" x-ref="file" accept=".pdf,.jpg,.jpeg,.png" class="hidden"
@@ -79,7 +79,7 @@
 
     <div>
       <button type="submit"
-              class="w-full h-12 rounded-xl bg-brand-gold hover:bg-yellow-500 text-white text-sm font-bold flex items-center justify-center gap-2">
+              class="btn-primary w-full">
         <i data-lucide="sparkles" class="w-4 h-4"></i> Générer la leçon avec l'IA
       </button>
       <p class="text-xs text-gray-400 text-center mt-2">⚡ La génération prend environ 30-60s. Vous serez redirigé automatiquement.</p>

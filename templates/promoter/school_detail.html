@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -6,13 +6,7 @@
   <title>{{ school.name }} — Promoteur</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = { theme: { extend: {
-      colors: { 'brand-blue':'#1E3A5F','brand-gold':'#F5A623','brand-light':'#F0F4F8' },
-      fontFamily: { sans: ['Manrope','ui-sans-serif','system-ui'] },
-    } } }
-  </script>
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -28,7 +22,7 @@
   <header class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="w-9 h-9 rounded-lg bg-brand-blue flex items-center justify-center shrink-0">
+        <div class="w-9 h-9 rounded-lg bg-primary-600 flex items-center justify-center shrink-0">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 14l9-5-9-5-9 5 9 5z"/>
           </svg>
@@ -58,12 +52,12 @@
 
     {# ── En-tête page : retour + identité école ── #}
     <a href="{% url 'promoter:dashboard' %}"
-       class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-blue mb-4 transition">
+       class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary-600 mb-4 transition">
       <i data-lucide="arrow-left" class="w-4 h-4"></i> Retour au groupe
     </a>
 
     <div class="flex items-center gap-4 mb-6">
-      <div class="w-14 h-14 rounded-2xl bg-brand-blue/10 text-brand-blue flex items-center justify-center font-extrabold text-2xl shrink-0">
+      <div class="w-14 h-14 rounded-2xl bg-primary-600/10 text-primary-600 flex items-center justify-center font-extrabold text-2xl shrink-0">
         {{ school.name|first|upper }}
       </div>
       <div class="min-w-0">
@@ -80,7 +74,7 @@
     </div>
 
     {# ── HERO CARD ── #}
-    <div class="fade-up bg-gradient-to-br from-[#1E3A5F] to-[#2D5A8E] rounded-2xl p-6 sm:p-8 text-white shadow-xl mb-8">
+    <div class="fade-up bg-gradient-to-br from-[#4F46E5] to-[#6366F1] rounded-2xl p-6 sm:p-8 text-white shadow-xl mb-8">
       <div class="grid lg:grid-cols-2 gap-8 items-center">
         <div>
           <div class="grid grid-cols-3 gap-3">
@@ -141,7 +135,7 @@
 
     {# ── SECTION — PAR CLASSE ── #}
     <h2 class="text-lg font-bold mb-4">Répartition par classe</h2>
-    <div class="fade-up bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-8">
+    <div class="fade-up card overflow-hidden mb-8">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
@@ -184,7 +178,7 @@
     {% if teachers_data %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {% for t in teachers_data %}
-      <div class="fade-up bg-white rounded-2xl border border-gray-100 shadow-sm p-5" style="animation-delay:{{ forloop.counter0 }}0ms">
+      <div class="fade-up card p-5" style="animation-delay:{{ forloop.counter0 }}0ms">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
                style="background:{{ t.teacher.get_avatar_colors.0 }};color:{{ t.teacher.get_avatar_colors.1 }}">
@@ -202,14 +196,14 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-400">
+    <div class="card p-8 text-center text-sm text-gray-400">
       Aucun enseignant assigné dans cette école.
     </div>
     {% endif %}
 
     <div class="mt-8">
       <a href="{% url 'promoter:dashboard' %}"
-         class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-600 hover:border-brand-blue hover:text-brand-blue transition">
+         class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-600 hover:border-primary-600 hover:text-primary-600 transition">
         <i data-lucide="arrow-left" class="w-4 h-4"></i> Retour au groupe
       </a>
     </div>

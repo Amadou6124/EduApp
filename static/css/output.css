@@ -2801,11 +2801,6 @@ p {
   border-top-color: transparent;
 }
 
-.bg-\[\#1E3A5F\] {
-  --tw-bg-opacity: 1;
-  background-color: rgb(30 58 95 / var(--tw-bg-opacity, 1));
-}
-
 .bg-\[\#F8F9FC\] {
   --tw-bg-opacity: 1;
   background-color: rgb(248 249 252 / var(--tw-bg-opacity, 1));
@@ -2890,15 +2885,6 @@ p {
 .bg-brand-blue {
   --tw-bg-opacity: 1;
   background-color: rgb(30 58 95 / var(--tw-bg-opacity, 1));
-}
-
-.bg-brand-blue\/10 {
-  background-color: rgb(30 58 95 / 0.1);
-}
-
-.bg-brand-gold {
-  --tw-bg-opacity: 1;
-  background-color: rgb(245 166 35 / var(--tw-bg-opacity, 1));
 }
 
 .bg-gold-50 {
@@ -3216,6 +3202,12 @@ p {
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 
+.from-\[\#4F46E5\] {
+  --tw-gradient-from: #4F46E5 var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(79 70 229 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
 .from-brand-blue {
   --tw-gradient-from: #1E3A5F var(--tw-gradient-from-position);
   --tw-gradient-to: rgb(30 58 95 / 0) var(--tw-gradient-to-position);
@@ -3235,6 +3227,10 @@ p {
 
 .to-\[\#2D5A8E\] {
   --tw-gradient-to: #2D5A8E var(--tw-gradient-to-position);
+}
+
+.to-\[\#6366F1\] {
+  --tw-gradient-to: #6366F1 var(--tw-gradient-to-position);
 }
 
 .to-blue-400 {
@@ -4263,12 +4259,6 @@ p {
   transition-duration: 150ms;
 }
 
-.transition-shadow {
-  transition-property: box-shadow;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-}
-
 .transition-transform {
   transition-property: transform;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
@@ -4416,14 +4406,6 @@ p {
   border-color: rgb(30 58 95 / var(--tw-border-opacity, 1));
 }
 
-.hover\:border-brand-blue\/30:hover {
-  border-color: rgb(30 58 95 / 0.3);
-}
-
-.hover\:border-brand-blue\/40:hover {
-  border-color: rgb(30 58 95 / 0.4);
-}
-
 .hover\:border-gray-300:hover {
   --tw-border-opacity: 1;
   border-color: rgb(209 213 219 / var(--tw-border-opacity, 1));
@@ -4462,10 +4444,6 @@ p {
   border-color: rgb(252 165 165 / var(--tw-border-opacity, 1));
 }
 
-.hover\:bg-\[\#1E3A5F\]\/90:hover {
-  background-color: rgb(30 58 95 / 0.9);
-}
-
 .hover\:bg-amber-100:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(254 243 199 / var(--tw-bg-opacity, 1));
@@ -4484,10 +4462,6 @@ p {
 .hover\:bg-blue-800:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(30 64 175 / var(--tw-bg-opacity, 1));
-}
-
-.hover\:bg-brand-blue\/90:hover {
-  background-color: rgb(30 58 95 / 0.9);
 }
 
 .hover\:bg-gold-500\/20:hover {
@@ -4623,11 +4597,6 @@ p {
   background-color: rgb(255 255 255 / 0.6);
 }
 
-.hover\:bg-yellow-500:hover {
-  --tw-bg-opacity: 1;
-  background-color: rgb(234 179 8 / var(--tw-bg-opacity, 1));
-}
-
 .hover\:text-amber-700:hover {
   --tw-text-opacity: 1;
   color: rgb(180 83 9 / var(--tw-text-opacity, 1));
@@ -4636,11 +4605,6 @@ p {
 .hover\:text-amber-900:hover {
   --tw-text-opacity: 1;
   color: rgb(120 53 15 / var(--tw-text-opacity, 1));
-}
-
-.hover\:text-brand-blue:hover {
-  --tw-text-opacity: 1;
-  color: rgb(30 58 95 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-gold-500:hover {
@@ -4818,14 +4782,6 @@ p {
   --tw-ring-color: rgb(30 58 95 / var(--tw-ring-opacity, 1));
 }
 
-.focus\:ring-brand-blue\/30:focus {
-  --tw-ring-color: rgb(30 58 95 / 0.3);
-}
-
-.focus\:ring-brand-blue\/40:focus {
-  --tw-ring-color: rgb(30 58 95 / 0.4);
-}
-
 .focus\:ring-primary-500:focus {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(99 102 241 / var(--tw-ring-opacity, 1));
@@ -4833,6 +4789,10 @@ p {
 
 .focus\:ring-primary-500\/20:focus {
   --tw-ring-color: rgb(99 102 241 / 0.2);
+}
+
+.focus\:ring-primary-500\/30:focus {
+  --tw-ring-color: rgb(99 102 241 / 0.3);
 }
 
 .focus\:ring-primary-500\/40:focus {
@@ -4953,11 +4913,6 @@ p {
 .group:hover .group-hover\:text-amber-600 {
   --tw-text-opacity: 1;
   color: rgb(217 119 6 / var(--tw-text-opacity, 1));
-}
-
-.group:hover .group-hover\:text-brand-blue {
-  --tw-text-opacity: 1;
-  color: rgb(30 58 95 / var(--tw-text-opacity, 1));
 }
 
 .group:hover .group-hover\:text-gold-500 {
