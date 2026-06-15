@@ -3046,6 +3046,10 @@ p {
   background-color: rgb(238 242 255 / 0.4);
 }
 
+.bg-primary-50\/60 {
+  background-color: rgb(238 242 255 / 0.6);
+}
+
 .bg-primary-500 {
   --tw-bg-opacity: 1;
   background-color: rgb(99 102 241 / var(--tw-bg-opacity, 1));

@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 
 from apps.core.mixins import get_school
 from apps.schools.models import ClassSubject, Subject, SchoolClass
-from .models import User, UserRole, StaffPermission
+from .models import User, UserRole, StaffPermission, Membership
 from .team_forms import TeamMemberCreateForm, TeamMemberEditForm, StaffPermissionForm
 
 # Libellés des profils prédéfinis exposés au template
@@ -52,7 +52,11 @@ def _teachers_qs(school):
     """
     return (
         User.objects
-        .filter(school=school, role=UserRole.TEACHER, is_active=True)
+        .filter(
+            memberships__school=school,
+            memberships__role=UserRole.TEACHER,
+            memberships__is_active=True,
+        )
         .prefetch_related(
             Prefetch(
                 'teaching_subjects',
@@ -66,6 +70,7 @@ def _teachers_qs(school):
             )
         )
         .order_by('full_name')
+        .distinct()
     )
 
 
@@ -76,7 +81,11 @@ def _staff_qs(school):
     """
     return (
         User.objects
-        .filter(school=school, role=UserRole.STAFF, is_active=True)
+        .filter(
+            memberships__school=school,
+            memberships__role=UserRole.STAFF,
+            memberships__is_active=True,
+        )
         .prefetch_related(
             Prefetch(
                 'staff_permission',
@@ -84,6 +93,7 @@ def _staff_qs(school):
             )
         )
         .order_by('full_name')
+        .distinct()
     )
 
 
@@ -98,7 +108,7 @@ def team_list(request):
     # Nombre de classes par enseignant (annotation distincte)
     teacher_class_counts = (
         ClassSubject.objects
-        .filter(teacher__school=school, teacher__role=UserRole.TEACHER, is_active=True)
+        .filter(school_class__school=school, teacher__role=UserRole.TEACHER, is_active=True)
         .values('teacher_id')
         .annotate(class_count=Count('school_class', distinct=True))
     )
@@ -135,55 +145,140 @@ def team_list(request):
 def team_member_create(request):
     school = get_school(request)
 
-    if request.method == 'POST':
-        form = TeamMemberCreateForm(school, request.POST)
-        if form.is_valid():
-            user      = form.save()
-            role      = form.cleaned_data['role']
-            temp_pwd  = form.cleaned_data['password']
+    if request.method != 'POST':
+        return HttpResponse(status=405)
 
-            # Crée les permissions par défaut si staff
-            if role == UserRole.STAFF:
-                StaffPermission.objects.get_or_create(user=user)
+    # ── Branche LIAISON : rattacher un compte existant via Membership ──
+    link_user_id = request.POST.get('link_user_id')
+    if link_user_id:
+        return _link_existing_member(request, school, link_user_id)
 
-            response = HttpResponse('')
-            response['HX-Trigger'] = json.dumps({
-                'close-panel': True,
-                'team-member-added': {
-                    'phone_number': user.phone_number,
-                    'temp_pwd':     temp_pwd,
-                    'user_id':      user.pk,
-                },
-            })
-            return response
+    # ── Branche CRÉATION : nouveau compte + Membership ──
+    form = TeamMemberCreateForm(school, request.POST)
+    if form.is_valid():
+        user = form.save()                       # crée User + Membership
+        role = form.cleaned_data['role']
+        if role == UserRole.STAFF:
+            membership = Membership.objects.filter(user=user, school=school).first()
+            StaffPermission.objects.get_or_create(
+                user=user, defaults={'membership': membership}
+            )
 
-        # Formulaire invalide : renvoie les erreurs via toast (panel reste ouvert)
-        errors = '; '.join(
-            f'{f}: {e[0]}' for f, errs in form.errors.items()
-            for e in [errs]
-        )
-        response = HttpResponse('', status=422)
+        response = HttpResponse('')
         response['HX-Trigger'] = json.dumps({
-            'showToast': {'message': errors or 'Vérifiez les champs.', 'type': 'error'},
+            'close-panel': True,
+            'team-member-added': {
+                'phone_number': user.phone_number,
+                'temp_pwd':     form.cleaned_data['password'],
+                'user_id':      user.pk,
+            },
         })
         return response
+
+    # Formulaire invalide : renvoie les erreurs via toast (panel reste ouvert)
+    errors = '; '.join(
+        f'{f}: {e[0]}' for f, errs in form.errors.items()
+        for e in [errs]
+    )
+    response = HttpResponse('', status=422)
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {'message': errors or 'Vérifiez les champs.', 'type': 'error'},
+    })
+    return response
+
+
+def _link_existing_member(request, school, link_user_id):
+    """Rattache un User existant à l'école via Membership (réactive si désactivée)."""
+    user = get_object_or_404(User, pk=link_user_id)
+    role = request.POST.get('role', '')
+    if role not in (UserRole.TEACHER, UserRole.STAFF):
+        role = UserRole.TEACHER
+
+    has_default = Membership.objects.filter(user=user, is_default=True).exists()
+    membership, created = Membership.objects.get_or_create(
+        user=user, school=school,
+        defaults={
+            'role':       role,
+            'job_title':  user.job_title or '',
+            'is_active':  True,
+            'is_default': not has_default,
+        },
+    )
+    if not created and not membership.is_active:
+        membership.is_active = True
+        membership.save(update_fields=['is_active'])
+
+    if role == UserRole.STAFF:
+        StaffPermission.objects.get_or_create(
+            user=user, defaults={'membership': membership}
+        )
+        # Staff lié → redirection vers sa fiche (l'éditeur de permissions y est).
+        # Defaults : voir élèves + voir classes uniquement → à configurer.
+        response = HttpResponse('')
+        response['HX-Redirect'] = reverse('team:detail', args=[user.pk]) + '?linked_staff=1'
+        return response
+
+    # Enseignant lié → retour liste avec toast (rien à configurer).
+    response = HttpResponse('')
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {'message': f"{user.full_name} ajouté à l'équipe.", 'type': 'success'},
+    })
+    response['HX-Refresh'] = 'true'
+    return response
+
+
+@login_required
+@director_required
+def team_member_search(request):
+    """Recherche un compte par téléphone : trouvé → carte de liaison ; sinon → form création."""
+    school = get_school(request)
+    phone = request.GET.get('phone', '').strip()
+
+    # Contexte commun : le partial peut rendre le formulaire de création complet
+    # (cas « numéro inconnu »), qui a besoin de perm_form + presets.
+    ctx = {
+        'school':    school,
+        'phone':     phone,
+        'perm_form': StaffPermissionForm(),
+        'presets':   _PRESETS,
+    }
+
+    if not phone:
+        ctx['searched'] = False
+        return render(request, 'team/partials/member_search_result.html', ctx)
+
+    user = User.objects.filter(phone_number=phone).first()
+    ctx['searched']       = True
+    ctx['found']          = user
+    ctx['already_member'] = bool(
+        user and Membership.objects.filter(
+            user=user, school=school, is_active=True
+        ).exists()
+    )
+    return render(request, 'team/partials/member_search_result.html', ctx)
 
 
 @login_required
 def team_member_detail(request, user_id):
     school = get_school(request)
-    member = get_object_or_404(User, pk=user_id, school=school)
+    member = get_object_or_404(User, pk=user_id, memberships__school=school)
+
+    # Rôle CONTEXTUEL : celui de la Membership dans l'école courante, pas le
+    # rôle global du User (un directeur d'une autre école peut être staff ici).
+    membership  = Membership.objects.filter(user=member, school=school).first()
+    member_role = membership.role if membership else member.role
 
     is_director = request.user.role == UserRole.DIRECTOR or request.user.is_superuser
     viewer_perm = getattr(request.user, 'staff_permission', None)
     context = {
         'school':                school,
         'member':                member,
+        'member_role':           member_role,
         'is_director':           is_director,
         'can_manage_accounting': is_director or bool(viewer_perm and viewer_perm.can_manage_accounting),
     }
 
-    if member.role == UserRole.STAFF:
+    if member_role == UserRole.STAFF:
         perm, _ = StaffPermission.objects.get_or_create(user=member)
         context['perm']      = perm
         context['perm_form'] = StaffPermissionForm(instance=perm)
@@ -195,7 +290,7 @@ def team_member_detail(request, user_id):
 @director_required
 def team_member_edit(request, user_id):
     school = get_school(request)
-    member = get_object_or_404(User, pk=user_id, school=school)
+    member = get_object_or_404(User, pk=user_id, memberships__school=school)
 
     if request.method == 'POST':
         form = TeamMemberEditForm(request.POST, instance=member)
@@ -228,7 +323,10 @@ def team_member_edit(request, user_id):
 @require_POST
 def team_permissions_update(request, user_id):
     school = get_school(request)
-    member = get_object_or_404(User, pk=user_id, school=school, role=UserRole.STAFF)
+    member = get_object_or_404(
+        User, pk=user_id,
+        memberships__school=school, memberships__role=UserRole.STAFF,
+    )
     perm, _ = StaffPermission.objects.get_or_create(user=member)
 
     form = StaffPermissionForm(request.POST, instance=perm)
@@ -262,7 +360,7 @@ def team_permissions_update(request, user_id):
 @require_POST
 def team_member_deactivate(request, user_id):
     school = get_school(request)
-    member = get_object_or_404(User, pk=user_id, school=school)
+    member = get_object_or_404(User, pk=user_id, memberships__school=school)
 
     # Empêche l'auto-désactivation du directeur connecté
     if member.pk == request.user.pk:
@@ -279,8 +377,10 @@ def team_member_deactivate(request, user_id):
         })
         return response
 
-    member.is_active = False
-    member.save(update_fields=['is_active'])
+    # Désactivation PER-ÉCOLE : on retire le membre de l'école courante
+    # (Membership.is_active=False) sans toucher au compte global ni à ses
+    # rattachements dans d'autres écoles.
+    Membership.objects.filter(user=member, school=school).update(is_active=False)
 
     response = render(request, 'team/partials/member_card_deactivated.html', {
         'school': school,
