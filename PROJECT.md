@@ -15,11 +15,12 @@ Couvre la gestion des classes, l'inscription des élèves, les paiements, les bu
 
 | Couche | Technologie |
 |---|---|
-| Backend | Django 6.0.6 |
+| Backend | Django 5.1.15 |
 | Base de données | PostgreSQL (`db=eduapp_db`, `user=sy`) |
 | Interactions UI | HTMX 2.0.4 (CDN) |
 | Réactivité UI | Alpine.js 3.x (CDN) |
 | CSS | Tailwind CSS CLI (build local, `npm run build:css`, `static/css/output.css`) |
+| Police | Manrope (Google Fonts, police unique) |
 | Auth | Modèle `User` custom, login par numéro de téléphone |
 | Fichiers statiques | Whitenoise |
 | Config | python-decouple (.env) |
@@ -59,13 +60,17 @@ EduApp/
 
 ## Design system
 
-### Couleurs principales
+### Couleurs principales (refonte design — 2 palettes)
 
-| Nom | Hex | Usage |
+| Token | Hex | Usage |
 |---|---|---|
-| `brand-blue` | `#1E3A5F` | Sidebar, boutons primaires, titres |
-| `brand-gold` | `#F5A623` | Bouton CTA principal, accents |
-| `brand-light` | `#F0F4F8` | Fond de page (`bg-brand-light`) |
+| `primary-600` | `#4F46E5` | Indigo — admin/directeur/prof/parent/promoteur (boutons, état actif) |
+| `primary-700` | `#4338CA` | Hover / accents |
+| `student-500` | `#10B981` | Emerald — portail élève `/learn/` |
+| `student-600` | `#059669` | Emerald hover |
+| `gold-500` | `#F59E0B` | Accent or — XP / badges / niveaux (élève) |
+
+Neutres `gray-*`, sémantiques `success/warning/danger/info`. **Alias `brand-blue/gold/light` supprimés** (0 référence).
 
 ### Badges niveaux scolaires (niveaux maliens officiels)
 
@@ -85,18 +90,28 @@ EduApp/
 
 ### Règles composants
 
-- **Bouton primaire** : `bg-brand-gold hover:bg-yellow-500 text-white font-semibold px-5 py-2.5 rounded-lg min-h-[44px]`
-- **Bouton secondaire** : `bg-white border border-brand-blue text-brand-blue font-semibold px-4 py-2.5 rounded-lg`
-- **Bouton destructif** : hover `text-red-600 bg-red-50`
-- **Cards** : `bg-white rounded-xl shadow-sm border border-gray-100 p-5`
-- **Modals** : Alpine `x-show` + `x-transition`, overlay `bg-black/40 z-50`, contenu `rounded-2xl shadow-2xl max-w-lg`
-- **Sidebar** : `w-64 bg-brand-blue` fixe desktop, cachée mobile
+- **Boutons** : `.btn-primary` (`bg-primary-600 hover:bg-primary-700`), `.btn-secondary`, `.btn-danger` — définis dans `input.css @layer components` (`active:scale-[0.98]` + focus ring)
+- **Cards** : `.card` (`bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md`)
+- **KPI** : `.kpi` + `.kpi-icon` / `.kpi-value` / `.kpi-label`
+- **Tables** : `.table-card` + `.data-table` · **Inputs** : `.input-field` (+ `.is-error`) · **Badges** : `.badge-*`
+- **Modals** : Alpine `x-show` + `x-transition`, overlay `bg-black/40 backdrop-blur-sm`, contenu `rounded-2xl shadow-2xl max-w-lg`
+- **Sidebar** : `w-64 bg-white`, actif `bg-primary-50 text-primary-700`, hover `bg-gray-50`
 - **Sidebar collapsible** : toggle ⊟/⊞ → `w-16` (icônes seules) / `w-64` (icônes + labels) ; préférence persistée `localStorage('sidebarOpen')` ; offset footer et contenu principal calculé via `$store.sidebar.open` (`:class` Alpine)
 - **Recherche globale** : `⌘K` / `Ctrl+K` ouvre modal `$store.search.open`, résultats HTMX live
-- **Nav mobile** : bottom bar 4 items fixe `bg-brand-blue`, icônes + labels
+- **Nav mobile** : bottom bar, actif `text-primary-600` (élève : `text-student-500`)
 - **HTMX indicator** : `.htmx-indicator` opacity 0→1, spinner SVG `animate-spin`
 - **Taille tactile min** : `min-h-[44px]` sur tous les boutons interactifs
 - **Masquage Alpine** : `[x-cloak] { display: none !important; }` dans base.html
+
+### Refonte design — Phases A→E (terminée)
+
+- **A** Design system : `tailwind.config.js` palettes primary/student/gold + shadows, `input.css` composants (`btn/card/kpi/table/badge/form/toast`)
+- **B** Shell : `base.html` migré indigo (sidebar, header, bottom-nav, toast bottom-center), `base_superadmin`/`base_student` → output.css local + Manrope
+- **C** Admin/directeur : dashboard, students, payments, accounting, notes, bulletins, schools, team, settings, superadmin, accounts, recherche globale
+- **D** Portails secondaires : teachers, lessons, parent, promoter (parent/promoter CDN→output.css local + Manrope)
+- **E** Portail élève `/learn/` : palette **emerald**, hexagones glassmorphism vert, dégradés verts, XP/niveaux **or** — effets signature préservés (hexPulse, confettis, flip-card, stories)
+- **Cleanup** : alias `brand-*` supprimés de `tailwind.config.js`, **0 référence** `brand-blue/gold/light`
+- **Correctifs** : doublon stats Payments, surlignage sidebar Comptabilité (`url_name` scopé `app_name`), couleur défaut matières `#4F46E5` (migration `schools 0014`)
 - **Toggle vue** : `hidden lg:flex` — switch cards/tableau masqué sur mobile
 - **CSRF HTMX** : `hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'` sur `<body>`
 
@@ -394,7 +409,7 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
 ### Redesign complet (`feature/redesign` → mergé sur `main`)
 - **Tailwind CLI** migration CDN → build local (`tailwind.config.js`, `input.css`, `npm run build:css`)
 - **Lucide Icons** — zéro emojis, zéro SVG inline dans les templates (bundle CDN + `lucide.createIcons()`)
-- **Sidebar blanc** style Notion/Linear (`bg-white`, liens actifs `bg-brand-light`, icônes Lucide)
+- **Sidebar blanc** style Notion/Linear (`bg-white`, liens actifs `bg-primary-50 text-primary-700`, icônes Lucide)
 - **Header sticky** `h-16 bg-white border-b`, titre page dynamique, menu utilisateur dropdown Alpine
 - **Menu utilisateur dropdown** : sous-menus "Langue" et "En savoir plus" en `fixed`, fermeture mutuelle
 - **Tabs modernes** style Notion (`bg-gray-100 rounded-lg p-1`, actif `bg-white shadow-sm`)
@@ -599,7 +614,7 @@ Méthodes : `get_total_paid()`, `get_balance_due()`, `get_payment_status()` → 
   - Vue classe : table desktop + cards mobile, filtres tabs par niveau
   - Panel éval rapide slide-from-right (même style que panel observation)
 - **Modèles** : `Attendance`, `StudentObservation` (`is_private`), `QuickAssessment`
-- **Bottom nav pill style iOS** : `bg-brand-blue/10 rounded-xl`, condition exclusive par `url_name`, `whitespace-nowrap`
+- **Bottom nav pill style iOS** : `bg-primary-600/10 rounded-xl`, condition exclusive par `url_name`, `whitespace-nowrap`
 
 ---
 
