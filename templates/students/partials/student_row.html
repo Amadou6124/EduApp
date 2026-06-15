@@ -1,8 +1,8 @@
 {% load humanize %}
 {% with colors=student.get_avatar_colors status=student.get_payment_status %}
-<tr class="hover:bg-gray-50 transition {% if success %}bg-green-50{% endif %}">
+<tr class="{% if success %}bg-green-50{% endif %}">
 
-  <td class="px-6 py-4">
+  <td>
     <div class="flex items-center gap-3">
       <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
            style="background-color:{{ colors.0 }};color:{{ colors.1 }}">
@@ -15,18 +15,17 @@
     </div>
   </td>
 
-  <td class="px-6 py-4 text-sm text-gray-600">{{ student.school_class.name }}</td>
+  <td class="text-gray-600">{{ student.school_class.name }}</td>
 
-  <td class="px-6 py-4 text-sm text-gray-500">{{ student.phone_number|default:"—" }}</td>
+  <td class="text-gray-500">{{ student.phone_number|default:"—" }}</td>
 
-  <td class="px-6 py-4">
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"
-          style="{% if status == 'paid' %}background-color:#EAF3DE;color:#27500A{% elif status == 'partial' %}background-color:#FAEEDA;color:#633806{% else %}background-color:#FCEBEB;color:#A32D2D{% endif %}">
+  <td>
+    <span class="{% if status == 'paid' %}badge-success{% elif status == 'partial' %}badge-warning{% else %}badge-danger{% endif %}">
       {% if status == 'paid' %}Soldé{% elif status == 'partial' %}Partiel{% else %}Impayé{% endif %}
     </span>
   </td>
 
-  <td class="px-6 py-4 text-center">
+  <td class="text-center">
     {% if student.has_parent_linked %}
       <svg class="w-5 h-5 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
     {% else %}
@@ -34,16 +33,16 @@
     {% endif %}
   </td>
 
-  <td class="px-6 py-4 text-sm text-gray-400">{{ student.enrolled_at|date:"d/m/Y" }}</td>
+  <td class="text-gray-400">{{ student.enrolled_at|date:"d/m/Y" }}</td>
 
-  <td class="px-6 py-4">
+  <td>
     <div class="flex items-center justify-end gap-1">
       <a href="{% url 'students:detail' student.id %}"
-         class="p-2 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition" title="Voir fiche">
+         class="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition" title="Voir fiche">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
       </a>
       <a href="{% url 'students:update' student.id %}"
-         class="p-2 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition" title="Modifier">
+         class="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition" title="Modifier">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
       </a>
     </div>

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -6,8 +6,7 @@
   <title>Paiements — EduApp</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config={theme:{extend:{colors:{'brand-blue':'#1E3A5F'},fontFamily:{sans:['Manrope','ui-sans-serif','system-ui']}}}}</script>
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>body{font-family:'Manrope',sans-serif;} .bar-fill{transition:width 1s ease-out;}</style>
 </head>
@@ -20,11 +19,11 @@
 
   {# Résumé global #}
   <div class="grid grid-cols-2 gap-3 px-4 pt-4">
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <div class="card p-4">
       <p class="text-xs text-gray-400">Total payé</p>
       <p class="text-lg font-extrabold text-green-600 js-money" data-money="{{ total_paid }}">—</p>
     </div>
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <div class="card p-4">
       <p class="text-xs text-gray-400">Total restant</p>
       <p class="text-lg font-extrabold {% if total_remaining > 0 %}text-red-600{% else %}text-gray-400{% endif %} js-money" data-money="{{ total_remaining }}">—</p>
     </div>
@@ -47,7 +46,7 @@
       {% if c.payments %}
       <div class="space-y-2">
         {% for p in c.payments %}
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-start gap-3">
+        <div class="card p-4 flex items-start gap-3">
           <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0"><i data-lucide="check" class="w-4 h-4 text-green-600"></i></div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between">
@@ -60,7 +59,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <div class="bg-white rounded-2xl border border-gray-100 p-5 text-center text-sm text-gray-400">Aucun versement enregistré</div>
+      <div class="card p-5 text-center text-sm text-gray-400">Aucun versement enregistré</div>
       {% endif %}
     </section>
     {% endfor %}

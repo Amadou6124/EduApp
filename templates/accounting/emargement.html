@@ -11,7 +11,7 @@
     <a href="?date={{ prev_date|date:'Y-m-d' }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50" title="Jour précédent"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
     <div class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-800 min-w-[180px] text-center">{{ selected_date|date:"l j F Y"|capfirst }}</div>
     <a href="?date={{ next_date|date:'Y-m-d' }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50" title="Jour suivant"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
-    {% if selected_date != today %}<a href="{% url 'accounting:emargement' %}" class="px-3 py-2 rounded-lg bg-brand-blue text-white text-xs font-medium">Aujourd'hui</a>{% endif %}
+    {% if selected_date != today %}<a href="{% url 'accounting:emargement' %}" class="px-3 py-2 rounded-lg bg-primary-600 text-white text-xs font-medium">Aujourd'hui</a>{% endif %}
   </div>
 
   {# ── Stats ── #}
@@ -24,7 +24,7 @@
   {% if classes_data %}
   <div class="space-y-3">
     {% for c in classes_data %}
-    <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+    <div class="card overflow-hidden">
       {# En-tête classe (accordéon) #}
       <button @click="toggle('{{ c.school_class.id }}')" class="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 transition text-left">
         <div class="flex items-center gap-2 min-w-0">
@@ -44,7 +44,7 @@
         {% with cs=course.cs csid=course.cs.id|stringformat:'s' %}
         <div class="px-4 py-3">
           <div class="flex items-center gap-2 mb-2">
-            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ cs.subject.color|default:'#1E3A5F' }}"></span>
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ cs.subject.color }}"></span>
             <span class="text-sm font-medium text-gray-900">{{ cs.subject.name }}</span>
             <span class="text-xs text-gray-400">· {{ cs.teacher.full_name }} · {{ cs.duration_hours|floatformat:"-1" }}h</span>
           </div>
@@ -93,7 +93,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="bg-white rounded-xl border border-gray-100 p-10 text-center">
+  <div class="card p-10 text-center">
     <i data-lucide="clipboard-list" class="w-12 h-12 mx-auto text-gray-300 mb-3"></i>
     <p class="text-sm text-gray-400">Aucun cours avec enseignant assigné.</p>
   </div>

@@ -1,6 +1,6 @@
 {% load humanize %}
 {% with colors=student.get_avatar_colors %}
-<div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-3 hover:shadow-md transition">
+<div class="card p-5 flex flex-col gap-3">
 
   <div class="flex items-center gap-3">
     <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
@@ -15,14 +15,13 @@
 
   <div class="flex items-center gap-2 flex-wrap">
     {% with status=student.get_payment_status %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"
-          style="{% if status == 'paid' %}background-color:#EAF3DE;color:#27500A{% elif status == 'partial' %}background-color:#FAEEDA;color:#633806{% else %}background-color:#FCEBEB;color:#A32D2D{% endif %}">
+    <span class="{% if status == 'paid' %}badge-success{% elif status == 'partial' %}badge-warning{% else %}badge-danger{% endif %}">
       {% if status == 'paid' %}Soldé{% elif status == 'partial' %}Partiel{% else %}Impayé{% endif %}
     </span>
     {% endwith %}
 
     {% if student.has_parent_linked %}
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700">
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary-50 text-primary-700">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
         Parent lié
       </span>
@@ -36,7 +35,7 @@
 
   <div class="flex gap-2 mt-auto pt-2 border-t border-gray-50">
     <a href="{% url 'students:detail' student.id %}"
-       class="flex-1 text-center text-xs font-medium text-brand-blue bg-blue-50 hover:bg-blue-100 py-2 rounded-lg transition min-h-[36px] flex items-center justify-center">
+       class="flex-1 text-center text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 py-2 rounded-lg transition min-h-[36px] flex items-center justify-center">
       Voir fiche
     </a>
     <a href="{% url 'students:update' student.id %}"

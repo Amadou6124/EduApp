@@ -20,7 +20,7 @@ Contexte : alerts = list[dict] {level, icon, title, text, action_url, action_tex
          class="rounded-xl border p-4 flex items-start gap-3
                 {% if alert.level == 'critical' %}bg-red-50 border-red-200
                 {% elif alert.level == 'warning' %}bg-amber-50 border-amber-200
-                {% else %}bg-blue-50 border-blue-200{% endif %}">
+                {% else %}bg-primary-50 border-primary-200{% endif %}">
       <i data-lucide="{{ alert.icon }}" class="w-5 h-5 shrink-0 mt-0.5"></i>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-semibold text-gray-800">{{ alert.title }}</p>
@@ -29,7 +29,7 @@ Contexte : alerts = list[dict] {level, icon, title, text, action_url, action_tex
            class="inline-block mt-1.5 text-xs font-medium
                   {% if alert.level == 'critical' %}text-red-600 hover:text-red-700
                   {% elif alert.level == 'warning' %}text-amber-600 hover:text-amber-700
-                  {% else %}text-blue-600 hover:text-blue-700{% endif %}">
+                  {% else %}text-primary-600 hover:text-primary-700{% endif %}">
           {{ alert.action_text }}
         </a>
       </div>

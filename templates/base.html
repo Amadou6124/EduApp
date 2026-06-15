@@ -46,7 +46,7 @@
         <!-- État ouvert -->
         <div x-show="$store.sidebar.open" class="flex items-center justify-between px-4 py-5">
           <a href="/" class="flex items-center gap-2.5 min-w-0">
-            <div class="w-8 h-8 bg-brand-blue rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0">
+            <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0">
               E
             </div>
             <span class="font-bold text-lg text-gray-900 truncate">EduApp</span>
@@ -64,7 +64,7 @@
         <!-- État fermé -->
         <div x-show="!$store.sidebar.open" x-cloak class="flex flex-col items-center py-3 gap-2">
           <a href="/"
-             class="w-8 h-8 bg-brand-blue rounded-lg flex items-center justify-center text-white font-bold text-sm">
+             class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
             E
           </a>
           <button @click="$store.sidebar.toggle()"
@@ -99,7 +99,7 @@
         <!-- Mon tableau de bord -->
         <a href="{% url 'teacher:dashboard' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'teacher' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'teacher' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Tableau de bord'">
           <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
@@ -109,7 +109,7 @@
         <!-- Mes leçons -->
         <a href="{% url 'lessons:list' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'lessons' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'lessons' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mes leçons'">
           <i data-lucide="sparkles" class="w-5 h-5 shrink-0"></i>
@@ -119,7 +119,7 @@
         <!-- Mes notes -->
         <a href="{% url 'notes:dashboard' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'notes' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'notes' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mes notes'">
           <i data-lucide="book-open" class="w-5 h-5 shrink-0"></i>
@@ -128,7 +128,7 @@
 
         <!-- Absences -->
         <a href="{% url 'teacher:attendance-list' %}"
-           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-50 hover:text-gray-900"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Absences'">
           <i data-lucide="calendar-x" class="w-5 h-5 shrink-0"></i>
@@ -138,7 +138,7 @@
         <!-- Suivi élèves -->
         <a href="{% url 'teacher:difficulty' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Suivi élèves'">
           <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i>
@@ -147,7 +147,7 @@
 
         <!-- Mes élèves (lecture seule) -->
         <a href="{% url 'teacher:students' %}"
-           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-50 hover:text-gray-900"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mes élèves'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
@@ -158,7 +158,7 @@
         <!-- Bulletins -->
         <a href="{% url 'bulletins:main' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'bulletins' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'bulletins' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Bulletins'">
           <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
@@ -173,7 +173,7 @@
         {# Promoteur : uniquement son dashboard consolidé #}
         <a href="{% url 'promoter:dashboard' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'promoter' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'promoter' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mon tableau de bord'">
           <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
@@ -184,7 +184,7 @@
         {# Parent : uniquement son espace #}
         <a href="{% url 'parent:dashboard' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'parent' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'parent' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mon espace'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
@@ -195,7 +195,7 @@
         <!-- Dashboard -->
         <a href="{% url 'dashboard:main' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'dashboard' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'dashboard' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Dashboard'">
           <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
@@ -205,7 +205,7 @@
         <!-- Classes -->
         <a href="{% url 'schools:class-list' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'schools' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'schools' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Classes'">
           <i data-lucide="school" class="w-5 h-5 shrink-0"></i>
@@ -215,7 +215,7 @@
         <!-- Élèves -->
         <a href="{% url 'students:list' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'students' and request.resolver_match.url_name != 'suivi' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'students' and request.resolver_match.url_name != 'suivi' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Élèves'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
@@ -233,7 +233,7 @@
         <!-- Suivi élèves -->
         <a href="{% url 'students:suivi' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'suivi' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.url_name == 'suivi' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Suivi'">
           <i data-lucide="activity" class="w-5 h-5 shrink-0"></i>
@@ -243,7 +243,7 @@
         <!-- Paiements -->
         <a href="{% url 'payments:dashboard' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'payments' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'payments' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Paiements'">
           <i data-lucide="credit-card" class="w-5 h-5 shrink-0"></i>
@@ -253,7 +253,7 @@
         <!-- Notes -->
         <a href="{% url 'notes:dashboard' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'notes' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'notes' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Notes'">
           <i data-lucide="book-open" class="w-5 h-5 shrink-0"></i>
@@ -263,7 +263,7 @@
         <!-- Bulletins -->
         <a href="{% url 'bulletins:main' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'bulletins' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'bulletins' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Bulletins'">
           <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
@@ -274,7 +274,7 @@
         {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
         <a href="{% url 'team:list' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'team' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'team' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Équipe'">
           <i data-lucide="users-round" class="w-5 h-5 shrink-0"></i>
@@ -287,7 +287,7 @@
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:dashboard' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'staff-list' or request.resolver_match.url_name == 'staff-remuneration' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.app_name == 'accounting' and request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'staff-list' or request.resolver_match.url_name == 'staff-remuneration' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Comptabilité'">
           <i data-lucide="calculator" class="w-5 h-5 shrink-0"></i>
@@ -301,7 +301,7 @@
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_record_emargement or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:emargement' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'emargement' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.url_name == 'emargement' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Émargement'">
           <i data-lucide="clipboard-check" class="w-5 h-5 shrink-0"></i>
@@ -315,7 +315,7 @@
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:salaires' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'salaires' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.url_name == 'salaires' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Paie mensuelle'">
           <i data-lucide="banknote" class="w-5 h-5 shrink-0"></i>
@@ -329,7 +329,7 @@
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:depenses' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'depenses' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.url_name == 'depenses' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Dépenses'">
           <i data-lucide="receipt" class="w-5 h-5 shrink-0"></i>
@@ -343,7 +343,7 @@
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:bilan' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'bilan' %}bg-blue-50 text-brand-blue font-medium{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.url_name == 'bilan' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Bilan financier'">
           <i data-lucide="bar-chart-3" class="w-5 h-5 shrink-0"></i>
@@ -379,7 +379,7 @@
         <button x-show="$store.sidebar.open"
                 @click="if(!sidebarMenu) { const r = $el.getBoundingClientRect(); menuLeft = r.left + 'px'; menuBottom = (window.innerHeight - r.top + 8) + 'px'; }; sidebarMenu = !sidebarMenu; langOpen = false; infoOpen = false"
                 class="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-100 transition text-left">
-          <div class="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             {{ request.user.full_name|first|upper }}
           </div>
           <div class="flex-1 min-w-0">
@@ -396,7 +396,7 @@
                 @click="if(!sidebarMenu) { const r = $el.getBoundingClientRect(); menuLeft = r.left + 'px'; menuBottom = (window.innerHeight - r.top + 8) + 'px'; }; sidebarMenu = !sidebarMenu; langOpen = false; infoOpen = false"
                 class="w-full flex justify-center py-2 rounded-lg hover:bg-gray-100 transition"
                 :title="sidebarMenu ? '' : '{{ request.user.full_name }}'">
-          <div class="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center text-white text-xs font-bold">
+          <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-xs font-bold">
             {{ request.user.full_name|first|upper }}
           </div>
         </button>
@@ -425,9 +425,9 @@
             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">École active</p>
           </div>
           <div class="px-1.5 pb-1">
-            <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-blue-50">
-              <i data-lucide="check" class="w-3.5 h-3.5 text-brand-blue shrink-0"></i>
-              <span class="truncate text-sm font-medium text-brand-blue">{{ request.school.name }}</span>
+            <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary-50">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-primary-700 shrink-0"></i>
+              <span class="truncate text-sm font-medium text-primary-700">{{ request.school.name }}</span>
             </div>
             {% for m in user_memberships %}
             <form method="post" action="{% url 'accounts:switch-school' m.school_id %}">
@@ -471,7 +471,7 @@
                  x-transition:enter-start="opacity-0"
                  x-transition:enter-end="opacity-100">
               <a href="#" class="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-1.5">
-                Français <i data-lucide="check" class="w-3.5 h-3.5 text-brand-blue shrink-0"></i>
+                Français <i data-lucide="check" class="w-3.5 h-3.5 text-primary-700 shrink-0"></i>
               </a>
               <a href="#" class="flex items-center justify-between px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg mx-1.5">
                 English <span class="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Bientôt</span>
@@ -547,7 +547,7 @@
     <!-- CONTENU PRINCIPAL                              -->
     <!-- ════════════════════════════════════════════════ -->
     <main :class="{% block sidebar_margin %}$store.sidebar.open ? 'lg:ml-64' : 'lg:ml-16'{% endblock %}"
-          class="flex-1 pb-20 lg:pb-0 transition-all duration-300">
+          class="flex-1 pb-20 lg:pb-0 transition-all duration-300 animate-fade-in">
 
       <!-- ─── HEADER ────────────────────────────────── -->
       <header class="bg-white border-b border-gray-200 sticky top-0 z-20">
@@ -558,7 +558,7 @@
 
           <!-- Avatar → paramètres -->
           <a href="{% url 'settings:general' %}"
-             class="w-9 h-9 rounded-full bg-brand-blue flex items-center justify-center
+             class="w-9 h-9 rounded-full bg-primary-600 flex items-center justify-center
                     text-white text-sm font-bold shrink-0 active:opacity-80">
             {{ request.user.full_name|first|upper }}
           </a>
@@ -578,9 +578,9 @@
                  x-transition:enter="transition ease-out duration-150"
                  x-transition:enter-start="opacity-0 -translate-y-2"
                  x-transition:enter-end="opacity-100 translate-y-0">
-              <div class="flex items-center gap-2 px-3 py-1.5 mx-1.5 rounded-lg bg-blue-50">
-                <i data-lucide="check" class="w-3.5 h-3.5 text-brand-blue shrink-0"></i>
-                <span class="truncate text-sm font-medium text-brand-blue">{{ request.school.name }}</span>
+              <div class="flex items-center gap-2 px-3 py-1.5 mx-1.5 rounded-lg bg-primary-50">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-primary-700 shrink-0"></i>
+                <span class="truncate text-sm font-medium text-primary-700">{{ request.school.name }}</span>
               </div>
               {% for m in user_memberships %}
               <form method="post" action="{% url 'accounts:switch-school' m.school_id %}" class="mx-1.5">
@@ -626,7 +626,7 @@
           <div class="flex items-center gap-3 min-w-0">
             {% block breadcrumb %}{% endblock %}
             <div class="min-w-0">
-              <h1 class="text-lg font-semibold text-gray-900 leading-tight">{% block page_title %}{% endblock %}</h1>
+              <h1 class="text-2xl font-semibold text-gray-900 leading-tight">{% block page_title %}{% endblock %}</h1>
               {% block page_subtitle %}{% if page_subtitle %}<p class="text-sm text-gray-500 mt-0.5 truncate animate-fade-in">{{ page_subtitle }}</p>{% endif %}{% endblock %}
             </div>
           </div>
@@ -683,7 +683,7 @@
             <div class="px-4 py-3 rounded-lg text-sm font-medium
                         {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200
                         {% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200
-                        {% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}"
+                        {% else %}bg-primary-50 text-primary-800 border border-primary-200{% endif %}"
                  x-data="{ show: true }" x-show="show"
                  x-init="setTimeout(() => show = false, 4000)">
               {{ message }}
@@ -692,7 +692,7 @@
         </div>
       {% endif %}
 
-      <div class="px-6 lg:px-8 py-6 animate-fade-in">
+      <div class="px-6 lg:px-8 py-6">
         {% block content %}{% endblock %}
       </div>
     </main>
@@ -712,9 +712,9 @@
     <a href="{% url 'teacher:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center">
       {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'teacher' %}
-      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
-        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-brand-blue"></i>
-        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Accueil</span>
+      <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-xl px-3 py-1">
+        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-primary-600"></i>
+        <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Accueil</span>
       </span>
       {% else %}
       <span class="flex flex-col items-center gap-0.5 px-3 py-1">
@@ -728,9 +728,9 @@
     <a href="{% url 'notes:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center">
       {% if request.resolver_match.app_name == 'notes' %}
-      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
-        <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-brand-blue"></i>
-        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Notes</span>
+      <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-xl px-3 py-1">
+        <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-primary-600"></i>
+        <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Notes</span>
       </span>
       {% else %}
       <span class="flex flex-col items-center gap-0.5 px-3 py-1">
@@ -744,9 +744,9 @@
     <a href="{% url 'teacher:attendance-list' %}"
        class="flex-1 flex flex-col items-center justify-center">
       {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}
-      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
-        <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-brand-blue"></i>
-        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Absences</span>
+      <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-xl px-3 py-1">
+        <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-primary-600"></i>
+        <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Absences</span>
       </span>
       {% else %}
       <span class="flex flex-col items-center gap-0.5 px-3 py-1">
@@ -760,9 +760,9 @@
     <a href="{% url 'teacher:difficulty' %}"
        class="flex-1 flex flex-col items-center justify-center">
       {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}
-      <span class="flex flex-col items-center gap-0.5 bg-brand-blue/10 rounded-xl px-3 py-1">
-        <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 text-brand-blue"></i>
-        <span class="text-[10px] font-semibold text-brand-blue whitespace-nowrap">Suivi</span>
+      <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-xl px-3 py-1">
+        <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 text-primary-600"></i>
+        <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Suivi</span>
       </span>
       {% else %}
       <span class="flex flex-col items-center gap-0.5 px-3 py-1">
@@ -776,9 +776,9 @@
     {# ── Nav mobile PROMOTEUR : un seul item centré ── #}
     <a href="{% url 'promoter:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center">
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.app_name == 'promoter' %}bg-brand-blue/10 rounded-xl{% endif %}">
-        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'promoter' %}text-brand-blue{% else %}text-gray-400{% endif %}"></i>
-        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'promoter' %}font-semibold text-brand-blue{% else %}text-gray-400{% endif %}">Tableau de bord</span>
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.app_name == 'promoter' %}bg-primary-600/10 rounded-xl{% endif %}">
+        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'promoter' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'promoter' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Tableau de bord</span>
       </span>
     </a>
 
@@ -786,9 +786,9 @@
     {# ── Nav mobile PARENT : un seul item centré ── #}
     <a href="{% url 'parent:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center">
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.app_name == 'parent' %}bg-brand-blue/10 rounded-xl{% endif %}">
-        <i data-lucide="users" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'parent' %}text-brand-blue{% else %}text-gray-400{% endif %}"></i>
-        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'parent' %}font-semibold text-brand-blue{% else %}text-gray-400{% endif %}">Mon espace</span>
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.app_name == 'parent' %}bg-primary-600/10 rounded-xl{% endif %}">
+        <i data-lucide="users" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'parent' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'parent' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Mon espace</span>
       </span>
     </a>
 
@@ -798,9 +798,9 @@
     {# Accueil #}
     <a href="{% url 'dashboard:main' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'dashboard' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'dashboard' %}text-primary-600{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if request.resolver_match.app_name == 'dashboard' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'dashboard' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
         <i data-lucide="layout-dashboard" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">{% trans "Accueil" %}</span>
@@ -809,9 +809,9 @@
     {# Élèves #}
     <a href="{% url 'students:list' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'students' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'students' %}text-primary-600{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if request.resolver_match.app_name == 'students' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'students' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
         <i data-lucide="users" class="w-6 h-6 shrink-0"></i>
         {% if unread_observations_count %}
         <span class="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full
@@ -827,9 +827,9 @@
     {# Paiements #}
     <a href="{% url 'payments:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'payments' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'payments' %}text-primary-600{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if request.resolver_match.app_name == 'payments' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'payments' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
         <i data-lucide="credit-card" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">{% trans "Paiements" %}</span>
@@ -838,9 +838,9 @@
     {# Notes #}
     <a href="{% url 'notes:dashboard' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'notes' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'notes' %}text-primary-600{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if request.resolver_match.app_name == 'notes' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'notes' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
         <i data-lucide="book-open" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">{% trans "Notes" %}</span>
@@ -850,9 +850,9 @@
     {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
     <a href="{% url 'settings:general' %}"
        class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'settings' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+              {% if request.resolver_match.app_name == 'settings' %}text-primary-600{% else %}text-gray-400{% endif %}">
       <div class="relative">
-        {% if request.resolver_match.app_name == 'settings' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-brand-blue"></span>{% endif %}
+        {% if request.resolver_match.app_name == 'settings' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
         <i data-lucide="settings" class="w-6 h-6 shrink-0"></i>
       </div>
       <span class="text-[11px] font-medium">{% trans "Plus" %}</span>

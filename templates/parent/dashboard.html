@@ -1,4 +1,4 @@
-{% load humanize %}<!DOCTYPE html>
+{% load humanize static %}<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -6,13 +6,7 @@
   <title>Espace Parent — EduApp</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = { theme: { extend: {
-      colors: { 'brand-blue':'#1E3A5F' },
-      fontFamily: { sans: ['Manrope','ui-sans-serif','system-ui'] },
-    } } }
-  </script>
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     body { font-family:'Manrope',sans-serif; }
@@ -29,7 +23,7 @@
          style="background:{{ request.user.get_avatar_colors.0 }};color:{{ request.user.get_avatar_colors.1 }}">
       {{ request.user.get_initials }}
     </div>
-    <span class="text-base font-extrabold text-brand-blue">EduApp</span>
+    <span class="text-base font-extrabold text-primary-600">EduApp</span>
     <a href="{% url 'parent:notifications' %}" class="relative p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition" title="Notifications">
       <i data-lucide="bell" class="w-5 h-5"></i>
       {% if parent_unread_count %}
@@ -56,7 +50,7 @@
       {% for c in children %}
       <a href="?child={{ c.student.id }}"
          class="shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition
-                {% if c.student.id == active_child.student.id %}bg-brand-blue text-white{% else %}bg-white border border-gray-200 text-gray-600{% endif %}">
+                {% if c.student.id == active_child.student.id %}bg-primary-600 text-white{% else %}bg-white border border-gray-200 text-gray-600{% endif %}">
         <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
               style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">{{ c.student.get_initials }}</span>
         {{ c.student.full_name }}
@@ -67,7 +61,7 @@
 
     {% with c=active_child %}
     {# ── CARTE ENFANT ── #}
-    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 mx-4 mt-4 p-6">
+    <div class="card mx-4 mt-4 p-6">
       <div class="flex items-center gap-4">
         <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-extrabold shrink-0"
              style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">
@@ -99,8 +93,8 @@
 
     {# ── GRILLE ACTIONS 2×2 ── #}
     <div class="grid grid-cols-2 gap-3 mx-4 mt-4">
-      <a href="{% url 'parent:bulletins' %}" class="bg-blue-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between active:scale-[0.98] transition">
-        <i data-lucide="file-text" class="w-6 h-6 text-blue-600"></i>
+      <a href="{% url 'parent:bulletins' %}" class="bg-primary-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between active:scale-[0.98] transition">
+        <i data-lucide="file-text" class="w-6 h-6 text-primary-600"></i>
         <div><p class="font-bold text-gray-900">Bulletins</p><p class="text-xs text-gray-500">{{ c.bulletins_count }} disponible{{ c.bulletins_count|pluralize }}</p></div>
       </a>
       <a href="{% url 'parent:payments' %}" class="bg-green-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between active:scale-[0.98] transition">
@@ -120,7 +114,7 @@
 
     {# ── BULLETIN RÉCENT ── #}
     {% if c.last_bulletin %}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mx-4 mt-4 p-5">
+    <div class="card mx-4 mt-4 p-5">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Dernier bulletin</p>
       <p class="font-bold text-gray-900">{{ c.last_bulletin.period.name }} · {{ c.last_bulletin.period.school_year.name }}</p>
       <div class="flex items-center gap-4 text-sm text-gray-500 mt-1">
@@ -128,7 +122,7 @@
         {% if c.last_bulletin.rank %}<span>Rang <strong class="text-gray-900">{{ c.last_bulletin.rank }}/{{ c.last_bulletin.class_size }}</strong></span>{% endif %}
       </div>
       <a href="{% url 'parent:bulletin-pdf' c.last_bulletin.id %}" target="_blank"
-         class="mt-4 w-full h-12 rounded-xl bg-[#1E3A5F] text-white font-semibold text-sm flex items-center justify-center gap-2">
+         class="btn-primary w-full mt-4">
         <i data-lucide="download" class="w-4 h-4"></i> Voir le bulletin
       </a>
     </div>
@@ -138,7 +132,7 @@
     {% if c.recent_absences %}
     <div class="mx-4 mt-4">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Absences récentes</p>
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
+      <div class="card divide-y divide-gray-50">
         {% for a in c.recent_absences %}
         <div class="flex items-center gap-2 px-4 py-2.5 text-sm">
           <i data-lucide="calendar-x" class="w-4 h-4 text-orange-500 shrink-0"></i>
@@ -156,7 +150,7 @@
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Messages de l'école</p>
       <div class="space-y-2">
         {% for o in c.observations %}
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <div class="card p-4">
           <div class="flex items-center gap-2 mb-1.5">
             {% if o.observation_type == 'behaviour' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Comportement</span>
             {% elif o.observation_type == 'academic' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">Académique</span>

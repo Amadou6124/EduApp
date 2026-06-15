@@ -71,7 +71,7 @@
           </div>
           {# Moyenne #}
           {% if sn.avg != None %}
-          <span class="text-sm font-bold text-brand-blue w-10 text-right">
+          <span class="text-sm font-bold text-primary-600 w-10 text-right">
             {{ sn.avg|floatformat:"-2" }}
           </span>
           {% else %}
@@ -134,7 +134,7 @@
   <div class="fixed bottom-20 right-4 sm:static sm:bottom-auto sm:right-auto sm:flex sm:justify-end">
     <button @click="obsPanel = true"
             class="flex items-center gap-2 px-4 py-3 rounded-2xl shadow-lg sm:shadow-none
-                   bg-[#1E3A5F] hover:bg-[#1E3A5F]/90 text-white font-semibold text-sm
+                   bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm
                    transition active:scale-95 select-none">
       <i data-lucide="plus" class="w-5 h-5"></i>
       <span>Nouvelle observation</span>

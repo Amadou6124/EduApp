@@ -31,7 +31,7 @@
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for it in items %}
     <div x-show="filter==='all' || filter==='{{ it.cat }}'"
-         class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+         class="card p-5">
       <div class="flex items-center gap-3 mb-3">
         <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
              style="background:{{ it.membership.user.get_avatar_colors.0 }};color:{{ it.membership.user.get_avatar_colors.1 }}">
@@ -43,7 +43,7 @@
         </div>
         <span class="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold
             {% if it.membership.role == 'director' %}bg-purple-100 text-purple-700
-            {% elif it.membership.role == 'teacher' %}bg-blue-100 text-blue-700
+            {% elif it.membership.role == 'teacher' %}bg-primary-100 text-primary-700
             {% else %}bg-gray-100 text-gray-600{% endif %}">{{ it.membership.get_role_display }}</span>
       </div>
 
@@ -65,12 +65,12 @@
       {% endif %}
 
       <a href="{% url 'team:detail' it.membership.user.id %}"
-         class="w-full h-9 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-700 hover:text-brand-blue hover:border-brand-blue flex items-center justify-center gap-1.5 transition">
+         class="w-full h-9 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-700 hover:text-primary-600 hover:border-primary-600 flex items-center justify-center gap-1.5 transition">
         Voir la fiche <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
       </a>
     </div>
     {% empty %}
-    <div class="col-span-full bg-white rounded-xl border border-gray-100 p-10 text-center text-sm text-gray-400">
+    <div class="col-span-full card p-10 text-center text-sm text-gray-400">
       Aucun membre actif.
     </div>
     {% endfor %}

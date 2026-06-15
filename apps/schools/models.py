@@ -293,7 +293,7 @@ class Subject(models.Model):
     )
     name       = models.CharField(_('nom'), max_length=100)       # ex : "Mathématiques"
     short_name = models.CharField(_('abréviation'), max_length=10)  # ex : "Maths"
-    color      = models.CharField(_('couleur'), max_length=7, default='#1E3A5F')
+    color      = models.CharField(_('couleur'), max_length=7, default='#4F46E5')
     is_active  = models.BooleanField(_('active'), default=True)
 
     class Meta:

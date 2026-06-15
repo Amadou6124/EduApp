@@ -1,7 +1,7 @@
 {% load humanize %}
 <div id="expense-content">
   {# Résumé : total + répartition par catégorie #}
-  <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+  <div class="card p-6 mb-6">
     <div class="flex items-center justify-between mb-4">
       <p class="text-sm text-gray-500">Total ce mois</p>
       <p class="text-2xl font-extrabold text-gray-900">{{ total|floatformat:0|intcomma }} <span class="text-sm font-normal text-gray-400">FCFA</span></p>
@@ -14,7 +14,7 @@
           <span class="flex items-center gap-1.5 text-gray-600"><i data-lucide="{{ c.category__icon|default:'circle' }}" class="w-3.5 h-3.5"></i> {{ c.category__name }}</span>
           <span class="font-semibold text-gray-700">{{ c.s|floatformat:0|intcomma }} FCFA · {{ c.pct }}%</span>
         </div>
-        <div class="h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full bg-brand-blue" style="width:{{ c.pct }}%"></div></div>
+        <div class="h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full bg-primary-600" style="width:{{ c.pct }}%"></div></div>
       </div>
       {% endfor %}
     </div>
@@ -25,7 +25,7 @@
 
   {# Liste #}
   {% if expenses %}
-  <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+  <div class="table-card">
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
         <th class="px-4 py-2.5 font-semibold">Date</th>
@@ -55,7 +55,7 @@
     </table></div>
   </div>
   {% else %}
-  <div class="bg-white rounded-xl border border-gray-100 p-10 text-center">
+  <div class="card p-10 text-center">
     <i data-lucide="receipt" class="w-10 h-10 mx-auto text-gray-300 mb-2"></i>
     <p class="text-sm text-gray-400">Aucune dépense pour ce filtre.</p>
   </div>

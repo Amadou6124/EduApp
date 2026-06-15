@@ -108,7 +108,7 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
                   required
                   placeholder="Décrivez l'observation de façon claire et factuelle…"
                   class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-brand-blue/30
+                         focus:outline-none focus:ring-2 focus:ring-primary-500/30
                          resize-none leading-relaxed text-gray-700 placeholder-gray-300">
         </textarea>
       </div>
@@ -125,11 +125,11 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
               <i data-lucide="lock" class="w-4 h-4 text-gray-500 shrink-0"></i>
             </template>
             <template x-if="!isPrivate">
-              <i data-lucide="send" class="w-4 h-4 text-brand-blue shrink-0"></i>
+              <i data-lucide="send" class="w-4 h-4 text-primary-600 shrink-0"></i>
             </template>
             <div>
               <p class="text-sm font-medium"
-                 :class="isPrivate ? 'text-gray-700' : 'text-brand-blue'"
+                 :class="isPrivate ? 'text-gray-700' : 'text-primary-600'"
                  x-text="isPrivate ? 'Note privée' : 'Envoyer à l\'administration'"></p>
               <p class="text-xs mt-0.5"
                  :class="isPrivate ? 'text-gray-400' : 'text-blue-400'"
@@ -137,7 +137,7 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
             </div>
           </div>
           <div class="relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0"
-               :class="isPrivate ? 'bg-gray-300' : 'bg-brand-blue'">
+               :class="isPrivate ? 'bg-gray-300' : 'bg-primary-600'">
             <span class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200"
                   :class="isPrivate ? 'left-0.5' : 'left-5'"></span>
           </div>
@@ -150,7 +150,7 @@ L'événement HX-Trigger close-obs-panel ferme le panel.
     {# ── Bouton envoyer (fixe en bas) ── #}
     <div class="px-5 py-4 border-t border-gray-100 bg-white shrink-0">
       <button type="submit"
-              :class="isPrivate ? 'bg-gray-600 hover:bg-gray-700' : 'bg-[#1E3A5F] hover:bg-[#1E3A5F]/90'"
+              :class="isPrivate ? 'bg-gray-600 hover:bg-gray-700' : 'bg-primary-600 hover:bg-primary-700'"
               class="w-full h-12 rounded-xl text-white font-semibold text-sm
                      flex items-center justify-center gap-2
                      transition active:scale-[0.99] select-none">

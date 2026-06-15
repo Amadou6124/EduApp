@@ -10,12 +10,12 @@ Contexte : bulletins, school_class, period,
   {# ── 4 Stats Cards ──────────────────────────────────────────── #}
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
 
-    <div class="bg-white rounded-xl p-4 border border-gray-200 flex items-start gap-3">
-      <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-        <i data-lucide="bar-chart-2" class="w-5 h-5 text-brand-blue"></i>
+    <div class="card p-4 flex items-start gap-3">
+      <div class="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="bar-chart-2" class="w-5 h-5 text-primary-600"></i>
       </div>
       <div>
-        <p class="text-2xl font-bold text-brand-blue leading-tight">
+        <p class="text-2xl font-bold text-primary-600 leading-tight">
           {% if class_average %}{{ class_average }}/20{% else %}—{% endif %}
         </p>
         <p class="text-xs text-gray-400 mt-0.5">moy. de la classe</p>
@@ -34,7 +34,7 @@ Contexte : bulletins, school_class, period,
       </div>
     </div>
 
-    <div class="bg-white rounded-xl p-4 border border-gray-200 flex items-start gap-3">
+    <div class="card p-4 flex items-start gap-3">
       <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
         <i data-lucide="trending-down" class="w-5 h-5 text-gray-500"></i>
       </div>
@@ -46,12 +46,12 @@ Contexte : bulletins, school_class, period,
       </div>
     </div>
 
-    <div class="bg-white rounded-xl p-4 border border-gray-200 flex items-start gap-3">
-      <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0">
-        <i data-lucide="users" class="w-5 h-5 text-indigo-500"></i>
+    <div class="card p-4 flex items-start gap-3">
+      <div class="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="users" class="w-5 h-5 text-primary-600"></i>
       </div>
       <div>
-        <p class="text-2xl font-bold text-indigo-600 leading-tight">{{ bulletins|length }}</p>
+        <p class="text-2xl font-bold text-primary-600 leading-tight">{{ bulletins|length }}</p>
         <p class="text-xs text-gray-400 mt-0.5">bulletins classés</p>
       </div>
     </div>
@@ -110,7 +110,7 @@ Contexte : bulletins, school_class, period,
   <div class="relative max-w-xs mb-4">
     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
     <input type="text" x-data x-model="$store.search.q"
-           class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-gold/40"
+           class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
            placeholder="Rechercher un élève...">
   </div>
 
@@ -159,7 +159,7 @@ Contexte : bulletins, school_class, period,
             {# Moyenne #}
             <td class="px-4 py-2.5 text-center font-bold
                        {% if bul.general_average >= 14 %}text-green-600
-                       {% elif bul.general_average >= 10 %}text-brand-blue
+                       {% elif bul.general_average >= 10 %}text-primary-600
                        {% else %}text-red-500{% endif %}">
               {{ bul.general_average|floatformat:'2' }}/20
             </td>
@@ -169,7 +169,7 @@ Contexte : bulletins, school_class, period,
               {% if bul.appreciation %}
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-medium
                              {% if bul.general_average >= 14 %}bg-green-100 text-green-700
-                             {% elif bul.general_average >= 10 %}bg-blue-100 text-blue-700
+                             {% elif bul.general_average >= 10 %}bg-primary-100 text-primary-700
                              {% else %}bg-red-50 text-red-500{% endif %}">
                   {{ bul.appreciation }}
                 </span>
@@ -181,7 +181,7 @@ Contexte : bulletins, school_class, period,
               <a href="{% url 'bulletins:view-pdf' bul.pk %}"
                  target="_blank"
                  title="Voir le PDF"
-                 class="inline-flex items-center justify-center p-1.5 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors">
+                 class="inline-flex items-center justify-center p-1.5 hover:bg-primary-50 rounded-lg text-primary-600 transition-colors">
                 <i data-lucide="eye" class="w-4 h-4"></i>
               </a>
             </td>

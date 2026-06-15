@@ -36,99 +36,99 @@ Contexte : kpis = {student_count, class_count, teacher_count,
      x-init="initCounters()">
 
   {# ── Card 1 : Élèves ──────────────────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-all duration-300 animate-fade-in"
+  <div class="kpi hover:shadow-md transition-all duration-300 animate-fade-in"
        style="animation: fadeIn 0.4s ease-out forwards; opacity: 0; animation-delay: 0ms;">
     <div class="flex items-center gap-4">
-      <div class="w-12 h-12 rounded-xl bg-[#E6F1FB] flex items-center justify-center flex-shrink-0">
-        <i data-lucide="users" class="w-6 h-6 text-[#0C447C]"></i>
+      <div class="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="users" class="w-6 h-6 text-primary-600"></i>
       </div>
       <div>
-        <p class="text-2xl font-bold text-gray-800">
+        <p class="kpi-value">
           <span x-text="counters.students?.toLocaleString() || '0'"></span>
         </p>
-        <p class="text-xs text-gray-500">Élèves inscrits</p>
+        <p class="kpi-label">Élèves inscrits</p>
       </div>
     </div>
   </div>
 
   {# ── Card 2 : Classes ─────────────────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-all duration-300"
+  <div class="kpi hover:shadow-md transition-all duration-300"
        style="animation: fadeIn 0.4s ease-out forwards; opacity: 0; animation-delay: 100ms;">
     <div class="flex items-center gap-4">
-      <div class="w-12 h-12 rounded-xl bg-[#EAF3DE] flex items-center justify-center flex-shrink-0">
-        <i data-lucide="school" class="w-6 h-6 text-[#27500A]"></i>
+      <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="school" class="w-6 h-6 text-green-600"></i>
       </div>
       <div>
-        <p class="text-2xl font-bold text-gray-800">
+        <p class="kpi-value">
           <span x-text="counters.classes"></span>
         </p>
-        <p class="text-xs text-gray-500">Classes actives</p>
+        <p class="kpi-label">Classes actives</p>
       </div>
     </div>
   </div>
 
   {# ── Card 3 : Enseignants ─────────────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-all duration-300"
+  <div class="kpi hover:shadow-md transition-all duration-300"
        style="animation: fadeIn 0.4s ease-out forwards; opacity: 0; animation-delay: 200ms;">
     <div class="flex items-center gap-4">
-      <div class="w-12 h-12 rounded-xl bg-[#EEEDFE] flex items-center justify-center flex-shrink-0">
-        <i data-lucide="graduation-cap" class="w-6 h-6 text-[#4F46E5]"></i>
+      <div class="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="graduation-cap" class="w-6 h-6 text-purple-600"></i>
       </div>
       <div>
-        <p class="text-2xl font-bold text-gray-800">
+        <p class="kpi-value">
           <span x-text="counters.teachers"></span>
         </p>
-        <p class="text-xs text-gray-500">Enseignants actifs</p>
+        <p class="kpi-label">Enseignants actifs</p>
       </div>
     </div>
   </div>
 
   {# ── Card 4 : Encaissé ────────────────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-all duration-300"
+  <div class="kpi hover:shadow-md transition-all duration-300"
        style="animation: fadeIn 0.4s ease-out forwards; opacity: 0; animation-delay: 300ms;">
     <div class="flex items-center gap-4">
       <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
         <i data-lucide="wallet" class="w-6 h-6 text-green-600"></i>
       </div>
       <div>
-        <p class="text-2xl font-bold text-gray-800">
+        <p class="kpi-value">
           <span x-text="counters.collected?.toLocaleString() || '0'"></span>
           <span class="text-sm text-gray-500">FCFA</span>
         </p>
-        <p class="text-xs text-gray-500">Encaissé ce trimestre</p>
+        <p class="kpi-label">Encaissé ce trimestre</p>
       </div>
     </div>
   </div>
 
   {# ── Card 5 : Impayés ─────────────────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-all duration-300"
+  <div class="kpi hover:shadow-md transition-all duration-300"
        style="animation: fadeIn 0.4s ease-out forwards; opacity: 0; animation-delay: 400ms;">
     <div class="flex items-center gap-4">
       <div class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
         <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-500"></i>
       </div>
       <div>
-        <p class="text-2xl font-bold {% if kpis.unpaid_count > 0 %}text-amber-600{% else %}text-green-600{% endif %}">
+        <p class="text-3xl font-bold {% if kpis.unpaid_count > 0 %}text-amber-600{% else %}text-green-600{% endif %}">
           <span x-text="counters.unpaid"></span>
         </p>
-        <p class="text-xs text-gray-500">Élèves avec impayés</p>
+        <p class="kpi-label">Élèves avec impayés</p>
       </div>
     </div>
   </div>
 
   {# ── Card 6 : Moyenne école ───────────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-all duration-300"
+  <div class="kpi hover:shadow-md transition-all duration-300"
        style="animation: fadeIn 0.4s ease-out forwards; opacity: 0; animation-delay: 500ms;">
     <div class="flex items-center gap-4">
-      <div class="w-12 h-12 rounded-xl bg-amber-50/60 flex items-center justify-center flex-shrink-0">
-        <i data-lucide="bar-chart-2" class="w-6 h-6 text-brand-gold"></i>
+      <div class="w-12 h-12 rounded-xl bg-gold-50 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="bar-chart-2" class="w-6 h-6 text-gold-500"></i>
       </div>
       <div>
-        <p class="text-2xl font-bold text-brand-blue">
+        <p class="text-3xl font-bold text-primary-700">
           <span x-text="counters.avg?.toFixed?.(2) || '—'"></span>
           <span class="text-sm text-gray-500">/20</span>
         </p>
-        <p class="text-xs text-gray-500">Moyenne générale école</p>
+        <p class="kpi-label">Moyenne générale école</p>
       </div>
     </div>
   </div>

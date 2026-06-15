@@ -4,23 +4,23 @@ Contexte : class_health = list[dict] {class, student_count, avg, success_rate, p
 {% endcomment %}
 {% load i18n %}
 
-<div class="bg-white rounded-xl border border-gray-200 p-5 mb-8">
+<div class="card p-5 mb-8">
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-sm font-semibold text-gray-700">Santé éducative par classe</h2>
     <div x-data="{ filter: 'all' }" class="flex gap-1">
       {% for level in 'all'|make_list %}
       {% endfor %}
       <button x-on:click="filter = 'all'"
-              x-bind:class="filter === 'all' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              x-bind:class="filter === 'all' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
               class="px-3 py-1 rounded-full text-xs font-medium transition">Toutes</button>
       <button x-on:click="filter = 'primary'"
-              x-bind:class="filter === 'primary' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              x-bind:class="filter === 'primary' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
               class="px-3 py-1 rounded-full text-xs font-medium transition">Primaire</button>
       <button x-on:click="filter = 'middle'"
-              x-bind:class="filter === 'middle' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              x-bind:class="filter === 'middle' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
               class="px-3 py-1 rounded-full text-xs font-medium transition">Collège</button>
       <button x-on:click="filter = 'high'"
-              x-bind:class="filter === 'high' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              x-bind:class="filter === 'high' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
               class="px-3 py-1 rounded-full text-xs font-medium transition">Lycée</button>
     </div>
   </div>
@@ -46,7 +46,7 @@ Contexte : class_health = list[dict] {class, student_count, avg, success_rate, p
             onclick="window.location='/bulletins/?class={{ row.class.pk }}'">
           <td class="px-3 py-2.5 font-medium text-gray-700">{{ row.class.name }}</td>
           <td class="px-3 py-2.5 text-center text-gray-600">{{ row.student_count }}</td>
-          <td class="px-3 py-2.5 text-center font-semibold {% if row.avg and row.avg >= 12 %}text-green-600{% elif row.avg and row.avg >= 10 %}text-brand-blue{% elif row.avg %}text-red-500{% else %}text-gray-300{% endif %}">
+          <td class="px-3 py-2.5 text-center font-semibold {% if row.avg and row.avg >= 12 %}text-green-600{% elif row.avg and row.avg >= 10 %}text-primary-600{% elif row.avg %}text-red-500{% else %}text-gray-300{% endif %}">
             {% if row.avg %}{{ row.avg }}/20{% else %}—{% endif %}
           </td>
           <td class="px-3 py-2.5 text-center text-xs">

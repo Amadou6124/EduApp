@@ -1,7 +1,7 @@
 {% load i18n %}
-<div id="student-profile-card" class="bg-white rounded-xl border border-gray-200 p-6">
+<div id="student-profile-card" class="card p-6">
 
-  <h3 class="text-base font-semibold text-brand-blue mb-5 flex items-center gap-2">
+  <h3 class="text-base font-semibold text-primary-700 mb-5 flex items-center gap-2">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -23,7 +23,7 @@
         </label>
         <input type="text" name="full_name" required
                value="{{ form.full_name.value|default:'' }}"
-               class="w-full border {% if form.full_name.errors %}border-red-400 bg-red-50{% else %}border-gray-300{% endif %} rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent">
+               class="input-field {% if form.full_name.errors %}is-error{% endif %}">
         {% for error in form.full_name.errors %}
           <p class="mt-1 text-xs text-red-600">{{ error }}</p>
         {% endfor %}
@@ -35,7 +35,7 @@
           Classe <span class="text-red-500">*</span>
         </label>
         <select name="school_class"
-                class="w-full border {% if form.school_class.errors %}border-red-400 bg-red-50{% else %}border-gray-300{% endif %} rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                class="input-field {% if form.school_class.errors %}is-error{% endif %}">
           {% for val, label in form.school_class.field.choices %}
             <option value="{{ val }}" {% if val|stringformat:"s" == form.school_class.value|stringformat:"s" %}selected{% endif %}>
               {{ label }}
@@ -52,7 +52,7 @@
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Date de naissance</label>
         <input type="date" name="date_of_birth"
                value="{{ form.date_of_birth.value|date:'Y-m-d'|default:'' }}"
-               class="w-full border {% if form.date_of_birth.errors %}border-red-400 bg-red-50{% else %}border-gray-300{% endif %} rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue">
+               class="input-field {% if form.date_of_birth.errors %}is-error{% endif %}">
         {% for error in form.date_of_birth.errors %}
           <p class="mt-1 text-xs text-red-600">{{ error }}</p>
         {% endfor %}
@@ -94,7 +94,7 @@
       <div class="sm:col-span-2">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
         <textarea name="notes" rows="3"
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue resize-none"
+                  class="input-field resize-none"
                   placeholder="Informations supplémentaires…">{{ form.notes.value|default:'' }}</textarea>
       </div>
 
@@ -117,7 +117,7 @@
         Annuler
       </button>
       <button type="submit"
-              class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px] flex items-center justify-center gap-2">
+              class="btn-primary flex-1 min-h-[44px]">
         <svg class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>

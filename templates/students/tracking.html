@@ -9,19 +9,19 @@
 
   {# ── Stats résumé ── #}
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-    <div class="bg-white rounded-xl border border-gray-100 p-4">
+    <div class="card p-4">
       <div class="flex items-center gap-2 text-xs text-gray-400 mb-1"><i data-lucide="calendar-x" class="w-4 h-4"></i> Absents aujourd'hui</div>
       <p class="text-2xl font-extrabold text-gray-900">{{ stats.absences_today }}</p>
     </div>
-    <div class="bg-white rounded-xl border border-gray-100 p-4">
+    <div class="card p-4">
       <div class="flex items-center gap-2 text-xs text-gray-400 mb-1"><i data-lucide="message-square" class="w-4 h-4"></i> Observations non lues</div>
       <p class="text-2xl font-extrabold text-gray-900">{{ stats.obs_unread }}</p>
     </div>
-    <div class="bg-white rounded-xl border border-gray-100 p-4">
+    <div class="card p-4">
       <div class="flex items-center gap-2 text-xs text-gray-400 mb-1"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Signalés difficulté</div>
       <p class="text-2xl font-extrabold text-amber-600">{{ stats.difficulty_count }}</p>
     </div>
-    <div class="bg-white rounded-xl border border-gray-100 p-4">
+    <div class="card p-4">
       <div class="flex items-center gap-2 text-xs text-gray-400 mb-1"><i data-lucide="bell" class="w-4 h-4"></i> Notifications ce mois</div>
       <p class="text-2xl font-extrabold text-gray-900">{{ stats.notifs_sent_month }}</p>
     </div>

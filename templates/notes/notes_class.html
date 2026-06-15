@@ -117,13 +117,13 @@ function mobileNoteInput(students, existingNotes) {
 {% block page_title %}
   <div class="flex items-center gap-3 flex-wrap">
     <a href="{% url 'notes:dashboard' %}?year={{ period.school_year.pk }}&period={{ period.pk }}"
-       class="text-gray-400 hover:text-brand-blue transition"
+       class="text-gray-400 hover:text-primary-600 transition"
        title="{% trans 'Retour au tableau de bord' %}">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
       </svg>
     </a>
-    <span class="text-brand-blue">{{ school_class.name }}</span>
+    <span class="text-primary-700">{{ school_class.name }}</span>
     <span class="text-gray-300">·</span>
     <span class="text-gray-500 font-normal text-sm">{{ period.name }}</span>
   </div>
@@ -173,7 +173,7 @@ function mobileNoteInput(students, existingNotes) {
         <p class="text-xs text-gray-400">{{ reason|default:"Votre rôle ne permet pas la saisie des notes." }}</p>
       </div>
     {% else %}
-      <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+      <div class="card p-8 text-center">
         <i data-lucide="users" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i>
         <p class="text-sm font-medium text-gray-500">Aucun élève dans cette classe</p>
       </div>
@@ -206,7 +206,7 @@ function mobileNoteInput(students, existingNotes) {
                 hx-swap="innerHTML"
                 hx-push-url="?subject={{ cs.pk }}">
           <span class="w-2 h-2 rounded-full flex-shrink-0"
-                style="background-color: {{ cs.subject.color|default:'#1E3A5F' }}"></span>
+                style="background-color: {{ cs.subject.color }}"></span>
           <span>{{ cs.subject.short_name|default:cs.subject.name }}</span>
           <span class="text-[10px] opacity-60 ml-0.5">coeff.{{ cs.coefficient|floatformat:'1' }}</span>
         </button>

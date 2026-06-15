@@ -6,7 +6,7 @@ Pour ajouter un type : modifier _compute_activity() dans apps/dashboard/views.py
 {% load i18n %}
 {% load humanize %}
 
-<div class="bg-white rounded-xl border border-gray-200 p-5">
+<div class="card p-5">
   <h2 class="text-sm font-semibold text-gray-700 mb-4">Activité récente</h2>
 
   {% if activity %}
@@ -19,7 +19,7 @@ Pour ajouter un type : modifier _compute_activity() dans apps/dashboard/views.py
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-xs uppercase tracking-wider text-gray-400 font-medium">{{ item.label }}</p>
-        <p class="text-sm font-medium text-gray-900 mt-0.5 group-hover:text-brand-blue transition line-clamp-1">{{ item.text }}</p>
+        <p class="text-sm font-medium text-gray-900 mt-0.5 group-hover:text-primary-600 transition line-clamp-1">{{ item.text }}</p>
         <p class="text-xs text-gray-400 mt-0.5">
           {% if item.time|timesince != '0 minutes' %}
           Il y a {{ item.time|timesince }}
@@ -28,7 +28,7 @@ Pour ajouter un type : modifier _compute_activity() dans apps/dashboard/views.py
           {% endif %}
         </p>
       </div>
-      <svg class="w-4 h-4 text-gray-300 group-hover:text-brand-blue flex-shrink-0 mt-1.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-4 h-4 text-gray-300 group-hover:text-primary-600 flex-shrink-0 mt-1.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
       </svg>
     </a>

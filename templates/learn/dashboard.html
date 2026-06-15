@@ -7,7 +7,7 @@
 <style>
   /* Fond animé du dashboard (background-image → couvre la couleur Tailwind du body) */
   body {
-    background-image: linear-gradient(-45deg, #F8F9FC, #EEF2FF, #F0FDF4, #FFF7ED);
+    background-image: linear-gradient(-45deg, #F0FDF9, #ECFDF5, #F0FDF4, #D1FAE5);
     background-size: 400% 400%;
     animation: gradientShift 8s ease infinite;
   }
@@ -27,12 +27,12 @@
   {# Leçon en cours #}
   {% if current_lesson_progress %}
   <a href="{% url 'learn:lesson' current_lesson_progress.lesson.id %}"
-     class="block bg-gradient-to-r from-brand-blue to-blue-600 rounded-2xl p-4 mb-4 text-white shadow-md active:scale-[0.98] transition">
+     class="block bg-gradient-to-r from-student-500 to-student-600 rounded-2xl p-4 mb-4 text-white shadow-md active:scale-[0.98] transition">
     <div class="flex items-center gap-2 mb-1">
       <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full">▶ En cours</span>
     </div>
     <p class="font-semibold text-sm leading-tight">{{ current_lesson_progress.lesson.title|truncatechars:50 }}</p>
-    <p class="text-blue-200 text-xs mt-0.5">{{ current_lesson_progress.lesson.subject }}</p>
+    <p class="text-emerald-100 text-xs mt-0.5">{{ current_lesson_progress.lesson.subject }}</p>
   </a>
   {% endif %}
 
@@ -42,7 +42,7 @@
     {% for subject in subjects %}
     <a href="?subject={{ subject.name|urlencode }}"
        class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition whitespace-nowrap
-              {% if subject.name == active_subject %}bg-brand-blue text-white shadow-md{% else %}bg-white/70 backdrop-blur text-gray-600 border border-gray-200 hover:border-brand-blue{% endif %}">
+              {% if subject.name == active_subject %}bg-student-500 text-white shadow-md{% else %}bg-white/70 backdrop-blur text-gray-600 border border-gray-200 hover:border-student-500{% endif %}">
       {% if subject.type == 'math' %}🔢{% elif subject.type == 'scientific' %}🔬{% elif subject.type == 'literary' %}📖{% elif subject.type == 'language' %}🌍{% elif subject.type == 'geography' %}🗺️{% elif subject.type == 'accounting' %}💰{% elif subject.type == 'code' %}💻{% else %}📚{% endif %}
       {{ subject.name }}
     </a>
@@ -119,7 +119,7 @@
        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white rounded-t-3xl z-50 p-5 pb-7 shadow-2xl">
     <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
     <div class="flex items-center gap-2 mb-2">
-      <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-brand-blue"
+      <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-student-50 text-student-600"
             x-text="(openNode?.stype === 'math' ? '🔢 ' : openNode?.stype === 'scientific' ? '🔬 ' : openNode?.stype === 'literary' ? '📖 ' : openNode?.stype === 'language' ? '🌍 ' : openNode?.stype === 'geography' ? '🗺️ ' : openNode?.stype === 'accounting' ? '💰 ' : '📚 ') + (openNode?.subject || '')"></span>
       <span class="text-xs font-semibold px-2.5 py-1 rounded-full"
             :class="openNode?.state === 'completed' ? 'bg-green-50 text-green-600' : openNode?.state === 'in_progress' ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500'"
@@ -133,12 +133,12 @@
       </div>
       <div class="bg-gray-100 rounded-full h-2">
         <div class="h-2 rounded-full transition-all"
-             :class="(openNode?.mastery || 0) >= 80 ? 'bg-green-500' : (openNode?.mastery || 0) >= 40 ? 'bg-amber-500' : 'bg-blue-400'"
+             :class="(openNode?.mastery || 0) >= 80 ? 'bg-green-500' : (openNode?.mastery || 0) >= 40 ? 'bg-amber-500' : 'bg-student-400'"
              :style="`width: ${openNode?.mastery || 0}%`"></div>
       </div>
     </div>
     <a :href="openNode?.url"
-       class="block w-full bg-brand-blue text-white py-3.5 rounded-2xl font-bold text-center text-base active:scale-95 transition">
+       class="block w-full bg-student-500 text-white py-3.5 rounded-2xl font-bold text-center text-base active:scale-95 transition">
       <span x-text="openNode?.state === 'not_started' ? 'Commencer →' : 'Continuer →'"></span>
     </a>
   </div>

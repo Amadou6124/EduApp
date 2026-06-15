@@ -22,7 +22,7 @@
   {# SECTION 1 — Contexte du jour                         #}
   {# ══════════════════════════════════════════════════════ #}
   <div class="rounded-2xl p-4 text-white"
-       style="background: linear-gradient(135deg, #1E3A5F 0%, #2a5298 100%);">
+       style="background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%);">
     <div class="flex items-center gap-2 mb-1">
       <i data-lucide="calendar" class="w-4 h-4 opacity-80 shrink-0"></i>
       <span class="text-sm font-medium opacity-90">{{ today_label }}</span>
@@ -46,7 +46,7 @@
 
     <div class="bg-white rounded-xl border border-gray-200 p-4">
       <div class="flex items-center gap-2 mb-1">
-        <i data-lucide="book-open" class="w-5 h-5 text-brand-blue shrink-0"></i>
+        <i data-lucide="book-open" class="w-5 h-5 text-primary-600 shrink-0"></i>
         <span class="text-xs text-gray-500 font-medium">Mes classes</span>
       </div>
       <p class="text-2xl font-bold text-gray-900">{{ nb_classes }}</p>
@@ -119,7 +119,7 @@
             <div class="flex flex-wrap gap-1.5">
               {% for cs in card.my_subjects %}
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                           bg-brand-blue/10 text-brand-blue text-[11px] font-medium">
+                           bg-primary-600/10 text-primary-600 text-[11px] font-medium">
                 {{ cs.subject.name }}
                 <span class="opacity-60">coeff {{ cs.coefficient|floatformat:0 }}</span>
               </span>
@@ -156,8 +156,8 @@
             {% if active_period %}
             <a href="{% url 'notes:class' card.class.pk active_period.pk %}"
                class="flex-1 flex items-center justify-center gap-1.5 min-h-[44px]
-                      rounded-xl bg-brand-blue text-white text-xs font-semibold
-                      hover:bg-brand-blue/90 active:scale-95 transition">
+                      rounded-xl bg-primary-600 text-white text-xs font-semibold
+                      hover:bg-primary-700 active:scale-95 transition">
               <i data-lucide="pen-line" class="w-4 h-4 shrink-0"></i>
               Saisir notes
             </a>
@@ -197,8 +197,8 @@
          class="flex items-center gap-3 w-full min-h-[56px] px-4 rounded-xl
                 bg-white border border-gray-200 hover:bg-gray-50
                 active:scale-[0.98] transition">
-        <span class="w-9 h-9 rounded-lg bg-brand-blue/10 flex items-center justify-center shrink-0">
-          <i data-lucide="pen-line" class="w-4 h-4 text-brand-blue"></i>
+        <span class="w-9 h-9 rounded-lg bg-primary-600/10 flex items-center justify-center shrink-0">
+          <i data-lucide="pen-line" class="w-4 h-4 text-primary-600"></i>
         </span>
         <span class="text-sm font-medium text-gray-800">Saisir des notes</span>
         <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 ml-auto shrink-0"></i>

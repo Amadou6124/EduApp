@@ -1,15 +1,15 @@
 {# Bottom nav parent — requiert : active (home|bulletins|payments|account) #}
 <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white rounded-t-2xl shadow-[0_-4px_12px_rgba(0,0,0,0.08)] border-t border-gray-100 h-[68px] flex">
-  <a href="{% url 'parent:dashboard' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 {% if active == 'home' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+  <a href="{% url 'parent:dashboard' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 {% if active == 'home' %}text-primary-600{% else %}text-gray-400{% endif %}">
     <i data-lucide="home" class="w-5 h-5"></i><span class="text-[10px] {% if active == 'home' %}font-semibold{% endif %}">Accueil</span>
   </a>
-  <a href="{% url 'parent:bulletins' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 {% if active == 'bulletins' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+  <a href="{% url 'parent:bulletins' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 {% if active == 'bulletins' %}text-primary-600{% else %}text-gray-400{% endif %}">
     <i data-lucide="file-text" class="w-5 h-5"></i><span class="text-[10px] {% if active == 'bulletins' %}font-semibold{% endif %}">Bulletins</span>
   </a>
-  <a href="{% url 'parent:payments' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 {% if active == 'payments' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+  <a href="{% url 'parent:payments' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 {% if active == 'payments' %}text-primary-600{% else %}text-gray-400{% endif %}">
     <i data-lucide="wallet" class="w-5 h-5"></i><span class="text-[10px] {% if active == 'payments' %}font-semibold{% endif %}">Paiements</span>
   </a>
-  <a href="{% url 'parent:account' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 {% if active == 'account' %}text-brand-blue{% else %}text-gray-400{% endif %}">
+  <a href="{% url 'parent:account' %}" class="flex-1 flex flex-col items-center justify-center gap-0.5 {% if active == 'account' %}text-primary-600{% else %}text-gray-400{% endif %}">
     <i data-lucide="user" class="w-5 h-5"></i><span class="text-[10px] {% if active == 'account' %}font-semibold{% endif %}">Mon compte</span>
   </a>
 </nav>

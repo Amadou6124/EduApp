@@ -60,7 +60,7 @@
       <input type="checkbox" name="is_active" id="id_is_active"
              :checked="active" @change="active = $event.target.checked" class="sr-only">
       <div @click="active = !active"
-           :class="active ? 'bg-brand-blue' : 'bg-gray-200'"
+           :class="active ? 'bg-primary-600' : 'bg-gray-200'"
            class="w-10 h-6 rounded-full transition-colors duration-200 cursor-pointer"></div>
       <div @click="active = !active"
            :class="active ? 'translate-x-4' : 'translate-x-0'"
@@ -75,7 +75,7 @@
       Annuler
     </button>
     <button type="submit"
-            class="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-blue hover:bg-blue-900 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+            class="btn-primary flex-1 min-h-[44px]">
       <svg id="edit-spinner" class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>

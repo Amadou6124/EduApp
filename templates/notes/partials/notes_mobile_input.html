@@ -28,7 +28,7 @@ La fonction Alpine mobileNoteInput() est définie dans notes_class.html extra_he
       <span x-text="progressPct + '%'"></span>
     </div>
     <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-      <div class="h-full bg-brand-blue rounded-full transition-all duration-300"
+      <div class="h-full bg-primary-600 rounded-full transition-all duration-300"
            :style="'width:' + progressPct + '%'">
       </div>
     </div>
@@ -44,7 +44,7 @@ La fonction Alpine mobileNoteInput() est définie dans notes_class.html extra_he
 
     <div class="text-center">
       <p class="text-sm font-semibold text-gray-700" x-text="progress"></p>
-      <p class="text-xs text-brand-blue font-medium">
+      <p class="text-xs text-primary-600 font-medium">
         {{ active_cs.subject.name }}
         <span class="text-gray-400 font-normal">&nbsp;·&nbsp;coeff&nbsp;{{ active_cs.coefficient|floatformat:0 }}</span>
       </p>
@@ -81,7 +81,7 @@ La fonction Alpine mobileNoteInput() est définie dans notes_class.html extra_he
     {# Note saisie / existante #}
     <div class="mt-4 flex items-baseline justify-center gap-1.5">
       <span class="text-5xl font-black tracking-tight transition-all duration-100"
-            :class="inputValue ? 'text-brand-blue' : 'text-gray-200'"
+            :class="inputValue ? 'text-primary-600' : 'text-gray-200'"
             x-text="inputValue || '—'">
       </span>
       <span class="text-xl text-gray-300 font-light">
@@ -114,7 +114,7 @@ La fonction Alpine mobileNoteInput() est définie dans notes_class.html extra_he
   {# ── Bouton enregistrer et suivant ────────────────────────── #}
   <button type="button"
           @click="saveAndNext()"
-          class="w-full h-16 rounded-2xl bg-[#1E3A5F] hover:bg-[#1E3A5F]/90
+          class="w-full h-16 rounded-2xl bg-primary-600 hover:bg-primary-700
                  text-white font-bold text-base
                  flex items-center justify-center gap-2
                  active:scale-[0.99] transition select-none">
@@ -129,7 +129,7 @@ La fonction Alpine mobileNoteInput() est définie dans notes_class.html extra_he
       <button type="button"
               @click="goTo(idx)"
               :class="{
-                'w-3 h-3 bg-brand-blue': idx === currentIndex,
+                'w-3 h-3 bg-primary-600': idx === currentIndex,
                 'w-2 h-2 bg-green-400':  idx !== currentIndex && notes[String(student.id)],
                 'w-2 h-2 bg-gray-200':   idx !== currentIndex && !notes[String(student.id)],
               }"

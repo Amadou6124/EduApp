@@ -7,12 +7,12 @@
 
   <!-- Fil d'Ariane -->
   <div class="flex items-center gap-2 text-sm text-gray-400 mb-6">
-    <a href="{% url 'superadmin:dashboard' %}" class="hover:text-brand-blue transition">Dashboard</a>
+    <a href="{% url 'superadmin:dashboard' %}" class="hover:text-primary-600 transition">Dashboard</a>
     <span>›</span>
     <span class="text-gray-700 font-medium">Modifier : {{ school.name }}</span>
   </div>
 
-  <h1 class="text-xl font-bold text-brand-blue mb-6">Modifier l'école</h1>
+  <h1 class="text-xl font-bold text-primary-700 mb-6">Modifier l'école</h1>
 
   <form method="post" enctype="multipart/form-data" class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
     {% csrf_token %}
@@ -34,7 +34,7 @@
       <a href="{% url 'superadmin:dashboard' %}"
          class="btn-secondary flex-1 text-center">Annuler</a>
       <button type="submit"
-              class="flex-1 bg-brand-blue hover:bg-blue-900 text-white font-semibold py-3 rounded-lg transition">
+              class="btn-primary flex-1">
         Enregistrer
       </button>
     </div>

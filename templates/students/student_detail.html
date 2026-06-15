@@ -6,7 +6,7 @@
 
 {% block header_actions %}
   <a href="{% url 'students:list' %}"
-     class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue text-sm font-medium rounded-lg transition min-h-[44px]">
+     class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:border-primary-600 hover:text-primary-600 text-sm font-medium rounded-lg transition min-h-[44px]">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
     </svg>
@@ -21,7 +21,7 @@
   {% include "students/partials/student_profile_view.html" %}
 
   {# ── Section 2 — Situation financière ── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-6">
+  <div class="card p-6">
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-5">Situation financière</h3>
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -79,7 +79,7 @@
 
   {# ── Section 3 — Observations enseignants (directeur/staff uniquement) ── #}
   {% if observations is not None and request.role != 'teacher' %}
-  <div class="bg-white rounded-xl border border-gray-200 p-6">
+  <div class="card p-6">
     <div class="flex items-center justify-between mb-5">
       <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">
         Observations enseignants
@@ -106,7 +106,7 @@
   {% endif %}
 
   {# ── Section 4 — Absences récentes (30 j) ── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-6">
+  <div class="card p-6">
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-5">Absences récentes <span class="normal-case text-gray-300">· 30 jours</span></h3>
     {% if absences_recentes %}
     <div class="overflow-x-auto">
@@ -132,7 +132,7 @@
   </div>
 
   {# ── Section 5 — Notes période active ── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-6">
+  <div class="card p-6">
     <div class="flex items-center justify-between mb-5">
       <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Notes</h3>
       {% if active_period %}<span class="text-xs text-gray-400">{{ active_period.name }}</span>{% endif %}
@@ -145,7 +145,7 @@
         <span class="text-sm font-medium text-gray-700">{{ matiere.grouper }}</span>
         <div class="flex items-center gap-2 flex-wrap justify-end">
           {% for n in matiere.list %}
-          <span class="px-2 py-0.5 rounded-md text-xs font-semibold {% if n.value < 10 %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ n.value|floatformat:"-2" }}</span>
+          <span class="px-2 py-0.5 rounded-md text-xs font-semibold {% if n.value < 10 %}bg-red-100 text-red-700{% else %}bg-primary-100 text-primary-700{% endif %}">{{ n.value|floatformat:"-2" }}</span>
           {% endfor %}
         </div>
       </div>
@@ -157,12 +157,12 @@
   </div>
 
   {# ── Section 6 — Notifications envoyées aux parents ── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-6">
+  <div class="card p-6">
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-5">Notifications aux parents</h3>
     {% if notifs_parents %}
     <div class="space-y-2">
       {% for n in notifs_parents %}
-      <div class="flex items-start gap-3 p-3 rounded-lg {% if not n.is_read %}bg-blue-50/40{% else %}bg-gray-50{% endif %}">
+      <div class="flex items-start gap-3 p-3 rounded-lg {% if not n.is_read %}bg-primary-50/40{% else %}bg-gray-50{% endif %}">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
             <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-200 text-gray-600">{{ n.get_category_display }}</span>

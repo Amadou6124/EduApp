@@ -1,5 +1,5 @@
 {% load i18n %}
-<div class="bg-white rounded-xl border border-gray-200 p-6">
+<div class="card p-6">
   <div class="flex items-center justify-between mb-5">
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Permissions</h3>
     {% if is_director %}
@@ -33,7 +33,7 @@
                 {% if bf.name == "can_view_students" or bf.name == "can_view_classes" %}
                   <div class="flex items-center gap-2">
                     <span class="text-xs text-gray-400 italic">Toujours actif</span>
-                    <div class="w-9 h-5 rounded-full bg-brand-blue opacity-60 cursor-not-allowed"></div>
+                    <div class="w-9 h-5 rounded-full bg-primary-600 opacity-60 cursor-not-allowed"></div>
                     <input type="hidden" name="{{ bf.name }}" value="on">
                   </div>
                 {% else %}
@@ -44,7 +44,7 @@
                            @change="on = $event.target.checked; $nextTick(() => document.getElementById('perm-form-{{ member.pk }}').requestSubmit())"
                            class="sr-only">
                     <div @click="on = !on; $nextTick(() => document.getElementById('perm-form-{{ member.pk }}').requestSubmit())"
-                         :class="on ? 'bg-brand-blue' : 'bg-gray-200'"
+                         :class="on ? 'bg-primary-600' : 'bg-gray-200'"
                          class="w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"></div>
                     <div @click="on = !on"
                          :class="on ? 'translate-x-4' : 'translate-x-0'"
@@ -53,7 +53,7 @@
                 {% endif %}
               {% else %}
                 <div class="w-9 h-5 rounded-full flex-shrink-0"
-                     :class="on ? 'bg-brand-blue' : 'bg-gray-200'">
+                     :class="on ? 'bg-primary-600' : 'bg-gray-200'">
                   <div :class="on ? 'translate-x-4' : 'translate-x-0'"
                        class="w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 mt-0.5 ml-0.5"></div>
                 </div>
@@ -71,7 +71,7 @@
   {% if is_director %}
     <div class="mt-5 pt-4 border-t border-gray-100 flex items-center gap-3">
       <svg id="perm-spinner-{{ member.pk }}"
-           class="w-4 h-4 htmx-indicator animate-spin text-brand-blue hidden"
+           class="w-4 h-4 htmx-indicator animate-spin text-primary-600 hidden"
            fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>

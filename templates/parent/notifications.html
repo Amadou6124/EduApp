@@ -1,4 +1,4 @@
-{% load humanize %}<!DOCTYPE html>
+{% load humanize static %}<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -6,8 +6,7 @@
   <title>Notifications — EduApp</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config={theme:{extend:{colors:{'brand-blue':'#1E3A5F'},fontFamily:{sans:['Manrope','ui-sans-serif','system-ui']}}}}</script>
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
@@ -23,7 +22,7 @@
     {% if unread_count %}
     <form method="post" action="{% url 'parent:notif-read-all' %}">
       {% csrf_token %}
-      <button type="submit" class="text-xs font-medium text-brand-blue">Tout marquer lu</button>
+      <button type="submit" class="text-xs font-medium text-primary-600">Tout marquer lu</button>
     </form>
     {% endif %}
   </header>

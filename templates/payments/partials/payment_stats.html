@@ -1,41 +1,75 @@
 {% load payment_tags %}
-<div id="payment-stats" class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-2">
+{# Cartes stats — pattern .kpi harmonisé avec le dashboard. #}
+{# Pas d'id ici : l'id="payment-stats" est porté par le wrapper OOB (payment_list_refresh / payment_create_success). #}
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-2">
 
-  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4">
-    <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1 truncate">Total dû</p>
-    <p class="text-base sm:text-lg font-bold text-gray-800 leading-tight">
-      <span class="sm:hidden">{{ stats.total_due|fcfa_compact }}</span>
-      <span class="hidden sm:inline">{{ stats.total_due|fcfa_fmt }}</span>
-      <span class="text-xs font-normal text-gray-400"> FCFA</span>
-    </p>
+  <div class="kpi">
+    <div class="flex items-center gap-3">
+      <div class="kpi-icon bg-gray-50 text-gray-600 shrink-0">
+        <i data-lucide="credit-card" class="w-5 h-5"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-lg font-bold text-gray-900 leading-none">
+          <span class="sm:hidden">{{ stats.total_due|fcfa_compact }}</span><span class="hidden sm:inline">{{ stats.total_due|fcfa_fmt }}</span>
+          <span class="text-xs font-normal text-gray-400 ml-0.5">FCFA</span>
+        </p>
+        <p class="kpi-label">Total dû</p>
+      </div>
+    </div>
   </div>
 
-  <div class="rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4" style="background-color:#EAF3DE;">
-    <p class="text-xs font-medium uppercase tracking-wide mb-1 truncate" style="color:#27500A;">Encaissé mois</p>
-    <p class="text-base sm:text-lg font-bold leading-tight" style="color:#27500A;">
-      <span class="sm:hidden">{{ stats.encaisse_mois|fcfa_compact }}</span>
-      <span class="hidden sm:inline">{{ stats.encaisse_mois|fcfa_fmt }}</span>
-      <span class="text-xs font-normal"> FCFA</span>
-    </p>
+  <div class="kpi">
+    <div class="flex items-center gap-3">
+      <div class="kpi-icon bg-green-50 text-green-600 shrink-0">
+        <i data-lucide="trending-up" class="w-5 h-5"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-lg font-bold text-gray-900 leading-none">
+          <span class="sm:hidden">{{ stats.encaisse_mois|fcfa_compact }}</span><span class="hidden sm:inline">{{ stats.encaisse_mois|fcfa_fmt }}</span>
+          <span class="text-xs font-normal text-gray-400 ml-0.5">FCFA</span>
+        </p>
+        <p class="kpi-label">Encaissé mois</p>
+      </div>
+    </div>
   </div>
 
-  <div class="rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4" style="background-color:#FCEBEB;">
-    <p class="text-xs font-medium uppercase tracking-wide mb-1 truncate" style="color:#A32D2D;">Solde restant</p>
-    <p class="text-base sm:text-lg font-bold leading-tight" style="color:#A32D2D;">
-      <span class="sm:hidden">{{ stats.solde_restant|fcfa_compact }}</span>
-      <span class="hidden sm:inline">{{ stats.solde_restant|fcfa_fmt }}</span>
-      <span class="text-xs font-normal"> FCFA</span>
-    </p>
+  <div class="kpi">
+    <div class="flex items-center gap-3">
+      <div class="kpi-icon bg-red-50 text-red-600 shrink-0">
+        <i data-lucide="alert-circle" class="w-5 h-5"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-lg font-bold text-gray-900 leading-none">
+          <span class="sm:hidden">{{ stats.solde_restant|fcfa_compact }}</span><span class="hidden sm:inline">{{ stats.solde_restant|fcfa_fmt }}</span>
+          <span class="text-xs font-normal text-gray-400 ml-0.5">FCFA</span>
+        </p>
+        <p class="kpi-label">Solde restant</p>
+      </div>
+    </div>
   </div>
 
-  <div class="rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4" style="background-color:#E6F1FB;">
-    <p class="text-xs font-medium uppercase tracking-wide mb-1" style="color:#0C447C;">Soldés</p>
-    <p class="text-base sm:text-lg font-bold" style="color:#0C447C;">{{ stats.count_soldes }}</p>
+  <div class="kpi">
+    <div class="flex items-center gap-3">
+      <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0">
+        <i data-lucide="check-circle" class="w-5 h-5"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="kpi-value">{{ stats.count_soldes }}</p>
+        <p class="kpi-label">Soldés</p>
+      </div>
+    </div>
   </div>
 
-  <div class="rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4 col-span-2 lg:col-span-1" style="background-color:#FAEEDA;">
-    <p class="text-xs font-medium uppercase tracking-wide mb-1" style="color:#633806;">Impayés</p>
-    <p class="text-base sm:text-lg font-bold" style="color:#633806;">{{ stats.count_impayes }}</p>
+  <div class="kpi col-span-2 lg:col-span-1">
+    <div class="flex items-center gap-3">
+      <div class="kpi-icon bg-amber-50 text-amber-500 shrink-0">
+        <i data-lucide="clock" class="w-5 h-5"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="kpi-value">{{ stats.count_impayes }}</p>
+        <p class="kpi-label">Impayés</p>
+      </div>
+    </div>
   </div>
 
 </div>

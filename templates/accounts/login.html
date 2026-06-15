@@ -1,23 +1,18 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Connexion — EduApp</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            'brand-blue':  '#1E3A5F',
-            'brand-gold':  '#F5A623',
-            'brand-light': '#F0F4F8',
-          }
-        }
-      }
-    }
-  </script>
+
+  <!-- Google Fonts : Manrope -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS (build local) -->
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
+
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <style>
     @keyframes fadeSlideUp {
@@ -33,7 +28,7 @@
 
   <!-- Logo + titre -->
   <div class="text-center mb-8 card-enter" style="animation-delay:0s">
-    <div class="w-16 h-16 bg-brand-blue rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-900/20">
+    <div class="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-900/20">
       <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
               d="M12 14l9-5-9-5-9 5 9 5z"/>
@@ -135,7 +130,7 @@
                    placeholder="••••••••"
                    autocomplete="current-password"
                    class="w-full px-4 py-3 pr-11 border border-gray-300 rounded-xl text-sm
-                          focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue
+                          focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-400
                           placeholder-gray-400 transition">
             <button type="button"
                     @click="showPwd = !showPwd"
@@ -159,9 +154,9 @@
         </div>
 
         <button type="submit"
-                class="w-full bg-brand-blue hover:bg-blue-950 text-white font-semibold
+                class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold
                        py-3 rounded-xl transition duration-150 min-h-[44px]
-                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue">
+                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
           Se connecter
         </button>
 

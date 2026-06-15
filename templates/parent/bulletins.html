@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -6,8 +6,7 @@
   <title>Mes bulletins — EduApp</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config={theme:{extend:{colors:{'brand-blue':'#1E3A5F'},fontFamily:{sans:['Manrope','ui-sans-serif','system-ui']}}}}</script>
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>body{font-family:'Manrope',sans-serif;}</style>
 </head>
@@ -31,7 +30,7 @@
       {% if c.bulletins %}
       <div class="space-y-3">
         {% for b in c.bulletins %}
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div class="card p-5">
           <div class="flex items-center gap-2 text-gray-900 font-bold">
             <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i>
             {{ b.period.name }} · {{ b.period.school_year.name }}
@@ -43,7 +42,7 @@
           {% if b.appreciation %}<p class="text-sm text-gray-500 mt-1">Appréciation : <span class="text-gray-700">{{ b.appreciation }}</span></p>{% endif %}
           <div class="flex gap-2 mt-4">
             <a href="{% url 'parent:bulletin-pdf' b.id %}" target="_blank"
-               class="flex-1 h-11 rounded-xl bg-[#1E3A5F] text-white text-sm font-semibold flex items-center justify-center gap-1.5">
+               class="btn-primary flex-1">
               <i data-lucide="eye" class="w-4 h-4"></i> Voir
             </a>
             <a href="{% url 'parent:bulletin-pdf' b.id %}?download=1"
@@ -55,7 +54,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-gray-400">Aucun bulletin disponible</div>
+      <div class="card p-6 text-center text-sm text-gray-400">Aucun bulletin disponible</div>
       {% endif %}
     </section>
     {% endfor %}

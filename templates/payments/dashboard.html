@@ -28,9 +28,11 @@ function paymentsPageData() {
 {% block content %}
 <div x-data="paymentsPageData()">
 
-  {% include "payments/partials/payment_stats.html" %}
+  <div id="payment-stats" class="mb-6">
+    {% include "payments/partials/payment_stats.html" %}
+  </div>
 
-  <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5 mt-6">
+  <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
 
     <form hx-get="{% url 'payments:dashboard' %}"
           hx-target="#payment-list-area"
@@ -56,14 +58,14 @@ function paymentsPageData() {
 
     <div class="hidden sm:flex self-start items-center gap-1">
       <button @click="setView('cards')"
-              :class="viewMode === 'cards' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+              :class="viewMode === 'cards' ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
               class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
         </svg>
       </button>
       <button @click="setView('table')"
-              :class="viewMode === 'table' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+              :class="viewMode === 'table' ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
               class="p-2 rounded-lg border border-gray-200 transition" title="Vue tableau">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
@@ -87,7 +89,9 @@ function paymentsPageData() {
     {% endfor %}
   </div>
 
-  {% include "payments/partials/payment_list_refresh.html" %}
+  <div id="payment-list-area">
+    {% include "payments/partials/payment_list_body.html" %}
+  </div>
 
   <div x-show="$store.payments.showPanel" x-cloak
        x-transition:enter="transition ease-out duration-200"

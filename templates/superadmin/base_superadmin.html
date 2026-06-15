@@ -1,27 +1,29 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{% block title %}Superadmin{% endblock %} — EduApp</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: { extend: { colors: { brand: { blue: '#1E3A5F', gold: '#F5A623' } } } }
-    }
-  </script>
+
+  <!-- Google Fonts : Manrope -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS (build local) -->
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
 
   <!-- Barre de navigation -->
-  <nav class="bg-brand-blue text-white px-6 py-3 flex items-center justify-between shadow">
+  <nav class="bg-primary-900 text-white px-6 py-3 flex items-center justify-between shadow">
     <div class="flex items-center gap-3">
-      <span class="text-xs font-bold uppercase tracking-widest bg-brand-gold text-white px-2 py-0.5 rounded">SUPERADMIN</span>
+      <span class="text-xs font-bold uppercase tracking-widest bg-gold-500 text-white px-2 py-0.5 rounded">SUPERADMIN</span>
       <span class="font-semibold text-sm">EduApp</span>
     </div>
     <div class="flex items-center gap-4 text-sm">
-      <a href="{% url 'superadmin:dashboard' %}" class="hover:text-brand-gold transition">Dashboard</a>
-      <a href="{% url 'superadmin:school-create' %}" class="hover:text-brand-gold transition">Nouvelle école</a>
+      <a href="{% url 'superadmin:dashboard' %}" class="hover:text-gold-500 transition">Dashboard</a>
+      <a href="{% url 'superadmin:school-create' %}" class="hover:text-gold-500 transition">Nouvelle école</a>
       <a href="{% url 'schools:class-list' %}" class="text-gray-400 hover:text-white transition text-xs">← App</a>
     </div>
   </nav>

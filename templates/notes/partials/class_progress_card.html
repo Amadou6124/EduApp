@@ -8,12 +8,12 @@ Contexte attendu :
 
 {% with sc=item.class %}
 <a href="{% url 'notes:class' sc.pk period.pk %}"
-   class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-brand-gold/30 transition group block">
+   class="card p-5 hover:border-primary-600/30 group block">
 
   {# ── En-tête : nom classe + niveau ───────────────────────────── #}
   <div class="flex items-start justify-between mb-3">
     <div class="min-w-0 flex-1">
-      <h3 class="text-sm font-semibold text-gray-800 truncate group-hover:text-brand-blue transition">
+      <h3 class="text-sm font-semibold text-gray-800 truncate group-hover:text-primary-600 transition">
         {{ sc.name }}
       </h3>
       <span class="hidden sm:inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium
@@ -59,7 +59,7 @@ Contexte attendu :
           </span>
           <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
             <div class="h-full rounded-full transition-all duration-500
-                        {% if sub.done %}bg-green-400{% elif sub.pct > 0 %}bg-brand-gold{% else %}bg-gray-200{% endif %}"
+                        {% if sub.done %}bg-green-400{% elif sub.pct > 0 %}bg-primary-600{% else %}bg-gray-200{% endif %}"
                  style="width: {% if sub.total > 0 %}{{ sub.pct }}{% else %}0{% endif %}%">
             </div>
           </div>
@@ -75,7 +75,7 @@ Contexte attendu :
 
   {# ── Flèche hover ────────────────────────────────────────────── #}
   <div class="flex justify-end mt-3 opacity-0 group-hover:opacity-100 transition">
-    <span class="text-xs text-brand-blue flex items-center gap-1">
+    <span class="text-xs text-primary-600 flex items-center gap-1">
       {% trans "Saisir les notes" %}
       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>

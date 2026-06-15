@@ -23,7 +23,7 @@
     {% endif %}
   </p>
 
-  <div class="overflow-x-auto rounded-lg border border-gray-200 mb-4">
+  <div class="table-card mb-4">
     <table class="w-full text-sm">
       <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
         <tr>
@@ -61,7 +61,7 @@
     {% csrf_token %}
     <input type="hidden" name="rows_data" value="{{ rows_json }}">
     <button type="submit"
-            class="flex-1 bg-brand-blue hover:bg-blue-900 text-white font-semibold py-2.5 rounded-lg transition text-sm">
+            class="btn-primary flex-1">
       Confirmer l'import ({{ rows|length }} classe{% if rows|length > 1 %}s{% endif %})
     </button>
     <button type="button"

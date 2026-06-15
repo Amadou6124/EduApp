@@ -9,7 +9,7 @@ Contexte : bulletin, lines, config
   <div class="absolute inset-0 bg-black/40"></div>
   <div class="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-semibold text-brand-blue">
+      <h2 class="text-lg font-semibold text-primary-700">
         Bulletin — {{ bulletin.student.full_name }}
       </h2>
       <button x-on:click="open = false; $el.remove()"
@@ -34,7 +34,7 @@ Contexte : bulletin, lines, config
       </div>
       <div>
         <span class="text-gray-500">Moy. Générale :</span>
-        <span class="font-bold text-brand-blue">
+        <span class="font-bold text-primary-600">
           {% if bulletin.general_average %}
             {{ bulletin.general_average|floatformat:'2' }}/20
           {% else %}—{% endif %}
@@ -104,7 +104,7 @@ Contexte : bulletin, lines, config
     <div class="flex justify-end gap-2 mt-4">
       <a href="{% url 'bulletins:download' bulletin.pk %}"
          class="btn-primary">
-        📥 Télécharger PDF
+        <i data-lucide="download" class="w-4 h-4"></i> Télécharger PDF
       </a>
       <button x-on:click="open = false; $el.remove()"
               class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200 transition">

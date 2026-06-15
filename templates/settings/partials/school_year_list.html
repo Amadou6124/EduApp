@@ -29,7 +29,7 @@
           {{ year.periods_count }} période{{ year.periods_count|pluralize }}
         </span>
         <a href="{% url 'settings:school-year-periods' year.id %}"
-           class="px-3 py-1.5 text-xs font-semibold text-brand-blue border border-brand-blue rounded-lg hover:bg-blue-50 transition">
+           class="px-3 py-1.5 text-xs font-semibold text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-50 transition">
           Périodes
         </a>
         {% if year.is_active %}

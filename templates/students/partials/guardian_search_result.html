@@ -26,13 +26,11 @@
       <input type="hidden" name="user_id" value="{{ found.id }}">
       <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lien de parenté</label>
       <select name="relationship"
-              class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1 mb-3
-                     focus:outline-none focus:ring-2 focus:ring-brand-blue/30 bg-white">
+              class="input-field mt-1 mb-3">
         {% for val, label in relationships %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
       </select>
       <button type="submit"
-              class="w-full h-11 rounded-xl bg-[#1E3A5F] hover:bg-[#1E3A5F]/90 text-white text-sm font-semibold
-                     flex items-center justify-center gap-2 transition">
+              class="btn-primary w-full h-11">
         <i data-lucide="link" class="w-4 h-4"></i> Lier ce parent à l'élève
       </button>
     </form>
@@ -47,32 +45,28 @@
       <div>
         <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Nom complet</label>
         <input type="text" name="full_name" required
-               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1
-                      focus:outline-none focus:ring-2 focus:ring-brand-blue/30">
+               class="input-field mt-1">
       </div>
       <div>
         <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Téléphone</label>
         <input type="tel" name="phone" value="{{ phone }}" required
-               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1
-                      focus:outline-none focus:ring-2 focus:ring-brand-blue/30">
+               class="input-field mt-1">
       </div>
       <div>
         <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Mot de passe temporaire</label>
         <input type="text" name="password" value="{{ gen_password }}" readonly
-               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1 bg-gray-50 font-mono">
+               class="input-field mt-1 bg-gray-50 font-mono">
         <p class="text-[11px] text-gray-400 mt-1">Communiquez-le au parent pour sa 1ère connexion.</p>
       </div>
       <div>
         <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lien de parenté</label>
         <select name="relationship"
-                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1
-                       focus:outline-none focus:ring-2 focus:ring-brand-blue/30 bg-white">
+                class="input-field mt-1">
           {% for val, label in relationships %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
         </select>
       </div>
       <button type="submit"
-              class="w-full h-11 rounded-xl bg-[#1E3A5F] hover:bg-[#1E3A5F]/90 text-white text-sm font-semibold
-                     flex items-center justify-center gap-2 transition">
+              class="btn-primary w-full h-11">
         <i data-lucide="user-plus" class="w-4 h-4"></i> Créer et lier
       </button>
     </form>

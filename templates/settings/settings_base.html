@@ -63,7 +63,7 @@
 
     <!-- Dropdown navigation (mobile uniquement) -->
     <div class="sm:hidden px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
-      <select class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
+      <select class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               onchange="window.location.href = this.value">
         <optgroup label="École">
           <option value="{% url 'settings:general' %}"      {% if active_section == 'general'      %}selected{% endif %}>Général</option>

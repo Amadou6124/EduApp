@@ -7,7 +7,7 @@
   <!-- ── Breadcrumb + titre ──────────────────────────────────── -->
   <div class="mb-6">
     <a href="{% url 'settings:school-years' %}"
-       class="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-brand-blue transition mb-3">
+       class="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-primary-600 transition mb-3">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
       </svg>
@@ -26,7 +26,7 @@
         </p>
       </div>
       <button @click="showForm = !showForm"
-              class="flex items-center gap-2 px-4 py-2.5 border border-brand-blue text-brand-blue text-sm font-semibold rounded-lg hover:bg-blue-50 transition min-h-[44px] flex-shrink-0">
+              class="flex items-center gap-2 px-4 py-2.5 border border-primary-600 text-primary-600 text-sm font-semibold rounded-lg hover:bg-primary-50 transition min-h-[44px] flex-shrink-0">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
@@ -36,7 +36,7 @@
   </div>
 
   <!-- ── Templates rapides ────────────────────────────────────── -->
-  <div class="mb-6 p-4 bg-brand-light border border-blue-100 rounded-xl">
+  <div class="mb-6 p-4 bg-primary-50 border border-primary-100 rounded-xl">
     <p class="text-xs font-semibold text-gray-600 mb-3">Générer automatiquement</p>
     <div class="flex gap-3 flex-wrap">
       <button type="button"
@@ -48,7 +48,7 @@
                 icon: 'alert-triangle', iconBg: 'bg-amber-50', iconColor: 'text-amber-500',
                 onConfirm: () => htmx.ajax('POST', '{% url "settings:period-generate" year.id %}', {target: '#periods-list', swap: 'innerHTML', values: {template: '3trimesters'}})
               })"
-              class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:border-brand-blue hover:text-brand-blue transition shadow-sm">
+              class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:border-primary-600 hover:text-primary-600 transition shadow-sm">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h7"/>
         </svg>
@@ -63,7 +63,7 @@
                 icon: 'alert-triangle', iconBg: 'bg-amber-50', iconColor: 'text-amber-500',
                 onConfirm: () => htmx.ajax('POST', '{% url "settings:period-generate" year.id %}', {target: '#periods-list', swap: 'innerHTML', values: {template: '2semesters'}})
               })"
-              class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:border-brand-blue hover:text-brand-blue transition shadow-sm">
+              class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:border-primary-600 hover:text-primary-600 transition shadow-sm">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>

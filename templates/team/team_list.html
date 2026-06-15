@@ -71,7 +71,7 @@ function teamPageData() {
     <div></div>
     {% if is_director %}
       <button @click="showPanel = true"
-              class="flex items-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+              class="btn-primary min-h-[44px]">
         <i data-lucide="user-plus" class="w-4 h-4 shrink-0"></i>
         Ajouter un membre
       </button>
@@ -79,33 +79,38 @@ function teamPageData() {
   </div>
 
   <div class="grid grid-cols-3 gap-4 mb-8">
-    <div class="bg-white rounded-xl border border-gray-200 p-5 animate-fade-in-up">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-          <i data-lucide="users-round" class="w-4 h-4 text-brand-blue"></i>
+    <div class="kpi animate-fade-in-up">
+      <div class="flex items-center gap-3">
+        <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0">
+          <i data-lucide="users-round" class="w-5 h-5"></i>
         </div>
-        <p class="text-xs text-gray-500 uppercase tracking-wide">Total actifs</p>
+        <div class="min-w-0">
+          <p class="kpi-value">{{ stats.total }}</p>
+          <p class="kpi-label">Total actifs</p>
+        </div>
       </div>
-      <p class="text-3xl font-bold text-brand-blue">{{ stats.total }}</p>
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-5 animate-fade-in-up animate-delay-100">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-          <i data-lucide="graduation-cap" class="w-4 h-4 text-brand-blue"></i>
+    <div class="kpi animate-fade-in-up animate-delay-100">
+      <div class="flex items-center gap-3">
+        <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0">
+          <i data-lucide="graduation-cap" class="w-5 h-5"></i>
         </div>
-        <p class="text-xs text-gray-500 uppercase tracking-wide">Enseignants</p>
+        <div class="min-w-0">
+          <p class="kpi-value">{{ stats.teachers }}</p>
+          <p class="kpi-label">Enseignants</p>
+        </div>
       </div>
-      <p class="text-3xl font-bold text-brand-blue">{{ stats.teachers }}</p>
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-5 animate-fade-in-up animate-delay-200">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="w-9 h-9 rounded-lg flex items-center justify-center"
-             style="background-color:#F3F0FE">
-          <i data-lucide="briefcase" class="w-4 h-4" style="color:#5B21B6"></i>
+    <div class="kpi animate-fade-in-up animate-delay-200">
+      <div class="flex items-center gap-3">
+        <div class="kpi-icon bg-purple-50 text-purple-600 shrink-0">
+          <i data-lucide="briefcase" class="w-5 h-5"></i>
         </div>
-        <p class="text-xs text-gray-500 uppercase tracking-wide">Staff admin</p>
+        <div class="min-w-0">
+          <p class="kpi-value">{{ stats.staff }}</p>
+          <p class="kpi-label">Staff admin</p>
+        </div>
       </div>
-      <p class="text-3xl font-bold" style="color:#5B21B6">{{ stats.staff }}</p>
     </div>
   </div>
 
@@ -113,7 +118,7 @@ function teamPageData() {
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
         <h2 class="text-base font-semibold text-gray-800">Enseignants</h2>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-brand-blue">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-50 text-primary-700">
           {{ stats.teachers }}
         </span>
       </div>
@@ -131,7 +136,7 @@ function teamPageData() {
                x-model="searchTeacher"
                autocomplete="off"
                placeholder="Rechercher un enseignant…"
-               class="w-full min-h-[44px] rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 transition focus:border-brand-blue focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20">
+               class="w-full min-h-[44px] rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 transition focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20">
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -148,13 +153,13 @@ function teamPageData() {
     {% else %}
       <div class="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center animate-fade-in">
         <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <i data-lucide="graduation-cap" class="w-7 h-7 text-brand-blue"></i>
+          <i data-lucide="graduation-cap" class="w-7 h-7 text-primary-600"></i>
         </div>
         <p class="text-sm font-semibold text-gray-700 mb-1">Aucun enseignant</p>
         <p class="text-sm text-gray-400 mb-5">Ajoutez le premier enseignant de votre école.</p>
         {% if is_director %}
           <button @click="showPanel = true; selectedRole = 'teacher'"
-                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[40px]">
+                  class="btn-primary min-h-[40px]">
             <i data-lucide="user-plus" class="w-4 h-4"></i>
             Ajouter un enseignant
           </button>
@@ -186,7 +191,7 @@ function teamPageData() {
                x-model="searchStaff"
                autocomplete="off"
                placeholder="Rechercher un membre du staff…"
-               class="w-full min-h-[44px] rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 transition focus:border-brand-blue focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20">
+               class="w-full min-h-[44px] rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 transition focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20">
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -210,7 +215,7 @@ function teamPageData() {
         <p class="text-sm text-gray-400 mb-5">Ajoutez un secrétaire, comptable ou censeur.</p>
         {% if is_director %}
           <button @click="showPanel = true; selectedRole = 'staff'"
-                  class="inline-flex items-center gap-2 px-4 py-2 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[40px]">
+                  class="btn-primary min-h-[40px]">
             <i data-lucide="user-plus" class="w-4 h-4"></i>
             Ajouter un membre
           </button>
@@ -241,8 +246,8 @@ function teamPageData() {
 
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center">
-          <i data-lucide="user-plus" class="w-4 h-4 text-brand-blue"></i>
+        <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center">
+          <i data-lucide="user-plus" class="w-4 h-4 text-primary-600"></i>
         </div>
         <h2 class="text-base font-semibold text-gray-900">Nouveau membre</h2>
       </div>
@@ -328,10 +333,10 @@ function teamPageData() {
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Rôle</h3>
             <div class="grid grid-cols-2 gap-3">
               <button type="button" @click="role = 'teacher'"
-                      :class="role === 'teacher' ? 'border-brand-blue bg-blue-50 ring-1 ring-brand-blue' : 'border-gray-200 hover:border-gray-300 bg-white'"
+                      :class="role === 'teacher' ? 'border-primary-600 bg-primary-50 ring-1 ring-primary-600' : 'border-gray-200 hover:border-gray-300 bg-white'"
                       class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition cursor-pointer">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center"
-                     :class="role === 'teacher' ? 'bg-brand-blue' : 'bg-gray-100'">
+                     :class="role === 'teacher' ? 'bg-primary-600' : 'bg-gray-100'">
                   <i data-lucide="graduation-cap" class="w-5 h-5"
                      :class="role === 'teacher' ? 'text-white' : 'text-gray-500'"></i>
                 </div>
@@ -363,9 +368,9 @@ function teamPageData() {
                x-transition:enter-end="opacity-100 translate-y-0"
                class="border-t border-gray-100 pt-5">
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Assignation matières &amp; classes</h3>
-            <div class="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 flex items-start gap-3">
-              <i data-lucide="info" class="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5"></i>
-              <p class="text-xs text-blue-700 leading-relaxed">
+            <div class="rounded-xl bg-primary-50 border border-primary-100 px-4 py-3 flex items-start gap-3">
+              <i data-lucide="info" class="w-4 h-4 text-primary-500 flex-shrink-0 mt-0.5"></i>
+              <p class="text-xs text-primary-700 leading-relaxed">
                 L'assignation des matières se configure dans
                 <a href="{% url 'settings:subjects' %}" class="underline font-medium">Paramètres → Matières</a>
                 après la création du membre.
@@ -384,7 +389,7 @@ function teamPageData() {
               <div class="flex flex-wrap gap-2">
                 {% for label, key in presets %}
                   <button type="button" @click="applyPreset('{{ key }}')"
-                          class="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-600 hover:border-brand-blue hover:text-brand-blue hover:bg-blue-50 transition">
+                          class="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-600 hover:border-primary-600 hover:text-primary-600 hover:bg-primary-50 transition">
                     {{ label }}
                   </button>
                 {% endfor %}
@@ -412,7 +417,7 @@ function teamPageData() {
                                    x-model="permissions['{{ bf.name }}']"
                                    class="sr-only peer">
                             <div @click="permissions['{{ bf.name }}'] = !permissions['{{ bf.name }}']"
-                                 :class="permissions['{{ bf.name }}'] ? 'bg-brand-blue' : 'bg-gray-200'"
+                                 :class="permissions['{{ bf.name }}'] ? 'bg-primary-600' : 'bg-gray-200'"
                                  class="w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"></div>
                             <div @click="permissions['{{ bf.name }}'] = !permissions['{{ bf.name }}']"
                                  :class="permissions['{{ bf.name }}'] ? 'translate-x-4' : 'translate-x-0'"
@@ -465,7 +470,7 @@ function teamPageData() {
             Annuler
           </button>
           <button type="submit"
-                  class="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+                  class="btn-primary flex-1 min-h-[44px]">
             <svg id="create-spinner" class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -499,8 +504,8 @@ function teamPageData() {
        class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col">
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center">
-          <i data-lucide="pencil" class="w-4 h-4 text-brand-blue"></i>
+        <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center">
+          <i data-lucide="pencil" class="w-4 h-4 text-primary-600"></i>
         </div>
         <h2 class="text-base font-semibold text-gray-900">Modifier le membre</h2>
       </div>
@@ -567,7 +572,7 @@ function teamPageData() {
 
       <button type="button"
               @click="showPwdModal = false; $nextTick(() => window.location.reload())"
-              class="w-full bg-brand-blue hover:bg-blue-900 text-white text-sm font-semibold py-3 rounded-xl transition min-h-[44px]">
+              class="btn-primary w-full py-3 min-h-[44px]">
         J'ai noté les identifiants
       </button>
 

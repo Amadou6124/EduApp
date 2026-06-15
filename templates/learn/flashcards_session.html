@@ -56,7 +56,7 @@
   {# Compteur + progression (dans le scope Alpine) #}
   <div x-show="!done" class="flex items-center gap-2 mb-5">
     <div class="flex-1 bg-gray-100 rounded-full h-1.5">
-      <div class="bg-brand-blue h-1.5 rounded-full transition-all" :style="`width:${Math.round(currentIdx / cards.length * 100)}%`"></div>
+      <div class="bg-student-500 h-1.5 rounded-full transition-all" :style="`width:${Math.round(currentIdx / cards.length * 100)}%`"></div>
     </div>
     <span class="text-xs text-gray-500 shrink-0" x-text="`${currentIdx + 1}/${cards.length}`"></span>
   </div>
@@ -67,7 +67,7 @@
     <h2 class="text-xl font-bold text-gray-900 mt-4">Session terminée !</h2>
     <p class="text-gray-500 text-sm mt-2">{{ total }} carte{{ total|pluralize }} révisée{{ total|pluralize }}</p>
     <a href="{% url 'learn:flashcards' %}"
-       class="inline-block mt-6 bg-brand-blue text-white px-6 py-3 rounded-xl font-semibold">Retour aux paquets</a>
+       class="inline-block mt-6 bg-student-500 text-white px-6 py-3 rounded-xl font-semibold">Retour aux paquets</a>
   </div>
 
   {# Session en cours #}
@@ -82,8 +82,8 @@
           <p class="text-xs text-gray-400 mt-4">Tape pour révéler la réponse</p>
         </div>
         {# Verso #}
-        <div class="flip-card-back bg-gradient-to-br from-brand-blue to-blue-700 rounded-2xl shadow-md flex flex-col items-center justify-center p-6 text-center">
-          <p class="text-xs text-blue-200 uppercase tracking-wider mb-3">Réponse</p>
+        <div class="flip-card-back bg-gradient-to-br from-student-500 to-student-700 rounded-2xl shadow-md flex flex-col items-center justify-center p-6 text-center">
+          <p class="text-xs text-emerald-100 uppercase tracking-wider mb-3">Réponse</p>
           <p class="text-white font-semibold text-base leading-relaxed" x-text="currentCard?.back"></p>
         </div>
       </div>
@@ -95,14 +95,14 @@
       <div class="grid grid-cols-2 gap-2">
         <button @click="rateCard(1)" :disabled="loading" class="py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 font-semibold text-sm active:scale-95 transition disabled:opacity-50">😰 Très dur</button>
         <button @click="rateCard(2)" :disabled="loading" class="py-3 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 font-semibold text-sm active:scale-95 transition disabled:opacity-50">😐 Dur</button>
-        <button @click="rateCard(4)" :disabled="loading" class="py-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 font-semibold text-sm active:scale-95 transition disabled:opacity-50">🙂 Facile</button>
+        <button @click="rateCard(4)" :disabled="loading" class="py-3 rounded-xl bg-student-50 border border-student-200 text-student-600 font-semibold text-sm active:scale-95 transition disabled:opacity-50">🙂 Facile</button>
         <button @click="rateCard(5)" :disabled="loading" class="py-3 rounded-xl bg-green-50 border border-green-200 text-green-600 font-semibold text-sm active:scale-95 transition disabled:opacity-50">😄 Très facile</button>
       </div>
     </div>
 
     {# Avant révélation #}
     <div x-show="!flipped">
-      <button @click="flip()" class="w-full bg-brand-blue text-white py-4 rounded-2xl font-bold text-base active:scale-95 transition mt-2">Révéler la réponse 👁</button>
+      <button @click="flip()" class="w-full bg-student-500 text-white py-4 rounded-2xl font-bold text-base active:scale-95 transition mt-2">Révéler la réponse 👁</button>
     </div>
   </div>
 </div>
