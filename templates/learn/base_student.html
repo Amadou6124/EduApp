@@ -19,12 +19,12 @@
   </script>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-[#F8F9FC] min-h-screen flex flex-col max-w-md mx-auto relative">
+<body class="bg-[#F0FDF9] min-h-screen flex flex-col max-w-md mx-auto relative">
 
   {% block header %}
   <header class="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between">
     <div class="flex items-center gap-2">
-      <div class="w-9 h-9 rounded-full bg-brand-blue text-white flex items-center justify-center text-sm font-bold shrink-0">
+      <div class="w-9 h-9 rounded-full bg-student-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
         {{ student.full_name|first|upper }}
       </div>
       <div>
@@ -53,17 +53,17 @@
   <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-40">
     <div class="flex items-center justify-around px-2 py-2">
       <a href="{% url 'learn:dashboard' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard' %}text-brand-blue{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
         <i data-lucide="home" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Accueil</span>
       </a>
       <a href="{% url 'learn:grades' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'grades' or request.resolver_match.url_name == 'bulletin-pdf' %}text-brand-blue{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'grades' or request.resolver_match.url_name == 'bulletin-pdf' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
         <i data-lucide="award" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Notes</span>
       </a>
       <a href="{% url 'learn:flashcards' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'flashcards' or request.resolver_match.url_name == 'flashcards-session' %}text-brand-blue{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'flashcards' or request.resolver_match.url_name == 'flashcards-session' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
         <div class="relative">
           <i data-lucide="layers" class="w-5 h-5"></i>
           {% if student_due_count %}
@@ -73,7 +73,7 @@
         <span class="text-[10px] font-medium">Flashcards</span>
       </a>
       <a href="{% url 'learn:profile' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'profile' %}text-brand-blue{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'profile' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
         <i data-lucide="user" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Profil</span>
       </a>

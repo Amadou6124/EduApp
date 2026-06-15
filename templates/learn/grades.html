@@ -10,12 +10,12 @@
   {% if current_bulletin %}
 
   {# SECTION 1 — Rang actuel #}
-  <div class="bg-gradient-to-br from-brand-blue to-blue-700 rounded-2xl p-5 mb-4 text-white shadow-lg">
-    <p class="text-blue-200 text-xs uppercase tracking-wider mb-1">Rang actuel</p>
+  <div class="bg-gradient-to-br from-student-500 to-student-700 rounded-2xl p-5 mb-4 text-white shadow-lg">
+    <p class="text-emerald-100 text-xs uppercase tracking-wider mb-1">Rang actuel</p>
     <div class="flex items-center gap-3">
       <div>
         <p class="text-4xl font-bold">{{ current_bulletin.rank }}<span class="text-xl">ᵉ</span></p>
-        <p class="text-blue-200 text-sm">sur {{ current_bulletin.class_size }} élèves</p>
+        <p class="text-emerald-100 text-sm">sur {{ current_bulletin.class_size }} élèves</p>
       </div>
       {% if rank_trend == 'up' %}
       <div class="ml-auto bg-green-500/30 rounded-xl px-3 py-2 text-center">
@@ -27,22 +27,22 @@
       </div>
       {% elif rank_trend == 'stable' %}
       <div class="ml-auto bg-white/20 rounded-xl px-3 py-2 text-center">
-        <p class="text-2xl leading-none">→</p><p class="text-xs text-blue-100 mt-1">Stable</p>
+        <p class="text-2xl leading-none">→</p><p class="text-xs text-emerald-100 mt-1">Stable</p>
       </div>
       {% endif %}
     </div>
     {% if current_bulletin.general_average %}
-    <div class="mt-3 pt-3 border-t border-blue-500/30">
+    <div class="mt-3 pt-3 border-t border-emerald-400/30">
       <div class="flex justify-between items-center">
-        <span class="text-blue-200 text-sm">Moyenne générale</span>
+        <span class="text-emerald-100 text-sm">Moyenne générale</span>
         <span class="text-white font-bold text-lg">{{ current_bulletin.general_average }}/20</span>
       </div>
       {% if current_bulletin.appreciation %}
-      <p class="text-blue-200 text-xs mt-1 italic">« {{ current_bulletin.appreciation }} »</p>
+      <p class="text-emerald-100 text-xs mt-1 italic">« {{ current_bulletin.appreciation }} »</p>
       {% endif %}
     </div>
     {% endif %}
-    <p class="text-blue-300 text-xs mt-2">{{ current_bulletin.period }}</p>
+    <p class="text-emerald-200 text-xs mt-2">{{ current_bulletin.period }}</p>
   </div>
 
   {# SECTION 2 — Notes par matière (lignes du bulletin) #}
@@ -78,7 +78,7 @@
         </p>
       </div>
       <a href="{% url 'learn:bulletin-pdf' bulletin.id %}" target="_blank"
-         class="shrink-0 bg-brand-blue text-white text-xs px-3 py-2 rounded-lg font-medium flex items-center gap-1 active:scale-95 transition">
+         class="shrink-0 bg-student-500 text-white text-xs px-3 py-2 rounded-lg font-medium flex items-center gap-1 active:scale-95 transition">
         <i data-lucide="download" class="w-3.5 h-3.5"></i> PDF
       </a>
     </div>
@@ -93,8 +93,8 @@
     <p class="text-gray-500 text-sm leading-relaxed">
       Tes bulletins apparaîtront ici quand ton directeur les publiera.
     </p>
-    <div class="mt-4 bg-blue-50 rounded-xl p-4">
-      <p class="text-brand-blue text-sm font-medium">💡 En attendant, continue à apprendre pour améliorer tes notes !</p>
+    <div class="mt-4 bg-student-50 rounded-xl p-4">
+      <p class="text-student-600 text-sm font-medium">💡 En attendant, continue à apprendre pour améliorer tes notes !</p>
     </div>
     {% if has_pending_notes %}
     <p class="text-gray-400 text-xs mt-3">Tes notes sont en cours de traitement.</p>

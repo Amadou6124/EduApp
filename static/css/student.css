@@ -56,9 +56,9 @@
   background: transparent;
   padding: 0;
   cursor: pointer;
-  --glow: rgba(59, 130, 246, 0.5);
-  --rim: rgba(59, 130, 246, 0.85);
-  --glass: rgba(59, 130, 246, 0.28);
+  --glow: rgba(16, 185, 129, 0.5);
+  --rim: rgba(16, 185, 129, 0.85);
+  --glass: rgba(16, 185, 129, 0.28);
   filter: drop-shadow(0 0 7px var(--glow));
   transition: transform 0.15s ease;
 }
@@ -92,9 +92,9 @@
 
 /* Variantes d'état (custom properties) */
 .hex-node-new {
-  --glow: rgba(59, 130, 246, 0.45);
-  --rim: rgba(96, 165, 250, 0.85);
-  --glass: rgba(59, 130, 246, 0.30);
+  --glow: rgba(16, 185, 129, 0.45);
+  --rim: rgba(52, 211, 153, 0.85);
+  --glass: rgba(16, 185, 129, 0.30);
 }
 .hex-node-progress {
   --glow: rgba(245, 166, 35, 0.6);

@@ -73,9 +73,9 @@
   {# Actions #}
   <div class="space-y-3">
     <a href="{% url 'learn:lesson' lesson.id %}"
-       class="block w-full bg-brand-blue text-white py-3.5 rounded-2xl font-semibold text-base active:scale-95 transition">📖 Revoir la leçon</a>
+       class="block w-full bg-student-500 text-white py-3.5 rounded-2xl font-semibold text-base active:scale-95 transition">📖 Revoir la leçon</a>
     <a href="{% url 'learn:quiz' lesson.id %}"
-       class="block w-full bg-white text-brand-blue py-3.5 rounded-2xl font-semibold text-base border-2 border-brand-blue active:scale-95 transition">🔄 Recommencer le quiz</a>
+       class="block w-full bg-white text-student-600 py-3.5 rounded-2xl font-semibold text-base border-2 border-student-500 active:scale-95 transition">🔄 Recommencer le quiz</a>
     <a href="{% url 'learn:dashboard' %}?subject={{ lesson.subject|urlencode }}"
        class="block text-gray-400 text-sm py-2">← Retour aux leçons</a>
   </div>

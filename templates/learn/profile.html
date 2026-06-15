@@ -8,12 +8,12 @@
 
   {# Avatar + Nom #}
   <div class="text-center mb-6">
-    <div class="w-20 h-20 rounded-full bg-gradient-to-br from-brand-blue to-blue-700 text-white text-3xl font-bold flex items-center justify-center mx-auto mb-3 shadow-lg">
+    <div class="w-20 h-20 rounded-full bg-gradient-to-br from-student-500 to-student-700 text-white text-3xl font-bold flex items-center justify-center mx-auto mb-3 shadow-lg">
       {{ student.full_name|first|upper }}
     </div>
     <h1 class="text-xl font-bold text-gray-900">{{ student.full_name }}</h1>
     <p class="text-gray-500 text-sm mt-0.5">{{ student.school_class }} · {{ student.school.name }}</p>
-    <span class="inline-block mt-2 bg-brand-blue text-white text-sm font-bold px-4 py-1.5 rounded-full">
+    <span class="inline-block mt-2 bg-gold-500 text-white text-sm font-bold px-4 py-1.5 rounded-full">
       {{ stats.level_emoji }} Niveau {{ student.current_level }} {{ stats.level_name }}
     </span>
   </div>
@@ -25,7 +25,7 @@
       <span class="text-xs text-gray-400">{{ stats.xp_to_next }} XP pour niveau {{ student.current_level|add:1 }}</span>
     </div>
     <div class="bg-gray-100 rounded-full h-3">
-      <div class="h-3 rounded-full bg-gradient-to-r from-brand-blue to-blue-400 transition-all" style="width: {{ stats.level_pct }}%"></div>
+      <div class="h-3 rounded-full bg-gradient-to-r from-gold-500 to-gold-400 transition-all" style="width: {{ stats.level_pct }}%"></div>
     </div>
     <div class="flex justify-between text-xs text-gray-400 mt-1">
       <span>Niveau {{ student.current_level }}</span>
@@ -49,7 +49,7 @@
   {# Stats #}
   <div class="grid grid-cols-2 gap-3 mb-4">
     <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 text-center">
-      <p class="text-2xl font-bold text-brand-blue">{{ stats.lessons_done }}</p>
+      <p class="text-2xl font-bold text-student-600">{{ stats.lessons_done }}</p>
       <p class="text-xs text-gray-500 mt-0.5">Leçons lues</p>
     </div>
     <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 text-center">
