@@ -3806,11 +3806,6 @@ p {
   color: rgb(29 78 216 / var(--tw-text-opacity, 1));
 }
 
-.text-brand-blue {
-  --tw-text-opacity: 1;
-  color: rgb(30 58 95 / var(--tw-text-opacity, 1));
-}
-
 .text-emerald-100 {
   --tw-text-opacity: 1;
   color: rgb(209 250 229 / var(--tw-text-opacity, 1));
@@ -4087,10 +4082,6 @@ p {
 .placeholder-gray-400::placeholder {
   --tw-placeholder-opacity: 1;
   color: rgb(156 163 175 / var(--tw-placeholder-opacity, 1));
-}
-
-.accent-brand-blue {
-  accent-color: #1E3A5F;
 }
 
 .opacity-0 {
@@ -4742,11 +4733,6 @@ p {
   border-color: rgb(30 58 95 / var(--tw-border-opacity, 1));
 }
 
-.focus\:border-brand-blue:focus {
-  --tw-border-opacity: 1;
-  border-color: rgb(30 58 95 / var(--tw-border-opacity, 1));
-}
-
 .focus\:border-primary-400:focus {
   --tw-border-opacity: 1;
   border-color: rgb(129 140 248 / var(--tw-border-opacity, 1));
@@ -4811,11 +4797,6 @@ p {
 .focus\:ring-blue-600:focus {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(37 99 235 / var(--tw-ring-opacity, 1));
-}
-
-.focus\:ring-brand-blue:focus {
-  --tw-ring-opacity: 1;
-  --tw-ring-color: rgb(30 58 95 / var(--tw-ring-opacity, 1));
 }
 
 .focus\:ring-primary-500:focus {

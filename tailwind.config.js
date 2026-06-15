@@ -81,15 +81,6 @@ module.exports = {
         warning: '#F59E0B',
         danger:  '#EF4444',
         info:    '#6366F1',
-
-        // ── ALIAS TEMPORAIRES (fallback) ──
-        // Conservés pour ne rien casser pendant la migration des templates.
-        // À SUPPRIMER en Phase E une fois les 419 occurrences migrées.
-        brand: {
-          blue:  '#1E3A5F',
-          gold:  '#F5A623',
-          light: '#F0F4F8',
-        },
       },
 
       /* ───────────────────────────────────────────────
