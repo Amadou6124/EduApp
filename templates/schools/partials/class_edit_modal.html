@@ -1,6 +1,6 @@
 {% load i18n %}
 <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-  <h3 class="font-semibold text-lg text-brand-blue">
+  <h3 class="font-semibold text-lg text-primary-700">
     {% trans "Modifier" %} — {{ school_class.name }}
   </h3>
   <button @click="showEditModal = false"
@@ -19,7 +19,7 @@
   {% include "schools/partials/class_form_fields.html" %}
   <div class="flex gap-3 pt-2">
     <button type="submit"
-            class="flex-1 bg-brand-blue hover:bg-blue-900 text-white font-semibold py-3 rounded-lg transition">
+            class="btn-primary flex-1 py-3">
       {% trans "Enregistrer" %}
     </button>
     <button type="button" @click="showEditModal = false"

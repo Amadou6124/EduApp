@@ -59,7 +59,7 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
 {# ── SECTION 3 : Graphiques (côte à côte) ───────────────────── #}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
   {# Graphique 1 : Évolution inscriptions #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5">
+  <div class="card p-5">
     <h2 class="text-sm font-semibold text-gray-700 mb-4">Évolution des inscriptions</h2>
     {% if charts.enrollment_data and charts.enrollment_data|length > 0 %}
     <div class="relative h-48 sm:h-64">
@@ -71,13 +71,13 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
         <i data-lucide="users" class="w-6 h-6 text-gray-400"></i>
       </div>
       <p class="text-sm text-gray-500 mb-2">Aucune inscription cette année</p>
-      <a href="{% url 'students:list' %}" class="text-xs font-medium text-brand-blue hover:underline">Inscrire un élève →</a>
+      <a href="{% url 'students:list' %}" class="text-xs font-medium text-primary-600 hover:underline">Inscrire un élève →</a>
     </div>
     {% endif %}
   </div>
 
   {# Graphique 2 : Revenus mensuels #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5">
+  <div class="card p-5">
     <h2 class="text-sm font-semibold text-gray-700 mb-4">Revenus mensuels</h2>
     {% if charts.revenue_data and charts.revenue_data|length > 0 %}
     <div class="relative h-48 sm:h-64">
@@ -89,7 +89,7 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
         <i data-lucide="credit-card" class="w-6 h-6 text-gray-400"></i>
       </div>
       <p class="text-sm text-gray-500 mb-2">Aucun paiement enregistré</p>
-      <a href="{% url 'payments:dashboard' %}" class="text-xs font-medium text-brand-blue hover:underline">Enregistrer →</a>
+      <a href="{% url 'payments:dashboard' %}" class="text-xs font-medium text-primary-600 hover:underline">Enregistrer →</a>
     </div>
     {% endif %}
   </div>
@@ -102,19 +102,19 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
 {% include "dashboard/partials/activity_feed.html" %}
 
 {# ── ACTIONS RAPIDES ──────────────────────────────────────────── #}
-<div class="bg-white rounded-xl border border-gray-200 p-5 mt-6">
+<div class="card p-5 mt-6">
   <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-    <i data-lucide="zap" class="w-4 h-4 text-brand-gold"></i>
+    <i data-lucide="zap" class="w-4 h-4 text-gold-500"></i>
     Actions rapides
   </h3>
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
     <a href="{% url 'students:list' %}"
-       class="flex items-center gap-3 p-3 rounded-xl bg-brand-gold/10 hover:bg-brand-gold/20 border border-brand-gold/20 transition-all group min-h-[56px]">
-      <div class="w-10 h-10 rounded-xl bg-brand-gold/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-        <i data-lucide="user-plus" class="w-5 h-5 text-brand-gold"></i>
+       class="flex items-center gap-3 p-3 rounded-xl bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/20 transition-all group min-h-[56px]">
+      <div class="w-10 h-10 rounded-xl bg-gold-500/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+        <i data-lucide="user-plus" class="w-5 h-5 text-gold-500"></i>
       </div>
       <div>
-        <p class="text-sm font-semibold text-gray-800 group-hover:text-brand-gold transition-colors">Inscrire</p>
+        <p class="text-sm font-semibold text-gray-800 group-hover:text-gold-500 transition-colors">Inscrire</p>
         <p class="text-[10px] text-gray-400">un élève</p>
       </div>
     </a>
@@ -129,12 +129,12 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
       </div>
     </a>
     <a href="{% url 'notes:dashboard' %}"
-       class="flex items-center gap-3 p-3 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all group min-h-[56px]">
-      <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-        <i data-lucide="book-open" class="w-5 h-5 text-brand-blue"></i>
+       class="flex items-center gap-3 p-3 rounded-xl bg-primary-50 hover:bg-primary-100 border border-primary-200 transition-all group min-h-[56px]">
+      <div class="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+        <i data-lucide="book-open" class="w-5 h-5 text-primary-600"></i>
       </div>
       <div>
-        <p class="text-sm font-semibold text-gray-800 group-hover:text-brand-blue transition-colors">Notes</p>
+        <p class="text-sm font-semibold text-gray-800 group-hover:text-primary-600 transition-colors">Notes</p>
         <p class="text-[10px] text-gray-400">saisir</p>
       </div>
     </a>
@@ -164,12 +164,12 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
        x-transition:leave-end="opacity-0 transform scale-90"
        class="flex flex-col items-end gap-2 mb-2">
     <a href="{% url 'students:list' %}"
-       class="flex items-center gap-2 bg-brand-gold text-white px-4 py-2.5 rounded-full shadow-lg text-sm font-medium min-h-[44px]">
+       class="flex items-center gap-2 bg-gold-500 text-white px-4 py-2.5 rounded-full shadow-lg text-sm font-medium min-h-[44px]">
       <i data-lucide="user-plus" class="w-4 h-4"></i>
       Inscrire
     </a>
     <a href="{% url 'payments:dashboard' %}"
-       class="flex items-center gap-2 bg-brand-blue text-white px-4 py-2.5 rounded-full shadow-lg text-sm font-medium min-h-[44px]">
+       class="flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-full shadow-lg text-sm font-medium min-h-[44px]">
        <i data-lucide="credit-card" class="w-4 h-4"></i>
        Paiement
     </a>
@@ -186,7 +186,7 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
   </div>
   <button x-on:click="open = !open"
           x-bind:class="open ? 'rotate-45' : 'rotate-0'"
-          class="w-14 h-14 rounded-full bg-brand-blue text-white shadow-xl flex items-center justify-center text-2xl transition-transform duration-200 hover:bg-blue-700 active:scale-95">
+          class="w-14 h-14 rounded-full bg-primary-600 text-white shadow-xl flex items-center justify-center text-2xl transition-transform duration-200 hover:bg-primary-700 active:scale-95">
     +
   </button>
 </div>
@@ -205,11 +205,11 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
           datasets: [{
             label: 'Inscriptions cumulées',
             data: {{ charts.enrollment_data|safe }},
-            borderColor: '#1E3A5F',
-            backgroundColor: 'rgba(30, 58, 95, 0.08)',
+            borderColor: '#4F46E5',
+            backgroundColor: 'rgba(79, 70, 229, 0.08)',
             fill: true,
             tension: 0.4,
-            pointBackgroundColor: '#1E3A5F',
+            pointBackgroundColor: '#4F46E5',
             pointRadius: 4,
             pointHoverRadius: 6,
           }]
@@ -258,8 +258,8 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
             {
               label: 'Revenus',
               data: {{ charts.revenue_data|safe }},
-              backgroundColor: 'rgba(245, 166, 35, 0.7)',
-              borderColor: '#F5A623',
+              backgroundColor: 'rgba(245, 158, 11, 0.7)',
+              borderColor: '#F59E0B',
               borderWidth: 1,
               borderRadius: 4,
               barPercentage: 0.6,
@@ -267,7 +267,7 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
             {
               label: 'Objectif mensuel',
               data: Array({{ charts.revenue_months|length }}).fill({{ charts.objective }}),
-              borderColor: '#1E3A5F',
+              borderColor: '#4F46E5',
               borderDash: [6, 3],
               borderWidth: 2,
               pointRadius: 0,

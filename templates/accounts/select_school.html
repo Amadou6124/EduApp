@@ -1,14 +1,17 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Choisir une école — EduApp</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = { theme: { extend: { colors: {
-      'brand-blue':'#1E3A5F','brand-gold':'#F5A623','brand-light':'#F0F4F8' } } } }
-  </script>
+
+  <!-- Google Fonts : Manrope -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS (build local) -->
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
   <style>
     @keyframes fadeSlideUp { from {opacity:0;transform:translateY(16px);} to {opacity:1;transform:translateY(0);} }
     .card-enter { animation: fadeSlideUp .4s ease-out forwards; opacity:0; }
@@ -20,7 +23,7 @@
 
   <!-- En-tête -->
   <div class="text-center mb-8 card-enter">
-    <div class="w-16 h-16 bg-brand-blue rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-900/20">
+    <div class="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-900/20">
       <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 14l9-5-9-5-9 5 9 5z"/>
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 14l6.16-3.42a12 12 0 01.84 4.42 12 12 0 01-7 1 12 12 0 01-7-1 12 12 0 01.84-4.42L12 14z"/>
@@ -38,11 +41,11 @@
       {% csrf_token %}
       <button type="submit"
               class="w-full group bg-white rounded-2xl shadow-sm border border-gray-100
-                     hover:border-brand-blue/40 hover:shadow-md p-4 flex items-center gap-4 transition text-left">
+                     hover:border-primary-600/40 hover:shadow-md p-4 flex items-center gap-4 transition text-left">
         {% if m.school.logo %}
         <img src="{{ m.school.logo.url }}" alt="" class="w-12 h-12 rounded-xl object-cover shrink-0">
         {% else %}
-        <div class="w-12 h-12 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center font-bold text-lg shrink-0">
+        <div class="w-12 h-12 rounded-xl bg-primary-600/10 text-primary-600 flex items-center justify-center font-bold text-lg shrink-0">
           {{ m.school.name|first|upper }}
         </div>
         {% endif %}
@@ -50,7 +53,7 @@
           <p class="font-semibold text-gray-900 truncate">{{ m.school.name }}</p>
           <p class="text-sm text-gray-500">Votre rôle : {{ m.get_role_display }}</p>
         </div>
-        <span class="flex items-center gap-1 text-sm font-medium text-brand-blue shrink-0 group-hover:gap-2 transition-all">
+        <span class="flex items-center gap-1 text-sm font-medium text-primary-600 shrink-0 group-hover:gap-2 transition-all">
           Entrer
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>

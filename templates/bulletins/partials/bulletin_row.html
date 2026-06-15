@@ -7,7 +7,7 @@ Ligne eleve dans l'onglet Bulletins — partial HTMX
     {% if bulletin and bulletin.rank %}{{ bulletin.rank }}{% else %}—{% endif %}
   </td>
   <td class="px-4 py-2.5 font-medium text-gray-700">{{ student.full_name }}</td>
-  <td class="px-4 py-2.5 text-center font-semibold text-brand-blue">
+  <td class="px-4 py-2.5 text-center font-semibold text-primary-600">
     {% if bulletin and bulletin.general_average is not None %}
       {{ bulletin.general_average|floatformat:'2' }}/20
     {% else %}—{% endif %}

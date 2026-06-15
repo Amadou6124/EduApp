@@ -16,15 +16,15 @@
 
   {# Résumé #}
   <div class="grid grid-cols-3 gap-3 mb-6">
-    <div class="bg-white rounded-xl border border-gray-100 p-4">
+    <div class="card p-4">
       <p class="text-xs text-gray-400">Total prévu</p>
       <p class="text-lg font-extrabold text-gray-900">{{ totals.estimated|floatformat:0|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
     </div>
-    <div class="bg-white rounded-xl border border-gray-100 p-4">
+    <div class="card p-4">
       <p class="text-xs text-gray-400">Déjà payé</p>
       <p class="text-lg font-extrabold text-green-600">{{ totals.paid|floatformat:0|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
     </div>
-    <div class="bg-white rounded-xl border border-gray-100 p-4">
+    <div class="card p-4">
       <p class="text-xs text-gray-400">En attente</p>
       <p class="text-lg font-extrabold text-amber-600">{{ totals.pending|floatformat:0|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
     </div>
@@ -33,7 +33,7 @@
   {# Permanents #}
   <h2 class="text-sm font-bold text-gray-800 mb-3">Permanents <span class="font-normal text-gray-400">({{ permanents|length }})</span></h2>
   {% if permanents %}
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
+  <div class="table-card mb-8">
     <div class="overflow-x-auto"><table class="w-full">
       <thead><tr class="border-b border-gray-100 bg-gray-50">
         <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Employé</th>
@@ -52,7 +52,7 @@
   {# Vacataires #}
   <h2 class="text-sm font-bold text-gray-800 mb-3">Vacataires <span class="font-normal text-gray-400">({{ vacataires|length }})</span></h2>
   {% if vacataires %}
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
+  <div class="table-card mb-8">
     <div class="overflow-x-auto"><table class="w-full">
       <thead><tr class="border-b border-gray-100 bg-gray-50">
         <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Employé</th>

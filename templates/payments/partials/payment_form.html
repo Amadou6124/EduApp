@@ -3,7 +3,7 @@
 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
   <div>
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-full bg-brand-blue flex items-center justify-center text-sm font-bold text-white">
+      <div class="w-9 h-9 rounded-full bg-primary-600 flex items-center justify-center text-sm font-bold text-white">
         {{ student.full_name|first|upper }}
       </div>
       <div>
@@ -51,7 +51,7 @@
     {% endif %}
     {% if balance > 0 %}
       <button type="button"
-              class="mt-2 text-xs text-brand-blue hover:underline"
+              class="mt-2 text-xs text-primary-600 hover:underline"
               @click="$el.closest('form').querySelector('[name=amount]').value = {{ balance|floatformat:0 }}; amount = {{ balance|floatformat:0 }}">
         Régler le solde complet : {{ balance|floatformat:0|intcomma }} FCFA
       </button>
@@ -76,8 +76,8 @@
                  x-model="selected"
                  class="sr-only peer"
                  {% if val == 'cash' %}checked{% endif %}>
-          <div class="border-2 rounded-xl p-3 text-center transition peer-checked:border-brand-blue peer-checked:bg-blue-50 border-gray-200 hover:border-gray-300"
-               :class="selected === '{{ val }}' ? 'border-brand-blue bg-blue-50' : 'border-gray-200'">
+          <div class="border-2 rounded-xl p-3 text-center transition peer-checked:border-primary-600 peer-checked:bg-primary-50 border-gray-200 hover:border-gray-300"
+               :class="selected === '{{ val }}' ? 'border-primary-600 bg-primary-50' : 'border-gray-200'">
              <p class="text-xl mb-1">
                {% if val == 'cash' %}
                  <i data-lucide="wallet" class="w-6 h-6 mx-auto text-gray-500"></i>
@@ -110,7 +110,7 @@
       Annuler
     </button>
     <button type="submit"
-            class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px] flex items-center justify-center gap-2">
+            class="btn-primary flex-1 min-h-[44px]">
       <svg class="w-4 h-4 htmx-indicator animate-spin" fill="none" viewBox="0 0 24 24" style="display:none;">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>

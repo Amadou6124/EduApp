@@ -1,38 +1,37 @@
 {% load humanize %}
 {% with balance=student.balance total_paid=student.total_paid tuition=student.tuition_fee %}
-<tr class="hover:bg-gray-50 transition-colors">
+<tr>
 
-  <td class="px-5 py-3">
+  <td>
     <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-           style="background-color: #1E3A5F;">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 bg-primary-600">
         {{ student.full_name|first|upper }}
       </div>
       <span class="font-medium text-gray-900 text-sm">{{ student.full_name }}</span>
     </div>
   </td>
 
-  <td class="px-4 py-3">
+  <td>
     <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
       {{ student.school_class.name }}
     </span>
   </td>
 
-  <td class="px-4 py-3 text-right text-sm text-gray-700 font-medium tabular-nums">
+  <td class="text-right text-gray-700 font-medium tabular-nums">
     {{ tuition|floatformat:0|intcomma }}
   </td>
 
-  <td class="px-4 py-3 text-right text-sm font-medium tabular-nums
+  <td class="text-right font-medium tabular-nums
              {% if total_paid > 0 %}text-green-700{% else %}text-gray-400{% endif %}">
     {{ total_paid|floatformat:0|intcomma }}
   </td>
 
-  <td class="px-4 py-3 text-right text-sm font-bold tabular-nums
+  <td class="text-right font-bold tabular-nums
              {% if balance <= 0 %}text-green-600{% elif balance < tuition %}text-orange-600{% else %}text-red-600{% endif %}">
     {% if balance <= 0 %}0{% else %}{{ balance|floatformat:0|intcomma }}{% endif %}
   </td>
 
-  <td class="px-4 py-3 text-center">
+  <td class="text-center">
     {% if balance <= 0 %}
       <span class="badge-success">Soldé</span>
     {% elif total_paid > 0 %}
@@ -42,14 +41,14 @@
     {% endif %}
   </td>
 
-  <td class="px-4 py-3">
+  <td>
     <div class="flex items-center justify-end gap-2">
       <button type="button"
               hx-get="{% url 'payments:form' student.id %}"
               hx-target="#payment-panel"
               hx-swap="innerHTML"
               @click="$store.payments.showPanel = true"
-              class="flex items-center gap-1.5 px-3 py-1.5 bg-brand-gold hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition min-h-[32px]">
+              class="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold rounded-lg transition min-h-[32px]">
         + Versement
       </button>
       <button type="button"
@@ -57,7 +56,7 @@
               hx-target="#payment-history-modal"
               hx-swap="innerHTML"
               @click="$store.payments.showHistory = true"
-              class="p-1.5 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition" title="Historique">
+              class="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition" title="Historique">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>

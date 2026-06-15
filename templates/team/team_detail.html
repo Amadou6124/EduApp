@@ -6,7 +6,7 @@
 
 {% block header_actions %}
   <a href="{% url 'team:list' %}"
-     class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue text-sm font-medium rounded-lg transition min-h-[44px]">
+     class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:border-primary-600 hover:text-primary-600 text-sm font-medium rounded-lg transition min-h-[44px]">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
     </svg>
@@ -51,7 +51,7 @@
      @team-member-updated.window="window.location.reload()"
      class="max-w-4xl mx-auto space-y-6">
 
-  <div id="member-detail-header" class="bg-white rounded-xl border border-gray-200 p-6">
+  <div id="member-detail-header" class="card p-6">
 
     <div class="flex items-start gap-5">
       <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0"
@@ -69,7 +69,7 @@
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             {% if member.role == 'teacher' %}
-              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-50 text-brand-blue">
+              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-primary-50 text-primary-700">
                 Enseignant
               </span>
             {% elif member.role == 'staff' %}
@@ -113,7 +113,7 @@
     {% if is_director and member.is_active %}
       <div class="mt-5 pt-4 border-t border-gray-100 flex items-center gap-3">
         <button @click="openEditPanel()"
-                class="flex items-center gap-2 px-4 py-2 bg-brand-blue text-white text-sm font-medium rounded-lg hover:bg-blue-900 transition min-h-[40px]">
+                class="btn-primary min-h-[40px]">
           <i data-lucide="pencil" class="w-4 h-4"></i>
           Modifier la fiche
         </button>
@@ -130,7 +130,7 @@
     <div hx-get="{% url 'team:subjects' member.pk %}"
          hx-trigger="load"
          hx-swap="outerHTML">
-      <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="card p-6">
         <div class="flex items-center gap-3 text-gray-400">
           <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
           <span class="text-sm">Chargement des matières…</span>
@@ -149,7 +149,7 @@
        hx-get="{% url 'accounting:staff-remuneration' member.id %}"
        hx-trigger="load"
        hx-swap="innerHTML">
-    <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <div class="card p-6">
       <div class="flex items-center gap-3 text-gray-400">
         <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
         <span class="text-sm">Chargement de la rémunération…</span>
@@ -179,8 +179,8 @@
        class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col">
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center">
-          <i data-lucide="pencil" class="w-4 h-4 text-brand-blue"></i>
+        <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center">
+          <i data-lucide="pencil" class="w-4 h-4 text-primary-600"></i>
         </div>
         <h2 class="text-base font-semibold text-gray-900">Modifier la fiche</h2>
       </div>

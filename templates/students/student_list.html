@@ -39,12 +39,12 @@
     <div></div>
     <div class="flex items-center gap-2">
       <button @click="showImportModal = true"
-              class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:border-brand-blue hover:text-brand-blue text-sm font-medium rounded-lg transition min-h-[44px]">
+              class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:border-primary-600 hover:text-primary-600 text-sm font-medium rounded-lg transition min-h-[44px]">
         <i data-lucide="upload" class="w-4 h-4 shrink-0"></i>
         <span class="hidden sm:inline">Importer</span>
       </button>
       <button @click="showPanel = true; panelMode = 'individual'"
-              class="flex items-center gap-2 px-5 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+              class="btn-primary min-h-[44px]">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
@@ -63,14 +63,14 @@
     </div>
     <div class="hidden sm:flex items-center gap-1 shrink-0">
       <button @click="setView('cards')"
-              :class="viewMode === 'cards' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+              :class="viewMode === 'cards' ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
               class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
         </svg>
       </button>
       <button @click="setView('table')"
-              :class="viewMode === 'table' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+              :class="viewMode === 'table' ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
               class="p-2 rounded-lg border border-gray-200 transition" title="Vue tableau">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
@@ -128,10 +128,10 @@
         <h2 class="text-base font-semibold text-gray-900">Inscrire un élève</h2>
         <div class="flex gap-1 bg-gray-100 rounded-lg p-0.5">
           <button @click="panelMode = 'individual'"
-                  :class="panelMode === 'individual' ? 'bg-white shadow-sm text-brand-blue' : 'text-gray-500'"
+                  :class="panelMode === 'individual' ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'"
                   class="px-3 py-1 text-xs font-medium rounded-md transition">Individuel</button>
           <button @click="panelMode = 'group'"
-                  :class="panelMode === 'group' ? 'bg-white shadow-sm text-brand-blue' : 'text-gray-500'"
+                  :class="panelMode === 'group' ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'"
                   class="px-3 py-1 text-xs font-medium rounded-md transition">Groupe</button>
         </div>
       </div>
@@ -193,7 +193,7 @@
             <label class="flex items-center gap-2 cursor-pointer">
               <div class="relative">
                 <input type="checkbox" x-model="showParent" class="sr-only peer">
-                <div class="w-9 h-5 bg-gray-200 peer-checked:bg-brand-blue rounded-full transition peer-focus:ring-2 peer-focus:ring-brand-blue/30"></div>
+                <div class="w-9 h-5 bg-gray-200 peer-checked:bg-primary-600 rounded-full transition peer-focus:ring-2 peer-focus:ring-primary-500/30"></div>
                 <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></div>
               </div>
               <span class="text-xs text-gray-500">Lier maintenant</span>
@@ -229,7 +229,7 @@
             <label class="flex items-center gap-2 cursor-pointer">
               <div class="relative">
                 <input type="checkbox" x-model="showPayment" class="sr-only peer">
-                <div class="w-9 h-5 bg-gray-200 peer-checked:bg-brand-blue rounded-full transition peer-focus:ring-2 peer-focus:ring-brand-blue/30"></div>
+                <div class="w-9 h-5 bg-gray-200 peer-checked:bg-primary-600 rounded-full transition peer-focus:ring-2 peer-focus:ring-primary-500/30"></div>
                 <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></div>
               </div>
               <span class="text-xs text-gray-500">Enregistrer maintenant</span>
@@ -272,7 +272,7 @@
             Annuler
           </button>
           <button type="submit"
-                  class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-amber-500 text-white text-sm font-semibold rounded-lg transition min-h-[44px] flex items-center justify-center gap-2">
+                  class="btn-primary flex-1 min-h-[44px]">
             <svg class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -313,7 +313,7 @@
               <div class="flex items-center gap-2">
                 <input type="text" x-model="groupNames[i]"
                        :placeholder="'Élève ' + (i + 1)"
-                       class="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                       class="input-field flex-1"
                        @keydown.enter.prevent="addGroupName()">
                 <button type="button" @click="removeGroupName(i)"
                         x-show="groupNames.length > 1"
@@ -326,7 +326,7 @@
             </template>
           </div>
           <button type="button" @click="addGroupName()"
-                  class="mt-2 w-full py-2 border border-dashed border-gray-300 text-sm text-gray-500 hover:border-brand-blue hover:text-brand-blue rounded-lg transition">
+                  class="mt-2 w-full py-2 border border-dashed border-gray-300 text-sm text-gray-500 hover:border-primary-600 hover:text-primary-600 rounded-lg transition">
             + Ajouter un élève
           </button>
         </div>
@@ -338,7 +338,7 @@
           </button>
           <button type="submit"
                   :disabled="!groupClassId || groupNames.filter(n => n.trim()).length === 0"
-                  class="flex-1 px-4 py-2.5 bg-brand-gold hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition min-h-[44px]"
+                  class="btn-primary flex-1 min-h-[44px]"
                   x-text="'Inscrire ' + groupNames.filter(n => n.trim()).length + ' élève(s)'">
           </button>
         </div>
@@ -378,14 +378,14 @@
       </div>
 
       <div class="p-6 space-y-5">
-        <div class="flex items-start gap-3 p-4 bg-blue-50 rounded-xl">
-          <svg class="w-5 h-5 text-brand-blue flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex items-start gap-3 p-4 bg-primary-50 rounded-xl">
+          <svg class="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          <div class="text-sm text-brand-blue">
+          <div class="text-sm text-primary-700">
             <p class="font-medium mb-1">Format attendu (Excel ou CSV)</p>
-            <p class="text-blue-600 text-xs font-semibold">Obligatoires : Nom complet · Classe</p>
-            <p class="text-blue-500 text-xs mt-0.5">Optionnelles : Téléphone parent · Téléphone élève · Date de naissance · Lien parenté</p>
+            <p class="text-primary-600 text-xs font-semibold">Obligatoires : Nom complet · Classe</p>
+            <p class="text-primary-500 text-xs mt-0.5">Optionnelles : Téléphone parent · Téléphone élève · Date de naissance · Lien parenté</p>
             <p class="text-gray-400 text-xs mt-1 italic">Les paiements se gèrent dans l'application, pas à l'import.</p>
           </div>
         </div>
@@ -404,11 +404,11 @@
               hx-indicator="#import-spinner"
               enctype="multipart/form-data">
           {% csrf_token %}
-          <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl hover:border-brand-blue cursor-pointer transition bg-gray-50 hover:bg-blue-50">
+          <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary-400 cursor-pointer transition bg-gray-50 hover:bg-primary-50">
             <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
             </svg>
-            <p class="text-sm text-gray-500">Cliquer pour choisir un fichier <span class="text-brand-blue font-medium">.xlsx</span> ou <span class="text-brand-blue font-medium">.csv</span></p>
+            <p class="text-sm text-gray-500">Cliquer pour choisir un fichier <span class="text-primary-600 font-medium">.xlsx</span> ou <span class="text-primary-600 font-medium">.csv</span></p>
             <input type="file" name="import_file" accept=".xlsx,.csv" class="hidden"
                    @change="$el.closest('form').dispatchEvent(new Event('change'))"
                    hx-trigger="change" hx-post="{% url 'students:import-preview' %}"
@@ -418,7 +418,7 @@
         </form>
 
         <div id="import-preview-area">
-          <svg id="import-spinner" class="htmx-indicator animate-spin w-6 h-6 text-brand-blue mx-auto hidden" fill="none" viewBox="0 0 24 24">
+          <svg id="import-spinner" class="htmx-indicator animate-spin w-6 h-6 text-primary-600 mx-auto hidden" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
           </svg>

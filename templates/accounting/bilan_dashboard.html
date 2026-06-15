@@ -43,22 +43,22 @@
 
   {# ── Section 2 — Répartition (3 cards) ──────────────────────────── #}
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-    <div class="bg-white rounded-2xl border border-gray-200 p-5">
+    <div class="card p-5">
       <div class="flex items-center gap-2 text-green-600 mb-2"><i data-lucide="trending-up" class="w-4 h-4"></i><span class="text-xs font-semibold uppercase tracking-wide">Revenus élèves</span></div>
       <p class="text-2xl font-extrabold text-gray-900">{{ b.revenus|floatformat:0|intcomma }} <span class="text-sm font-normal text-gray-400">FCFA</span></p>
     </div>
-    <div class="bg-white rounded-2xl border border-gray-200 p-5">
-      <div class="flex items-center gap-2 text-brand-blue mb-2"><i data-lucide="users" class="w-4 h-4"></i><span class="text-xs font-semibold uppercase tracking-wide">Charges personnel</span></div>
+    <div class="card p-5">
+      <div class="flex items-center gap-2 text-primary-600 mb-2"><i data-lucide="users" class="w-4 h-4"></i><span class="text-xs font-semibold uppercase tracking-wide">Charges personnel</span></div>
       <p class="text-2xl font-extrabold text-gray-900">{{ b.salaires|floatformat:0|intcomma }} <span class="text-sm font-normal text-gray-400">FCFA</span></p>
     </div>
-    <div class="bg-white rounded-2xl border border-gray-200 p-5">
+    <div class="card p-5">
       <div class="flex items-center gap-2 text-orange-500 mb-2"><i data-lucide="receipt" class="w-4 h-4"></i><span class="text-xs font-semibold uppercase tracking-wide">Dépenses</span></div>
       <p class="text-2xl font-extrabold text-gray-900">{{ b.depenses|floatformat:0|intcomma }} <span class="text-sm font-normal text-gray-400">FCFA</span></p>
     </div>
   </div>
 
   {# ── Section 3 — Graphique 6 mois ───────────────────────────────── #}
-  <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+  <div class="card p-6 mb-6">
     <p class="text-sm font-semibold text-gray-700 mb-4">Évolution sur 6 mois</p>
     <div class="h-72"><canvas id="bilanChart"></canvas></div>
   </div>
@@ -68,7 +68,7 @@
   {{ chart_resultat|json_script:"chart-resultat" }}
 
   {# ── Section 4 — Détail dépenses par catégorie ──────────────────── #}
-  <div class="bg-white rounded-2xl border border-gray-200 p-6">
+  <div class="card p-6">
     <p class="text-sm font-semibold text-gray-700 mb-4">Détail des dépenses par catégorie</p>
     {% if b.by_cat %}
     <div class="space-y-2.5">
@@ -101,7 +101,7 @@
       data: {
         labels: labels,
         datasets: [
-          { type: 'bar', label: 'Revenus', data: revenus, backgroundColor: 'rgba(30,58,95,0.75)', borderRadius: 4, barPercentage: 0.7, categoryPercentage: 0.7, order: 2 },
+          { type: 'bar', label: 'Revenus', data: revenus, backgroundColor: 'rgba(79,70,229,0.75)', borderRadius: 4, barPercentage: 0.7, categoryPercentage: 0.7, order: 2 },
           { type: 'bar', label: 'Charges', data: charges, backgroundColor: 'rgba(220,38,38,0.65)', borderRadius: 4, barPercentage: 0.7, categoryPercentage: 0.7, order: 2 },
           { type: 'line', label: 'Résultat', data: resultat, borderColor: '#16A34A', backgroundColor: '#16A34A', borderWidth: 2, tension: 0.35, pointRadius: 3, pointHoverRadius: 5, order: 1 }
         ]

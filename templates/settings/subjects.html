@@ -25,7 +25,7 @@
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-gray-900 text-sm">Matières de l'école</h3>
         <button @click="showForm = !showForm"
-                class="flex items-center gap-1.5 px-3 py-2 bg-brand-gold text-white text-xs font-semibold rounded-lg hover:bg-amber-500 transition">
+                class="flex items-center gap-1.5 px-3 py-2 bg-primary-600 text-white text-xs font-semibold rounded-lg hover:bg-primary-700 transition">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
@@ -39,7 +39,7 @@
         <div class="flex flex-wrap gap-2">
           {% for name, short in quick_subjects %}
           <button @click="fillForm('{{ name }}', '{{ short }}')"
-                  class="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded-full hover:bg-brand-light hover:text-brand-blue border border-transparent hover:border-blue-200 transition">
+                  class="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded-full hover:bg-primary-50 hover:text-primary-600 border border-transparent hover:border-primary-200 transition">
             {{ name }}
           </button>
           {% endfor %}
@@ -84,7 +84,7 @@
                 hx-target="#class-subjects-panel"
                 hx-swap="innerHTML"
                 hx-trigger="change"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
           <option value="">— Sélectionner —</option>
           {% for sc in classes %}
           <option value="{{ sc.id }}">{{ sc.name }} — {{ sc.get_level_display }}</option>

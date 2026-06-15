@@ -1,5 +1,5 @@
 {% load i18n %}
-<tr id="class-row-{{ school_class.id }}" class="bg-blue-50">
+<tr id="class-row-{{ school_class.id }}" class="bg-primary-50">
   <td colspan="6" class="px-6 py-4">
     {% if form.non_field_errors %}
     <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-3">
@@ -41,7 +41,7 @@
 
       <div class="flex gap-2 pb-0.5">
         <button type="submit"
-                class="bg-brand-blue hover:bg-blue-900 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition">
+                class="btn-primary">
           {% trans "Enregistrer" %}
         </button>
         <button type="button"

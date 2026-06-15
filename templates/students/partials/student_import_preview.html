@@ -29,7 +29,7 @@
       {% endwith %}
     </p>
 
-    <div class="overflow-x-auto rounded-lg border border-gray-200 mb-5">
+    <div class="table-card mb-5">
       <table class="w-full text-left text-sm">
         <thead class="bg-gray-50 border-b border-gray-100">
           <tr>
@@ -45,9 +45,9 @@
               <td class="px-4 py-2 text-gray-500">{{ row.class_name }}</td>
               <td class="px-4 py-2">
                 {% if row.is_duplicate %}
-                  <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Doublon</span>
+                  <span class="badge-warning">Doublon</span>
                 {% else %}
-                  <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">À importer</span>
+                  <span class="badge-success">À importer</span>
                 {% endif %}
               </td>
             </tr>
@@ -62,7 +62,7 @@
       {% csrf_token %}
       <input type="hidden" name="rows_data" value="{{ rows_json }}">
       <button type="submit"
-              class="w-full bg-brand-blue hover:bg-blue-900 text-white font-semibold py-3 rounded-xl transition min-h-[44px] flex items-center justify-center gap-2">
+              class="btn-primary w-full min-h-[44px]">
         <svg class="w-5 h-5 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>

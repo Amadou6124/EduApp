@@ -18,7 +18,7 @@
   </div>
 
   {% if absences %}
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="table-card">
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead><tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
@@ -33,7 +33,7 @@
           <tr class="hover:bg-gray-50/50">
             <td class="px-4 py-2.5 whitespace-nowrap text-gray-600">{{ a.date|date:"d/m/Y" }}</td>
             <td class="px-4 py-2.5 text-gray-500">{{ a.school_class.name }}</td>
-            <td class="px-4 py-2.5"><a href="{% url 'students:detail' a.student.id %}" class="font-medium text-gray-900 hover:text-brand-blue">{{ a.student.full_name }}</a></td>
+            <td class="px-4 py-2.5"><a href="{% url 'students:detail' a.student.id %}" class="font-medium text-gray-900 hover:text-primary-600">{{ a.student.full_name }}</a></td>
             <td class="px-4 py-2.5">
               {% if a.status == 'absent' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Absent</span>
               {% else %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Retard</span>{% endif %}
@@ -55,7 +55,7 @@
   {% endif %}
 
   {% else %}
-  <div class="bg-white rounded-xl border border-gray-100 p-10 text-center">
+  <div class="card p-10 text-center">
     <i data-lucide="check-circle" class="w-10 h-10 mx-auto text-green-400 mb-2"></i>
     <p class="text-sm text-gray-400">Aucune absence sur cette période</p>
   </div>

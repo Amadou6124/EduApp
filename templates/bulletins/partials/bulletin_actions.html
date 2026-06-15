@@ -1,7 +1,7 @@
 {% comment %}Boutons d'action d'un bulletin (mutualisé table + ligne HTMX). Requiert : bulletin.{% endcomment %}
 {% if bulletin.is_published %}
   <a href="{% url 'bulletins:view-pdf' bulletin.pk %}" target="_blank" title="Voir"
-     class="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors">
+     class="p-1.5 hover:bg-primary-50 rounded-lg text-primary-600 transition-colors">
     <i data-lucide="eye" class="w-4 h-4"></i>
   </a>
   <a href="{% url 'bulletins:download' bulletin.pk %}" title="Télécharger"

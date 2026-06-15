@@ -1,5 +1,5 @@
 {% load i18n %}
-<div id="teacher-subjects-panel" class="bg-white rounded-xl border border-gray-200 p-6">
+<div id="teacher-subjects-panel" class="card p-6">
 
   <div class="flex items-center justify-between mb-5">
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Matières et classes</h3>
@@ -22,19 +22,19 @@
     <div x-data="{ open: false, classId: '', filter: 'all' }" class="mb-5">
       <button type="button"
               @click="open = !open"
-              class="flex items-center gap-2 text-sm font-medium text-brand-blue hover:text-blue-900 transition">
+              class="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700 transition">
         <i data-lucide="layers" class="w-4 h-4"></i>
         Assigner à toute une classe
         <i data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
       </button>
 
       <div x-show="open" x-cloak x-transition
-           class="mt-3 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+           class="mt-3 p-4 bg-primary-50 border border-primary-100 rounded-xl space-y-3">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 mb-1">Classe <span class="text-red-400">*</span></label>
             <select x-model="classId"
-                    class="w-full border border-gray-300 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue">
+                    class="w-full border border-gray-300 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary-500">
               <option value="">— Sélectionner —</option>
               {% for cls in classes %}
               <option value="{{ cls.pk }}">{{ cls.name }}</option>
@@ -45,13 +45,13 @@
             <label class="block text-[10px] font-semibold text-gray-500 mb-1">Matières</label>
             <div class="space-y-1.5 pt-1">
               <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
-                <input type="radio" x-model="filter" value="all" class="text-brand-blue"> Toutes les matières
+                <input type="radio" x-model="filter" value="all" class="text-primary-600"> Toutes les matières
               </label>
               <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
-                <input type="radio" x-model="filter" value="french" class="text-brand-blue"> Matières en français seulement
+                <input type="radio" x-model="filter" value="french" class="text-primary-600"> Matières en français seulement
               </label>
               <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
-                <input type="radio" x-model="filter" value="arabic" class="text-brand-blue"> Matières en arabe seulement
+                <input type="radio" x-model="filter" value="arabic" class="text-primary-600"> Matières en arabe seulement
               </label>
             </div>
           </div>
@@ -64,7 +64,7 @@
                   hx-swap="outerHTML"
                   hx-on::after-swap="lucide.createIcons()"
                   :hx-vals="JSON.stringify({ class_id: classId, filter: filter })"
-                  class="flex items-center gap-2 px-4 py-2 bg-brand-blue hover:bg-blue-900 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition">
+                  class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition">
             <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
             Assigner
           </button>
@@ -102,7 +102,7 @@
                              name="class_subject_ids"
                              value="{{ cs.pk }}"
                              {% if cs.pk in assigned_ids %}checked{% endif %}
-                             class="w-4 h-4 rounded border-gray-300 text-brand-blue focus:ring-brand-blue cursor-pointer">
+                             class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer">
                     </div>
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium text-gray-800 group-hover:text-gray-900 transition-colors">
@@ -130,7 +130,7 @@
 
         <div class="mt-5 pt-4 border-t border-gray-100 flex items-center gap-3">
           <button type="submit"
-                  class="flex items-center gap-2 px-5 py-2.5 bg-brand-blue hover:bg-blue-900 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
+                  class="btn-primary min-h-[44px]">
             <svg id="subjects-spinner" class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -150,7 +150,7 @@
           <p class="text-sm text-gray-500 mb-1">Aucune matière configurée</p>
           <p class="text-xs text-gray-400">
             Configurez les matières et classes dans
-            <a href="{% url 'settings:subjects' %}" class="text-brand-blue underline">Paramètres → Matières</a>.
+            <a href="{% url 'settings:subjects' %}" class="text-primary-600 underline">Paramètres → Matières</a>.
           </p>
         </div>
       {% endif %}
@@ -166,7 +166,7 @@
             {% for cs in assigned_in_group %}
               {% if cs.pk in assigned_ids %}
                 <div class="flex items-center gap-3 py-2 px-3 bg-gray-50 rounded-lg">
-                  <div class="w-2 h-2 rounded-full bg-brand-blue flex-shrink-0"></div>
+                  <div class="w-2 h-2 rounded-full bg-primary-600 flex-shrink-0"></div>
                   <div>
                     <p class="text-sm font-medium text-gray-800">{{ cs.subject.name }}</p>
                     <p class="text-xs text-gray-400">{{ group.grouper.name }}</p>
