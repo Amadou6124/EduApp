@@ -18,6 +18,7 @@ urlpatterns = [
     path('suivi/difficulty/',   views.tracking_difficulty,    name='suivi-difficulty'),
     path('<int:student_id>/',        views.student_detail,           name='detail'),
     path('<int:student_id>/edit/',                          views.student_update,        name='update'),
+    path('<int:student_id>/withdraw/',                      views.student_withdraw,      name='withdraw'),
     path('<int:student_id>/observations/<int:obs_id>/read/', views.observation_mark_read, name='obs-mark-read'),
     path('<int:student_id>/observations/<int:obs_id>/share/', views.observation_share_parent, name='obs-share-parent'),
     path('<int:student_id>/guardians/search/',                   views.guardian_search, name='guardian-search'),

@@ -8,13 +8,15 @@ import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.core.paginator import Paginator
 from django.db.models import Count, DecimalField, F, Q, Subquery, OuterRef, Sum
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
@@ -26,7 +28,10 @@ from apps.core.text import norm_name
 from apps.dashboard.views import invalidate_dashboard_cache
 
 from .forms import StudentCreateForm, StudentUpdateForm
-from .models import Student, StudentGuardian, ParentRelationship
+from .models import (
+    Student, StudentGuardian, ParentRelationship,
+    StudentEnrollment, EnrollmentStatus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +282,7 @@ def student_detail(request, student_id):
         'notes_periode':     notes_periode,
         'active_period':     active_period,
         'notifs_parents':    notifs_parents,
+        'is_director':       request.role == 'director' or request.user.is_superuser,
     })
 
 
@@ -401,6 +407,63 @@ def student_update(request, student_id):
             'form':    form,
         })
     return redirect('students:detail', student_id=student.id)
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def student_withdraw(request, student_id):
+    """Retire un élève des listes actives (transfert / abandon / fin d'année).
+
+    Archive l'inscription (StudentEnrollment) puis Student.is_active=False.
+    Les données (notes, paiements, bulletins) sont conservées (FK PROTECT).
+    Action réservée au directeur.
+    """
+    school = get_school(request)
+    if request.role != 'director' and not request.user.is_superuser:
+        return HttpResponse(status=403)
+
+    student = get_object_or_404(Student, id=student_id, school=school, is_active=True)
+
+    status = request.POST.get('status')
+    valid = (
+        EnrollmentStatus.TRANSFERRED,
+        EnrollmentStatus.GRADUATED,
+        EnrollmentStatus.WITHDRAWN,
+    )
+    if status not in valid:
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({
+            'showToast': {'message': 'Motif de retrait invalide.', 'type': 'error'},
+        })
+        return resp
+
+    from apps.schools.models import SchoolYear
+    active_year = SchoolYear.objects.filter(school=school, is_active=True).first()
+
+    with transaction.atomic():
+        StudentEnrollment.objects.create(
+            student=student,
+            school=school,
+            school_class=student.school_class,
+            school_year=active_year,
+            status=status,
+            enrolled_at=student.enrolled_at.date() if student.enrolled_at else None,
+            ended_at=timezone.now().date(),
+        )
+        student.is_active = False
+        student.save(update_fields=['is_active'])
+
+    invalidate_dashboard_cache(school)
+
+    messages.success(
+        request,
+        f'{student.full_name} retiré ({EnrollmentStatus(status).label}). '
+        'Ses données sont conservées.',
+    )
+    resp = HttpResponse(status=204)
+    resp['HX-Redirect'] = reverse('students:list')
+    return resp
 
 
 @login_required
