@@ -1,0 +1,41 @@
+"""Télécharge les assets front (vendor) en versions FIGÉES pour self-hosting.
+
+Pourquoi : perf 3G Mali, fiabilité (zéro dépendance CDN), fondation PWA.
+Idempotent (réécrit), rejouable. Étendu asset par asset (htmx → alpine → lucide → fonts).
+"""
+import hashlib
+from pathlib import Path
+
+import requests
+from django.conf import settings
+from django.core.management.base import BaseCommand
+
+VENDOR_DIR = Path(settings.BASE_DIR) / 'static' / 'vendor'
+
+# Versions figées — à étendre aux étapes suivantes (alpine, lucide, fonts).
+ASSETS = [
+    {
+        'name':    'htmx',
+        'version': '2.0.4',
+        'url':     'https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js',
+        'dest':    'htmx/htmx.min.js',
+    },
+]
+
+
+class Command(BaseCommand):
+    help = "Télécharge les assets vendor (versions figées) dans static/vendor/."
+
+    def handle(self, *args, **options):
+        for a in ASSETS:
+            dest = VENDOR_DIR / a['dest']
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            self.stdout.write(f"↓ {a['name']} {a['version']} — {a['url']}")
+            resp = requests.get(a['url'], timeout=30)
+            resp.raise_for_status()
+            dest.write_bytes(resp.content)
+            sha = hashlib.sha256(resp.content).hexdigest()
+            self.stdout.write(self.style.SUCCESS(
+                f"  ✓ {a['dest']} — {len(resp.content) // 1024} Ko — sha256:{sha[:16]}…"
+            ))
+        self.stdout.write(self.style.SUCCESS("Assets vendor à jour."))
