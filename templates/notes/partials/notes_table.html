@@ -10,7 +10,7 @@ Contexte attendu :
   - can_enter    : bool
   - reason       : str | None
 {% endcomment %}
-{% load i18n %}
+{% load i18n l10n %}
 
 {% if not can_enter %}
   {# ── Bloqué : pas les droits ─────────────────────────────────── #}
@@ -41,11 +41,11 @@ Contexte attendu :
     document.addEventListener('alpine:init', () => {
       Alpine.data('notesTable', () => ({
         search: '',
-        rows: [
+        rows: [{% localize off %}
           {% for r in rows %}
             { id: {{ r.student.pk }}, studentName: '{{ r.student.full_name|escapejs }}', avg: {{ r.avg|default:'null' }}, notes: {{ r.notes_js|safe }} }{% if not forloop.last %},{% endif %}
           {% endfor %}
-        ],
+        {% endlocalize %}],
         positions: {{ positions|length }},
 
         get filteredRows() {
@@ -107,6 +107,14 @@ Contexte attendu :
              class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
              placeholder="Rechercher un élève...">
     </div>
+
+    {# ── Instruction de saisie ─────────────────────────────────── #}
+    {% if can_enter %}
+    <p class="text-xs text-gray-400 mb-4 flex items-center gap-1.5">
+      <i data-lucide="info" class="w-3.5 h-3.5 flex-shrink-0"></i>
+      Cliquez sur une cellule pour saisir une note — sauvegarde automatique.
+    </p>
+    {% endif %}
 
     {# ── Stats de la classe ────────────────────────────────────── #}
     {% if class_stats.avg is not None %}

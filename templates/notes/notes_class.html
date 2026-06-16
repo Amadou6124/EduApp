@@ -31,6 +31,7 @@ function mobileNoteInput(students, existingNotes) {
   const _pid     = {{ period.pk }};
   const _pos     = {{ mobile_position|default:1 }};
   const _max     = parseFloat("{{ active_cs.max_grade }}");
+  const _classUrl = "{% url 'notes:class' school_class.pk period.pk %}?subject={{ active_cs.pk }}";
 
   return {
     students,
@@ -84,6 +85,13 @@ function mobileNoteInput(students, existingNotes) {
       if (!this.isLast) {
         this.currentIndex++;
         this.inputValue = this.notes[String(this.current.id)] || '';
+      } else {
+        // ── Dernier élève : fin de saisie → toast + retour à la page classe
+        //    (recharge → moyennes recalculées côté serveur) ──
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: { message: 'Saisie terminée ✓', type: 'success' },
+        }));
+        setTimeout(function () { window.location.href = _classUrl; }, 700);
       }
     },
 
