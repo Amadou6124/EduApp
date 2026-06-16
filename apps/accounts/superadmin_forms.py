@@ -22,7 +22,8 @@ class SchoolCreateForm(forms.ModelForm):
 class SchoolUpdateForm(forms.ModelForm):
     class Meta:
         model = School
-        fields = ['name', 'city', 'country', 'phone_number', 'email', 'logo', 'is_active']
+        fields = ['name', 'city', 'country', 'phone_number', 'email', 'logo',
+                  'is_active', 'accounting_enabled']
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'Ex: Groupe Scolaire Excellence'}),
             'city': forms.TextInput(attrs={'placeholder': 'Ex: Bamako'}),

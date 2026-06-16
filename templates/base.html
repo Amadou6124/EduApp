@@ -384,7 +384,7 @@
           </div>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-gray-900 truncate leading-tight">{{ request.user.full_name }}</p>
-            <p class="text-xs text-gray-500 truncate">{{ request.user.get_role_display }}</p>
+            <p class="text-xs text-gray-500 truncate">{{ active_role_display }}</p>
           </div>
           <i data-lucide="chevron-down"
              class="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-150"
