@@ -8,22 +8,21 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
 {% endblock %}
 
-{% block header_actions %}
-<a href="{% url 'accounting:bilan-export' %}?year={{ year }}&month={{ month }}"
-   class="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition min-h-[44px]">
-  <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exporter Excel
-</a>
-{% endblock %}
-
 {% block content %}
 <div class="max-w-5xl mx-auto">
 
-  {# ── Sélecteur de mois ─────────────────────────────────────────── #}
-  <form method="get" class="flex flex-wrap items-center gap-2 mb-5">
+  {# Toolbar : sélecteur de mois (gauche) + export (droite) #}
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+  <form method="get" class="flex flex-wrap items-center gap-2">
     <a href="?year={{ prev_y }}&month={{ prev_m }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
     <span class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-800 min-w-[140px] text-center">{{ month_label }} {{ year }}</span>
     <a href="?year={{ next_y }}&month={{ next_m }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
   </form>
+    <a href="{% url 'accounting:bilan-export' %}?year={{ year }}&month={{ month }}"
+       class="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition min-h-[44px] shrink-0">
+      <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exporter Excel
+    </a>
+  </div>
 
   {# ── Section 1 — Résultat net ───────────────────────────────────── #}
   <div class="rounded-2xl p-6 mb-6 border
