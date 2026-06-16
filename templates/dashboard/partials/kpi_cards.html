@@ -3,20 +3,20 @@ Section 1 — KPI Cards animées avec counter Alpine.js.
 Contexte : kpis = {student_count, class_count, teacher_count,
                     total_collected, unpaid_count, school_avg}
 {% endcomment %}
-{% load i18n %}
+{% load i18n l10n %}
 
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"
      x-data="{
        counters: {},
        initCounters() {
-         const targets = {
+         const targets = {% localize off %}{
            students:   {{ kpis.student_count|default:'0' }},
            classes:    {{ kpis.class_count|default:'0' }},
            teachers:   {{ kpis.teacher_count|default:'0' }},
            collected:  {{ kpis.total_collected|default:'0' }},
            unpaid:     {{ kpis.unpaid_count|default:'0' }},
            avg:        {{ kpis.school_avg|default:'0' }}
-         };
+         }{% endlocalize %};
          for (const [key, target] of Object.entries(targets)) {
            const duration = 1200;
            const start = performance.now();

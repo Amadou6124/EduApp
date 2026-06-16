@@ -36,7 +36,7 @@ Contexte : rows, school_class, period, can_generate,
 {# ── Barre de progression ────────────────────────────────────── #}
 <div class="w-full bg-gray-100 rounded-full h-2 mb-1.5">
   <div class="h-2 rounded-full transition-all duration-500"
-       style="width: {{ generated_pct }}%"
+       style="width: {{ generated_pct|floatformat:0 }}%"
        x-bind:class="{
          'bg-green-500': {{ generated_pct }} === 100,
          'bg-primary-600': {{ generated_pct }} > 0 && {{ generated_pct }} < 100,
