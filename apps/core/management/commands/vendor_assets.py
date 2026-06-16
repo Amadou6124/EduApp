@@ -39,6 +39,13 @@ ASSETS = [
         'url':     'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
         'dest':    'chartjs/chart.umd.min.js',
     },
+    {
+        # Police variable : 1 woff2 couvre wght 400-800, sous-ensemble latin (suffisant pour fr/Mali).
+        'name':    'manrope',
+        'version': 'v20',
+        'url':     'https://fonts.gstatic.com/s/manrope/v20/xn7gYHE41ni1AdIRggexSg.woff2',
+        'dest':    'fonts/manrope/manrope-latin.woff2',
+    },
 ]
 
 
