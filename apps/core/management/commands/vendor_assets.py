@@ -26,6 +26,19 @@ ASSETS = [
         'url':     'https://unpkg.com/alpinejs@3.15.12/dist/cdn.min.js',
         'dest':    'alpine/alpine.min.js',
     },
+    {
+        # NB : @latest pointe sur la legacy 1.20.0 (2021) ; modernisation 0.577.x = tâche dédiée.
+        'name':    'lucide',
+        'version': '1.20.0',
+        'url':     'https://unpkg.com/lucide@1.20.0/dist/umd/lucide.min.js',
+        'dest':    'lucide/lucide.min.js',
+    },
+    {
+        'name':    'chartjs',
+        'version': '4.4.1',
+        'url':     'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+        'dest':    'chartjs/chart.umd.min.js',
+    },
 ]
 
 

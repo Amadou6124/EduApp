@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize static %}
 
 {% block title %}Comptabilité{% endblock %}
 {% block page_title %}Comptabilité{% endblock %}
 
 {% block extra_head %}
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}" defer></script>
 {% endblock %}
 
 {% block content %}
