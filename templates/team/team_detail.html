@@ -47,6 +47,7 @@
          })
        },
      }"
+     {% if request.GET.linked_staff %}x-init="$nextTick(() => window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Configurez les permissions de ce membre.', type: 'info' } })))"{% endif %}
      @close-edit-panel.window="showEditPanel = false"
      @team-member-updated.window="window.location.reload()"
      class="max-w-4xl mx-auto space-y-6">
@@ -68,16 +69,16 @@
             </p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            {% if member.role == 'teacher' %}
+            {% if member_role == 'teacher' %}
               <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-primary-50 text-primary-700">
                 Enseignant
               </span>
-            {% elif member.role == 'staff' %}
+            {% elif member_role == 'staff' %}
               <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold"
                     style="background-color:#F3F0FE;color:#5B21B6">
                 Staff administratif
               </span>
-            {% elif member.role == 'director' %}
+            {% elif member_role == 'director' %}
               <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold"
                     style="background-color:#FEF3DC;color:#92570A">
                 Directeur
@@ -126,7 +127,7 @@
     {% endif %}
   </div>
 
-  {% if member.role == 'teacher' %}
+  {% if member_role == 'teacher' %}
     <div hx-get="{% url 'team:subjects' member.pk %}"
          hx-trigger="load"
          hx-swap="outerHTML">
@@ -139,7 +140,16 @@
     </div>
   {% endif %}
 
-  {% if member.role == 'staff' %}
+  {% if member_role == 'staff' %}
+    {% if request.GET.linked_staff %}
+      <div class="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 mb-5">
+        <i data-lucide="settings-2" class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5"></i>
+        <div>
+          <p class="text-sm font-semibold text-amber-800">Membre lié à votre école</p>
+          <p class="text-sm text-amber-700">Configurez ses permissions ci-dessous — par défaut il peut seulement consulter les élèves et les classes.</p>
+        </div>
+      </div>
+    {% endif %}
     {% include "team/partials/staff_permissions.html" with member=member perm=perm perm_form=perm_form is_director=is_director %}
   {% endif %}
 

@@ -165,7 +165,7 @@ Contexte : student_count, gen_avg, success_rate, admitted_count,
                       {% if subj.avg >= 14 %}bg-green-500
                       {% elif subj.avg >= 10 %}bg-primary-600
                       {% else %}bg-red-500{% endif %}"
-               style="width: {{ subj.pct }}%">
+               style="width: {{ subj.pct|floatformat:0 }}%">
           </div>
         </div>
 

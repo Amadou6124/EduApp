@@ -1,13 +1,6 @@
 {% load i18n %}
 <div id="student-list-area">
 
-  {% if success_message %}
-    <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm font-medium"
-         x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)">
-      {{ success_message }}
-    </div>
-  {% endif %}
-
   {% if not students %}
     <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
       <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
@@ -17,10 +10,10 @@
       <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
         Commencez par inscrire vos élèves dans une classe.
       </p>
-      <a href="{% url 'students:list' %}" class="btn-primary text-sm">
+      <button type="button" @click="showPanel = true; panelMode = 'individual'" class="btn-primary text-sm">
         <i data-lucide="plus" class="w-4 h-4"></i>
         Inscrire un élève
-      </a>
+      </button>
     </div>
 
   {% else %}

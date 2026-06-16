@@ -66,7 +66,7 @@
     </div>
     <div class="bg-gray-100 rounded-full h-2">
       <div class="h-2 rounded-full transition-all {% if mastery >= 80 %}bg-green-500{% elif mastery >= 40 %}bg-amber-500{% else %}bg-gray-400{% endif %}"
-           style="width: {{ mastery }}%"></div>
+           style="width: {{ mastery|floatformat:0 }}%"></div>
     </div>
   </div>
 

@@ -4,20 +4,13 @@
 {% block title %}Dépenses{% endblock %}
 {% block page_title %}Dépenses{% endblock %}
 
-{% block header_actions %}
-<button type="button" @click="$dispatch('open-expense-panel')"
-        class="btn-primary min-h-[44px]">
-  <i data-lucide="plus" class="w-4 h-4"></i> Nouvelle dépense
-</button>
-{% endblock %}
-
 {% block content %}
 <div class="max-w-5xl mx-auto" x-data="{ panel: false }"
-     @open-expense-panel.window="panel = true"
      @close-expense-panel.document="panel = false">
 
-  {# Filtres (rechargement page) #}
-  <form method="get" class="flex flex-wrap items-center gap-2 mb-5">
+  {# Toolbar : filtres (gauche) + action (droite) #}
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+  <form method="get" class="flex flex-wrap items-center gap-2">
     <a href="?year={{ prev_y }}&month={{ prev_m }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
     <span class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-800 min-w-[140px] text-center">{{ month_label }} {{ year }}</span>
     <a href="?year={{ next_y }}&month={{ next_m }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
@@ -31,6 +24,10 @@
       {% for val, label in methods %}<option value="{{ val }}" {% if method == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
   </form>
+    <button type="button" @click="panel = true" class="btn-primary min-h-[44px] shrink-0">
+      <i data-lucide="plus" class="w-4 h-4"></i> Nouvelle dépense
+    </button>
+  </div>
 
   {# Contenu (résumé + liste) — swappé après add/cancel #}
   {% include "accounting/partials/expense_list.html" %}
@@ -57,7 +54,7 @@
       <div>
         <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Montant</label>
         <div class="flex items-center gap-2 mt-1.5">
-          <input type="number" name="amount" min="1" step="500" required placeholder="0" class="input-field flex-1">
+          <input type="number" name="amount" min="1" step="1" required placeholder="0" class="input-field flex-1">
           <span class="text-sm text-gray-400">FCFA</span>
         </div>
       </div>

@@ -3,7 +3,8 @@ from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db.models import Count
+from django.db import IntegrityError, transaction
+from django.db.models import Count, ProtectedError
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.template.loader import render_to_string
@@ -294,6 +295,76 @@ def school_year_create(request):
     return render(request, 'settings/partials/school_year_form.html', {'form': form})
 
 
+def _year_list_response(request, school, message, msg_type='success'):
+    years = (
+        SchoolYear.objects
+        .filter(school=school)
+        .annotate(periods_count=Count('periods'))
+    )
+    resp = render(request, 'settings/partials/school_year_list.html', {'years': years})
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': msg_type}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def school_year_update(request, year_id):
+    school = get_school(request)
+    year   = get_object_or_404(SchoolYear, id=year_id, school=school)
+    was_active = year.is_active
+    form   = SchoolYearForm(request.POST, instance=year)
+
+    def _toast_error(message):
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': 'error'}})
+        return resp
+
+    if not form.is_valid():
+        return _toast_error(next(iter(form.errors.values()))[0])
+
+    obj = form.save(commit=False)
+    obj.is_active = was_active   # is_active géré par le toggle dédié, pas par l'édition
+    try:
+        obj.full_clean()
+    except ValidationError as e:
+        return _toast_error(str(getattr(e, 'message', e)))
+    obj.save()
+    return _year_list_response(request, school, 'Année scolaire modifiée.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def school_year_delete(request, year_id):
+    school = get_school(request)
+    year   = get_object_or_404(SchoolYear, id=year_id, school=school)
+
+    # Garde : Period.school_year est CASCADE → ne jamais supprimer une année qui a
+    # des périodes (perte silencieuse notes/bulletins) ou des inscriptions (PROTECT).
+    if year.periods.exists() or year.enrollments.exists():
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': "Année utilisée (périodes ou inscriptions) — suppression impossible. Archivez-la plutôt.",
+            'type': 'error',
+        }})
+        return resp
+
+    name = year.name
+    try:
+        with transaction.atomic():
+            year.delete()
+    except ProtectedError:
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': "Année utilisée — suppression impossible. Archivez-la plutôt.",
+            'type': 'error',
+        }})
+        return resp
+
+    return _year_list_response(request, school, f'Année {name} supprimée.')
+
+
 @login_required
 @director_or_staff_required
 @require_http_methods(['POST'])
@@ -451,6 +522,28 @@ def period_create(request, year_id):
 @login_required
 @director_or_staff_required
 @require_http_methods(['POST'])
+def period_update(request, period_id):
+    school = get_school(request)
+    period = get_object_or_404(Period, id=period_id, school_year__school=school)
+    form   = PeriodForm(request.POST, instance=period)
+
+    if not form.is_valid():
+        first = next(iter(form.errors.values()))[0]
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': first, 'type': 'error'}})
+        return resp
+
+    form.save()
+    year    = period.school_year
+    periods = year.periods.order_by('order')
+    resp = render(request, 'settings/partials/periods_list.html', {'year': year, 'periods': periods})
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Période modifiée.', 'type': 'success'}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
 def period_toggle_notes(request, period_id):
     school          = get_school(request)
     period          = get_object_or_404(Period, id=period_id, school_year__school=school)
@@ -557,6 +650,37 @@ def subject_create(request):
             })
             return resp
     return render(request, 'settings/partials/subject_form.html', {'form': form})
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def subject_update(request, subject_id):
+    school  = get_school(request)
+    subject = get_object_or_404(Subject, id=subject_id, school=school, is_active=True)
+    form    = SubjectForm(request.POST, instance=subject)
+
+    def _toast_error(message):
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': 'error'}})
+        return resp
+
+    if not form.is_valid():
+        first = next(iter(form.errors.values()))[0]
+        return _toast_error(first)
+
+    try:
+        with transaction.atomic():
+            form.save()
+    except IntegrityError:
+        # Contrainte partielle unique_active_subject_per_school (non validée par
+        # le ModelForm) : une autre matière active porte déjà ce nom.
+        return _toast_error('Une matière active porte déjà ce nom.')
+
+    subj_list = Subject.objects.filter(school=school, is_active=True)
+    resp = render(request, 'settings/partials/subject_list.html', {'subjects': subj_list})
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Matière modifiée.', 'type': 'success'}})
+    return resp
 
 
 @login_required

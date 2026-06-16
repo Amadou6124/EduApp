@@ -72,4 +72,11 @@
     </form>
   {% endif %}
 
+  <button type="button"
+          @click="document.querySelector('input[name=import_file]').value = '';
+                  document.getElementById('import-preview-area').innerHTML = ''"
+          class="w-full min-h-[44px] mt-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition text-sm">
+    Changer de fichier
+  </button>
+
 </div>

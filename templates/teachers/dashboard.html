@@ -145,7 +145,7 @@
                           {% if card.notes_pct >= 80 %}bg-green-400
                           {% elif card.notes_pct >= 40 %}bg-amber-400
                           {% else %}bg-gray-300{% endif %}"
-                   style="width: {{ card.notes_pct }}%">
+                   style="width: {{ card.notes_pct|floatformat:0 }}%">
               </div>
             </div>
           </div>

@@ -7,10 +7,12 @@ app_name = 'team'
 urlpatterns = [
     path('',                              team_views.team_list,                name='list'),
     path('create/',                       team_views.team_member_create,       name='create'),
+    path('search/',                       team_views.team_member_search,       name='search'),
     path('<int:user_id>/',                team_views.team_member_detail,       name='detail'),
     path('<int:user_id>/edit/',           team_views.team_member_edit,         name='edit'),
     path('<int:user_id>/permissions/',    team_views.team_permissions_update,  name='permissions'),
     path('<int:user_id>/deactivate/',     team_views.team_member_deactivate,   name='deactivate'),
+    path('<int:user_id>/reactivate/',     team_views.team_member_reactivate,   name='reactivate'),
     path('<int:user_id>/subjects/',       team_views.teacher_subjects_update,  name='subjects'),
     path('<int:user_id>/assign-class/',   team_views.teacher_assign_class,     name='assign-class'),
 ]

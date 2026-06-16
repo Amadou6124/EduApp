@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n l10n %}
 <div class="border border-gray-200 rounded-xl overflow-hidden">
 
   <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
@@ -70,13 +70,13 @@
           {% csrf_token %}
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 mb-1">Coeff.</label>
-            <input type="number" name="coefficient" value="{{ cs.coefficient }}"
+            <input type="number" name="coefficient" value="{{ cs.coefficient|unlocalize }}"
                    step="0.1" min="0.1"
                    class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500">
           </div>
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 mb-1">Note max</label>
-            <input type="number" name="max_grade" value="{{ cs.max_grade }}"
+            <input type="number" name="max_grade" value="{{ cs.max_grade|unlocalize }}"
                    step="0.01" min="1"
                    class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500">
           </div>

@@ -4,7 +4,7 @@ import string
 from django import forms
 from django.utils.crypto import get_random_string
 
-from .models import User, UserRole, StaffPermission
+from .models import User, UserRole, StaffPermission, Membership
 
 _INPUT = (
     'w-full px-4 py-3 border border-gray-300 rounded-xl text-sm '
@@ -89,9 +89,15 @@ class TeamMemberCreateForm(forms.Form):
         super().__init__(*args, **kwargs)
 
     def clean_phone_number(self):
+        # Le formulaire de CRÉATION ne sert qu'aux nouveaux comptes : un numéro
+        # existant ne peut pas être recréé (unicité User.phone_number). Le cas
+        # « compte existant » est géré par le flux de recherche → liaison
+        # (team_member_search + lien via Membership), pas par ce formulaire.
         phone = self.cleaned_data['phone_number'].strip()
         if User.objects.filter(phone_number=phone).exists():
-            raise forms.ValidationError('Ce numéro de téléphone est déjà utilisé.')
+            raise forms.ValidationError(
+                "Ce numéro existe déjà — utilisez la recherche pour lier ce compte à l'école."
+            )
         return phone
 
     def clean_password(self):
@@ -103,16 +109,30 @@ class TeamMemberCreateForm(forms.Form):
         return pw
 
     def save(self):
-        """Crée et retourne le User. Ne crée pas StaffPermission (fait dans la vue)."""
+        """Crée le User **et** sa Membership pour l'école courante.
+
+        `User.school` est conservé en fallback ; `Membership` est la source de
+        vérité multi-école. StaffPermission reste géré dans la vue.
+        """
         data = self.cleaned_data
         full_name = f"{data['first_name'].strip()} {data['last_name'].strip()}"
+        job_title = data.get('job_title', '').strip()
         user = User.objects.create_user(
             phone_number=data['phone_number'],
             password=data['password'],
             full_name=full_name,
             role=data['role'],
+            school=self.school,          # fallback FK (conservé 1 release)
+            job_title=job_title,
+        )
+        # Source de vérité multi-école — 1er rattachement → école par défaut.
+        Membership.objects.create(
+            user=user,
             school=self.school,
-            job_title=data.get('job_title', '').strip(),
+            role=data['role'],
+            job_title=job_title,
+            is_default=True,
+            is_active=True,
         )
         return user
 

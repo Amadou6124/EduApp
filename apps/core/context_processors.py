@@ -20,9 +20,20 @@ def school_context(request):
     if not request.user.is_authenticated:
         return {}
 
+    # Rôle affiché (avatar sidebar) : label du rôle de l'école ACTIVE
+    # (request.role est per-école via get_active_role), pas le User.role global.
+    active_role_display = ''
+    role = getattr(request, 'role', None)
+    if role:
+        from apps.accounts.models import UserRole
+        try:
+            active_role_display = UserRole(role).label
+        except ValueError:
+            active_role_display = ''
+
     school = getattr(request, 'school', None)
     if not school:
-        return {}
+        return {'active_role_display': active_role_display}
 
     from apps.schools.models import SchoolYear, Period
     from apps.students.models import Student
@@ -105,4 +116,5 @@ def school_context(request):
         'alert_count':               alert_count,
         'unread_observations_count': unread_observations_count,
         'user_memberships':          user_memberships,
+        'active_role_display':       active_role_display,
     }

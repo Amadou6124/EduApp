@@ -20,10 +20,19 @@
   </div>
 
   <div class="pt-2 border-t border-gray-100">
+    {% if is_director %}
+    <button type="button"
+            hx-post="{% url 'team:reactivate' member.pk %}"
+            class="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition min-h-[40px]">
+      <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+      Réactiver
+    </button>
+    {% else %}
     <p class="text-xs text-gray-400 italic text-center flex items-center justify-center gap-1">
       <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
       Ce membre a été désactivé
     </p>
+    {% endif %}
   </div>
 
 </div>

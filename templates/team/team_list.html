@@ -30,6 +30,17 @@ function teamPageData() {
       })
     },
 
+    resetSearch() {
+      const input = document.getElementById('team-search-phone')
+      if (input) input.value = ''
+      // Recharge l'état initial (indice neutre) du panneau de recherche.
+      htmx.ajax('GET', '{% url "team:search" %}', {
+        target: '#team-search-result',
+        swap:   'innerHTML',
+      })
+      this.$nextTick(() => input && input.focus())
+    },
+
     confirmDeactivate(userId, name) {
       Alpine.store('confirm').show({
         title:        'Désactiver ' + name + ' ?',
@@ -56,6 +67,7 @@ function teamPageData() {
 
 {% block content %}
 <div x-data="teamPageData()"
+     x-init="$watch('showPanel', v => v && resetSearch())"
      @close-panel.window="showPanel = false"
      @close-edit-panel.window="showEditPanel = false"
      @team-member-added.window="
@@ -224,6 +236,21 @@ function teamPageData() {
     {% endif %}
   </div>
 
+  {# ── Membres inactifs (désactivés dans cette école) ── #}
+  {% if inactive_members %}
+  <div class="mt-10">
+    <div class="flex items-center gap-2 mb-4">
+      <h2 class="text-base font-semibold text-gray-500">Membres inactifs</h2>
+      <span class="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ inactive_members|length }}</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for member in inactive_members %}
+        {% include "team/partials/member_card_deactivated.html" with member=member is_director=is_director %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div x-show="showPanel" x-cloak
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
@@ -258,228 +285,44 @@ function teamPageData() {
     </div>
 
     <div class="flex-1 overflow-y-auto">
-      <form id="team-create-form"
-            hx-post="{% url 'team:create' %}"
-            hx-target="#team-create-form"
-            hx-swap="outerHTML"
-            hx-indicator="#create-spinner"
-            x-data="{
-              role: selectedRole,
-              showPwd: false,
-              permissions: {
-                can_view_payments:      false,
-                can_create_payments:    false,
-                can_cancel_payments:    false,
-                can_view_students:      true,
-                can_create_students:    false,
-                can_edit_students:      false,
-                can_view_notes:         false,
-                can_edit_notes:         false,
-                can_generate_bulletins: false,
-                can_download_bulletins: false,
-                can_record_absences:    false,
-                can_view_classes:       true,
-                can_edit_classes:       false,
-              },
-              applyPreset(name) {
-                Object.keys(this.permissions).forEach(k => {
-                  this.permissions[k] = (k === 'can_view_students' || k === 'can_view_classes')
-                })
-                const presets = {
-                  censeur:       ['can_view_students','can_view_notes','can_edit_notes','can_generate_bulletins','can_download_bulletins','can_record_absences','can_view_classes'],
-                  comptable:     ['can_view_payments','can_create_payments','can_view_students'],
-                  surveillant:   ['can_view_students','can_record_absences'],
-                  informaticien: ['can_view_notes','can_generate_bulletins','can_download_bulletins','can_view_students','can_view_classes'],
-                  secretaire:    ['can_view_students','can_create_students','can_edit_students','can_view_payments','can_create_payments','can_view_classes'],
-                }
-                ;(presets[name] || []).forEach(k => { this.permissions[k] = true })
-              },
-              generatePwd() {
-                const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
-                this.$refs.pwdInput.value = Array.from({length:10}, () => chars[Math.floor(Math.random()*chars.length)]).join('')
-                this.showPwd = true
-              },
-            }"
-            x-init="role = selectedRole">
 
-        {% csrf_token %}
-        <input type="hidden" name="role" :value="role">
-
-        <div class="px-6 py-5 space-y-6">
-
-          <div>
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Identité</h3>
-            <div class="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Prénom <span class="text-red-400">*</span></label>
-                <input type="text" name="first_name" required class="input-field" placeholder="Prénom">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom <span class="text-red-400">*</span></label>
-                <input type="text" name="last_name" required class="input-field" placeholder="Nom de famille">
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone <span class="text-red-400">*</span></label>
-              <input type="tel" name="phone_number" required class="input-field" placeholder="Ex : 0700000000" inputmode="tel">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Titre du poste</label>
-              <input type="text" name="job_title" class="input-field" placeholder="Ex : Censeur, Comptable, Surveillant…">
-            </div>
-          </div>
-
-          <div class="border-t border-gray-100 pt-5">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Rôle</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <button type="button" @click="role = 'teacher'"
-                      :class="role === 'teacher' ? 'border-primary-600 bg-primary-50 ring-1 ring-primary-600' : 'border-gray-200 hover:border-gray-300 bg-white'"
-                      class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition cursor-pointer">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center"
-                     :class="role === 'teacher' ? 'bg-primary-600' : 'bg-gray-100'">
-                  <i data-lucide="graduation-cap" class="w-5 h-5"
-                     :class="role === 'teacher' ? 'text-white' : 'text-gray-500'"></i>
-                </div>
-                <div class="text-center">
-                  <p class="text-sm font-semibold text-gray-800">Enseignant</p>
-                  <p class="text-xs text-gray-400 mt-0.5">Accès classes &amp; matières</p>
-                </div>
-              </button>
-              <button type="button" @click="role = 'staff'"
-                      :class="role === 'staff' ? 'ring-1 bg-opacity-10' : 'border-gray-200 hover:border-gray-300 bg-white'"
-                      :style="role === 'staff' ? 'border-color:#5B21B6;background-color:#F3F0FE;box-shadow:0 0 0 1px #5B21B6' : ''"
-                      class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition cursor-pointer">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center"
-                     :style="role === 'staff' ? 'background-color:#5B21B6' : 'background-color:#F3F4F6'">
-                  <i data-lucide="briefcase" class="w-5 h-5"
-                     :class="role === 'staff' ? 'text-white' : 'text-gray-500'"></i>
-                </div>
-                <div class="text-center">
-                  <p class="text-sm font-semibold text-gray-800">Staff admin</p>
-                  <p class="text-xs text-gray-400 mt-0.5">Permissions configurables</p>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div x-show="role === 'teacher'" x-cloak
-               x-transition:enter="transition ease-out duration-200"
-               x-transition:enter-start="opacity-0 -translate-y-1"
-               x-transition:enter-end="opacity-100 translate-y-0"
-               class="border-t border-gray-100 pt-5">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Assignation matières &amp; classes</h3>
-            <div class="rounded-xl bg-primary-50 border border-primary-100 px-4 py-3 flex items-start gap-3">
-              <i data-lucide="info" class="w-4 h-4 text-primary-500 flex-shrink-0 mt-0.5"></i>
-              <p class="text-xs text-primary-700 leading-relaxed">
-                L'assignation des matières se configure dans
-                <a href="{% url 'settings:subjects' %}" class="underline font-medium">Paramètres → Matières</a>
-                après la création du membre.
-              </p>
-            </div>
-          </div>
-
-          <div x-show="role === 'staff'" x-cloak
-               x-transition:enter="transition ease-out duration-200"
-               x-transition:enter-start="opacity-0 -translate-y-1"
-               x-transition:enter-end="opacity-100 translate-y-0"
-               class="border-t border-gray-100 pt-5 space-y-5">
-
-            <div>
-              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Profil rapide</h3>
-              <div class="flex flex-wrap gap-2">
-                {% for label, key in presets %}
-                  <button type="button" @click="applyPreset('{{ key }}')"
-                          class="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-600 hover:border-primary-600 hover:text-primary-600 hover:bg-primary-50 transition">
-                    {{ label }}
-                  </button>
-                {% endfor %}
-              </div>
-            </div>
-
-            <div class="space-y-4">
-              {% for group_label, group_fields in perm_form.grouped_fields %}
-                <div>
-                  <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{{ group_label }}</p>
-                  <div class="space-y-2">
-                    {% for bf in group_fields %}
-                      {% if bf.name == "can_view_students" or bf.name == "can_view_classes" %}
-                        <div class="flex items-center justify-between py-1">
-                          <span class="text-sm text-gray-500">{{ bf.label }}</span>
-                          <span class="text-xs text-gray-400 italic">Toujours actif</span>
-                        </div>
-                        <input type="hidden" name="{{ bf.name }}" value="on">
-                      {% else %}
-                        <label class="flex items-center justify-between py-1 cursor-pointer group">
-                          <span class="text-sm text-gray-700 group-hover:text-gray-900 transition">{{ bf.label }}</span>
-                          <div class="relative flex-shrink-0">
-                            <input type="checkbox"
-                                   name="{{ bf.name }}"
-                                   x-model="permissions['{{ bf.name }}']"
-                                   class="sr-only peer">
-                            <div @click="permissions['{{ bf.name }}'] = !permissions['{{ bf.name }}']"
-                                 :class="permissions['{{ bf.name }}'] ? 'bg-primary-600' : 'bg-gray-200'"
-                                 class="w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"></div>
-                            <div @click="permissions['{{ bf.name }}'] = !permissions['{{ bf.name }}']"
-                                 :class="permissions['{{ bf.name }}'] ? 'translate-x-4' : 'translate-x-0'"
-                                 class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 cursor-pointer"></div>
-                          </div>
-                        </label>
-                      {% endif %}
-                    {% endfor %}
-                  </div>
-                </div>
-                {% if not forloop.last %}
-                  <div class="border-t border-gray-50"></div>
-                {% endif %}
-              {% endfor %}
-            </div>
-          </div>
-
-          <div class="border-t border-gray-100 pt-5">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Accès</h3>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Mot de passe temporaire</label>
-            <div class="flex gap-2">
-              <div class="relative flex-1">
-                <input x-ref="pwdInput"
-                       :type="showPwd ? 'text' : 'password'"
-                       name="password"
-                       class="input-field pr-10"
-                       placeholder="Laissez vide pour générer automatiquement"
-                       autocomplete="new-password">
-                <button type="button" @click="showPwd = !showPwd"
-                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
-                  <i :data-lucide="showPwd ? 'eye-off' : 'eye'" class="w-4 h-4"></i>
-                </button>
-              </div>
-              <button type="button" @click="generatePwd()"
-                      class="flex-shrink-0 px-3 py-2.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-xs font-medium rounded-lg transition flex items-center gap-1.5 min-h-[44px]">
-                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                Générer
-              </button>
-            </div>
-            <p class="text-xs text-gray-400 mt-2 flex items-center gap-1">
-              <i data-lucide="info" class="w-3 h-3"></i>
-              Communiquez ce mot de passe au membre en personne.
-            </p>
-          </div>
-
+      {# ── Étape 1 : recherche par téléphone (lie un compte existant) ── #}
+      <div class="px-6 py-5 border-b border-gray-100">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+          Téléphone du membre <span class="text-red-400">*</span>
+        </label>
+        <div class="relative">
+          <input type="tel"
+                 id="team-search-phone"
+                 name="phone"
+                 inputmode="tel"
+                 autocomplete="off"
+                 placeholder="Ex : 0700000000"
+                 class="input-field pr-10"
+                 hx-get="{% url 'team:search' %}"
+                 hx-trigger="input changed delay:400ms"
+                 hx-target="#team-search-result"
+                 hx-swap="innerHTML"
+                 hx-include="this"
+                 hx-indicator="#search-spinner">
+          <svg id="search-spinner"
+               class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-primary-500"
+               fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
         </div>
+        <p class="text-xs text-gray-400 mt-2 flex items-center gap-1">
+          <i data-lucide="info" class="w-3 h-3"></i>
+          Si ce numéro a déjà un compte EduApp, vous pourrez le lier directement.
+        </p>
+      </div>
 
-        <div class="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex gap-3 flex-shrink-0">
-          <button type="button" @click="showPanel = false" class="btn-secondary flex-1">
-            Annuler
-          </button>
-          <button type="submit"
-                  class="btn-primary flex-1 min-h-[44px]">
-            <svg id="create-spinner" class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
-            Créer le membre
-          </button>
-        </div>
+      {# ── Étape 2 : résultat (carte de liaison OU formulaire de création) ── #}
+      <div id="team-search-result">
+        {% include "team/partials/member_search_result.html" with searched=False %}
+      </div>
 
-      </form>
     </div>
   </div>
 

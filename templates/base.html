@@ -220,14 +220,6 @@
            :title="$store.sidebar.open ? '' : 'Élèves'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open" class="flex-1">{% trans "Élèves" %}</span>
-          {% if unread_observations_count %}
-          <span x-show="$store.sidebar.open"
-                class="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full
-                       bg-red-500 text-white text-[10px] font-bold
-                       flex items-center justify-center leading-none">
-            {{ unread_observations_count }}
-          </span>
-          {% endif %}
         </a>
 
         <!-- Suivi élèves -->
@@ -237,7 +229,15 @@
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Suivi'">
           <i data-lucide="activity" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Suivi élèves</span>
+          <span x-show="$store.sidebar.open" class="flex-1">Suivi élèves</span>
+          {% if unread_observations_count %}
+          <span x-show="$store.sidebar.open"
+                class="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full
+                       bg-red-500 text-white text-[10px] font-bold
+                       flex items-center justify-center leading-none">
+            {{ unread_observations_count }}
+          </span>
+          {% endif %}
         </a>
 
         <!-- Paiements -->
@@ -384,7 +384,7 @@
           </div>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-gray-900 truncate leading-tight">{{ request.user.full_name }}</p>
-            <p class="text-xs text-gray-500 truncate">{{ request.user.get_role_display }}</p>
+            <p class="text-xs text-gray-500 truncate">{{ active_role_display }}</p>
           </div>
           <i data-lucide="chevron-down"
              class="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-150"

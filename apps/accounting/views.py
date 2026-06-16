@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from apps.core.mixins import (
@@ -451,12 +452,21 @@ def salary_cancel(request, payment_id):
         return HttpResponse(status=403)
     year, month = _parse_year_month(request)
 
+    reason = request.POST.get('reason', '').strip()
+    if not reason:
+        return _toast_error("Veuillez indiquer un motif d'annulation.")
+
     sp = get_object_or_404(
         SalaryPayment.objects.select_related('employee__user', 'employee__employee_profile'),
         pk=payment_id, school=school, is_cancelled=False,
     )
     sp.is_cancelled = True
-    sp.save(update_fields=['is_cancelled'])
+    sp.cancelled_at = timezone.now()
+    sp.cancelled_by = request.user
+    sp.cancellation_reason = reason
+    sp.save(update_fields=[
+        'is_cancelled', 'cancelled_at', 'cancelled_by', 'cancellation_reason',
+    ])
     return _render_salary_row(request, sp.employee, year, month, toast='Paie annulée.', toast_type='info')
 
 
@@ -498,10 +508,12 @@ def _expense_context(request, school, year, month, category_id, method):
     from django.db.models import Sum
     from .models import Expense
 
+    # La LISTE inclut les annulées (affichées avec badge) ; les TOTAUX ci-dessous
+    # restent sur is_cancelled=False. Actives d'abord, annulées en bas.
     qs = (Expense.objects
-          .filter(school=school, is_cancelled=False, date__year=year, date__month=month)
-          .select_related('category', 'paid_by')
-          .order_by('-date', '-created_at'))
+          .filter(school=school, date__year=year, date__month=month)
+          .select_related('category', 'paid_by', 'cancelled_by')
+          .order_by('is_cancelled', '-date', '-created_at'))
     if category_id:
         qs = qs.filter(category_id=category_id)
     if method:
@@ -569,11 +581,16 @@ def expense_create(request):
     if amount is None or amount <= 0:
         return _toast_error('Montant invalide.')
 
+    # Catégorie : valider AVANT le filtre (pk='' ou non-numérique → ValueError → 500).
+    category_id = request.POST.get('category', '').strip()
+    if not category_id.isdigit():
+        return _toast_error('Veuillez sélectionner une catégorie.')
+
     # Résolution catégorie : globale (school=NULL) ou propre à l'école
     from django.db.models import Q
     cat = ExpenseCategory.objects.filter(
         Q(school__isnull=True) | Q(school=school),
-        pk=request.POST.get('category'), is_active=True,
+        pk=category_id, is_active=True,
     ).first()
     if cat is None:
         return _toast_error('Catégorie invalide.')
@@ -614,9 +631,18 @@ def expense_cancel(request, expense_id):
     if not school.accounting_enabled:
         return HttpResponse(status=403)
 
+    reason = request.POST.get('reason', '').strip()
+    if not reason:
+        return _toast_error("Veuillez indiquer un motif d'annulation.")
+
     exp = get_object_or_404(Expense, pk=expense_id, school=school, is_cancelled=False)
     exp.is_cancelled = True
-    exp.save(update_fields=['is_cancelled'])
+    exp.cancelled_at = timezone.now()
+    exp.cancelled_by = request.user
+    exp.cancellation_reason = reason
+    exp.save(update_fields=[
+        'is_cancelled', 'cancelled_at', 'cancelled_by', 'cancellation_reason',
+    ])
 
     year, month = _parse_year_month(request)
     ctx = _expense_context(request, school, year, month, '', '')

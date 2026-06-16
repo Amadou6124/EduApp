@@ -1,0 +1,96 @@
+{% comment %}
+  Résultat de la recherche par téléphone (team_member_search).
+  4 états :
+    - non recherché        → indice neutre
+    - compte déjà membre   → message « déjà dans l'équipe »
+    - compte trouvé        → carte de LIAISON (lie via Membership)
+    - aucun compte         → formulaire de création complet
+  Variables : searched, found, already_member, phone, perm_form, presets.
+{% endcomment %}
+
+{% if not searched %}
+  <div class="px-6 py-8 text-center text-gray-400">
+    <i data-lucide="search" class="w-6 h-6 mx-auto mb-2 text-gray-300"></i>
+    <p class="text-sm">Saisissez un numéro de téléphone pour commencer.</p>
+  </div>
+
+{% elif already_member %}
+  <div class="px-6 py-8 text-center">
+    <div class="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-3">
+      <i data-lucide="user-check" class="w-6 h-6 text-amber-500"></i>
+    </div>
+    <p class="text-sm font-semibold text-gray-800 mb-1">Déjà dans l'équipe</p>
+    <p class="text-sm text-gray-500">
+      <span class="font-medium">{{ found.full_name }}</span> ({{ phone }}) fait déjà
+      partie de l'équipe de cette école.
+    </p>
+  </div>
+
+{% elif found %}
+  {# ── Compte existant : proposer la LIAISON (style guardian) ── #}
+  <div class="px-6 py-5">
+    <div class="rounded-xl border border-primary-200 bg-primary-50/60 p-4 mb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold shrink-0">
+          {{ found.full_name|first|upper }}
+        </div>
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-gray-900 truncate">{{ found.full_name }}</p>
+          <p class="text-xs text-gray-500 font-mono">{{ found.phone_number }}</p>
+          <p class="text-xs text-primary-700 mt-0.5">
+            Compte existant · {{ found.get_role_display }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 mb-4">
+      <i data-lucide="info" class="w-4 h-4 text-primary-500 flex-shrink-0 mt-0.5"></i>
+      <p class="text-xs text-primary-700 leading-relaxed">
+        Ce numéro a déjà un compte EduApp. Liez-le à votre école comme nouveau
+        membre — ses identifiants actuels restent inchangés.
+      </p>
+    </div>
+
+    <form hx-post="{% url 'team:create' %}"
+          hx-swap="none"
+          x-data="{ linkRole: 'teacher' }">
+      {% csrf_token %}
+      <input type="hidden" name="link_user_id" value="{{ found.pk }}">
+      <input type="hidden" name="role" :value="linkRole">
+
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Rôle dans cette école</p>
+      <div class="grid grid-cols-2 gap-3 mb-5">
+        <button type="button" @click="linkRole = 'teacher'"
+                :class="linkRole === 'teacher' ? 'border-primary-600 bg-primary-50 ring-1 ring-primary-600' : 'border-gray-200 hover:border-gray-300 bg-white'"
+                class="flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition cursor-pointer">
+          <i data-lucide="graduation-cap" class="w-4 h-4"
+             :class="linkRole === 'teacher' ? 'text-primary-600' : 'text-gray-400'"></i>
+          <span class="text-sm font-semibold text-gray-800">Enseignant</span>
+        </button>
+        <button type="button" @click="linkRole = 'staff'"
+                :class="linkRole === 'staff' ? 'ring-1' : 'border-gray-200 hover:border-gray-300 bg-white'"
+                :style="linkRole === 'staff' ? 'border-color:#5B21B6;background-color:#F3F0FE;box-shadow:0 0 0 1px #5B21B6' : ''"
+                class="flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition cursor-pointer">
+          <i data-lucide="briefcase" class="w-4 h-4"
+             :style="linkRole === 'staff' ? 'color:#5B21B6' : 'color:#9CA3AF'"></i>
+          <span class="text-sm font-semibold text-gray-800">Staff admin</span>
+        </button>
+      </div>
+
+      <div class="flex gap-3">
+        <button type="button" @click="showPanel = false" class="btn-secondary flex-1">
+          Annuler
+        </button>
+        <button type="submit" class="btn-primary flex-1 min-h-[44px]">
+          <i data-lucide="link" class="w-4 h-4"></i>
+          Lier à l'équipe
+        </button>
+      </div>
+    </form>
+  </div>
+
+{% else %}
+  {# ── Aucun compte pour ce numéro : création d'un nouveau membre ── #}
+  {% include "team/partials/member_create_form.html" with prefill_phone=phone %}
+{% endif %}

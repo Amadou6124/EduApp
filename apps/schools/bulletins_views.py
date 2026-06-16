@@ -9,11 +9,14 @@ import zipfile
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Avg, Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from apps.core.mixins import get_school, director_or_staff_required
@@ -254,10 +257,11 @@ def generate_class_bulletins(request, class_id, period_id):
             school_class, period, request.user,
         )
     except Exception as e:
-        return HttpResponse(
-            f'<p class="text-red-500 text-sm">Erreur : {e}</p>',
-            status=500,
-        )
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({
+            'showToast': {'message': f'Erreur de génération : {e}', 'type': 'error'},
+        })
+        return resp
 
     # Re-rendre l'onglet bulletins avec les nouveaux bulletins
     students = list(
@@ -285,7 +289,7 @@ def generate_class_bulletins(request, class_id, period_id):
 
     generated_count = len(existing)
     total_count     = len(students)
-    response = render(request, 'bulletins/partials/bulletins_tab.html', {
+    tab_html = render_to_string('bulletins/partials/bulletins_tab.html', {
         'rows':            rows,
         'school_class':    school_class,
         'period':          period,
@@ -294,8 +298,17 @@ def generate_class_bulletins(request, class_id, period_id):
         'total_count':     total_count,
         'pending_count':   total_count - generated_count,
         'generated_pct':   int(generated_count / total_count * 100) if total_count > 0 else 0,
-    })
+    }, request=request)
+    # OOB : met à jour le badge compteur X/Y de l'en-tête (hors zone swappée).
+    badge_html = render_to_string('bulletins/partials/_bulletins_badge.html', {
+        'generated_count': generated_count, 'total_count': total_count, 'oob': True,
+    }, request=request)
+    response = HttpResponse(tab_html + badge_html)
     response['HX-Trigger'] = json.dumps({
+        'showToast': {
+            'message': f'{len(bulletins)} bulletin(s) généré(s) avec succès.',
+            'type': 'success',
+        },
         'bullets-generated': {
             'count':   len(bulletins),
             'classId': class_id,
@@ -324,19 +337,30 @@ def generate_student_bulletin(request, student_id, period_id):
             bulletin.first_average = calculator.get_first_average(period, student.school_class)
             bulletin.save(update_fields=['rank', 'class_size', 'first_average'])
     except Exception as e:
-        return HttpResponse(
-            f'<span class="text-red-500">Erreur : {e}</span>',
-            status=500,
-        )
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({
+            'showToast': {'message': f'Erreur de génération : {e}', 'type': 'error'},
+        })
+        return resp
 
-    response = render(request, 'bulletins/partials/bulletin_row.html', {
+    sc = student.school_class
+    total_count     = sc.students.filter(is_active=True).count()
+    generated_count = Bulletin.objects.filter(
+        period=period, school_class=sc, is_cancelled=False,
+    ).count()
+
+    row_html = render_to_string('bulletins/partials/bulletin_row.html', {
         'student':  student,
         'bulletin': bulletin,
-    })
+    }, request=request)
+    # OOB : badge compteur X/Y de l'en-tête.
+    badge_html = render_to_string('bulletins/partials/_bulletins_badge.html', {
+        'generated_count': generated_count, 'total_count': total_count, 'oob': True,
+    }, request=request)
+    response = HttpResponse(row_html + badge_html)
     response['HX-Trigger'] = json.dumps({
-        'bullet-generated': {
-            'studentId': student.pk,
-        }
+        'showToast': {'message': 'Bulletin généré avec succès.', 'type': 'success'},
+        'bullet-generated': {'studentId': student.pk},
     })
     return response
 
@@ -433,7 +457,14 @@ def bulletin_download(request, bulletin_id):
         is_cancelled=False,
     )
 
-    pdf_bytes = generate_bulletin_pdf(bulletin)
+    try:
+        pdf_bytes = generate_bulletin_pdf(bulletin)
+    except Exception as e:
+        messages.error(request, f'Impossible de générer le PDF : {e}')
+        return redirect(
+            f"{reverse('bulletins:main')}?year={bulletin.period.school_year_id}"
+            f"&period={bulletin.period_id}&class={bulletin.school_class_id}&tab=bullets"
+        )
     filename = (
         f'bulletin_{bulletin.student.full_name.replace(" ", "_")}_'
         f'{bulletin.period.name.replace(" ", "_")}.pdf'
@@ -455,7 +486,14 @@ def bulletin_view_pdf(request, bulletin_id):
         student__school=school,
         is_cancelled=False,
     )
-    pdf_bytes = generate_bulletin_pdf(bulletin)
+    try:
+        pdf_bytes = generate_bulletin_pdf(bulletin)
+    except Exception as e:
+        messages.error(request, f'Impossible de générer le PDF : {e}')
+        return redirect(
+            f"{reverse('bulletins:main')}?year={bulletin.period.school_year_id}"
+            f"&period={bulletin.period_id}&class={bulletin.school_class_id}&tab=bullets"
+        )
     filename = (
         f'bulletin_{bulletin.student.full_name.replace(" ", "_")}_'
         f'{bulletin.period.name.replace(" ", "_")}.pdf'
@@ -487,15 +525,22 @@ def bulletin_download_all(request, class_id, period_id):
     if not bulletins:
         return HttpResponse('Aucun bulletin généré.', status=404)
 
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for bulletin in bulletins:
-            pdf_bytes = generate_bulletin_pdf(bulletin)
-            filename = (
-                f'{bulletin.student.full_name.replace(" ", "_")}_'
-                f'{bulletin.period.name.replace(" ", "_")}.pdf'
-            )
-            zf.writestr(filename, pdf_bytes)
+    try:
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for bulletin in bulletins:
+                pdf_bytes = generate_bulletin_pdf(bulletin)
+                filename = (
+                    f'{bulletin.student.full_name.replace(" ", "_")}_'
+                    f'{bulletin.period.name.replace(" ", "_")}.pdf'
+                )
+                zf.writestr(filename, pdf_bytes)
+    except Exception as e:
+        messages.error(request, f'Impossible de générer le ZIP : {e}')
+        return redirect(
+            f"{reverse('bulletins:main')}?year={period.school_year_id}"
+            f"&period={period.pk}&class={class_id}&tab=bullets"
+        )
 
     zip_buffer.seek(0)
     response = HttpResponse(zip_buffer.read(), content_type='application/zip')

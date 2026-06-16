@@ -25,7 +25,7 @@
       <span class="text-xs text-gray-400">{{ stats.xp_to_next }} XP pour niveau {{ student.current_level|add:1 }}</span>
     </div>
     <div class="bg-gray-100 rounded-full h-3">
-      <div class="h-3 rounded-full bg-gradient-to-r from-gold-500 to-gold-400 transition-all" style="width: {{ stats.level_pct }}%"></div>
+      <div class="h-3 rounded-full bg-gradient-to-r from-gold-500 to-gold-400 transition-all" style="width: {{ stats.level_pct|floatformat:0 }}%"></div>
     </div>
     <div class="flex justify-between text-xs text-gray-400 mt-1">
       <span>Niveau {{ student.current_level }}</span>
