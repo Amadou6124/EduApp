@@ -1,12 +1,14 @@
 import csv
 import io
 import json
+import unicodedata
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
@@ -20,25 +22,33 @@ from apps.core.mixins import get_school, director_or_staff_required
 
 # Correspondance libellés Excel → valeurs modèle
 LEVEL_LABELS = {
-    'prescolaire':      EducationLevel.PRESCOLAIRE,
-    'préscolaire':      EducationLevel.PRESCOLAIRE,
-    'fondamental1':     EducationLevel.FONDAMENTAL_1,
-    'fondamental_1':    EducationLevel.FONDAMENTAL_1,
-    'primaire':         EducationLevel.FONDAMENTAL_1,
-    'fondamental2':     EducationLevel.FONDAMENTAL_2,
-    'fondamental_2':    EducationLevel.FONDAMENTAL_2,
-    'college':          EducationLevel.FONDAMENTAL_2,
-    'collège':          EducationLevel.FONDAMENTAL_2,
-    'secondaire':       EducationLevel.SECONDAIRE_GEN,
-    'secondaire_gen':   EducationLevel.SECONDAIRE_GEN,
-    'lycee':            EducationLevel.SECONDAIRE_GEN,
-    'lycée':            EducationLevel.SECONDAIRE_GEN,
-    'secondaire_pro':   EducationLevel.SECONDAIRE_PRO,
-    'cap':              EducationLevel.SECONDAIRE_PRO,
-    'universite':       EducationLevel.SUPERIEUR,
-    'université':       EducationLevel.SUPERIEUR,
-    'superieur':        EducationLevel.SUPERIEUR,
-    'supérieur':        EducationLevel.SUPERIEUR,
+    'prescolaire':                EducationLevel.PRESCOLAIRE,
+    'préscolaire':                EducationLevel.PRESCOLAIRE,
+    'fondamental1':               EducationLevel.FONDAMENTAL_1,
+    'fondamental_1':              EducationLevel.FONDAMENTAL_1,
+    'fondamental 1er cycle':      EducationLevel.FONDAMENTAL_1,
+    'primaire':                   EducationLevel.FONDAMENTAL_1,
+    'fondamental2':               EducationLevel.FONDAMENTAL_2,
+    'fondamental_2':              EducationLevel.FONDAMENTAL_2,
+    'fondamental 2ème cycle':     EducationLevel.FONDAMENTAL_2,
+    'fondamental 2eme cycle':     EducationLevel.FONDAMENTAL_2,
+    'college':                    EducationLevel.FONDAMENTAL_2,
+    'collège':                    EducationLevel.FONDAMENTAL_2,
+    'secondaire':                 EducationLevel.SECONDAIRE_GEN,
+    'secondaire_gen':             EducationLevel.SECONDAIRE_GEN,
+    'secondaire général':         EducationLevel.SECONDAIRE_GEN,
+    'secondaire general':         EducationLevel.SECONDAIRE_GEN,
+    'lycee':                      EducationLevel.SECONDAIRE_GEN,
+    'lycée':                      EducationLevel.SECONDAIRE_GEN,
+    'secondaire_pro':             EducationLevel.SECONDAIRE_PRO,
+    'secondaire professionnel':   EducationLevel.SECONDAIRE_PRO,
+    'cap':                        EducationLevel.SECONDAIRE_PRO,
+    'universite':                 EducationLevel.SUPERIEUR,
+    'université':                 EducationLevel.SUPERIEUR,
+    'superieur':                  EducationLevel.SUPERIEUR,
+    'supérieur':                  EducationLevel.SUPERIEUR,
+    'enseignement supérieur':     EducationLevel.SUPERIEUR,
+    'enseignement superieur':     EducationLevel.SUPERIEUR,
 }
 LEVEL_DISPLAY = {
     EducationLevel.PRESCOLAIRE:    'Préscolaire',
@@ -48,6 +58,11 @@ LEVEL_DISPLAY = {
     EducationLevel.SECONDAIRE_PRO: 'Secondaire Professionnel',
     EducationLevel.SUPERIEUR:      'Enseignement Supérieur',
 }
+
+
+def _norm_name(s):
+    """Normalise un nom pour comparaison : sans accents, casefold, strippé."""
+    return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode().casefold().strip()
 
 
 def _classes_qs(school):
@@ -97,58 +112,66 @@ def class_list(request):
 def class_create(request):
     school = get_school(request)
 
-    # Réactivation d'une classe soft-deletée
-    name = request.POST.get('name', '').strip()
-    if name:
-        existing = SchoolClass.objects.filter(school=school, name=name, is_active=False).first()
-        if existing:
-            existing.is_active = True
-            existing.annual_fee = request.POST.get('annual_fee', existing.annual_fee)
-            existing.level = request.POST.get('level', existing.level)
-            existing.max_capacity = request.POST.get('max_capacity', existing.max_capacity)
-            existing.save()
-            if request.htmx:
-                classes = list(_classes_qs(school))
-                total_students, avg_fill_rate = compute_class_stats(classes)
-                resp = render(request, 'schools/partials/class_list_refresh.html', {
-                    'classes': classes,
-                    'form': SchoolClassForm(),
-                    'success_message': _('Classe réactivée avec succès.'),
-                    'total_students': total_students,
-                    'avg_fill_rate': avg_fill_rate,
-                })
-                resp['HX-Trigger'] = json.dumps({'close-add-modal': True, 'showToast': {'message': 'Classe réactivée avec succès.', 'type': 'success'}})
-                return resp
-
     form = SchoolClassForm(request.POST)
-    if form.is_valid():
-        school_class = form.save(commit=False)
-        school_class.school = school
-        school_class.save()
-
-        # Réponse HTMX : retourne la nouvelle ligne + réinitialise le formulaire
+    if not form.is_valid():
         if request.htmx:
-            classes = list(_classes_qs(school))
-            total_students, avg_fill_rate = compute_class_stats(classes)
-            resp = render(request, 'schools/partials/class_list_refresh.html', {
-                'classes': classes,
-                'form': SchoolClassForm(),
-                'success_message': _('Classe créée avec succès.'),
-                'total_students': total_students,
-                'avg_fill_rate': avg_fill_rate,
-            })
-            resp['HX-Trigger'] = json.dumps({'close-add-modal': True, 'showToast': {'message': 'Classe créée avec succès.', 'type': 'success'}})
-            return resp
-
-    if request.htmx:
-        return render(request, 'schools/partials/class_form_fields.html', {
-            'form': form,
+            return render(request, 'schools/partials/class_form_fields.html', {'form': form})
+        return render(request, 'schools/class_list.html', {
+            'form': form, 'school': school, 'classes': list(_classes_qs(school)),
         })
 
+    cd = form.cleaned_data
+
+    # Réactivation d'une classe soft-deletée de même nom (insensible casse ET
+    # accents via normalisation Python), sinon création. cleaned_data → max_capacity
+    # vide = None (pas de ValueError).
+    target = _norm_name(cd['name'])
+    existing = next(
+        (sc for sc in SchoolClass.objects.filter(school=school, is_active=False)
+         if _norm_name(sc.name) == target),
+        None,
+    )
+    try:
+        with transaction.atomic():
+            if existing:
+                existing.is_active    = True
+                existing.name         = cd['name']      # rafraîchit la casse saisie
+                existing.level        = cd['level']
+                existing.annual_fee   = cd['annual_fee']
+                existing.max_capacity = cd['max_capacity']
+                existing.save()
+                message = _('Classe réactivée avec succès.')
+            else:
+                school_class = form.save(commit=False)
+                school_class.school = school
+                school_class.save()
+                message = _('Classe créée avec succès.')
+    except IntegrityError:
+        # Contrainte partielle unique_active_class_per_school (non validée par le
+        # ModelForm) : un doublon ACTIF du même nom existe déjà.
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': "Une classe avec ce nom existe déjà dans cet établissement.",
+            'type': 'error',
+        }})
+        return resp
+
+    # Réponse succès (HTMX : liste rafraîchie + toast ; sinon page complète).
+    if request.htmx:
+        classes = list(_classes_qs(school))
+        total_students, avg_fill_rate = compute_class_stats(classes)
+        resp = render(request, 'schools/partials/class_list_refresh.html', {
+            'classes': classes,
+            'form': SchoolClassForm(),
+            'success_message': message,
+            'total_students': total_students,
+            'avg_fill_rate': avg_fill_rate,
+        })
+        resp['HX-Trigger'] = json.dumps({'close-add-modal': True, 'showToast': {'message': str(message), 'type': 'success'}})
+        return resp
+
     return render(request, 'schools/class_list.html', {
-        'form': form,
-        'school': school,
-        'classes': list(_classes_qs(school)),
+        'form': SchoolClassForm(), 'school': school, 'classes': list(_classes_qs(school)),
     })
 
 
@@ -231,26 +254,50 @@ def class_import_template(request):
     ws = wb.active
     ws.title = 'Classes'
 
-    # En-têtes avec mise en forme
-    headers = ['Nom', 'Niveau', 'Frais annuels (FCFA)', 'Capacité max']
+    # En-têtes (* = obligatoire). Le parser lit par position, le renommage est sûr.
+    headers = ['Nom de la classe *', 'Niveau *', 'Frais annuels FCFA *', 'Capacité max']
     ws.append(headers)
     header_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
     for col_idx, cell in enumerate(ws[1], start=1):
         cell.font = Font(bold=True, color='FFFFFF')
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center')
-        ws.column_dimensions[get_column_letter(col_idx)].width = 22
+        ws.column_dimensions[get_column_letter(col_idx)].width = 26
 
-    # Ligne d'exemple
-    ws.append(['CP1', 'Primaire', 120000, 35])
-    ws.append(['6ème A', 'Collège', 180000, 40])
+    # Lignes d'exemple réalistes (système éducatif malien). À remplacer par vos classes.
+    ws.append(['1ère année A',   'Fondamental 1er Cycle',  75000,  50])
+    ws.append(['6ème année',     'Fondamental 1er Cycle',  90000,  45])
+    ws.append(['9ème année B',   'Fondamental 2ème Cycle', 120000, 40])
+    ws.append(['11ème Sciences', 'Secondaire Général',     150000, 35])
+    example_font = Font(italic=True, color='9CA3AF')
+    for row in ws.iter_rows(min_row=2, max_row=5):
+        for cell in row:
+            cell.font = example_font
 
-    # Note sur les valeurs valides pour Niveau
-    ws['F1'] = 'Valeurs valides pour Niveau :'
-    ws['F1'].font = Font(italic=True, color='888888')
-    for i, label in enumerate(['Primaire', 'Collège', 'Lycée', 'Université'], start=2):
-        ws[f'F{i}'] = label
-        ws[f'F{i}'].font = Font(italic=True, color='888888')
+    # Feuille « Instructions » séparée (n'interfère pas avec l'import, qui ne lit
+    # que la feuille active « Classes »).
+    helpws = wb.create_sheet('Instructions')
+    helpws.column_dimensions['A'].width = 40
+    helpws.append(['Comment remplir ce modèle'])
+    helpws['A1'].font = Font(bold=True, size=12, color='1E3A5F')
+    helpws.append([''])
+    helpws.append(['Colonnes obligatoires (*) : Nom de la classe, Niveau, Frais annuels FCFA'])
+    helpws.append(['Colonne optionnelle : Capacité max (laisser vide si non gérée)'])
+    helpws.append(['Frais annuels : montant en FCFA, chiffres uniquement (ex : 90000)'])
+    helpws.append([''])
+    helpws.append(['Valeurs acceptées pour la colonne « Niveau » :'])
+    helpws['A7'].font = Font(bold=True, color='1E3A5F')
+    for label in [
+        'Préscolaire',
+        'Fondamental 1er Cycle',
+        'Fondamental 2ème Cycle',
+        'Secondaire Général',
+        'Secondaire Professionnel',
+        'Enseignement Supérieur',
+    ]:
+        helpws.append([label])
+    helpws.append([''])
+    helpws.append(['Astuce : supprimez les 4 lignes d\'exemple avant d\'importer vos données.'])
 
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

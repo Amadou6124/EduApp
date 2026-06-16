@@ -37,7 +37,7 @@
           </div>
           <p class="text-sm text-gray-500">{% trans "Frais" %} : <span class="font-semibold text-gray-800">{{ school_class.annual_fee|intcomma }} FCFA</span></p>
           <div class="flex gap-2 mt-auto pt-1">
-            <a href="#" class="flex-1 text-center py-2.5 text-sm font-medium text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-50 transition min-h-[44px] flex items-center justify-center">{% trans "Voir élèves" %}</a>
+            <a href="{% url 'students:list' %}?filter=class&class_id={{ school_class.id }}" class="flex-1 text-center py-2.5 text-sm font-medium text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-50 transition min-h-[44px] flex items-center justify-center">{% trans "Voir élèves" %}</a>
             <button hx-get="{% url 'schools:class-edit-modal' school_class.id %}"
                     hx-target="#modal-edit-content"
                     hx-swap="innerHTML"
