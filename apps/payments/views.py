@@ -194,6 +194,10 @@ def payment_create(request, student_id):
         except Exception:
             pass
 
+        # Le prefetch_related('payments') a été chargé avant le save → cache périmé.
+        # On le purge pour que get_balance_due() recompte le nouveau versement.
+        if hasattr(student, '_prefetched_objects_cache'):
+            student._prefetched_objects_cache.pop('payments', None)
         balance_after = student.get_balance_due()
 
         # Re-fetch les stats + liste pour OOB
