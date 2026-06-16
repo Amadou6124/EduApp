@@ -22,6 +22,7 @@ from django.views.decorators.http import require_http_methods
 from apps.payments.models import Payment, PaymentMethod
 from apps.schools.models import SchoolClass
 from apps.core.mixins import get_school, director_or_staff_required
+from apps.core.text import norm_name
 from apps.dashboard.views import invalidate_dashboard_cache
 
 from .forms import StudentCreateForm, StudentUpdateForm
@@ -45,7 +46,7 @@ def _students_qs(school, filter_type='all', class_id=None):
     )
     if filter_type == 'no_parent':
         qs = qs.filter(parent_phone_number='')
-    elif filter_type == 'unpaid':
+    elif filter_type in ('unpaid', 'partial', 'paid'):
         paid_sq = (
             Payment.objects
             .filter(student=OuterRef('pk'), is_cancelled=False)
@@ -55,7 +56,13 @@ def _students_qs(school, filter_type='all', class_id=None):
         )
         qs = qs.annotate(
             paid=Coalesce(Subquery(paid_sq), 0, output_field=DecimalField())
-        ).filter(paid__lt=F('tuition_fee'))
+        )
+        if filter_type == 'unpaid':            # Impayés : rien versé
+            qs = qs.filter(paid=0)
+        elif filter_type == 'partial':         # Partiels : acompte < total
+            qs = qs.filter(paid__gt=0, paid__lt=F('tuition_fee'))
+        else:                                  # Soldés : à jour
+            qs = qs.filter(paid__gte=F('tuition_fee'))
     elif filter_type == 'class' and class_id:
         qs = qs.filter(school_class_id=class_id)
     return qs
@@ -405,14 +412,20 @@ def student_search(request):
     qs          = _students_qs(school, filter_type, class_id)
 
     if query:
-        qs = qs.filter(
-            Q(full_name__icontains=query)
-            | Q(school_class__name__icontains=query)
-            | Q(access_code__icontains=query)
-        )
+        # Recherche insensible casse + accents (normalisation Python, sans
+        # extension PostgreSQL). Échelle école → filtrage en mémoire acceptable.
+        nq = norm_name(query)
+        students = [
+            s for s in qs
+            if nq in norm_name(s.full_name)
+            or nq in norm_name(s.school_class.name if s.school_class else '')
+            or nq in norm_name(s.access_code)
+        ]
+    else:
+        students = list(qs)
 
     return render(request, 'students/partials/student_table_body.html', {
-        'students': list(qs),
+        'students': students,
     })
 
 

@@ -1,7 +1,6 @@
 import csv
 import io
 import json
-import unicodedata
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -19,6 +18,7 @@ from django.views.decorators.http import require_http_methods
 from .models import SchoolClass, School, EducationLevel
 from .forms import SchoolClassForm
 from apps.core.mixins import get_school, director_or_staff_required
+from apps.core.text import norm_name
 
 # Correspondance libellés Excel → valeurs modèle
 LEVEL_LABELS = {
@@ -58,11 +58,6 @@ LEVEL_DISPLAY = {
     EducationLevel.SECONDAIRE_PRO: 'Secondaire Professionnel',
     EducationLevel.SUPERIEUR:      'Enseignement Supérieur',
 }
-
-
-def _norm_name(s):
-    """Normalise un nom pour comparaison : sans accents, casefold, strippé."""
-    return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode().casefold().strip()
 
 
 def _classes_qs(school):
@@ -125,10 +120,10 @@ def class_create(request):
     # Réactivation d'une classe soft-deletée de même nom (insensible casse ET
     # accents via normalisation Python), sinon création. cleaned_data → max_capacity
     # vide = None (pas de ValueError).
-    target = _norm_name(cd['name'])
+    target = norm_name(cd['name'])
     existing = next(
         (sc for sc in SchoolClass.objects.filter(school=school, is_active=False)
-         if _norm_name(sc.name) == target),
+         if norm_name(sc.name) == target),
         None,
     )
     try:
