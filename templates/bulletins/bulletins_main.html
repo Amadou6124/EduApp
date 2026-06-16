@@ -163,10 +163,7 @@ Contexte :
       <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
       Bulletins
       {% if total_count %}
-        <span class="ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-mono
-                     {% if generated_count == total_count %}bg-green-100 text-green-700{% else %}bg-gray-200 text-gray-600{% endif %}">
-          {{ generated_count|default:'0' }}/{{ total_count }}
-        </span>
+        {% include "bulletins/partials/_bulletins_badge.html" %}
       {% endif %}
     </button>
 

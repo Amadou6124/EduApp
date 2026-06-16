@@ -24,10 +24,10 @@ urlpatterns = [
          name='rankings-tab'),
 
     # ── Génération ──────────────────────────────────────────────
-    path('generate/<int:class_id>/<int:period_id>/',
+    path('generate/class/<int:class_id>/<int:period_id>/',
          bulletins_views.generate_class_bulletins,
          name='generate-class'),
-    path('generate/<int:student_id>/<int:period_id>/',
+    path('generate/student/<int:student_id>/<int:period_id>/',
          bulletins_views.generate_student_bulletin,
          name='generate-student'),
 
