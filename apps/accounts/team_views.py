@@ -97,6 +97,20 @@ def _staff_qs(school):
     )
 
 
+def _inactive_qs(school):
+    """Membres (enseignant/staff) désactivés dans cette école — Membership.is_active=False."""
+    return (
+        User.objects
+        .filter(
+            memberships__school=school,
+            memberships__is_active=False,
+            memberships__role__in=[UserRole.TEACHER, UserRole.STAFF],
+        )
+        .order_by('full_name')
+        .distinct()
+    )
+
+
 # ── Vues ──────────────────────────────────────────────────────────────────────
 
 @login_required
@@ -104,6 +118,7 @@ def team_list(request):
     school   = get_school(request)
     teachers = _teachers_qs(school)
     staff    = _staff_qs(school)
+    inactive = _inactive_qs(school)
 
     # Nombre de classes par enseignant (annotation distincte)
     teacher_class_counts = (
@@ -125,9 +140,10 @@ def team_list(request):
     t = teachers.count()
     s = staff.count()
     return render(request, 'team/team_list.html', {
-        'school':        school,
-        'teachers_data': teachers_data,
-        'staff_members': staff,
+        'school':           school,
+        'teachers_data':    teachers_data,
+        'staff_members':    staff,
+        'inactive_members': inactive,
         'stats': {
             'total':    total_active,
             'teachers': t,
@@ -385,6 +401,7 @@ def team_member_deactivate(request, user_id):
     response = render(request, 'team/partials/member_card_deactivated.html', {
         'school': school,
         'member': member,
+        'is_director': True,
     })
     response['HX-Trigger'] = json.dumps({
         'showToast': {
@@ -392,6 +409,27 @@ def team_member_deactivate(request, user_id):
             'type':    'info',
         },
     })
+    return response
+
+
+@login_required
+@director_required
+@require_POST
+def team_member_reactivate(request, user_id):
+    """Réactive un membre désactivé dans l'école courante (per-école, directeur).
+
+    StaffPermission étant par-user, les permissions reviennent telles quelles.
+    Recharge la page → le membre repasse dans la liste active.
+    """
+    school = get_school(request)
+    member = get_object_or_404(User, pk=user_id, memberships__school=school)
+    Membership.objects.filter(user=member, school=school).update(is_active=True)
+
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {'message': f'{member.full_name} réactivé(e).', 'type': 'success'},
+    })
+    response['HX-Refresh'] = 'true'
     return response
 
 

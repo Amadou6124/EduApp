@@ -236,6 +236,21 @@ function teamPageData() {
     {% endif %}
   </div>
 
+  {# ── Membres inactifs (désactivés dans cette école) ── #}
+  {% if inactive_members %}
+  <div class="mt-10">
+    <div class="flex items-center gap-2 mb-4">
+      <h2 class="text-base font-semibold text-gray-500">Membres inactifs</h2>
+      <span class="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ inactive_members|length }}</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for member in inactive_members %}
+        {% include "team/partials/member_card_deactivated.html" with member=member is_director=is_director %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div x-show="showPanel" x-cloak
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
