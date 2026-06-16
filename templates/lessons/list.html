@@ -3,15 +3,15 @@
 {% block title %}Mes leçons{% endblock %}
 {% block page_title %}Mes leçons{% endblock %}
 
-{% block header_actions %}
-<a href="{% url 'lessons:upload' %}"
-   class="btn-primary min-h-[44px]">
-  <i data-lucide="plus" class="w-4 h-4"></i> Nouvelle leçon
-</a>
-{% endblock %}
-
 {% block content %}
 <div class="max-w-5xl mx-auto">
+
+  {# Toolbar : action primaire (droite) — cohérent avec les pages liste #}
+  <div class="flex justify-end mb-5">
+    <a href="{% url 'lessons:upload' %}" class="btn-primary min-h-[44px]">
+      <i data-lucide="plus" class="w-4 h-4"></i> Nouvelle leçon
+    </a>
+  </div>
 
   {# Stats #}
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
