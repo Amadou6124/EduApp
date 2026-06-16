@@ -1,3 +1,4 @@
+{% load l10n %}
 {# Panneau Rémunération (lazy-load dans /team/<id>/). Requiert : member, profile. #}
 <div class="card p-6"
      x-data="{ type: '{{ profile.employment_type }}' }">
@@ -28,7 +29,7 @@
       <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Salaire mensuel</label>
       <div class="flex items-center gap-2 mt-1.5">
         <input type="number" name="monthly_salary" min="0" step="1" placeholder="0"
-               value="{{ profile.monthly_salary|default:'' }}"
+               value="{{ profile.monthly_salary|default:''|unlocalize }}"
                class="input-field flex-1">
         <span class="text-sm text-gray-400 shrink-0">FCFA</span>
       </div>
@@ -39,7 +40,7 @@
       <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Taux horaire</label>
       <div class="flex items-center gap-2 mt-1.5">
         <input type="number" name="hourly_rate" min="0" step="1" placeholder="0"
-               value="{{ profile.hourly_rate|default:'' }}"
+               value="{{ profile.hourly_rate|default:''|unlocalize }}"
                class="input-field flex-1">
         <span class="text-sm text-gray-400 shrink-0">FCFA/h</span>
       </div>
