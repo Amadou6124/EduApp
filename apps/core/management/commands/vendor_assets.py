@@ -20,6 +20,12 @@ ASSETS = [
         'url':     'https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js',
         'dest':    'htmx/htmx.min.js',
     },
+    {
+        'name':    'alpine',
+        'version': '3.15.12',
+        'url':     'https://unpkg.com/alpinejs@3.15.12/dist/cdn.min.js',
+        'dest':    'alpine/alpine.min.js',
+    },
 ]
 
 
