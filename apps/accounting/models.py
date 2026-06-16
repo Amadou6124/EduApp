@@ -168,6 +168,12 @@ class Expense(models.Model):
         related_name='recorded_expenses', verbose_name=_('enregistré par'),
     )
     is_cancelled = models.BooleanField(_('annulée'), default=False)
+    cancelled_at = models.DateTimeField(_('annulée le'), null=True, blank=True)
+    cancelled_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cancelled_expenses', verbose_name=_('annulée par'),
+    )
+    cancellation_reason = models.TextField(_('motif d\'annulation'), blank=True)
     created_at   = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -229,6 +235,12 @@ class SalaryPayment(models.Model):
     )
     employee_name = models.CharField(_('nom employé (snapshot)'), max_length=150, blank=True)
     is_cancelled  = models.BooleanField(_('annulé'), default=False)
+    cancelled_at  = models.DateTimeField(_('annulé le'), null=True, blank=True)
+    cancelled_by  = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cancelled_salaries', verbose_name=_('annulé par'),
+    )
+    cancellation_reason = models.TextField(_('motif d\'annulation'), blank=True)
     created_at    = models.DateTimeField(auto_now_add=True)
 
     class Meta:
