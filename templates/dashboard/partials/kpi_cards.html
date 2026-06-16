@@ -36,6 +36,7 @@ Contexte : kpis = {student_count, class_count, teacher_count,
      x-init="initCounters()">
 
   {# ── Card 1 : Élèves ──────────────────────────────────────────── #}
+  {% if perms.can_view_students %}
   <div class="kpi hover:shadow-md transition-all duration-300 animate-fade-in"
        style="animation: fadeIn 0.4s ease-out forwards; opacity: 0; animation-delay: 0ms;">
     <div class="flex items-center gap-4">
@@ -50,6 +51,7 @@ Contexte : kpis = {student_count, class_count, teacher_count,
       </div>
     </div>
   </div>
+  {% endif %}
 
   {# ── Card 2 : Classes ─────────────────────────────────────────── #}
   <div class="kpi hover:shadow-md transition-all duration-300"
@@ -84,6 +86,7 @@ Contexte : kpis = {student_count, class_count, teacher_count,
   </div>
 
   {# ── Card 4 : Encaissé ────────────────────────────────────────── #}
+  {% if perms.can_view_payments %}
   <div class="kpi hover:shadow-md transition-all duration-300"
        style="animation: fadeIn 0.4s ease-out forwards; opacity: 0; animation-delay: 300ms;">
     <div class="flex items-center gap-4">
@@ -99,8 +102,10 @@ Contexte : kpis = {student_count, class_count, teacher_count,
       </div>
     </div>
   </div>
+  {% endif %}
 
   {# ── Card 5 : Impayés ─────────────────────────────────────────── #}
+  {% if perms.can_view_payments %}
   <div class="kpi hover:shadow-md transition-all duration-300"
        style="animation: fadeIn 0.4s ease-out forwards; opacity: 0; animation-delay: 400ms;">
     <div class="flex items-center gap-4">
@@ -115,6 +120,7 @@ Contexte : kpis = {student_count, class_count, teacher_count,
       </div>
     </div>
   </div>
+  {% endif %}
 
   {# ── Card 6 : Moyenne école ───────────────────────────────────── #}
   <div class="kpi hover:shadow-md transition-all duration-300"

@@ -59,6 +59,7 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
 {# ── SECTION 3 : Graphiques (côte à côte) ───────────────────── #}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
   {# Graphique 1 : Évolution inscriptions #}
+  {% if perms.can_view_students %}
   <div class="card p-5">
     <h2 class="text-sm font-semibold text-gray-700 mb-4">Évolution des inscriptions</h2>
     {% if charts.enrollment_data and charts.enrollment_data|length > 0 %}
@@ -75,8 +76,10 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
     </div>
     {% endif %}
   </div>
+  {% endif %}
 
   {# Graphique 2 : Revenus mensuels #}
+  {% if perms.can_view_payments %}
   <div class="card p-5">
     <h2 class="text-sm font-semibold text-gray-700 mb-4">Revenus mensuels</h2>
     {% if charts.revenue_data and charts.revenue_data|length > 0 %}
@@ -93,6 +96,7 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
     </div>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 
 {# ── SECTION 4 : Santé par classe ───────────────────────────── #}

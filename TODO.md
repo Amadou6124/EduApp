@@ -19,3 +19,11 @@ focus.
 
 **Priorité** : faible (cosmétique, focus ring).
 **Phase** : passe dédiée après QA complète.
+
+## Fonctionnalité manquante
+
+### Alerte émargement dashboard
+Ajouter dans `_compute_alerts` : comparer profs attendus vs `TeacherAttendance`
+du jour. Apparaît si profs non émargés ce jour.
+
+**Priorité** : moyenne.

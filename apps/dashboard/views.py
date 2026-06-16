@@ -69,10 +69,36 @@ def dashboard_view(request):
         }
         cache.set(cache_key, computed, 60 * 5)
 
+    # Permissions per-école : directeur/superuser = tout ; staff = selon StaffPermission.
+    if request.role == 'director' or request.user.is_superuser:
+        can_pay, can_stu = True, True
+    else:
+        perm = getattr(request.user, 'staff_permission', None)
+        can_pay = bool(perm and perm.can_view_payments)
+        can_stu = bool(perm and perm.can_view_students)
+
+    # Redaction PER-REQUÊTE (hors cache partagé école) — ne jamais envoyer au
+    # client une donnée que ce staff n'a pas le droit de voir.
+    kpis   = dict(computed['kpis'])
+    alerts = list(computed['alerts'])
+    charts = dict(computed['charts'])
+    if not can_pay:
+        kpis['total_collected']  = None
+        kpis['unpaid_count']     = None
+        alerts = [a for a in alerts if a.get('category') != 'payments']
+        charts['revenue_data']   = []
+        charts['revenue_months'] = []
+    if not can_stu:
+        kpis['student_count']      = None
+        charts['enrollment_data']   = []
+        charts['enrollment_months'] = []
+
     return render(request, 'dashboard/dashboard.html', {
         'school': school, 'active_year': active_year, 'active_period': active_period,
         'today': date.today(), 'active_section': 'dashboard', 'no_access': False,
-        **computed,
+        'kpis': kpis, 'alerts': alerts, 'charts': charts,
+        'class_health': computed['class_health'], 'activity': computed['activity'],
+        'perms': {'can_view_payments': can_pay, 'can_view_students': can_stu},
     })
 
 
@@ -126,7 +152,7 @@ def _compute_alerts(school, active_period, unpaid_count=0):
         return alerts
     if unpaid_count > 0:
         alerts.append({
-            'level': 'critical', 'icon': 'alert-circle',
+            'level': 'critical', 'icon': 'alert-circle', 'category': 'payments',
             'title': f'{unpaid_count} eleve{"s" if unpaid_count > 1 else ""} avec solde impaye',
             'text': 'Ces eleves ont un solde impaye.',
             'action_url': '/payments/', 'action_text': 'Voir les paiements >',
