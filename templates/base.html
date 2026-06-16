@@ -547,7 +547,7 @@
     <!-- CONTENU PRINCIPAL                              -->
     <!-- ════════════════════════════════════════════════ -->
     <main :class="{% block sidebar_margin %}$store.sidebar.open ? 'lg:ml-64' : 'lg:ml-16'{% endblock %}"
-          class="flex-1 pb-20 lg:pb-0 transition-all duration-300 animate-fade-in">
+          class="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 transition-all duration-300 animate-fade-in">
 
       <!-- ─── HEADER ────────────────────────────────── -->
       <header class="bg-white border-b border-gray-200 sticky top-0 z-20">
@@ -703,7 +703,9 @@
               bg-white border-t border-gray-200
               shadow-[0_-4px_12px_rgba(0,0,0,0.08)]
               rounded-t-2xl overflow-hidden
-              flex h-[68px]">
+              flex min-h-[68px]"
+       style="padding-bottom: env(safe-area-inset-bottom)"
+       x-data>
 
     {% if request.role == 'teacher' %}
     {# ── Nav mobile ENSEIGNANT : Accueil | Notes | Absences | Suivi ── #}
@@ -846,21 +848,117 @@
       <span class="text-[11px] font-medium">{% trans "Notes" %}</span>
     </a>
 
-    {# Plus (directeur/staff) #}
+    {# Plus (directeur/staff) — ouvre la bottom-sheet #}
     {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
-    <a href="{% url 'settings:general' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'settings' %}text-primary-600{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.app_name == 'settings' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
-        <i data-lucide="settings" class="w-6 h-6 shrink-0"></i>
-      </div>
+    <button type="button"
+            @click="$store.moreSheet.open = true"
+            :aria-expanded="$store.moreSheet.open"
+            aria-haspopup="dialog" aria-label="Plus de pages"
+            :class="$store.moreSheet.open ? 'text-primary-600' : 'text-gray-400'"
+            class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px]">
+      <i data-lucide="menu" class="w-6 h-6 shrink-0"></i>
       <span class="text-[11px] font-medium">{% trans "Plus" %}</span>
-    </a>
+    </button>
     {% endif %}
 
     {% endif %}{# fin if teacher #}
   </nav>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- BOTTOM-SHEET « PLUS » (mobile directeur/staff) -->
+  <!-- Montée hors du bloc content — survit aux partials HTMX -->
+  {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+  <div x-data
+       x-effect="document.body.classList.toggle('overflow-hidden', $store.moreSheet.open)"
+       @keydown.escape.window="$store.moreSheet.open = false"
+       :class="$store.moreSheet.open ? '' : 'pointer-events-none'"
+       class="lg:hidden fixed inset-0 z-50"
+       role="dialog" aria-modal="true" aria-label="Menu Plus">
+
+    {# Backdrop — porte sa propre transition #}
+    <div x-show="$store.moreSheet.open" x-cloak
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-200"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click="$store.moreSheet.open = false"
+         class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+    {# Panneau slide-up — safe-area incluse #}
+    <div x-show="$store.moreSheet.open" x-cloak
+         x-transition:enter="transition ease-out duration-250"
+         x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+         x-ref="sheet" tabindex="-1"
+         x-effect="$store.moreSheet.open && $nextTick(() => $refs.sheet.focus())"
+         style="padding-bottom: env(safe-area-inset-bottom)"
+         class="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+
+      {# Poignée + titre + fermer #}
+      <div class="sticky top-0 bg-white px-5 pt-2.5 pb-3 border-b border-gray-100">
+        <div class="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3"></div>
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-semibold text-gray-900">Plus</h2>
+          <button type="button" @click="$store.moreSheet.open = false" aria-label="Fermer"
+                  class="min-h-[44px] min-w-[44px] -mr-2 flex items-center justify-center text-gray-400 rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="px-3 py-3 space-y-5">
+
+        {# ── GESTION ── #}
+        <div>
+          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Gestion</p>
+          <a href="{% url 'schools:class-list' %}" class="sheet-item"><i data-lucide="school"></i> Classes</a>
+          <a href="{% url 'bulletins:main' %}"      class="sheet-item"><i data-lucide="file-text"></i> Bulletins</a>
+          <a href="{% url 'students:suivi' %}"      class="sheet-item"><i data-lucide="activity"></i> Suivi élèves</a>
+        </div>
+
+        {# ── FINANCES (gardes serveur identiques sidebar) ── #}
+        {% if request.school.accounting_enabled %}
+        {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting or request.user.staff_permission.can_record_emargement %}
+        <div>
+          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Finances</p>
+          {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
+            <a href="{% url 'accounting:dashboard' %}" class="sheet-item"><i data-lucide="calculator"></i> Comptabilité</a>
+          {% endif %}
+          {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_record_emargement or request.user.staff_permission.can_manage_accounting %}
+            <a href="{% url 'accounting:emargement' %}" class="sheet-item"><i data-lucide="clipboard-check"></i> Émargement</a>
+          {% endif %}
+          {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
+            <a href="{% url 'accounting:salaires' %}" class="sheet-item"><i data-lucide="banknote"></i> Paie mensuelle</a>
+            <a href="{% url 'accounting:depenses' %}" class="sheet-item"><i data-lucide="receipt"></i> Dépenses</a>
+            <a href="{% url 'accounting:bilan' %}"    class="sheet-item"><i data-lucide="bar-chart-2"></i> Bilan financier</a>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% endif %}
+
+        {# ── ADMINISTRATION ── #}
+        <div>
+          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Administration</p>
+          <a href="{% url 'team:list' %}"        class="sheet-item"><i data-lucide="users-round"></i> Équipe</a>
+          <a href="{% url 'settings:general' %}" class="sheet-item"><i data-lucide="settings"></i> Paramètres</a>
+        </div>
+
+        {# ── PIED : compte + déconnexion ── #}
+        <div class="border-t border-gray-100 pt-3">
+          <div class="flex items-center gap-3 px-3 py-2">
+            <span class="w-9 h-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-bold shrink-0">{{ request.user.full_name|first|upper }}</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-gray-900 truncate leading-tight">{{ request.user.full_name }}</p>
+              <p class="text-xs text-gray-400 truncate">{{ active_role_display }}</p>
+            </div>
+          </div>
+          <a href="{% url 'accounts:logout' %}" class="sheet-item text-red-600 hover:bg-red-50"><i data-lucide="log-out" class="text-red-400"></i> Se déconnecter</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ════════════════════════════════════════════════ -->
   <!-- MODAL RECHERCHE GLOBALE                        -->
@@ -938,6 +1036,9 @@
         open: false,
         q: ''
       });
+
+      // Store bottom-sheet « Plus » (mobile directeur/staff)
+      Alpine.store('moreSheet', { open: false });
 
       // Raccourci ⌘K / Ctrl+K
       document.addEventListener('keydown', function (e) {

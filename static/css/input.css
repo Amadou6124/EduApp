@@ -76,6 +76,16 @@
            focus:outline-none focus:border-primary-400
            focus:ring-2 focus:ring-primary-500/20;
   }
+  /* Item de la bottom-sheet « Plus » (mobile) — cible tactile ≥ 48px */
+  .sheet-item {
+    @apply flex items-center gap-3 px-3 min-h-[48px] rounded-xl
+           text-sm font-medium text-gray-700
+           hover:bg-gray-50 active:bg-gray-100 transition-colors;
+  }
+  .sheet-item i {
+    @apply w-5 h-5 shrink-0 text-gray-400;
+  }
+
   /* État erreur : à combiner avec .input-field */
   .input-field.is-error {
     @apply border-red-300 focus:border-red-400 focus:ring-red-500/20;
