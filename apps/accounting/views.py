@@ -569,11 +569,16 @@ def expense_create(request):
     if amount is None or amount <= 0:
         return _toast_error('Montant invalide.')
 
+    # Catégorie : valider AVANT le filtre (pk='' ou non-numérique → ValueError → 500).
+    category_id = request.POST.get('category', '').strip()
+    if not category_id.isdigit():
+        return _toast_error('Veuillez sélectionner une catégorie.')
+
     # Résolution catégorie : globale (school=NULL) ou propre à l'école
     from django.db.models import Q
     cat = ExpenseCategory.objects.filter(
         Q(school__isnull=True) | Q(school=school),
-        pk=request.POST.get('category'), is_active=True,
+        pk=category_id, is_active=True,
     ).first()
     if cat is None:
         return _toast_error('Catégorie invalide.')
