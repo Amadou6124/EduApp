@@ -16,18 +16,22 @@ urlpatterns = [
     # Années scolaires
     path('school-years/',                         settings_views.school_years,        name='school-years'),
     path('school-years/create/',                  settings_views.school_year_create,  name='school-year-create'),
+    path('school-years/<int:year_id>/update/',    settings_views.school_year_update,  name='school-year-update'),
+    path('school-years/<int:year_id>/delete/',    settings_views.school_year_delete,  name='school-year-delete'),
     path('school-years/<int:year_id>/toggle/',    settings_views.school_year_toggle,  name='school-year-toggle'),
     path('school-years/<int:year_id>/periods/',   settings_views.school_year_periods, name='school-year-periods'),
     path('school-years/<int:year_id>/periods/generate/', settings_views.period_generate, name='period-generate'),
     path('school-years/<int:year_id>/periods/add/',      settings_views.period_create,   name='period-create'),
 
     # Périodes
+    path('periods/<int:period_id>/update/',       settings_views.period_update,       name='period-update'),
     path('periods/<int:period_id>/toggle-notes/', settings_views.period_toggle_notes, name='period-toggle-notes'),
     path('periods/<int:period_id>/delete/',       settings_views.period_delete,       name='period-delete'),
 
     # Matières
     path('subjects/',                       settings_views.subjects,       name='subjects'),
     path('subjects/create/',                settings_views.subject_create, name='subject-create'),
+    path('subjects/<int:subject_id>/update/', settings_views.subject_update, name='subject-update'),
     path('subjects/<int:subject_id>/delete/', settings_views.subject_delete, name='subject-delete'),
 
     # Matières par classe
