@@ -319,7 +319,7 @@ def observation_mark_read(request, student_id, obs_id):
 def observation_share_parent(request, student_id, obs_id):
     """Toggle le partage d'une observation (non-privée) vers les parents + notifie."""
     from apps.teachers.models import StudentObservation
-    from apps.notifications.services import notify_guardians
+    from apps.notifications.services import notify_guardians, notify
     from apps.notifications.models import NotificationCategory
 
     school = get_school(request)
@@ -350,6 +350,15 @@ def observation_share_parent(request, student_id, obs_id):
             title=f"Message de l'école concernant {student.full_name}",
             body=message,
             url='/portal/parent/',
+            target=obs,
+        )
+        notify(
+            recipient=obs.teacher,
+            school=school,
+            category=NotificationCategory.OBSERVATION,
+            title="Votre observation a été partagée",
+            body=f"Le directeur a partagé votre observation sur {student.full_name} avec les parents.",
+            url='/teacher/notifications/',
             target=obs,
         )
         msg, notif_type = 'Observation partagée avec les parents.', 'success'

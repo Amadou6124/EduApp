@@ -2,7 +2,7 @@
 Carte élève — suivi difficulté.
 Requiert : r (dict rapport), openQA() dans le scope Alpine parent.
 {% endcomment %}
-<div class="rounded-xl border p-3
+<div id="difficulty-card-{{ r.student.pk }}" class="rounded-xl border p-3
     {% if r.level == 'critical' %}bg-red-50 border-red-200
     {% elif r.level == 'warning' %}bg-amber-50 border-amber-200
     {% elif r.level == 'watch' %}bg-yellow-50 border-yellow-100
@@ -21,7 +21,7 @@ Requiert : r (dict rapport), openQA() dans le scope Alpine parent.
         <p class="text-sm font-semibold text-gray-900 truncate">{{ r.student.full_name }}</p>
         <div class="flex items-center gap-1.5 shrink-0">
           {% if r.global_score is not None %}
-          <span class="text-sm font-bold
+          <span class="js-score text-sm font-bold
               {% if r.level == 'critical' %}text-red-600
               {% elif r.level == 'warning' %}text-amber-600
               {% elif r.level == 'watch' %}text-yellow-600
@@ -30,11 +30,11 @@ Requiert : r (dict rapport), openQA() dans le scope Alpine parent.
           </span>
           {% endif %}
           {% if r.trend == 'down' %}
-          <span class="text-red-600 font-black text-lg leading-none" title="Tendance en baisse">↓</span>
+          <span class="js-trend text-red-600 font-black text-lg leading-none" title="Tendance en baisse">↓</span>
           {% elif r.trend == 'up' %}
-          <span class="text-green-600 font-bold text-lg leading-none" title="Tendance en hausse">↑</span>
+          <span class="js-trend text-green-600 font-bold text-lg leading-none" title="Tendance en hausse">↑</span>
           {% else %}
-          <span class="text-gray-400 text-lg leading-none">→</span>
+          <span class="js-trend text-gray-400 text-lg leading-none">→</span>
           {% endif %}
         </div>
       </div>
