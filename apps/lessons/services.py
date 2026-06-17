@@ -369,7 +369,6 @@ def _call_claude(content, metadata: dict) -> dict:
         max_tokens=CLAUDE_MAX_TOKENS,
         messages=[
             {'role': 'user', 'content': user_content},
-            {'role': 'assistant', 'content': '{'},   # prefill -> force le JSON pur
         ],
     )
     elapsed = time.time() - start
@@ -385,7 +384,7 @@ def _call_claude(content, metadata: dict) -> dict:
         input_tokens, output_tokens, cost, elapsed,
     )
 
-    raw = '{' + response.content[0].text   # le prefill { n'est pas répété par l'API
+    raw = response.content[0].text
     return _parse_and_validate(raw, cost)
 
 
