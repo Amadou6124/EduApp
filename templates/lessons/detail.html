@@ -16,11 +16,76 @@
   </div>
 
   {% if lesson.status == 'processing' or lesson.status == 'draft' %}
-    {# ── En cours : polling HTMX ── #}
-    {% include "lessons/partials/lesson_status_card.html" %}
+    <div x-data="{
+      steps: [
+        { text: 'Lecture du document...' },
+        { text: 'Analyse du contenu pédagogique...' },
+        { text: 'Structuration de la leçon...' },
+        { text: 'Génération des quiz...' },
+        { text: 'Création de la story interactive...' },
+        { text: 'Préparation des flashcards...' },
+        { text: 'Finalisation...' },
+      ],
+      currentStep: 0,
+      elapsed: 0,
+      init() {
+        setInterval(() => {
+          this.currentStep = (this.currentStep + 1) % this.steps.length;
+        }, 5000);
+        setInterval(() => { this.elapsed++; }, 1000);
+      },
+      get elapsedStr() {
+        const m = Math.floor(this.elapsed / 60);
+        const s = this.elapsed % 60;
+        return m > 0
+          ? m + 'min ' + String(s).padStart(2, '0') + 's'
+          : String(s) + 's';
+      }
+    }">
+
+      <div class="bg-white rounded-2xl border border-gray-200 p-10 text-center
+                  max-w-sm mx-auto animate-fade-in-up"
+           style="animation-fill-mode:both">
+
+        <div class="w-16 h-16 rounded-2xl bg-primary-100 flex items-center justify-center
+                    mx-auto mb-6 animate-pulse relative">
+          <span x-show="currentStep === 0" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="search" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 1" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="book-open" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 2" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="pen-line" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 3" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="help-circle" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 4" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="message-circle" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 5" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="layers" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 6" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="sparkles" class="w-8 h-8 text-primary-600"></i></span>
+        </div>
+
+        <p class="font-semibold text-gray-800 mb-1" x-text="steps[currentStep].text"></p>
+        <p class="text-sm text-gray-400 mb-6">
+          {{ lesson.subject }}{% if lesson.level_detail %} · {{ lesson.level_detail }}{% endif %}
+        </p>
+
+        <div class="flex items-center justify-center gap-1.5 mb-5">
+          <template x-for="(step, i) in steps" :key="i">
+            <div class="h-2 rounded-full transition-all duration-500"
+                 :class="i === currentStep
+                   ? 'bg-primary-600 w-4'
+                   : i < currentStep ? 'bg-primary-200 w-2' : 'bg-gray-200 w-2'"></div>
+          </template>
+        </div>
+
+        <p class="text-xs text-gray-400">⏱ <span x-text="elapsedStr"></span></p>
+      </div>
+
+      {% include "lessons/partials/lesson_status_card.html" %}
+    </div>
 
   {% elif lesson.status == 'error' %}
-    {# ── Erreur ── #}
     <div class="bg-red-50 border border-red-200 rounded-2xl p-6">
       <div class="flex items-center gap-2 text-red-700 mb-2">
         <i data-lucide="circle-x" class="w-5 h-5"></i><p class="font-semibold">Erreur lors de la génération</p>
@@ -33,8 +98,8 @@
     </div>
 
   {% else %}
-    {# ── Prête ── #}
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 animate-fade-in-up"
+         style="animation-fill-mode:both">
       <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
         <p class="text-xl font-extrabold text-gray-900">{{ lesson.structured_content.blocks|length }}</p>
         <p class="text-xs text-gray-500">Blocs</p>
@@ -53,46 +118,31 @@
       </div>
     </div>
 
-    {# Aperçu des 3 premiers quiz #}
-    {% if lesson.quiz_data.quizzes %}
-    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
-      <p class="text-sm font-bold text-gray-900 mb-4">Aperçu des quiz</p>
-      <div class="space-y-4">
-        {% for q in lesson.quiz_data.quizzes|slice:":3" %}
-        <div class="border border-gray-100 rounded-xl p-4">
-          <div class="flex items-start justify-between gap-3 mb-2">
-            <p class="text-sm font-medium text-gray-800">{{ q.question }}</p>
-            <span class="shrink-0 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ q.type }} · niv.{{ q.difficulty }}</span>
-          </div>
-          {% if q.options %}
-          <ul class="space-y-1">
-            {% for opt in q.options %}
-            <li class="text-xs flex items-center gap-1.5 {% if opt == q.answer %}text-green-700 font-semibold{% else %}text-gray-500{% endif %}">
-              {% if opt == q.answer %}<i data-lucide="check" class="w-3 h-3"></i>{% else %}<span class="w-3"></span>{% endif %}{{ opt }}
-            </li>
-            {% endfor %}
-          </ul>
-          {% endif %}
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
+    <a href="{% url 'lessons:preview' lesson.id %}"
+       class="flex items-center justify-center gap-2 w-full mb-5 py-3 rounded-2xl
+              border border-primary-200 text-primary-700 font-semibold text-sm
+              hover:bg-primary-50 active:scale-[0.98] transition-all duration-150
+              animate-fade-in-up"
+       style="animation-fill-mode:both; animation-delay:80ms">
+      <i data-lucide="eye" class="w-4 h-4"></i>
+      Prévisualiser comme un élève
+    </a>
 
-    {# Déploiement (action complète en phase ultérieure) #}
-    <div class="bg-white rounded-2xl border border-gray-200 p-6">
-      <p class="text-sm font-bold text-gray-900 mb-1">Déployer vers mes classes</p>
-      <p class="text-xs text-gray-400 mb-4">Sélection des classes — l'envoi aux élèves arrive dans une prochaine étape.</p>
-      {% if teacher_classes %}
+    <div class="bg-white rounded-2xl border border-gray-200 p-6 animate-fade-in-up"
+         style="animation-fill-mode:both; animation-delay:160ms">
+      <div class="flex items-center justify-between mb-1">
+        <p class="text-sm font-bold text-gray-900">✨ Publier cette leçon</p>
+        <span class="text-xs font-semibold text-gray-500">
+          {{ deployed_count }}/{{ total_classes }} classe{{ total_classes|pluralize }}
+        </span>
+      </div>
+      <p class="text-xs text-gray-400 mb-4">
+        Vos élèves auront accès à la leçon, au quiz, à la story et aux flashcards.
+      </p>
+      {% if teacher_classes_data %}
       <div class="space-y-2">
-        {% for c in teacher_classes %}
-        <label class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-gray-100 hover:bg-gray-50">
-          <span class="flex items-center gap-2.5 text-sm text-gray-700">
-            <input type="checkbox" disabled {% if c.id in deployed_class_ids %}checked{% endif %} class="rounded border-gray-300">
-            {{ c.name }} <span class="text-xs text-gray-400">{{ c.get_level_display }}</span>
-          </span>
-          {% if c.id in deployed_class_ids %}<span class="text-xs font-semibold text-green-600">Déployée</span>{% endif %}
-        </label>
+        {% for item in teacher_classes_data %}
+        {% include "lessons/partials/deploy_card.html" with class=item.obj is_deployed=item.is_deployed student_count=item.student_count %}
         {% endfor %}
       </div>
       {% else %}
