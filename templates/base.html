@@ -6,18 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}EduApp{% endblock %} — EduApp</title>
 
-  <!-- Google Fonts : Manrope -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Manrope (self-hosted, variable font) -->
+  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
 
   <!-- Tailwind CSS (build local) -->
   <link rel="stylesheet" href="{% static 'css/output.css' %}">
 
   <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <script src="{% static 'vendor/htmx/htmx.min.js' %}" defer></script>
   <!-- Alpine.js -->
-  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
 
   <style>
     .htmx-indicator          { opacity: 0; transition: opacity 200ms ease-in; }
@@ -547,7 +545,7 @@
     <!-- CONTENU PRINCIPAL                              -->
     <!-- ════════════════════════════════════════════════ -->
     <main :class="{% block sidebar_margin %}$store.sidebar.open ? 'lg:ml-64' : 'lg:ml-16'{% endblock %}"
-          class="flex-1 pb-20 lg:pb-0 transition-all duration-300 animate-fade-in">
+          class="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 transition-all duration-300 animate-fade-in">
 
       <!-- ─── HEADER ────────────────────────────────── -->
       <header class="bg-white border-b border-gray-200 sticky top-0 z-20">
@@ -618,61 +616,71 @@
         </div>
         {% endif %}
 
-        {# ── Header standard : desktop (tous) + mobile non-teacher ── #}
+        {# ── Header : desktop (tous) + mobile non-teacher — responsive 2 lignes mobile ── #}
         <div class="{% if request.role == 'teacher' %}hidden lg:flex{% else %}flex{% endif %}
-                    items-center justify-between px-6 py-3 min-h-[56px] sm:min-h-[64px]">
+                    flex-col lg:flex-row lg:items-center lg:justify-between
+                    px-4 lg:px-6 py-2.5 lg:py-3 min-h-[56px] sm:min-h-[64px] gap-1 lg:gap-0">
 
-          <!-- Gauche : titre + sous-titre contextuel -->
-          <div class="flex items-center gap-3 min-w-0">
+          {# Ligne 1 : titre (+ actions mobile à droite) #}
+          <div class="flex items-center gap-3 min-w-0 lg:flex-1">
             {% block breadcrumb %}{% endblock %}
-            <div class="min-w-0">
-              <h1 class="text-2xl font-semibold text-gray-900 leading-tight">{% block page_title %}{% endblock %}</h1>
-              {% block page_subtitle %}{% if page_subtitle %}<p class="text-sm text-gray-500 mt-0.5 truncate animate-fade-in">{{ page_subtitle }}</p>{% endif %}{% endblock %}
+            <div class="min-w-0 flex-1">
+              <h1 class="text-lg lg:text-2xl font-semibold text-gray-900 leading-tight truncate">{% block page_title %}{% endblock %}</h1>
+              <div class="hidden lg:block">{% block page_subtitle %}{% if page_subtitle %}<p class="text-sm text-gray-500 mt-0.5 truncate animate-fade-in">{{ page_subtitle }}</p>{% endif %}{% endblock %}</div>
             </div>
+
+            {# Actions MOBILE (directeur/staff) : recherche · cloche (sans badge) · avatar #}
+            {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+            <div class="flex items-center gap-0.5 shrink-0 lg:hidden">
+              <button type="button" @click="$store.search.open = true" aria-label="Rechercher"
+                      class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 rounded-lg">
+                <i data-lucide="search" class="w-5 h-5"></i>
+              </button>
+              <button type="button" aria-label="Notifications"
+                      class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 rounded-lg">
+                <i data-lucide="bell" class="w-5 h-5"></i>
+              </button>
+              <button type="button" @click="$store.accountSheet.open = true" aria-label="Mon compte"
+                      :aria-expanded="$store.accountSheet.open"
+                      class="ml-1 w-9 h-9 rounded-full bg-primary-600 text-white text-sm font-bold flex items-center justify-center shrink-0 active:opacity-80">
+                {{ request.user.full_name|first|upper }}
+              </button>
+            </div>
+            {% endif %}
           </div>
 
-          <!-- Droite : actions + badge année + notifications -->
-          <div class="flex items-center gap-2 shrink-0 ml-4">
-
+          {# Actions DESKTOP : header_actions + badge année + cloche (sans badge) #}
+          <div class="hidden lg:flex items-center gap-2 shrink-0 ml-4">
             {% block header_actions %}{% endblock %}
-
-            <!-- Badge année scolaire -->
             {% if badge_year %}
             <a href="{% url 'settings:school-years' %}"
-               class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+               class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg
                       bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-600
                       transition-colors whitespace-nowrap">
               <i data-lucide="calendar" class="w-3.5 h-3.5 shrink-0"></i>
               <span>{{ badge_year.name }}{% if badge_year.period_name %} · {{ badge_year.period_name }}{% endif %}</span>
             </a>
             {% endif %}
-
-            <!-- Recherche (mobile non-teacher) -->
-            {% if request.role != 'teacher' %}
-            <button type="button"
-                    @click="$store.search.open = true"
-                    class="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
-              <i data-lucide="search" class="w-5 h-5 shrink-0"></i>
+            <button type="button" aria-label="Notifications"
+                    class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+              <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
             </button>
-            {% endif %}
-
-            <!-- Cloche notifications -->
-            <div class="relative">
-              <button type="button"
-                      class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
-                <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
-              </button>
-              {% if alert_count > 0 %}
-              <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
-                           bg-red-500 rounded-full text-white text-[9px] font-bold
-                           flex items-center justify-center leading-none
-                           {% if alert_count > 5 %}animate-pulse{% endif %}">
-                {{ alert_count }}
-              </span>
-              {% endif %}
-            </div>
-
           </div>
+
+          {# Ligne 2 MOBILE (directeur/staff) : école · année · période — toujours visible #}
+          {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+          <div class="lg:hidden flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
+            {% if user_memberships %}
+            <button type="button" @click="$store.accountSheet.open = true" class="flex items-center gap-1 min-w-0 max-w-[55%]">
+              <span class="truncate">{{ request.school.name }}</span>
+              <i data-lucide="chevron-down" class="w-3 h-3 shrink-0 text-gray-400"></i>
+            </button>
+            {% else %}
+            <span class="truncate max-w-[55%]">{{ request.school.name }}</span>
+            {% endif %}
+            {% if badge_year %}<span class="text-gray-300">·</span><span class="shrink-0">{{ badge_year.name }}</span>{% if badge_year.period_name %}<span class="text-gray-300">·</span><span class="shrink-0 truncate">{{ badge_year.period_name }}</span>{% endif %}{% endif %}
+          </div>
+          {% endif %}
         </div>
       </header>
 
@@ -703,7 +711,9 @@
               bg-white border-t border-gray-200
               shadow-[0_-4px_12px_rgba(0,0,0,0.08)]
               rounded-t-2xl overflow-hidden
-              flex h-[68px]">
+              flex min-h-[68px]"
+       style="padding-bottom: env(safe-area-inset-bottom)"
+       x-data>
 
     {% if request.role == 'teacher' %}
     {# ── Nav mobile ENSEIGNANT : Accueil | Notes | Absences | Suivi ── #}
@@ -846,21 +856,187 @@
       <span class="text-[11px] font-medium">{% trans "Notes" %}</span>
     </a>
 
-    {# Plus (directeur/staff) #}
+    {# Plus (directeur/staff) — ouvre la bottom-sheet #}
     {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
-    <a href="{% url 'settings:general' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'settings' %}text-primary-600{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.app_name == 'settings' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
-        <i data-lucide="settings" class="w-6 h-6 shrink-0"></i>
-      </div>
+    <button type="button"
+            @click="$store.moreSheet.open = true"
+            :aria-expanded="$store.moreSheet.open"
+            aria-haspopup="dialog" aria-label="Plus de pages"
+            :class="$store.moreSheet.open ? 'text-primary-600' : 'text-gray-400'"
+            class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px]">
+      <i data-lucide="menu" class="w-6 h-6 shrink-0"></i>
       <span class="text-[11px] font-medium">{% trans "Plus" %}</span>
-    </a>
+    </button>
     {% endif %}
 
     {% endif %}{# fin if teacher #}
   </nav>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- BOTTOM-SHEET « PLUS » (mobile directeur/staff) -->
+  <!-- Montée hors du bloc content — survit aux partials HTMX -->
+  {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+  <div x-data
+       x-effect="document.body.classList.toggle('overflow-hidden', $store.moreSheet.open)"
+       @keydown.escape.window="$store.moreSheet.open = false"
+       :class="$store.moreSheet.open ? '' : 'pointer-events-none'"
+       class="lg:hidden fixed inset-0 z-50"
+       role="dialog" aria-modal="true" aria-label="Menu Plus">
+
+    {# Backdrop — porte sa propre transition #}
+    <div x-show="$store.moreSheet.open" x-cloak
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-200"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click="$store.moreSheet.open = false"
+         class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+    {# Panneau slide-up — safe-area incluse #}
+    <div x-show="$store.moreSheet.open" x-cloak
+         x-transition:enter="transition ease-out duration-250"
+         x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+         x-ref="sheet" tabindex="-1"
+         x-effect="$store.moreSheet.open && $nextTick(() => $refs.sheet.focus())"
+         style="padding-bottom: env(safe-area-inset-bottom)"
+         class="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+
+      {# Poignée + titre + fermer #}
+      <div class="sticky top-0 bg-white px-5 pt-2.5 pb-3 border-b border-gray-100">
+        <div class="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3"></div>
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-semibold text-gray-900">Plus</h2>
+          <button type="button" @click="$store.moreSheet.open = false" aria-label="Fermer"
+                  class="min-h-[44px] min-w-[44px] -mr-2 flex items-center justify-center text-gray-400 rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="px-3 py-3 space-y-5">
+
+        {# ── GESTION ── #}
+        <div>
+          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Gestion</p>
+          <a href="{% url 'schools:class-list' %}" class="sheet-item"><i data-lucide="school"></i> Classes</a>
+          <a href="{% url 'bulletins:main' %}"      class="sheet-item"><i data-lucide="file-text"></i> Bulletins</a>
+          <a href="{% url 'students:suivi' %}"      class="sheet-item"><i data-lucide="activity"></i> Suivi élèves</a>
+        </div>
+
+        {# ── FINANCES (gardes serveur identiques sidebar) ── #}
+        {% if request.school.accounting_enabled %}
+        {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting or request.user.staff_permission.can_record_emargement %}
+        <div>
+          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Finances</p>
+          {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
+            <a href="{% url 'accounting:dashboard' %}" class="sheet-item"><i data-lucide="calculator"></i> Comptabilité</a>
+          {% endif %}
+          {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_record_emargement or request.user.staff_permission.can_manage_accounting %}
+            <a href="{% url 'accounting:emargement' %}" class="sheet-item"><i data-lucide="clipboard-check"></i> Émargement</a>
+          {% endif %}
+          {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
+            <a href="{% url 'accounting:salaires' %}" class="sheet-item"><i data-lucide="banknote"></i> Paie mensuelle</a>
+            <a href="{% url 'accounting:depenses' %}" class="sheet-item"><i data-lucide="receipt"></i> Dépenses</a>
+            <a href="{% url 'accounting:bilan' %}"    class="sheet-item"><i data-lucide="bar-chart-2"></i> Bilan financier</a>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% endif %}
+
+        {# ── ADMINISTRATION ── #}
+        <div>
+          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Administration</p>
+          <a href="{% url 'team:list' %}"        class="sheet-item"><i data-lucide="users-round"></i> Équipe</a>
+          <a href="{% url 'settings:general' %}" class="sheet-item"><i data-lucide="settings"></i> Paramètres</a>
+        </div>
+
+        {# ── PIED : compte + déconnexion ── #}
+        <div class="border-t border-gray-100 pt-3">
+          <div class="flex items-center gap-3 px-3 py-2">
+            <span class="w-9 h-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-bold shrink-0">{{ request.user.full_name|first|upper }}</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-gray-900 truncate leading-tight">{{ request.user.full_name }}</p>
+              <p class="text-xs text-gray-400 truncate">{{ active_role_display }}</p>
+            </div>
+          </div>
+          <a href="{% url 'accounts:logout' %}" class="sheet-item text-red-600 hover:bg-red-50"><i data-lucide="log-out" class="text-red-400"></i> Se déconnecter</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- MINI-SHEET COMPTE (mobile directeur/staff)      -->
+  <!-- Montée hors du bloc content -->
+  {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+  <div x-data
+       x-effect="document.body.classList.toggle('overflow-hidden', $store.accountSheet.open)"
+       @keydown.escape.window="$store.accountSheet.open = false"
+       :class="$store.accountSheet.open ? '' : 'pointer-events-none'"
+       class="lg:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Mon compte">
+
+    {# Backdrop #}
+    <div x-show="$store.accountSheet.open" x-cloak
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-200"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click="$store.accountSheet.open = false"
+         class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+    {# Panneau slide-up #}
+    <div x-show="$store.accountSheet.open" x-cloak
+         x-transition:enter="transition ease-out duration-250"
+         x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+         x-ref="acct" tabindex="-1"
+         x-effect="$store.accountSheet.open && $nextTick(() => $refs.acct.focus())"
+         style="padding-bottom: env(safe-area-inset-bottom)"
+         class="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+
+      {# Identité #}
+      <div class="px-5 pt-2.5 pb-3 border-b border-gray-100">
+        <div class="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3"></div>
+        <div class="flex items-center gap-3">
+          <span class="w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center font-bold shrink-0">{{ request.user.full_name|first|upper }}</span>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-gray-900 truncate">{{ request.user.full_name }}</p>
+            <p class="text-xs text-gray-400">{{ active_role_display }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-3 py-3 space-y-1">
+        {# Switch école (si multi-école) #}
+        {% if user_memberships %}
+        <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Changer d'école</p>
+        <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary-50">
+          <i data-lucide="check" class="w-4 h-4 text-primary-700 shrink-0"></i>
+          <span class="truncate text-sm font-medium text-primary-700">{{ request.school.name }}</span>
+        </div>
+        {% for m in user_memberships %}
+        <form method="post" action="{% url 'accounts:switch-school' m.school_id %}">
+          {% csrf_token %}
+          <button type="submit" class="sheet-item w-full text-left">
+            <i data-lucide="building-2"></i>
+            <span class="truncate">{{ m.school.name }}</span>
+            <span class="ml-auto text-[10px] text-gray-400 shrink-0">{{ m.get_role_display }}</span>
+          </button>
+        </form>
+        {% endfor %}
+        <div class="border-t border-gray-100 my-2"></div>
+        {% endif %}
+
+        {# Déconnexion #}
+        <a href="{% url 'accounts:logout' %}" class="sheet-item text-red-600 hover:bg-red-50"><i data-lucide="log-out" class="text-red-400"></i> Se déconnecter</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ════════════════════════════════════════════════ -->
   <!-- MODAL RECHERCHE GLOBALE                        -->
@@ -914,7 +1090,7 @@
   </div>
 
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
     document.addEventListener('htmx:afterSwap', () => lucide.createIcons());
@@ -938,6 +1114,12 @@
         open: false,
         q: ''
       });
+
+      // Store bottom-sheet « Plus » (mobile directeur/staff)
+      Alpine.store('moreSheet', { open: false });
+
+      // Store mini-sheet compte (mobile directeur/staff)
+      Alpine.store('accountSheet', { open: false });
 
       // Raccourci ⌘K / Ctrl+K
       document.addEventListener('keydown', function (e) {
