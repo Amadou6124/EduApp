@@ -1,182 +1,368 @@
-{% load humanize static %}<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Espace Parent — EduApp</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/output.css' %}">
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    body { font-family:'Manrope',sans-serif; }
-    .bar-fill { transition: width 1s ease-out; }
-    .no-scrollbar::-webkit-scrollbar { display:none; }
-    .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-  </style>
-</head>
-<body class="min-h-screen bg-[#F8F9FC] text-gray-900 pb-24">
+{% extends "parent/base_parent.html" %}
+{% load humanize %}
 
-  {# ── HEADER FIXE ── #}
-  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14 flex items-center justify-between px-4">
-    <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-         style="background:{{ request.user.get_avatar_colors.0 }};color:{{ request.user.get_avatar_colors.1 }}">
-      {{ request.user.get_initials }}
+{% block title %}Espace Parent{% endblock %}
+
+{% block bottom_nav %}
+{% include "parent/partials/bottom_nav.html" with active="home" %}
+{% endblock %}
+
+{% block content %}
+
+{# ════════════════════════════════════════════════════════ #}
+{#  ÉTAT VIDE — aucun enfant lié                          #}
+{# ════════════════════════════════════════════════════════ #}
+{% if not active_child %}
+<div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-8">
+  <div class="w-24 h-24 rounded-full bg-primary-50 flex items-center justify-center">
+    <i data-lucide="users" class="w-12 h-12 text-primary-300"></i>
+  </div>
+  <h1 class="text-lg font-semibold text-gray-700 mt-4">Aucun enfant lié</h1>
+  <p class="text-sm text-gray-400 mt-2 max-w-[260px]">
+    Contactez l'école pour lier votre compte à vos enfants.
+  </p>
+  <a href="{% url 'accounts:logout' %}"
+     class="mt-6 px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:bg-gray-50 transition">
+    Se déconnecter
+  </a>
+</div>
+
+{% else %}
+{% with c=active_child %}
+
+{# ════════════════════════════════════════════════════════ #}
+{#  SECTION 1 — SÉLECTEUR AVATARS (multi-enfants)        #}
+{# ════════════════════════════════════════════════════════ #}
+{% if has_multiple %}
+<div class="flex justify-center gap-4 px-4 pt-4 pb-1 animate-fade-in">
+  {% for child in children %}
+  <a href="?child={{ child.student.id }}" class="flex flex-col items-center gap-1.5">
+    <div class="flex items-center justify-center font-bold rounded-full transition-all duration-200
+                {% if child.student.id == c.student.id %}
+                  w-14 h-14 text-base border-[3px] border-primary-600 ring-2 ring-primary-100
+                {% else %}
+                  w-11 h-11 text-sm border-2 border-transparent opacity-60
+                {% endif %}"
+         style="background:{{ child.student.get_avatar_colors.0 }};
+                color:{{ child.student.get_avatar_colors.1 }}">
+      {{ child.student.get_initials }}
     </div>
-    <span class="text-base font-extrabold text-primary-600">EduApp</span>
-    <a href="{% url 'parent:notifications' %}" class="relative p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition" title="Notifications">
-      <i data-lucide="bell" class="w-5 h-5"></i>
-      {% if parent_unread_count %}
-      <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">{{ parent_unread_count }}</span>
-      {% endif %}
-    </a>
-  </header>
+  </a>
+  {% endfor %}
+</div>
+<div class="text-center px-4 pb-2 animate-fade-in">
+  <p class="text-sm font-semibold text-gray-800 truncate">{{ c.student.full_name }}</p>
+  <p class="text-xs text-gray-500 truncate">
+    {{ c.student.school_class.name }} · {{ c.student.school.name }}
+  </p>
+</div>
+{% endif %}
 
-  {% if not active_child %}
-    {# ── ÉTAT VIDE ── #}
-    <div class="flex flex-col items-center justify-center text-center px-6 py-24">
-      <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-        <i data-lucide="users" class="w-9 h-9 text-gray-300"></i>
+{# ════════════════════════════════════════════════════════ #}
+{#  SECTION 2 — HERO CARD                                #}
+{# ════════════════════════════════════════════════════════ #}
+<div class="mx-4 {% if has_multiple %}mt-2{% else %}mt-4{% endif %} rounded-3xl overflow-hidden
+            animate-fade-in-up animate-delay-100">
+  <div class="bg-gradient-to-br from-primary-600 to-primary-900 p-5">
+
+    {# Identité enfant #}
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-full flex items-center justify-center
+                  text-xl font-extrabold shrink-0 border-[3px] border-white/30"
+           style="background:{{ c.student.get_avatar_colors.0 }};
+                  color:{{ c.student.get_avatar_colors.1 }}">
+        {{ c.student.get_initials }}
       </div>
-      <h1 class="text-lg font-bold">Aucun enfant lié à votre compte</h1>
-      <p class="text-sm text-gray-400 mt-1 max-w-xs">Contactez l'administration de l'école pour rattacher votre/vos enfant(s).</p>
-      <a href="/logout/" class="mt-6 text-sm text-gray-400 hover:text-gray-600">Se déconnecter</a>
-    </div>
-  {% else %}
-
-    {# ── SÉLECTEUR ENFANT (si plusieurs) ── #}
-    {% if has_multiple %}
-    <div class="flex gap-2 overflow-x-auto no-scrollbar px-4 pt-4">
-      {% for c in children %}
-      <a href="?child={{ c.student.id }}"
-         class="shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition
-                {% if c.student.id == active_child.student.id %}bg-primary-600 text-white{% else %}bg-white border border-gray-200 text-gray-600{% endif %}">
-        <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-              style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">{{ c.student.get_initials }}</span>
-        {{ c.student.full_name }}
-      </a>
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    {% with c=active_child %}
-    {# ── CARTE ENFANT ── #}
-    <div class="card mx-4 mt-4 p-6">
-      <div class="flex items-center gap-4">
-        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-extrabold shrink-0"
-             style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">
-          {{ c.student.get_initials }}
-        </div>
-        <div class="min-w-0">
-          <h1 class="text-xl font-bold truncate">{{ c.student.full_name }}</h1>
-          <p class="text-sm text-gray-400 truncate">{{ c.student.school_class.name }} · {{ c.student.school.name }}</p>
-        </div>
-      </div>
-
-      {# ── STATUT PAIEMENT ── #}
-      <div class="mt-5 rounded-2xl p-4
-          {% if c.status == 'paid' %}bg-green-50{% elif c.status == 'partial' %}bg-amber-50{% else %}bg-red-50{% endif %}">
-        {% if c.status == 'paid' %}
-          <div class="flex items-center gap-2 text-green-700 font-bold"><i data-lucide="check-circle" class="w-5 h-5"></i> Scolarité à jour</div>
-        {% elif c.status == 'partial' %}
-          <div class="flex items-center gap-2 text-amber-700 font-bold mb-2"><i data-lucide="alert-triangle" class="w-5 h-5"></i> Il reste <span class="js-money" data-money="{{ c.balance }}">—</span> à payer</div>
-          <div class="h-2.5 bg-amber-100 rounded-full overflow-hidden">
-            <div class="bar-fill h-full rounded-full bg-amber-500" style="width:0%" data-bar="{{ c.pct_paid }}"></div>
-          </div>
-          <p class="text-xs text-amber-600 mt-1">{{ c.pct_paid }}% payé</p>
-        {% else %}
-          <div class="flex items-center gap-2 text-red-700 font-bold"><i data-lucide="x-circle" class="w-5 h-5"></i> Scolarité non réglée</div>
-          <p class="text-sm text-red-600 mt-1"><span class="js-money" data-money="{{ c.balance }}">—</span> à payer</p>
+      <div class="min-w-0 flex-1">
+        <h1 class="text-xl font-bold text-white truncate">{{ c.student.full_name }}</h1>
+        <p class="text-sm text-white/70 truncate">
+          {{ c.student.school_class.name }} · {{ c.student.school.name }}
+        </p>
+        {% if c.relationship %}
+        <span class="inline-block mt-1.5 px-2.5 py-0.5 rounded-full
+                     bg-white/20 text-white text-xs font-medium">
+          {{ c.relationship }}
+        </span>
         {% endif %}
       </div>
     </div>
 
-    {# ── GRILLE ACTIONS 2×2 ── #}
-    <div class="grid grid-cols-2 gap-3 mx-4 mt-4">
-      <a href="{% url 'parent:bulletins' %}" class="bg-primary-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between active:scale-[0.98] transition">
-        <i data-lucide="file-text" class="w-6 h-6 text-primary-600"></i>
-        <div><p class="font-bold text-gray-900">Bulletins</p><p class="text-xs text-gray-500">{{ c.bulletins_count }} disponible{{ c.bulletins_count|pluralize }}</p></div>
-      </a>
-      <a href="{% url 'parent:payments' %}" class="bg-green-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between active:scale-[0.98] transition">
-        <i data-lucide="wallet" class="w-6 h-6 text-green-600"></i>
-        <div><p class="font-bold text-gray-900">Paiements</p><p class="text-xs text-gray-500">Encaissé <span class="js-money" data-money="{{ c.total_paid }}">—</span></p></div>
-      </a>
-      <a href="{% url 'parent:notes' %}?child={{ c.student.id }}" class="bg-purple-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between active:scale-[0.98] transition">
-        <i data-lucide="bar-chart-3" class="w-6 h-6 text-purple-600"></i>
-        <div><p class="font-bold text-gray-900">Mes notes</p><p class="text-xs text-gray-500">{% if c.last_bulletin and c.last_bulletin.general_average %}moy. {{ c.last_bulletin.general_average|floatformat:"-2" }}/20{% else %}Voir les notes{% endif %}</p></div>
-      </a>
-      <div class="relative bg-orange-50 rounded-2xl p-4 min-h-[100px] flex flex-col justify-between">
-        {% if c.absences_count %}<span class="absolute top-3 right-3 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">{{ c.absences_count }}</span>{% endif %}
-        <i data-lucide="calendar-x" class="w-6 h-6 text-orange-600"></i>
-        <div><p class="font-bold text-gray-900">Absences</p><p class="text-xs text-gray-500">{{ c.absences_count }} · 30 j</p></div>
-      </div>
-    </div>
+    <div class="border-t border-white/20 my-4"></div>
 
-    {# ── BULLETIN RÉCENT ── #}
-    {% if c.last_bulletin %}
-    <div class="card mx-4 mt-4 p-5">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Dernier bulletin</p>
-      <p class="font-bold text-gray-900">{{ c.last_bulletin.period.name }} · {{ c.last_bulletin.period.school_year.name }}</p>
-      <div class="flex items-center gap-4 text-sm text-gray-500 mt-1">
-        {% if c.last_bulletin.general_average %}<span>Moyenne <strong class="text-gray-900">{{ c.last_bulletin.general_average|floatformat:"-2" }}/20</strong></span>{% endif %}
-        {% if c.last_bulletin.rank %}<span>Rang <strong class="text-gray-900">{{ c.last_bulletin.rank }}/{{ c.last_bulletin.class_size }}</strong></span>{% endif %}
-      </div>
-      <a href="{% url 'parent:bulletin-pdf' c.last_bulletin.id %}" target="_blank"
-         class="btn-primary w-full mt-4">
-        <i data-lucide="download" class="w-4 h-4"></i> Voir le bulletin
-      </a>
-    </div>
-    {% endif %}
-
-    {# ── ABSENCES RÉCENTES (30 j) ── #}
-    {% if c.recent_absences %}
-    <div class="mx-4 mt-4">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Absences récentes</p>
-      <div class="card divide-y divide-gray-50">
-        {% for a in c.recent_absences %}
-        <div class="flex items-center gap-2 px-4 py-2.5 text-sm">
-          <i data-lucide="calendar-x" class="w-4 h-4 text-orange-500 shrink-0"></i>
-          <span class="text-gray-700">{{ a.date|date:"j F Y" }}</span>
-          <span class="text-gray-400">· Absent</span>
+    {# Statut paiement #}
+    {% if c.status == 'paid' %}
+      <div class="flex items-center gap-2.5">
+        <i data-lucide="check-circle" class="w-5 h-5 text-green-300 shrink-0"></i>
+        <div>
+          <p class="text-white font-semibold text-sm">Scolarité à jour</p>
+          <p class="text-white/60 text-xs mt-0.5">
+            <span class="js-money" data-money="{{ c.total_paid }}">—</span> réglés
+          </p>
         </div>
-        {% endfor %}
       </div>
-    </div>
-    {% endif %}
 
-    {# ── MESSAGES DE L'ÉCOLE (observations partagées) ── #}
-    {% if c.observations %}
-    <div class="mx-4 mt-4">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Messages de l'école</p>
-      <div class="space-y-2">
-        {% for o in c.observations %}
-        <div class="card p-4">
-          <div class="flex items-center gap-2 mb-1.5">
-            {% if o.observation_type == 'behaviour' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Comportement</span>
-            {% elif o.observation_type == 'academic' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">Académique</span>
-            {% elif o.observation_type == 'health' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Santé</span>
-            {% else %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">Autre</span>{% endif %}
-          </div>
-          <p class="text-sm text-gray-700">{{ o.parent_message|default:o.content|truncatechars:60 }}</p>
-          <p class="text-[11px] text-gray-400 mt-1.5">{% if o.teacher %}{{ o.teacher.full_name }} · {% endif %}{{ o.created_at|naturaltime }}</p>
+    {% elif c.status == 'partial' %}
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-white font-bold text-sm">
+          <span class="js-money" data-money="{{ c.balance }}">—</span> restants
+        </p>
+        <p class="text-white/60 text-xs">{{ c.pct_paid }}% réglé</p>
+      </div>
+      <div class="h-2 w-full bg-white/20 rounded-full overflow-hidden">
+        <div class="bar-fill h-full rounded-full bg-green-400"
+             style="width:0%" data-bar="{{ c.pct_paid }}"></div>
+      </div>
+
+    {% else %}
+      <div class="flex items-center gap-2.5">
+        <i data-lucide="alert-circle" class="w-5 h-5 text-red-300 shrink-0"></i>
+        <div>
+          <p class="text-white font-semibold text-sm">Scolarité non réglée</p>
+          <p class="text-red-200 font-bold text-sm mt-0.5">
+            <span class="js-money" data-money="{{ c.balance }}">—</span>
+          </p>
         </div>
-        {% endfor %}
       </div>
-    </div>
     {% endif %}
-    {% endwith %}
 
+  </div>
+</div>
+
+{# ════════════════════════════════════════════════════════ #}
+{#  SECTION 3 — GRILLE ACTIONS RAPIDES                   #}
+{# ════════════════════════════════════════════════════════ #}
+<div class="grid grid-cols-2 gap-3 mx-4 mt-4 animate-fade-in-up animate-delay-200">
+
+  {# Bulletins #}
+  <a href="{% url 'parent:bulletins' %}"
+     class="relative bg-white rounded-2xl p-4 shadow-sm
+            active:scale-95 transition-transform duration-150">
+    {% if c.last_bulletin_is_new %}
+    <span class="absolute top-3 right-3 px-1.5 py-0.5 rounded-full
+                 bg-green-500 text-white text-[9px] font-bold leading-none">NEW</span>
+    {% endif %}
+    <div class="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center mb-3">
+      <i data-lucide="file-text" class="w-5 h-5 text-primary-600"></i>
+    </div>
+    <p class="text-sm font-semibold text-gray-800">Bulletins</p>
+    <p class="text-xs text-gray-500 mt-0.5">
+      {{ c.bulletins_count }} disponible{{ c.bulletins_count|pluralize }}
+    </p>
+  </a>
+
+  {# Paiements #}
+  <a href="{% url 'parent:payments' %}"
+     class="relative bg-white rounded-2xl p-4 shadow-sm
+            active:scale-95 transition-transform duration-150">
+    {% if c.balance > 0 %}
+    <span class="absolute top-3 right-3 px-1.5 py-0.5 rounded-full
+                 bg-red-500 text-white text-[9px] font-bold leading-none">SOLDE</span>
+    {% endif %}
+    <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center mb-3">
+      <i data-lucide="wallet" class="w-5 h-5 text-green-600"></i>
+    </div>
+    <p class="text-sm font-semibold text-gray-800">Paiements</p>
+    <p class="text-xs text-gray-500 mt-0.5 js-money" data-money="{{ c.total_paid }}">—</p>
+  </a>
+
+  {# Notes #}
+  <a href="{% url 'parent:notes' %}?child={{ c.student.id }}"
+     class="bg-white rounded-2xl p-4 shadow-sm
+            active:scale-95 transition-transform duration-150">
+    <div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mb-3">
+      <i data-lucide="bar-chart-2" class="w-5 h-5 text-purple-600"></i>
+    </div>
+    <p class="text-sm font-semibold text-gray-800">Notes</p>
+    <p class="text-xs text-gray-500 mt-0.5">
+      {% if c.last_bulletin and c.last_bulletin.general_average %}
+        Moy. {{ c.last_bulletin.general_average|floatformat:"-2" }}/20
+      {% else %}
+        Voir les notes
+      {% endif %}
+    </p>
+  </a>
+
+  {# Absences — div non cliquable (page à venir Phase 3) #}
+  <div class="relative bg-white rounded-2xl p-4 shadow-sm">
+    {% if c.absences_count > 3 %}
+    <span class="absolute top-3 right-3 min-w-[18px] h-[18px] px-1 rounded-full
+                 bg-red-500 text-white text-[9px] font-bold
+                 flex items-center justify-center leading-none">
+      {{ c.absences_count }}
+    </span>
+    {% endif %}
+    <div class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center mb-3">
+      <i data-lucide="calendar-x" class="w-5 h-5 text-orange-600"></i>
+    </div>
+    <p class="text-sm font-semibold text-gray-800">Absences</p>
+    <p class="text-xs text-gray-500 mt-0.5">{{ c.absences_count }} ce mois</p>
+  </div>
+
+</div>
+
+{# ════════════════════════════════════════════════════════ #}
+{#  SECTION 4 — DERNIER BULLETIN                         #}
+{# ════════════════════════════════════════════════════════ #}
+{% if c.last_bulletin %}
+<div class="mx-4 mt-4 bg-white rounded-2xl p-4 shadow-sm
+            animate-fade-in-up animate-delay-200">
+
+  <div class="flex items-center gap-3 mb-4">
+    <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+      <i data-lucide="award" class="w-4 h-4 text-amber-600"></i>
+    </div>
+    <div class="min-w-0">
+      <p class="text-sm font-semibold text-gray-800">Dernier bulletin</p>
+      <p class="text-xs text-gray-400 truncate">
+        {{ c.last_bulletin.period.name }} · {{ c.last_bulletin.period.school_year.name }}
+      </p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-2 text-center">
+
+    <div>
+      {% if c.last_bulletin.general_average %}
+        <p class="text-2xl font-bold text-gray-800">
+          {{ c.last_bulletin.general_average|floatformat:"-2" }}
+        </p>
+        <p class="text-xs text-gray-400">/20</p>
+      {% else %}
+        <p class="text-2xl font-bold text-gray-300">—</p>
+        <p class="text-xs text-gray-400">moy.</p>
+      {% endif %}
+    </div>
+
+    <div>
+      {% if c.last_bulletin.rank %}
+        <p class="text-2xl font-bold text-gray-800">
+          {{ c.last_bulletin.rank }}<sup class="text-sm font-normal align-super">è</sup>
+        </p>
+        <p class="text-xs text-gray-400">rang</p>
+      {% else %}
+        <p class="text-2xl font-bold text-gray-300">—</p>
+        <p class="text-xs text-gray-400">rang</p>
+      {% endif %}
+    </div>
+
+    <div>
+      {% if c.last_bulletin.class_size %}
+        <p class="text-2xl font-bold text-gray-800">{{ c.last_bulletin.class_size }}</p>
+        <p class="text-xs text-gray-400">élèves</p>
+      {% else %}
+        <p class="text-2xl font-bold text-gray-300">—</p>
+        <p class="text-xs text-gray-400">élèves</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  {% if c.last_bulletin.first_average %}
+  <p class="text-xs text-gray-400 text-center mt-2">
+    1<sup>er</sup> de classe&nbsp;: {{ c.last_bulletin.first_average|floatformat:"-2" }}/20
+  </p>
   {% endif %}
 
-  {% include "parent/partials/bottom_nav.html" with active="home" %}
+  {% if c.last_bulletin.appreciation %}
+  <div class="flex justify-center mt-2">
+    <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">
+      {{ c.last_bulletin.appreciation }}
+    </span>
+  </div>
+  {% endif %}
 
-  <script>
-    lucide.createIcons();
-    const nf = new Intl.NumberFormat('fr-FR');
-    document.querySelectorAll('.js-money').forEach(el => {
-      el.textContent = nf.format(Math.round(parseFloat(el.dataset.money || '0'))) + ' FCFA';
-    });
-    requestAnimationFrame(() => document.querySelectorAll('[data-bar]').forEach(b => { b.style.width = (b.dataset.bar||0)+'%'; }));
-  </script>
-</body>
-</html>
+  <a href="{% url 'parent:bulletin-pdf' c.last_bulletin.id %}" target="_blank"
+     class="flex items-center justify-center gap-2 w-full mt-4 py-2.5
+            bg-primary-600 text-white rounded-xl text-sm font-semibold
+            active:bg-primary-700 transition-colors">
+    <i data-lucide="file-text" class="w-4 h-4"></i>
+    Voir le bulletin PDF
+  </a>
+
+</div>
+{% endif %}
+
+{# ════════════════════════════════════════════════════════ #}
+{#  SECTION 5 — ABSENCES RÉCENTES                        #}
+{# ════════════════════════════════════════════════════════ #}
+{% if c.recent_absences %}
+<div class="mx-4 mt-4 animate-fade-in-up animate-delay-200">
+  <p class="text-sm font-semibold text-gray-700 mb-2">Absences récentes</p>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    {% for a in c.recent_absences %}
+    {% if not forloop.first %}<div class="border-t border-gray-50"></div>{% endif %}
+    <div class="flex items-center gap-3 py-2.5">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0
+                  {% if a.status == 'late' %}bg-amber-100{% else %}bg-red-100{% endif %}">
+        {% if a.status == 'late' %}
+          <i data-lucide="clock" class="w-4 h-4 text-amber-600"></i>
+        {% else %}
+          <i data-lucide="calendar-x" class="w-4 h-4 text-red-600"></i>
+        {% endif %}
+      </div>
+      <div>
+        <p class="text-sm text-gray-700">{{ a.date|date:"j F Y" }}</p>
+        <p class="text-xs font-medium
+                  {% if a.status == 'late' %}text-amber-600{% else %}text-red-600{% endif %}">
+          {{ a.get_status_display }}
+        </p>
+        {% if a.note %}
+        <p class="text-xs text-gray-400 mt-0.5">{{ a.note }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ════════════════════════════════════════════════════════ #}
+{#  SECTION 6 — MESSAGES DE L'ÉCOLE                      #}
+{# ════════════════════════════════════════════════════════ #}
+{% if c.observations %}
+<div class="mx-4 mt-4 mb-6 animate-fade-in-up animate-delay-200">
+  <p class="text-sm font-semibold text-gray-700 mb-2">Messages de l'école</p>
+  {% for o in c.observations %}
+  <div x-data="{ expanded: false, overflow: false }"
+       x-init="$nextTick(() => { overflow = $refs.msg.scrollHeight > $refs.msg.clientHeight })"
+       class="bg-white rounded-2xl p-4 shadow-sm mb-2 border-l-4
+              {% if o.observation_type == 'behaviour' %}border-orange-400
+              {% elif o.observation_type == 'academic' %}border-blue-400
+              {% elif o.observation_type == 'health' %}border-red-400
+              {% else %}border-gray-200{% endif %}">
+    <div class="mb-1.5">
+      {% if o.observation_type == 'behaviour' %}
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
+                     bg-orange-100 text-orange-700">Comportement</span>
+      {% elif o.observation_type == 'academic' %}
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
+                     bg-blue-100 text-blue-700">Académique</span>
+      {% elif o.observation_type == 'health' %}
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
+                     bg-red-100 text-red-700">Santé</span>
+      {% else %}
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
+                     bg-gray-100 text-gray-600">Autre</span>
+      {% endif %}
+    </div>
+    <p x-ref="msg"
+       :class="expanded ? 'line-clamp-none' : 'line-clamp-3'"
+       class="text-sm text-gray-700">
+      {{ o.parent_message|default:o.content }}
+    </p>
+    <button x-show="overflow"
+            x-on:click="expanded = !expanded"
+            x-text="expanded ? 'Réduire' : 'Lire'"
+            class="text-xs font-medium text-primary-600 mt-1"></button>
+    <p class="text-xs text-gray-400 mt-1.5">
+      {% if o.teacher %}{{ o.teacher.full_name }} · {% endif %}{{ o.created_at|naturaltime }}
+    </p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endwith %}
+{% endif %}
+
+{% endblock %}
