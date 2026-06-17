@@ -47,6 +47,23 @@
 - Branche suggérée : feature/parent-rdv
 - Priorité : haute
 
+## Page "Toutes mes observations" — portail enseignant
+- Contexte : l'enseignant ne peut voir que ses 5 dernières
+  observations sur le dashboard. Pour retrouver une observation
+  ancienne, il doit naviguer élève par élève.
+- Ce qu'on veut : page /teacher/observations/ listant toutes
+  les observations de l'enseignant connecté avec filtres :
+  par type (behaviour/academic/health/other)
+  par statut (lu par directeur / en attente / partagé parent)
+  par élève (recherche)
+- Modèle : StudentObservation.objects.filter(teacher=request.user)
+  .select_related('student', 'student__school_class')
+  .order_by('-created_at')
+- Ajouter un lien "Voir toutes" sur le dashboard enseignant
+  (section "Mes observations récentes")
+- Branche suggérée : feature/teacher-observations
+- Priorité : haute
+
 ## Justification d'absence par le parent
 - Modèle AbsenceJustification à créer (attendance OneToOne,
   guardian, reason, attachment, status)
