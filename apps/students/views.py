@@ -338,8 +338,11 @@ def observation_share_parent(request, student_id, obs_id):
         msg, notif_type = 'Observation retirée du portail parent.', 'info'
     else:
         # Partager + notifier les parents
+        parent_message = request.POST.get('parent_message', '').strip()
+        if parent_message:
+            obs.parent_message = parent_message
         obs.is_visible_to_parent = True
-        obs.save(update_fields=['is_visible_to_parent'])
+        obs.save(update_fields=['is_visible_to_parent', 'parent_message'])
         message = obs.parent_message or obs.content[:100]
         notify_guardians(
             student=student,
