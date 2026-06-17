@@ -1,39 +1,36 @@
-{% load humanize static %}<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Notifications — EduApp</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/output.css' %}">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    body{font-family:'Manrope',sans-serif;}
-    .notif-card.htmx-swapping{opacity:0;transform:translateX(24px);transition:all .3s ease;}
-  </style>
-</head>
-<body class="min-h-screen bg-[#F8F9FC] text-gray-900 pb-24">
+{% extends "parent/base_parent.html" %}
+{% load humanize %}
 
-  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14 flex items-center gap-3 px-4">
-    <a href="{% url 'parent:dashboard' %}" class="p-1.5 -ml-1.5 rounded-lg text-gray-500 hover:bg-gray-100"><i data-lucide="arrow-left" class="w-5 h-5"></i></a>
-    <h1 class="text-base font-bold flex-1">Notifications</h1>
-    {% if unread_count %}
-    <form method="post" action="{% url 'parent:notif-read-all' %}">
-      {% csrf_token %}
-      <button type="submit" class="text-xs font-medium text-primary-600">Tout marquer lu</button>
-    </form>
-    {% endif %}
-  </header>
+{% block title %}Notifications{% endblock %}
 
+{% block extra_head %}
+<style>
+  .notif-card.htmx-swapping { opacity:0; transform:translateX(24px); transition:all .3s ease; }
+</style>
+{% endblock %}
+
+{% block header %}
+<header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14 flex items-center gap-3 px-4">
+  <a href="{% url 'parent:dashboard' %}" class="p-1.5 -ml-1.5 rounded-lg text-gray-500 hover:bg-gray-100">
+    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+  </a>
+  <h1 class="text-base font-bold flex-1">Notifications</h1>
+  {% if unread_count %}
+  <form method="post" action="{% url 'parent:notif-read-all' %}">
+    {% csrf_token %}
+    <button type="submit" class="text-xs font-medium text-primary-600">Tout marquer lu</button>
+  </form>
+  {% endif %}
+</header>
+{% endblock %}
+
+{% block content %}
   {% if notifications %}
   <div class="px-4 py-4 space-y-2">
     {% for n in notifications %}
     <div id="notif-{{ n.id }}" class="notif-card rounded-2xl border p-4 flex items-start gap-3
          {% if not n.is_read %}bg-blue-50 border-blue-100{% else %}bg-white border-gray-100{% endif %}">
 
-      {# Icône catégorie #}
       <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0
           {% if n.category == 'observation' %}bg-purple-100{% elif n.category == 'absence' %}bg-orange-100{% elif n.category == 'bulletin' %}bg-blue-100{% elif n.category == 'payment' %}bg-green-100{% else %}bg-gray-100{% endif %}">
         {% if n.category == 'observation' %}<i data-lucide="message-square" class="w-4 h-4 text-purple-600"></i>
@@ -43,7 +40,6 @@
         {% else %}<i data-lucide="info" class="w-4 h-4 text-gray-500"></i>{% endif %}
       </div>
 
-      {# Contenu cliquable → marque lu + redirige #}
       <a href="{% url 'parent:notif-open' n.id %}" class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
           <p class="text-sm font-semibold text-gray-900 truncate flex-1">{{ n.title }}</p>
@@ -53,7 +49,6 @@
         <p class="text-[11px] text-gray-400 mt-1">{{ n.created_at|naturaltime }}</p>
       </a>
 
-      {# Supprimer #}
       <button hx-post="{% url 'parent:notif-delete' n.id %}"
               hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
               hx-target="#notif-{{ n.id }}" hx-swap="outerHTML swap:300ms"
@@ -64,7 +59,6 @@
     {% endfor %}
   </div>
 
-  {# Tout effacer #}
   <div class="px-4 pt-2">
     <form method="post" action="{% url 'parent:notif-clear' %}"
           onsubmit="return confirm('Effacer toutes les notifications ?');">
@@ -82,11 +76,4 @@
     <p class="text-sm text-gray-400 mt-1">Vous êtes à jour !</p>
   </div>
   {% endif %}
-
-  {% include "parent/partials/bottom_nav.html" with active="" %}
-  <script>
-    lucide.createIcons();
-    document.body.addEventListener('htmx:afterSwap', () => lucide.createIcons());
-  </script>
-</body>
-</html>
+{% endblock %}

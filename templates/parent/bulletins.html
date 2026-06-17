@@ -1,26 +1,24 @@
-{% load static %}<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mes bulletins — EduApp</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/output.css' %}">
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>body{font-family:'Manrope',sans-serif;}</style>
-</head>
-<body class="min-h-screen bg-[#F8F9FC] text-gray-900 pb-24">
+{% extends "parent/base_parent.html" %}
 
-  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14 flex items-center gap-3 px-4">
-    <a href="{% url 'parent:dashboard' %}" class="p-1.5 -ml-1.5 rounded-lg text-gray-500 hover:bg-gray-100"><i data-lucide="arrow-left" class="w-5 h-5"></i></a>
-    <h1 class="text-base font-bold">Mes bulletins</h1>
-  </header>
+{% block title %}Mes bulletins{% endblock %}
 
+{% block header %}
+<header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14 flex items-center gap-3 px-4">
+  <a href="{% url 'parent:dashboard' %}" class="p-1.5 -ml-1.5 rounded-lg text-gray-500 hover:bg-gray-100">
+    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+  </a>
+  <h1 class="text-base font-bold">Mes bulletins</h1>
+</header>
+{% endblock %}
+
+{% block bottom_nav %}
+{% include "parent/partials/bottom_nav.html" with active="bulletins" %}
+{% endblock %}
+
+{% block content %}
   <div class="px-4 py-4 space-y-6">
     {% for c in children %}
     <section>
-      {# En-tête enfant #}
       <div class="flex items-center gap-3 mb-3">
         <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
              style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">{{ c.student.get_initials }}</div>
@@ -59,8 +57,4 @@
     </section>
     {% endfor %}
   </div>
-
-  {% include "parent/partials/bottom_nav.html" with active="bulletins" %}
-  <script>lucide.createIcons();</script>
-</body>
-</html>
+{% endblock %}

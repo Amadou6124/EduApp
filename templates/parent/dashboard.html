@@ -1,37 +1,13 @@
-{% load humanize static %}<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Espace Parent — EduApp</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/output.css' %}">
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    body { font-family:'Manrope',sans-serif; }
-    .bar-fill { transition: width 1s ease-out; }
-    .no-scrollbar::-webkit-scrollbar { display:none; }
-    .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-  </style>
-</head>
-<body class="min-h-screen bg-[#F8F9FC] text-gray-900 pb-24">
+{% extends "parent/base_parent.html" %}
+{% load humanize %}
 
-  {# ── HEADER FIXE ── #}
-  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14 flex items-center justify-between px-4">
-    <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-         style="background:{{ request.user.get_avatar_colors.0 }};color:{{ request.user.get_avatar_colors.1 }}">
-      {{ request.user.get_initials }}
-    </div>
-    <span class="text-base font-extrabold text-primary-600">EduApp</span>
-    <a href="{% url 'parent:notifications' %}" class="relative p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition" title="Notifications">
-      <i data-lucide="bell" class="w-5 h-5"></i>
-      {% if parent_unread_count %}
-      <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">{{ parent_unread_count }}</span>
-      {% endif %}
-    </a>
-  </header>
+{% block title %}Espace Parent{% endblock %}
 
+{% block bottom_nav %}
+{% include "parent/partials/bottom_nav.html" with active="home" %}
+{% endblock %}
+
+{% block content %}
   {% if not active_child %}
     {# ── ÉTAT VIDE ── #}
     <div class="flex flex-col items-center justify-center text-center px-6 py-24">
@@ -167,16 +143,4 @@
     {% endwith %}
 
   {% endif %}
-
-  {% include "parent/partials/bottom_nav.html" with active="home" %}
-
-  <script>
-    lucide.createIcons();
-    const nf = new Intl.NumberFormat('fr-FR');
-    document.querySelectorAll('.js-money').forEach(el => {
-      el.textContent = nf.format(Math.round(parseFloat(el.dataset.money || '0'))) + ' FCFA';
-    });
-    requestAnimationFrame(() => document.querySelectorAll('[data-bar]').forEach(b => { b.style.width = (b.dataset.bar||0)+'%'; }));
-  </script>
-</body>
-</html>
+{% endblock %}
