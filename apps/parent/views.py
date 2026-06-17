@@ -245,7 +245,23 @@ def parent_notes(request):
 @parent_required
 def parent_notifications(request):
     """Liste des notifications du parent. Ordonné -created_at (Meta)."""
+    from datetime import timedelta
+    today     = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+    week_ago  = today - timedelta(days=7)
+
     notifs = list(request.user.notifications.all())
+    for n in notifs:
+        d = n.created_at.date()
+        if d == today:
+            n.date_group = "Aujourd'hui"
+        elif d == yesterday:
+            n.date_group = "Hier"
+        elif d >= week_ago:
+            n.date_group = "Cette semaine"
+        else:
+            n.date_group = "Plus ancien"
+
     return render(request, 'parent/notifications.html', {
         'notifications': notifs,
         'unread_count': sum(1 for n in notifs if not n.is_read),
