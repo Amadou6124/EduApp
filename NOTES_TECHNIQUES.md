@@ -35,3 +35,22 @@
 - Solution propre : réponse HTMX OOB depuis notification_delete view
 - Branche suggérée : fix/notif-group-labels
 - Priorité : basse (comportement identique à WhatsApp)
+
+---
+
+## Demande de RDV parent → directeur
+- Modèle MeetingRequest à créer (school, guardian, student,
+  message, requested_date, status, admin_note)
+- Vue parent : soumettre une demande
+- Vue admin : gérer la liste (accepter/refuser/noter)
+- Notification auto au directeur à la soumission
+- Branche suggérée : feature/parent-rdv
+- Priorité : haute
+
+## Justification d'absence par le parent
+- Modèle AbsenceJustification à créer (attendance OneToOne,
+  guardian, reason, attachment, status)
+- Vue parent : soumettre depuis la page Absences
+- Vue admin : valider ou refuser avec note
+- Branche suggérée : feature/parent-justification
+- Priorité : moyenne
