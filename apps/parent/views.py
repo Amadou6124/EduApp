@@ -157,6 +157,8 @@ def parent_payments(request):
     total_due_all = Decimal('0')
     for l in links:
         s = l.student
+        for p in s.active_payments:
+            p.month_group = p.payment_date.strftime('%Y-%m')
         paid = sum((p.amount for p in s.active_payments), Decimal('0'))
         due = s.tuition_fee or Decimal('0')
         balance = max(due - paid, Decimal('0'))
