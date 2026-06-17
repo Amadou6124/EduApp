@@ -72,6 +72,7 @@ def parent_dashboard(request):
         status = 'paid' if balance <= 0 else ('partial' if total_paid > 0 else 'unpaid')
         pct = int(total_paid / s.tuition_fee * 100) if s.tuition_fee else 0
         bulletins = s.published_bulletins
+        lb = bulletins[0] if bulletins else None
         children.append({
             'student':        s,
             'relationship':   link.get_relationship_display(),
@@ -81,7 +82,11 @@ def parent_dashboard(request):
             'pct_paid':       min(max(pct, 0), 100),
             'status':         status,
             'bulletins_count': len(bulletins),
-            'last_bulletin':  bulletins[0] if bulletins else None,
+            'last_bulletin':   lb,
+            'last_bulletin_is_new': bool(
+                lb and lb.published_at and
+                (now.date() - lb.published_at.date()).days < 7
+            ),
             'absences_count': len(s.recent_absences),
             'recent_absences': s.recent_absences,
             'observations':   s.shared_observations,
