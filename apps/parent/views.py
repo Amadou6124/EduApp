@@ -48,7 +48,7 @@ def parent_dashboard(request):
             Prefetch(
                 'student__attendances',
                 queryset=Attendance.objects
-                    .filter(status='absent', date__gte=since_30)
+                    .filter(status__in=['absent', 'late'], date__gte=since_30)
                     .order_by('-date'),
                 to_attr='recent_absences',
             ),
@@ -72,6 +72,7 @@ def parent_dashboard(request):
         status = 'paid' if balance <= 0 else ('partial' if total_paid > 0 else 'unpaid')
         pct = int(total_paid / s.tuition_fee * 100) if s.tuition_fee else 0
         bulletins = s.published_bulletins
+        lb = bulletins[0] if bulletins else None
         children.append({
             'student':        s,
             'relationship':   link.get_relationship_display(),
@@ -81,7 +82,11 @@ def parent_dashboard(request):
             'pct_paid':       min(max(pct, 0), 100),
             'status':         status,
             'bulletins_count': len(bulletins),
-            'last_bulletin':  bulletins[0] if bulletins else None,
+            'last_bulletin':   lb,
+            'last_bulletin_is_new': bool(
+                lb and lb.published_at and
+                (now.date() - lb.published_at.date()).days < 7
+            ),
             'absences_count': len(s.recent_absences),
             'recent_absences': s.recent_absences,
             'observations':   s.shared_observations,
@@ -112,7 +117,7 @@ def parent_bulletins(request):
 
     links = (
         request.user.guarded_students
-        .select_related('student', 'student__school_class')
+        .select_related('student', 'student__school_class', 'student__school')
         .prefetch_related(Prefetch(
             'student__bulletins',
             queryset=Bulletin.objects
@@ -124,7 +129,11 @@ def parent_bulletins(request):
         .order_by('-is_primary', 'student__full_name')
     )
     children = [{'student': l.student, 'bulletins': l.student.published_bulletins} for l in links]
-    return render(request, 'parent/bulletins.html', {'children': children})
+    any_bulletins = any(c['bulletins'] for c in children)
+    return render(request, 'parent/bulletins.html', {
+        'children': children,
+        'any_bulletins': any_bulletins,
+    })
 
 
 @login_required
@@ -148,6 +157,8 @@ def parent_payments(request):
     total_due_all = Decimal('0')
     for l in links:
         s = l.student
+        for p in s.active_payments:
+            p.month_group = p.payment_date.strftime('%Y-%m')
         paid = sum((p.amount for p in s.active_payments), Decimal('0'))
         due = s.tuition_fee or Decimal('0')
         balance = max(due - paid, Decimal('0'))
@@ -240,7 +251,23 @@ def parent_notes(request):
 @parent_required
 def parent_notifications(request):
     """Liste des notifications du parent. Ordonné -created_at (Meta)."""
+    from datetime import timedelta
+    today     = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+    week_ago  = today - timedelta(days=7)
+
     notifs = list(request.user.notifications.all())
+    for n in notifs:
+        d = n.created_at.date()
+        if d == today:
+            n.date_group = "Aujourd'hui"
+        elif d == yesterday:
+            n.date_group = "Hier"
+        elif d >= week_ago:
+            n.date_group = "Cette semaine"
+        else:
+            n.date_group = "Plus ancien"
+
     return render(request, 'parent/notifications.html', {
         'notifications': notifs,
         'unread_count': sum(1 for n in notifs if not n.is_read),

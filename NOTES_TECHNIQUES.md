@@ -28,3 +28,10 @@
 - `this.classes.find is not a function` (page inscription élève ?)
 - `lucide.min.js.map` 404 (source map manquante, sans impact fonctionnel)
 - Branche suggérée : fix/alpine-errors
+
+## Labels de groupe HTMX orphelins (notifications)
+- Quand le dernier item d'un groupe est supprimé via HTMX delete,
+  le label groupe reste visible (rendu serveur, HTMX ne le cible pas)
+- Solution propre : réponse HTMX OOB depuis notification_delete view
+- Branche suggérée : fix/notif-group-labels
+- Priorité : basse (comportement identique à WhatsApp)

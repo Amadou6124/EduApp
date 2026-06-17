@@ -1,0 +1,115 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{% block title %}Espace Parent{% endblock %} — EduApp</title>
+
+  {# Assets self-hostés — même vendor/ que le portail admin #}
+  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
+  <script src="{% static 'vendor/htmx/htmx.min.js' %}" defer></script>
+  <script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
+  <script src="{% static 'vendor/lucide/lucide.min.js' %}" defer></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    .bar-fill  { transition: width 1s ease-out; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body class="min-h-screen bg-[#F8F9FC] text-gray-900 pb-[calc(68px+env(safe-area-inset-bottom))]"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+      x-data>
+
+  {# ── HEADER ──────────────────────────────────────────────────────── #}
+  {#   Par défaut : 3 colonnes dashboard (avatar | logo | cloche)      #}
+  {#   Les sous-pages surchargent {% block header %} entièrement       #}
+  {% block header %}
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14
+                 flex items-center justify-between px-4">
+
+    {% block header_left %}
+    <a href="{% url 'parent:account' %}"
+       class="w-9 h-9 rounded-full flex items-center justify-center
+              text-sm font-bold shrink-0 active:opacity-70 transition-opacity"
+       style="background:{{ request.user.get_avatar_colors.0 }};
+              color:{{ request.user.get_avatar_colors.1 }}">
+      {{ request.user.get_initials }}
+    </a>
+    {% endblock %}
+
+    <span class="text-base font-extrabold text-primary-600">EduApp</span>
+
+    {% block header_right %}
+    <a href="{% url 'parent:notifications' %}"
+       class="relative p-2 rounded-lg text-gray-400 hover:text-gray-600
+              hover:bg-gray-100 transition"
+       aria-label="Notifications">
+      <i data-lucide="bell" class="w-5 h-5"></i>
+      {% if parent_unread_count %}
+      <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1
+                   rounded-full bg-red-500 text-white text-[9px] font-bold
+                   flex items-center justify-center leading-none">
+        {{ parent_unread_count }}
+      </span>
+      {% endif %}
+    </a>
+    {% endblock %}
+
+  </header>
+  {% endblock %}
+
+  {# ── CONTENU PRINCIPAL ───────────────────────────────────────────── #}
+  <main class="{% block main_class %}{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  {# ── BOTTOM NAV ──────────────────────────────────────────────────── #}
+  {% block bottom_nav %}
+  {% include "parent/partials/bottom_nav.html" with active="" %}
+  {% endblock %}
+
+  {# ── ALPINE STORE ────────────────────────────────────────────────── #}
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('parent', {
+        activeChildId: null,
+        notifCount: {{ parent_unread_count|default:0 }},
+      });
+    });
+  </script>
+
+  {# ── JS COMMUN (factorisé — plus jamais dans les pages) ─────────── #}
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Icônes Lucide
+      lucide.createIcons();
+
+      // Formatage FCFA — disponible globalement
+      window.formatFCFA = (n) =>
+        new Intl.NumberFormat('fr-FR').format(Math.round(parseFloat(n || '0'))) + ' FCFA';
+
+      // Remplace tous les .js-money par le montant formaté
+      document.querySelectorAll('.js-money').forEach(el =>
+        el.textContent = window.formatFCFA(el.dataset.money));
+
+      // Anime toutes les barres [data-bar]
+      requestAnimationFrame(() =>
+        document.querySelectorAll('[data-bar]').forEach(b =>
+          b.style.width = (b.dataset.bar || 0) + '%'));
+    });
+
+    // Recrée les icônes après chaque swap HTMX
+    document.body.addEventListener('htmx:afterSwap', () => lucide.createIcons());
+  </script>
+
+  {% block extra_js %}{% endblock %}
+
+</body>
+</html>
