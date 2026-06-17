@@ -126,7 +126,8 @@
 
         <!-- Absences -->
         <a href="{% url 'teacher:attendance-list' %}"
-           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Absences'">
           <i data-lucide="calendar-x" class="w-5 h-5 shrink-0"></i>
@@ -145,7 +146,8 @@
 
         <!-- Mes élèves (lecture seule) -->
         <a href="{% url 'teacher:students' %}"
-           class="flex items-center py-2 rounded-lg transition text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'students' or request.resolver_match.url_name == 'student-detail' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mes élèves'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
@@ -609,19 +611,9 @@
             {% endif %}
           </div>
 
-          <!-- Cloche + badge -->
-          <div class="relative shrink-0">
-            <button type="button"
-                    class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
-              <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
-            </button>
-            {% if alert_count > 0 %}
-            <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
-                         bg-red-500 rounded-full text-white text-[9px] font-bold
-                         flex items-center justify-center leading-none">
-              {{ alert_count }}
-            </span>
-            {% endif %}
+          <!-- Cloche décorative (page notifications enseignant à venir) -->
+          <div class="shrink-0 p-2 text-gray-300">
+            <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
           </div>
         </div>
         {% endif %}
@@ -776,21 +768,16 @@
       {% endif %}
     </a>
 
-    {# Suivi #}
-    <a href="{% url 'teacher:difficulty' %}"
-       class="flex-1 flex flex-col items-center justify-center">
-      {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}
-      <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-xl px-3 py-1">
-        <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 text-primary-600"></i>
-        <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Suivi</span>
-      </span>
-      {% else %}
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
-        <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 text-gray-400"></i>
-        <span class="text-[10px] text-gray-400 whitespace-nowrap">Suivi</span>
-      </span>
-      {% endif %}
-    </a>
+    {# Plus (enseignant) — ouvre la bottom-sheet #}
+    <button type="button"
+            @click="$store.teacherMoreSheet.open = true"
+            :aria-expanded="$store.teacherMoreSheet.open"
+            aria-haspopup="dialog" aria-label="Plus de pages"
+            :class="$store.teacherMoreSheet.open ? 'text-primary-600' : 'text-gray-400'"
+            class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px]">
+      <i data-lucide="menu" class="w-5 h-5 shrink-0"></i>
+      <span class="text-[10px] whitespace-nowrap">Plus</span>
+    </button>
 
     {% elif request.role == 'promoter' %}
     {# ── Nav mobile PROMOTEUR : un seul item centré ── #}
@@ -881,6 +868,79 @@
 
     {% endif %}{# fin if teacher #}
   </nav>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- BOTTOM-SHEET « PLUS » (mobile enseignant)       -->
+  {% if request.role == 'teacher' %}
+  <div x-data
+       x-effect="document.body.classList.toggle('overflow-hidden', $store.teacherMoreSheet.open)"
+       @keydown.escape.window="$store.teacherMoreSheet.open = false"
+       :class="$store.teacherMoreSheet.open ? '' : 'pointer-events-none'"
+       class="lg:hidden fixed inset-0 z-50"
+       role="dialog" aria-modal="true" aria-label="Menu Plus enseignant">
+
+    {# Backdrop #}
+    <div x-show="$store.teacherMoreSheet.open" x-cloak
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-200"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click="$store.teacherMoreSheet.open = false"
+         class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+    {# Panneau slide-up — safe-area incluse #}
+    <div x-show="$store.teacherMoreSheet.open" x-cloak
+         x-transition:enter="transition ease-out duration-250"
+         x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+         x-ref="teacherSheet" tabindex="-1"
+         x-effect="$store.teacherMoreSheet.open && $nextTick(() => $refs.teacherSheet.focus())"
+         style="padding-bottom: env(safe-area-inset-bottom)"
+         class="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+
+      {# Poignée + titre + fermer #}
+      <div class="sticky top-0 bg-white px-5 pt-2.5 pb-3 border-b border-gray-100">
+        <div class="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3"></div>
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-semibold text-gray-900">Plus</h2>
+          <button type="button" @click="$store.teacherMoreSheet.open = false" aria-label="Fermer"
+                  class="min-h-[44px] min-w-[44px] -mr-2 flex items-center justify-center text-gray-400 rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="px-3 py-3 space-y-5">
+
+        {# ── NAVIGATION ── #}
+        <div>
+          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Navigation</p>
+          <a href="{% url 'teacher:students' %}"   class="sheet-item"><i data-lucide="users"></i> Mes élèves</a>
+          <a href="{% url 'teacher:difficulty' %}" class="sheet-item"><i data-lucide="activity"></i> Suivi difficulté</a>
+          <a href="{% url 'lessons:list' %}"        class="sheet-item"><i data-lucide="book-open"></i> Mes leçons</a>
+        </div>
+
+        {# ── PIED : nom + déconnexion ── #}
+        <div class="border-t border-gray-100 pt-3">
+          <div class="flex items-center gap-3 px-3 py-2">
+            <span class="w-9 h-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+              {{ request.user.full_name|first|upper }}
+            </span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-gray-900 truncate leading-tight">{{ request.user.full_name }}</p>
+              <p class="text-xs text-gray-400 truncate">Enseignant</p>
+            </div>
+          </div>
+          <a href="{% url 'accounts:logout' %}" class="sheet-item text-red-600 hover:bg-red-50">
+            <i data-lucide="log-out" class="text-red-400"></i> Se déconnecter
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ════════════════════════════════════════════════ -->
   <!-- BOTTOM-SHEET « PLUS » (mobile directeur/staff) -->
@@ -1128,6 +1188,9 @@
 
       // Store bottom-sheet « Plus » (mobile directeur/staff)
       Alpine.store('moreSheet', { open: false });
+
+      // Store bottom-sheet « Plus » (mobile enseignant)
+      Alpine.store('teacherMoreSheet', { open: false });
 
       // Store mini-sheet compte (mobile directeur/staff)
       Alpine.store('accountSheet', { open: false });
