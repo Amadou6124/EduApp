@@ -5,6 +5,10 @@ app_name = 'schools'
 
 urlpatterns = [
     path('classes/', views.class_list, name='class-list'),
+    path('announcements/',                  views.announcement_list,    name='announcement-list'),
+    path('announcements/create/',           views.announcement_create,  name='announcement-create'),
+    path('announcements/<int:pk>/publish/', views.announcement_publish, name='announcement-publish'),
+    path('announcements/<int:pk>/delete/',  views.announcement_delete,  name='announcement-delete'),
     path('classes/create/', views.class_create, name='class-create'),
     path('classes/search/', views.class_search, name='class-search'),
     path('classes/import/template/', views.class_import_template, name='class-import-template'),

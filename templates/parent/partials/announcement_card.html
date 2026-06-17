@@ -1,0 +1,49 @@
+<div x-data="{ expanded: false, overflow: false }"
+     x-init="$nextTick(() => { overflow = $refs.body.scrollHeight > $refs.body.clientHeight })"
+     class="mx-4 mb-3 bg-white rounded-2xl shadow-sm overflow-hidden">
+
+  <div class="p-4">
+
+    {# Badges audience + date #}
+    <div class="flex items-center gap-2 flex-wrap mb-2">
+      {% if ann.audience == 'school' %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-100 text-primary-700">
+        <i data-lucide="users" class="w-2.5 h-2.5 inline-block -mt-0.5"></i> Tous les parents
+      </span>
+      {% elif ann.audience == 'class' %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100 text-indigo-700">
+        <i data-lucide="graduation-cap" class="w-2.5 h-2.5 inline-block -mt-0.5"></i>
+        {{ ann.target_class.name|default:"Votre classe" }}
+      </span>
+      {% elif ann.audience == 'student' %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700">
+        <i data-lucide="user" class="w-2.5 h-2.5 inline-block -mt-0.5"></i>
+        {{ ann.target_student.full_name|default:"Votre enfant" }}
+      </span>
+      {% endif %}
+
+      <span class="text-[10px] text-gray-400 ml-auto">
+        {{ ann.published_at|date:"j N Y" }}
+      </span>
+    </div>
+
+    {# Titre #}
+    <p class="text-sm font-semibold text-gray-900 leading-snug mb-1.5">
+      {{ ann.title }}
+    </p>
+
+    {# Corps avec "Lire la suite" #}
+    <p x-ref="body"
+       :class="expanded ? 'line-clamp-none' : 'line-clamp-3'"
+       class="text-sm text-gray-600 leading-relaxed">
+      {{ ann.body }}
+    </p>
+    <button x-show="overflow"
+            @click="expanded = !expanded"
+            x-text="expanded ? 'Réduire ↑' : 'Lire la suite ↓'"
+            class="text-xs font-medium text-primary-600 mt-1 hover:underline">
+    </button>
+
+  </div>
+
+</div>

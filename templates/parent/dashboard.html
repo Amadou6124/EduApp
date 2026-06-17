@@ -129,6 +129,26 @@
 </div>
 
 {# ════════════════════════════════════════════════════════ #}
+{#  SECTION 2b — BANNIÈRE ANNONCES                       #}
+{# ════════════════════════════════════════════════════════ #}
+{% if recent_announcements_count %}
+<a href="{% url 'parent:annonces' %}"
+   class="mx-4 mt-3 flex items-center gap-3 bg-primary-50 rounded-2xl p-3.5
+          active:scale-95 transition-transform duration-150 animate-fade-in-up animate-delay-150">
+  <div class="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center shrink-0">
+    <i data-lucide="megaphone" class="w-4 h-4 text-primary-600"></i>
+  </div>
+  <div class="flex-1 min-w-0">
+    <p class="text-sm font-semibold text-primary-800">Annonces de l'école</p>
+    <p class="text-xs text-primary-600/80 mt-0.5">
+      {{ recent_announcements_count }} annonce{{ recent_announcements_count|pluralize }} publiée{{ recent_announcements_count|pluralize }}
+    </p>
+  </div>
+  <i data-lucide="chevron-right" class="w-4 h-4 text-primary-400 shrink-0"></i>
+</a>
+{% endif %}
+
+{# ════════════════════════════════════════════════════════ #}
 {#  SECTION 3 — GRILLE ACTIONS RAPIDES                   #}
 {# ════════════════════════════════════════════════════════ #}
 <div class="grid grid-cols-2 gap-3 mx-4 mt-4 animate-fade-in-up animate-delay-200">

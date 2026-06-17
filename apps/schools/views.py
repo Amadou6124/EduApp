@@ -15,7 +15,7 @@ from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
-from .models import SchoolClass, School, EducationLevel
+from .models import SchoolClass, School, EducationLevel, SchoolAnnouncement
 from .forms import SchoolClassForm
 from apps.core.mixins import get_school, director_or_staff_required
 from apps.core.text import norm_name
@@ -472,3 +472,161 @@ def class_delete(request, class_id):
         'showToast': {'message': f'Classe {name} supprimée.', 'type': 'success'}
     })
     return response
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ANNONCES
+# ─────────────────────────────────────────────────────────────────────
+
+@login_required
+@director_or_staff_required
+def announcement_list(request):
+    school = get_school(request)
+    announcements = (
+        SchoolAnnouncement.objects
+        .filter(school=school)
+        .select_related('author', 'target_class', 'target_student')
+        .order_by('-created_at')
+    )
+    classes = SchoolClass.objects.filter(school=school, is_active=True).order_by('name')
+    from apps.students.models import Student
+    students = (
+        Student.objects
+        .filter(school=school, is_active=True)
+        .select_related('school_class')
+        .order_by('full_name')
+    )
+    return render(request, 'schools/announcements/list.html', {
+        'announcements': announcements,
+        'classes':        classes,
+        'students':       students,
+    })
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def announcement_create(request):
+    school   = get_school(request)
+    title    = request.POST.get('title', '').strip()
+    body     = request.POST.get('body', '').strip()
+    audience = request.POST.get('audience', 'school')
+
+    if not title:
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Le titre est requis.', 'type': 'error'}})
+        return resp
+    if not body:
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Le contenu est requis.', 'type': 'error'}})
+        return resp
+    if audience not in ('school', 'class', 'student'):
+        audience = 'school'
+
+    target_class   = None
+    target_student = None
+
+    if audience == 'class':
+        class_id = request.POST.get('target_class_id', '').strip()
+        if not class_id:
+            resp = HttpResponse(status=422)
+            resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Sélectionnez une classe.', 'type': 'error'}})
+            return resp
+        target_class = get_object_or_404(SchoolClass, id=class_id, school=school)
+
+    if audience == 'student':
+        student_id = request.POST.get('target_student_id', '').strip()
+        if not student_id:
+            resp = HttpResponse(status=422)
+            resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Sélectionnez un élève.', 'type': 'error'}})
+            return resp
+        from apps.students.models import Student
+        target_student = get_object_or_404(Student, id=student_id, school=school)
+
+    ann = SchoolAnnouncement.objects.create(
+        school=school,
+        author=request.user,
+        title=title,
+        body=body,
+        audience=audience,
+        target_class=target_class,
+        target_student=target_student,
+    )
+
+    resp = render(request, 'schools/announcements/partials/announcement_card.html', {'ann': ann})
+    resp['HX-Trigger'] = json.dumps({
+        'close-announcement-panel': True,
+        'showToast': {'message': 'Brouillon créé.', 'type': 'success'},
+    })
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def announcement_publish(request, pk):
+    from django.utils import timezone
+    from apps.notifications.services import notify_bulk, notify_guardians
+    from apps.notifications.models import NotificationCategory
+    from apps.students.models import StudentGuardian
+
+    school = get_school(request)
+    ann    = get_object_or_404(SchoolAnnouncement, pk=pk, school=school)
+
+    if ann.is_published:
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Annonce déjà publiée.', 'type': 'error'}})
+        return resp
+
+    ann.is_published = True
+    ann.published_at = timezone.now()
+    ann.save(update_fields=['is_published', 'published_at'])
+
+    notif_url  = '/portal/parent/annonces/'
+    notif_body = ann.body[:150]
+
+    if ann.audience == 'school':
+        ids = list(
+            StudentGuardian.objects
+            .filter(student__school=school)
+            .values_list('guardian_id', flat=True)
+            .distinct()
+        )
+        notify_bulk(ids, school, NotificationCategory.INFO, ann.title, notif_body, notif_url, target=ann)
+
+    elif ann.audience == 'class' and ann.target_class:
+        ids = list(
+            StudentGuardian.objects
+            .filter(student__school_class=ann.target_class)
+            .values_list('guardian_id', flat=True)
+            .distinct()
+        )
+        notify_bulk(ids, school, NotificationCategory.INFO, ann.title, notif_body, notif_url, target=ann)
+
+    elif ann.audience == 'student' and ann.target_student:
+        notify_guardians(
+            ann.target_student, NotificationCategory.INFO,
+            ann.title, notif_body, notif_url, target=ann,
+        )
+
+    resp = render(request, 'schools/announcements/partials/announcement_card.html', {'ann': ann})
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Annonce publiée et envoyée.', 'type': 'success'}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def announcement_delete(request, pk):
+    school = get_school(request)
+    ann    = get_object_or_404(SchoolAnnouncement, pk=pk, school=school)
+
+    if ann.is_published:
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Impossible de supprimer une annonce publiée.', 'type': 'error'}})
+        return resp
+
+    ann.delete()
+    resp = HttpResponse('')
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Brouillon supprimé.', 'type': 'success'}})
+    return resp
