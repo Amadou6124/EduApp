@@ -60,7 +60,7 @@
 
         <div class="flex items-center gap-3 shrink-0">
           {# Notes individuelles #}
-          <div class="flex items-center gap-1">
+          <div class="flex items-center flex-wrap gap-x-1 gap-y-1">
             {% for note in sn.notes %}
             <span class="text-xs px-1.5 py-0.5 bg-white border border-gray-200 rounded font-mono text-gray-700">
               {{ note.value|floatformat:"-2" }}
@@ -90,7 +90,7 @@
   </div>
 
   {# ── Mes observations ───────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5 pb-24 sm:pb-5">
+  <div class="bg-white rounded-xl border border-gray-200 p-5 pb-32 sm:pb-5">
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
       Mes observations
       <span class="font-normal normal-case text-gray-400">({{ observations|length }})</span>
