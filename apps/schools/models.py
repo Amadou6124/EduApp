@@ -730,3 +730,53 @@ class BulletinLine(models.Model):
 
     def __str__(self):
         return f'{self.class_subject.subject.name} — {self.bulletin.student.full_name}'
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ANNONCES ÉCOLE
+# ─────────────────────────────────────────────────────────────────────
+
+class AnnouncementAudience(models.TextChoices):
+    SCHOOL  = 'school',  _("Tous les parents de l'école")
+    CLASS   = 'class',   _("Parents d'une classe")
+    STUDENT = 'student', _("Parent d'un élève spécifique")
+
+
+class SchoolAnnouncement(models.Model):
+    school = models.ForeignKey(
+        School, on_delete=models.CASCADE,
+        related_name='announcements', verbose_name=_('école'),
+    )
+    author = models.ForeignKey(
+        'accounts.User', on_delete=models.PROTECT,
+        related_name='authored_announcements', verbose_name=_('auteur'),
+    )
+    title = models.CharField(_('titre'), max_length=200)
+    body  = models.TextField(_('contenu'))
+    audience = models.CharField(
+        _('audience'), max_length=10,
+        choices=AnnouncementAudience.choices,
+        default=AnnouncementAudience.SCHOOL,
+    )
+    target_class = models.ForeignKey(
+        SchoolClass, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='announcements', verbose_name=_('classe ciblée'),
+    )
+    target_student = models.ForeignKey(
+        'students.Student', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='announcements', verbose_name=_('élève ciblé'),
+    )
+    is_published = models.BooleanField(_('publiée'), default=False)
+    published_at = models.DateTimeField(_('publiée le'), null=True, blank=True)
+    created_at   = models.DateTimeField(_('créée le'), auto_now_add=True)
+    updated_at   = models.DateTimeField(_('modifiée le'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('annonce')
+        verbose_name_plural = _('annonces')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.title} ({self.school.name})'

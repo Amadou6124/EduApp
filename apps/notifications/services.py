@@ -43,3 +43,22 @@ def notify_guardians(student, category, title, body='', url='', target=None):
         for gid in guardian_ids
     ]
     return Notification.objects.bulk_create(notifs)
+
+
+def notify_bulk(recipient_ids, school, category, title, body='', url='', target=None):
+    """
+    Notifie une liste arbitraire d'user_ids — 1 INSERT bulk. Zéro N+1.
+    Utilisé pour les annonces école-wide ou par classe.
+    """
+    if not recipient_ids:
+        return []
+    ct, oid = _target_fields(target)
+    notifs = [
+        Notification(
+            recipient_id=rid, school=school, category=category,
+            title=title, body=body, url=url,
+            content_type=ct, object_id=oid,
+        )
+        for rid in recipient_ids
+    ]
+    return Notification.objects.bulk_create(notifs)
