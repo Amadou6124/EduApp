@@ -21,7 +21,7 @@
      class="max-w-2xl mx-auto space-y-5 pt-2">
 
   {# ── Carte identité ─────────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">
+  <div class="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
     <div class="w-16 h-16 rounded-full flex items-center justify-center
                 text-xl font-bold shrink-0"
          style="background:{{ student.get_avatar_colors.0 }};color:{{ student.get_avatar_colors.1 }}">
@@ -40,7 +40,7 @@
   </div>
 
   {# ── Mes matières — notes période active ────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5">
+  <div class="bg-white rounded-2xl border border-gray-200 p-5">
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
       Mes matières
       {% if active_period %}<span class="font-normal normal-case text-gray-400">— {{ active_period.name }}</span>{% endif %}
@@ -90,7 +90,7 @@
   </div>
 
   {# ── Mes observations ───────────────────────────────── #}
-  <div class="bg-white rounded-xl border border-gray-200 p-5 pb-32 sm:pb-5">
+  <div class="bg-white rounded-2xl border border-gray-200 p-5 pb-32 sm:pb-5">
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
       Mes observations
       <span class="font-normal normal-case text-gray-400">({{ observations|length }})</span>
