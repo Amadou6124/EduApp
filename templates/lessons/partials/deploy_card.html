@@ -1,0 +1,34 @@
+<div id="deploy-card-{{ class.id }}"
+     class="rounded-2xl border p-4 flex items-center gap-4
+            transition-all duration-300
+            {% if is_deployed %}bg-green-50 border-green-300{% else %}bg-white border-gray-200{% endif %}">
+
+  <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
+              {% if is_deployed %}bg-green-100{% else %}bg-primary-50{% endif %}">
+    <i data-lucide="graduation-cap"
+       class="w-5 h-5 {% if is_deployed %}text-green-600{% else %}text-primary-600{% endif %}"></i>
+  </div>
+
+  <div class="flex-1 min-w-0">
+    <p class="text-sm font-semibold text-gray-900">{{ class.name }}</p>
+    <p class="text-xs text-gray-400 mt-0.5">
+      {{ student_count }} élève{{ student_count|pluralize }}
+      · {{ class.get_level_display }}
+    </p>
+  </div>
+
+  <button hx-post="{% url 'lessons:deploy-toggle' lesson.id class.id %}"
+          hx-target="#deploy-card-{{ class.id }}"
+          hx-swap="outerHTML"
+          hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+          class="shrink-0 px-4 py-2 rounded-xl text-xs font-semibold
+                 transition-all duration-150 active:scale-[0.97]
+                 {% if is_deployed %}
+                   border border-green-300 text-green-700 hover:bg-green-100
+                 {% else %}
+                   bg-primary-600 text-white hover:bg-primary-700
+                 {% endif %}">
+    {% if is_deployed %}✓ Publiée · Retirer{% else %}Publier{% endif %}
+  </button>
+
+</div>

@@ -24,8 +24,10 @@
       <p class="text-sm font-bold text-gray-900 truncate leading-tight">{{ lesson.title }}</p>
     </div>
     <div class="flex items-center gap-2 shrink-0">
+      {% if student %}
       <span class="text-xs font-bold text-yellow-500">⭐{{ student.total_xp }}</span>
       <span class="text-xs font-bold text-orange-500">🔥{{ student.streak_days }}</span>
+      {% endif %}
     </div>
   </div>
   <div class="mt-2 bg-gray-100 rounded-full h-1">
@@ -36,6 +38,19 @@
 {% endblock %}
 
 {% block content %}
+{% if is_preview %}
+<div class="bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center gap-2">
+  <i data-lucide="eye" class="w-4 h-4 text-amber-600 shrink-0"></i>
+  <p class="text-xs font-semibold text-amber-700 flex-1">
+    Mode prévisualisation — Vos élèves verront exactement ceci
+  </p>
+  <a href="{% url 'lessons:detail' lesson.id %}"
+     class="text-xs text-amber-600 underline underline-offset-2 shrink-0 font-medium">
+    ← Retour
+  </a>
+</div>
+{% endif %}
+
 {% if learn_toast %}
 <div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg"
      x-data x-init="setTimeout(() => $el.remove(), 3000)">
@@ -49,6 +64,7 @@
        totalBlocks: {{ total_blocks }},
        startTime: Date.now(),
        saveProgress(idx) {
+         {% if not is_preview %}
          if (idx <= this.lastSaved) return;
          this.lastSaved = idx;
          const elapsed = Math.round((Date.now() - this.startTime) / 1000);
@@ -58,16 +74,19 @@
            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
            body: JSON.stringify({block_index: idx, time_seconds: elapsed})
          });
+         {% endif %}
          const pct = Math.min(Math.round((idx + 1) / this.totalBlocks * 100), 100);
          const bar = document.getElementById('reading-progress-bar');
          if (bar) bar.style.width = pct + '%';
        },
        saveNote(blockId, text) {
+         {% if not is_preview %}
          fetch('{% url 'learn:lesson-note' lesson.id %}', {
            method: 'POST',
            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
            body: JSON.stringify({block_id: blockId, text: text})
          });
+         {% endif %}
        }
      }"
      x-init="
@@ -178,7 +197,7 @@
   </a>
   {% endif %}
 
-  {# CTA final #}
+  {% if not is_preview %}
   <div class="pt-2 space-y-3">
     {% if has_quiz %}
     <a href="{% url 'learn:quiz' lesson.id %}"
@@ -203,6 +222,7 @@
     <a href="{% url 'learn:dashboard' %}?subject={{ lesson.subject|urlencode }}"
        class="block text-center text-gray-400 text-sm py-2">← Retour aux leçons</a>
   </div>
+  {% endif %}
 
 </div>
 {% endblock %}

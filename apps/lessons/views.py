@@ -1,9 +1,13 @@
+import json
 import logging
 import threading
+from types import SimpleNamespace
 
 from django.db import close_old_connections
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.core.mixins import teacher_required, get_school
 from apps.lessons.models import Lesson, LessonStatus, LessonDeployment
@@ -60,17 +64,18 @@ def _generate_async(lesson_id):
 @teacher_required
 def lesson_list(request):
     school = get_school(request)
+    base_qs = Lesson.objects.filter(teacher=request.user, school=school)
+    stats = {
+        'total':      base_qs.count(),
+        'ready':      base_qs.filter(status=LessonStatus.READY).count(),
+        'processing': base_qs.filter(status=LessonStatus.PROCESSING).count(),
+        'error':      base_qs.filter(status=LessonStatus.ERROR).count(),
+    }
     lessons = (
-        Lesson.objects
-        .filter(teacher=request.user, school=school)
+        base_qs
+        .annotate(deployed_count=Count('deployments', filter=Q(deployments__is_active=True)))
         .order_by('-created_at')
     )
-    stats = {
-        'total':      lessons.count(),
-        'ready':      lessons.filter(status=LessonStatus.READY).count(),
-        'processing': lessons.filter(status=LessonStatus.PROCESSING).count(),
-        'error':      lessons.filter(status=LessonStatus.ERROR).count(),
-    }
     return render(request, 'lessons/list.html', {
         'lessons': lessons, 'stats': stats, 'school': school,
     })
@@ -177,22 +182,104 @@ def lesson_detail(request, lesson_id):
     lesson = get_object_or_404(
         Lesson, pk=lesson_id, teacher=request.user, school=school,
     )
-    teacher_classes = (
-        SchoolClass.objects
-        .filter(class_subjects__teacher=request.user, school=school, is_active=True)
-        .distinct()
-        .order_by('level', 'name')
-    )
     deployed_class_ids = set(
         LessonDeployment.objects
         .filter(lesson=lesson, is_active=True)
         .values_list('school_class_id', flat=True)
     )
+    teacher_classes = (
+        SchoolClass.objects
+        .filter(class_subjects__teacher=request.user, school=school, is_active=True)
+        .annotate(student_count=Count('students', filter=Q(students__is_active=True)))
+        .distinct()
+        .order_by('level', 'name')
+    )
+    teacher_classes_data = [
+        {
+            'obj':           c,
+            'is_deployed':   c.id in deployed_class_ids,
+            'student_count': c.student_count,
+        }
+        for c in teacher_classes
+    ]
+    deployed_count = sum(1 for item in teacher_classes_data if item['is_deployed'])
     return render(request, 'lessons/detail.html', {
-        'lesson': lesson,
-        'teacher_classes': teacher_classes,
-        'deployed_class_ids': deployed_class_ids,
-        'school': school,
+        'lesson':               lesson,
+        'teacher_classes_data': teacher_classes_data,
+        'total_classes':        len(teacher_classes_data),
+        'deployed_count':       deployed_count,
+        'school':               school,
+    })
+
+
+# ─── Déploiement toggle par classe ───────────────────────────────────────────
+
+@teacher_required
+@require_POST
+def lesson_deploy_toggle(request, lesson_id, class_id):
+    """Active ou désactive un LessonDeployment pour une classe donnée."""
+    school = get_school(request)
+    lesson = get_object_or_404(
+        Lesson, pk=lesson_id, teacher=request.user,
+        school=school, status=LessonStatus.READY,
+    )
+    school_class = get_object_or_404(SchoolClass, pk=class_id, school=school)
+
+    deployment, created = LessonDeployment.objects.get_or_create(
+        lesson=lesson,
+        school_class=school_class,
+        defaults={'school': school, 'deployed_by': request.user, 'is_active': True},
+    )
+    if not created:
+        deployment.is_active = not deployment.is_active
+        deployment.save(update_fields=['is_active'])
+
+    is_active = deployment.is_active
+    student_count = (
+        SchoolClass.objects
+        .filter(pk=class_id)
+        .annotate(cnt=Count('students', filter=Q(students__is_active=True)))
+        .values_list('cnt', flat=True)
+        .first() or 0
+    )
+    toast_msg = (
+        f'Leçon publiée en {school_class.name} ✓' if is_active
+        else f'Retirée de {school_class.name}'
+    )
+    resp = render(request, 'lessons/partials/deploy_card.html', {
+        'lesson':        lesson,
+        'class':         school_class,
+        'is_deployed':   is_active,
+        'student_count': student_count,
+    })
+    resp['HX-Trigger'] = json.dumps({
+        'showToast': {'message': toast_msg, 'type': 'success' if is_active else 'info'}
+    })
+    return resp
+
+
+# ─── Prévisualisation enseignant ─────────────────────────────────────────────
+
+@teacher_required
+def lesson_preview(request, lesson_id):
+    """Prévisualisation enseignant — même rendu que l'élève, sans tracking."""
+    school = get_school(request)
+    lesson = get_object_or_404(
+        Lesson, pk=lesson_id, teacher=request.user,
+        school=school, status=LessonStatus.READY,
+    )
+    blocks = (lesson.structured_content or {}).get('blocks', [])
+    return render(request, 'learn/lesson.html', {
+        'lesson':       lesson,
+        'blocks':       blocks,
+        'total_blocks': len(blocks),
+        'initial_pct':  0,
+        'progress':     SimpleNamespace(last_block_index=0, notes={}, is_completed=False),
+        'has_story':    bool(lesson.story_data),
+        'has_quiz':     lesson.quiz_count > 0,
+        'already_done': False,
+        'student':      None,
+        'is_preview':   True,
     })
 
 

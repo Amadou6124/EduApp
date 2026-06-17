@@ -108,6 +108,14 @@
                 <i data-lucide="layers" class="w-3 h-3"></i>
                 {{ lesson.flashcard_count }} flashcards
               </span>
+              {% if lesson.deployed_count > 0 %}
+              <span class="flex items-center gap-1 text-green-600 font-semibold">
+                <i data-lucide="radio" class="w-3 h-3"></i>
+                {{ lesson.deployed_count }} classe{{ lesson.deployed_count|pluralize }}
+              </span>
+              {% else %}
+              <span class="text-gray-300">Non publiée</span>
+              {% endif %}
             </div>
             {% elif lesson.status == 'processing' %}
             <span class="flex items-center gap-1.5 text-xs text-amber-600">
