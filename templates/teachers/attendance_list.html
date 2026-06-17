@@ -19,12 +19,10 @@
       </span>
     </div>
     <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-      {% with pct=nb_done|floatformat:0 %}
       <div class="h-full rounded-full transition-all duration-500
                   {% if nb_done == nb_total %}bg-green-400{% else %}bg-primary-600{% endif %}"
-           style="width: {% if nb_total %}{{ nb_done|floatformat:0 }}00{% else %}0{% endif %}%">
+           style="width: {% if nb_total %}{% widthratio nb_done nb_total 100 %}{% else %}0{% endif %}%">
       </div>
-      {% endwith %}
     </div>
     {% if nb_done == nb_total and nb_total > 0 %}
     <p class="text-xs text-green-600 font-medium mt-2 flex items-center gap-1">
