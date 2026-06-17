@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Mes observations{% endblock %}
+{% block page_title %}Mes observations{% endblock %}
+{% block page_subtitle %}
+<p class="text-sm text-gray-500 mt-0.5">{{ total_count }} observation{{ total_count|pluralize }}</p>
+{% endblock %}
+
+{% block content %}
+<div x-data="{
+    activeType:   'all',
+    activeStatus: 'all',
+    search: '',
+    allObs: [{% for item in observations %}{
+        type:      '{{ item.obs.observation_type }}',
+        isRead:    {{ item.obs.is_read|yesno:'true,false' }},
+        isShared:  {{ item.obs.is_visible_to_parent|yesno:'true,false' }},
+        isPrivate: {{ item.obs.is_private|yesno:'true,false' }},
+        name:      '{{ item.obs.student.full_name|lower|escapejs }}'
+    }{% if not forloop.last %},{% endif %}{% endfor %}],
+    visible(type, isRead, isShared, isPrivate, name) {
+        const matchType = this.activeType === 'all' || this.activeType === type;
+        const matchStatus = this.activeStatus === 'all'
+            || (this.activeStatus === 'read'    &&  isRead && !isPrivate)
+            || (this.activeStatus === 'pending' && !isRead && !isPrivate)
+            || (this.activeStatus === 'shared'  &&  isShared)
+            || (this.activeStatus === 'private' &&  isPrivate);
+        const matchSearch = !this.search
+            || name.includes(this.search.toLowerCase());
+        return matchType && matchStatus && matchSearch;
+    },
+    hasResults() {
+        return this.allObs.some(o =>
+            this.visible(o.type, o.isRead, o.isShared, o.isPrivate, o.name));
+    }
+}" class="max-w-2xl mx-auto space-y-4">
+
+{# ════════════════════════════════════════════════════════ #}
+{#  ÉTAT VIDE GLOBAL                                       #}
+{# ════════════════════════════════════════════════════════ #}
+{% if not observations %}
+<div class="flex flex-col items-center justify-center min-h-[50vh] text-center px-8">
+  <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+    <i data-lucide="message-square" class="w-10 h-10 text-gray-300"></i>
+  </div>
+  <p class="text-base font-semibold text-gray-700">Aucune observation</p>
+  <p class="text-sm text-gray-400 mt-1">Vos observations apparaîtront ici au fil de vos saisies</p>
+</div>
+
+{% else %}
+
+{# ════════════════════════════════════════════════════════ #}
+{#  FILTRES TYPE                                           #}
+{# ════════════════════════════════════════════════════════ #}
+<div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+  <button @click="activeType = 'all'"
+          :class="activeType === 'all'
+            ? 'bg-primary-600 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap">
+    Tous
+  </button>
+  <button @click="activeType = 'behaviour'"
+          :class="activeType === 'behaviour'
+            ? 'bg-orange-500 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap">
+    Comportement
+  </button>
+  <button @click="activeType = 'academic'"
+          :class="activeType === 'academic'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap">
+    Académique
+  </button>
+  <button @click="activeType = 'health'"
+          :class="activeType === 'health'
+            ? 'bg-red-600 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap">
+    Santé
+  </button>
+  <button @click="activeType = 'other'"
+          :class="activeType === 'other'
+            ? 'bg-gray-600 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap">
+    Autre
+  </button>
+</div>
+
+{# ════════════════════════════════════════════════════════ #}
+{#  FILTRES STATUT                                         #}
+{# ════════════════════════════════════════════════════════ #}
+<div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+  <button @click="activeStatus = 'all'"
+          :class="activeStatus === 'all'
+            ? 'bg-primary-600 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap">
+    Tous
+  </button>
+  <button @click="activeStatus = 'read'"
+          :class="activeStatus === 'read'
+            ? 'bg-green-600 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                 text-xs font-semibold transition whitespace-nowrap">
+    <i data-lucide="check-circle" class="w-3 h-3"></i> Lu
+  </button>
+  <button @click="activeStatus = 'pending'"
+          :class="activeStatus === 'pending'
+            ? 'bg-gray-500 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                 text-xs font-semibold transition whitespace-nowrap">
+    <i data-lucide="clock" class="w-3 h-3"></i> En attente
+  </button>
+  <button @click="activeStatus = 'shared'"
+          :class="activeStatus === 'shared'
+            ? 'bg-primary-600 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                 text-xs font-semibold transition whitespace-nowrap">
+    <i data-lucide="users" class="w-3 h-3"></i> Partagé parents
+  </button>
+  <button @click="activeStatus = 'private'"
+          :class="activeStatus === 'private'
+            ? 'bg-orange-500 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+          class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                 text-xs font-semibold transition whitespace-nowrap">
+    <i data-lucide="lock" class="w-3 h-3"></i> Privée
+  </button>
+</div>
+
+{# ════════════════════════════════════════════════════════ #}
+{#  RECHERCHE ÉLÈVE                                        #}
+{# ════════════════════════════════════════════════════════ #}
+<div class="relative">
+  <i data-lucide="search"
+     class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+  <input type="text"
+         x-model="search"
+         placeholder="Rechercher un élève…"
+         class="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm
+                focus:outline-none focus:ring-2 focus:ring-primary-500/30 bg-white">
+  <button x-show="search" @click="search = ''"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+    <i data-lucide="x" class="w-4 h-4"></i>
+  </button>
+</div>
+
+{# ════════════════════════════════════════════════════════ #}
+{#  LISTE DES OBSERVATIONS                                 #}
+{# ════════════════════════════════════════════════════════ #}
+<div class="space-y-2">
+  {% for item in observations %}
+  <div x-show="visible(
+           '{{ item.obs.observation_type }}',
+           {{ item.obs.is_read|yesno:'true,false' }},
+           {{ item.obs.is_visible_to_parent|yesno:'true,false' }},
+           {{ item.obs.is_private|yesno:'true,false' }},
+           '{{ item.obs.student.full_name|lower|escapejs }}'
+       )"
+       class="bg-white rounded-2xl border border-gray-200 overflow-hidden
+              hover:shadow-sm active:scale-[0.995] transition">
+
+    <a href="{% url 'teacher:student-detail' item.obs.student.pk %}"
+       class="block p-4">
+
+      {# ── Ligne 1 : badges + date relative ── #}
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <div class="flex items-center gap-1.5 flex-wrap">
+
+          {# Badge type #}
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ item.badge_css }}">
+            {{ item.badge_label }}
+          </span>
+
+          {# Badge statut : Privée > Partagé parents > Lu > En attente #}
+          {% if item.obs.is_private %}
+          <span class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full
+                       text-[10px] font-semibold bg-gray-100 text-gray-500">
+            <i data-lucide="lock" class="w-2.5 h-2.5"></i> Privée
+          </span>
+          {% elif item.obs.is_visible_to_parent %}
+          <span class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full
+                       text-[10px] font-semibold bg-primary-100 text-primary-700">
+            <i data-lucide="users" class="w-2.5 h-2.5"></i> Partagé parents
+          </span>
+          {% elif item.obs.is_read %}
+          <span class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full
+                       text-[10px] font-semibold bg-green-100 text-green-700">
+            <i data-lucide="check-circle" class="w-2.5 h-2.5"></i> Lu
+          </span>
+          {% else %}
+          <span title="Le directeur n'a pas encore consulté cette observation"
+                class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full
+                       text-[10px] font-semibold bg-gray-100 text-gray-500 cursor-help">
+            <i data-lucide="clock" class="w-2.5 h-2.5"></i> En attente
+          </span>
+          {% endif %}
+
+        </div>
+        <span class="text-[11px] text-gray-400 shrink-0">{{ item.rel_date }}</span>
+      </div>
+
+      {# ── Ligne 2 : nom élève + classe ── #}
+      <div class="flex items-center gap-1.5 mb-1.5">
+        <i data-lucide="user" class="w-3.5 h-3.5 text-gray-400 shrink-0"></i>
+        <span class="text-sm font-semibold text-gray-800">{{ item.obs.student.full_name }}</span>
+        <span class="text-xs text-gray-400">· {{ item.obs.student.school_class.name }}</span>
+      </div>
+
+      {# ── Ligne 3 : extrait contenu ── #}
+      <p class="text-sm text-gray-600 line-clamp-2 leading-relaxed">{{ item.obs.content }}</p>
+
+      {# ── Indicateur message parent reformulé ── #}
+      {% if item.obs.parent_message %}
+      <div class="flex items-center gap-1 mt-2 text-[10px] text-primary-600 font-medium">
+        <i data-lucide="message-circle" class="w-3 h-3"></i>
+        Message parent reformulé
+      </div>
+      {% endif %}
+
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Aucun résultat (filtres actifs) ── #}
+<p x-show="!hasResults()" x-cloak
+   class="text-center text-sm text-gray-400 py-8">
+  Aucune observation ne correspond à ces filtres
+</p>
+
+<div class="pb-24 lg:pb-8"></div>
+{% endif %}
+
+</div>
+{% endblock %}
