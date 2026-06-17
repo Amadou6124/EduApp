@@ -12,7 +12,7 @@ document.addEventListener('alpine:init', () => {
 
 function paymentsPageData() {
   return {
-    viewMode: localStorage.getItem('paymentsView') || (window.innerWidth < 1024 ? 'cards' : 'table'),
+    viewMode: window.innerWidth < 640 ? 'cards' : (localStorage.getItem('paymentsView') || (window.innerWidth < 1024 ? 'cards' : 'table')),
     currentStatus: new URLSearchParams(window.location.search).get('status') || 'unpaid',
     setView(m) { this.viewMode = m; localStorage.setItem('paymentsView', m); },
     setStatus(s) {
@@ -74,7 +74,7 @@ function paymentsPageData() {
     </div>
   </div>
 
-  <div class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 overflow-x-auto mb-5">
+  <div class="bg-gray-100 rounded-lg p-1 flex gap-1 overflow-x-auto mb-5">
     {% for s_val, s_label in tab_list %}
     <button type="button"
             hx-get="{% url 'payments:dashboard' %}?status={{ s_val }}&q={{ q }}&class_id={{ class_id }}"

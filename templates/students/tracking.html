@@ -28,7 +28,7 @@
   </div>
 
   {# ── Tabs (style Notion) ── #}
-  <div class="inline-flex bg-gray-100 rounded-xl p-1 mb-5">
+  <div class="flex bg-gray-100 rounded-xl p-1 mb-5 overflow-x-auto">
     <button @click="tab='absences'"
             hx-get="{% url 'students:suivi-absences' %}" hx-target="#tracking-content" hx-swap="innerHTML"
             :class="tab==='absences' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"

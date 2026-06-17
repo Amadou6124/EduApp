@@ -14,8 +14,8 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
 {% endblock %}
 
 {% block extra_head %}
-  {# Chart.js CDN #}
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  {# Chart.js self-hosté (vendor) #}
+  <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}" defer></script>
 {% endblock %}
 
 {% block content %}
@@ -35,17 +35,17 @@ Sections : KPI animés, Alertes, Graphiques Chart.js,
 
 {# ── En-tête avec date et période ─────────────────────────────── #}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-  <div>
-    <h2 class="text-xl font-bold text-gray-800">
+  <div class="min-w-0 overflow-hidden">
+    <h2 class="text-xl font-bold text-gray-800 truncate">
       Bonjour, {{ request.user.full_name }}
     </h2>
-    <p class="text-sm text-gray-500 mt-1">
+    <p class="text-sm text-gray-500 mt-1 truncate">
       {{ school.name }}
       {% if active_year %} — Année {{ active_year.name }}{% endif %}
       {% if active_period %} — {{ active_period.name }}{% endif %}
     </p>
   </div>
-  <div class="text-sm text-gray-400 text-right">
+  <div class="text-sm text-gray-400 text-right shrink-0 hidden sm:block">
     <p>{{ today|date:"l d F Y" }}</p>
   </div>
 </div>
