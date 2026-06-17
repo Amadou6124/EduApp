@@ -117,7 +117,7 @@ def parent_bulletins(request):
 
     links = (
         request.user.guarded_students
-        .select_related('student', 'student__school_class')
+        .select_related('student', 'student__school_class', 'student__school')
         .prefetch_related(Prefetch(
             'student__bulletins',
             queryset=Bulletin.objects
@@ -129,7 +129,11 @@ def parent_bulletins(request):
         .order_by('-is_primary', 'student__full_name')
     )
     children = [{'student': l.student, 'bulletins': l.student.published_bulletins} for l in links]
-    return render(request, 'parent/bulletins.html', {'children': children})
+    any_bulletins = any(c['bulletins'] for c in children)
+    return render(request, 'parent/bulletins.html', {
+        'children': children,
+        'any_bulletins': any_bulletins,
+    })
 
 
 @login_required
