@@ -182,8 +182,10 @@
     </p>
   </a>
 
-  {# Absences — div non cliquable (page à venir Phase 3) #}
-  <div class="relative bg-white rounded-2xl p-4 shadow-sm">
+  {# Absences → Suivi #}
+  <a href="{% url 'parent:suivi' %}?child={{ c.student.id }}"
+     class="relative bg-white rounded-2xl p-4 shadow-sm
+            active:scale-95 transition-transform duration-150">
     {% if c.absences_count > 3 %}
     <span class="absolute top-3 right-3 min-w-[18px] h-[18px] px-1 rounded-full
                  bg-red-500 text-white text-[9px] font-bold
@@ -196,7 +198,7 @@
     </div>
     <p class="text-sm font-semibold text-gray-800">Absences</p>
     <p class="text-xs text-gray-500 mt-0.5">{{ c.absences_count }} ce mois</p>
-  </div>
+  </a>
 
 </div>
 
