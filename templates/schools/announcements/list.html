@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Annonces{% endblock %}
+{% block page_title %}Annonces{% endblock %}
+
+{% block extra_head %}
+<script>
+function confirmPublish(url, target, title) {
+  Alpine.store('confirm').show({
+    title: 'Publier cette annonce ?',
+    message: '« ' + title + ' » sera envoyée aux parents immédiatement.',
+    icon: 'send',
+    iconBg: 'bg-primary-50',
+    iconColor: 'text-primary-600',
+    confirmText: 'Publier',
+    confirmIcon: 'send',
+    confirmClass: 'bg-primary-600 hover:bg-primary-700 text-white',
+    onConfirm: () => htmx.ajax('POST', url, {
+      target: target,
+      swap: 'outerHTML',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+  })
+}
+
+function confirmDeleteAnnouncement(url, target) {
+  Alpine.store('confirm').show({
+    title: 'Supprimer ce brouillon ?',
+    message: 'Cette action est irréversible. Le brouillon sera définitivement supprimé.',
+    icon: 'trash-2',
+    iconBg: 'bg-red-50',
+    iconColor: 'text-red-500',
+    confirmText: 'Supprimer',
+    confirmIcon: 'trash-2',
+    confirmClass: 'bg-red-600 hover:bg-red-700 text-white',
+    onConfirm: () => htmx.ajax('POST', url, {
+      target: target,
+      swap: 'outerHTML',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+  })
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div x-data="{
+       showPanel: false,
+       audience: 'school',
+     }"
+     @close-announcement-panel.window="showPanel = false; audience = 'school'; $nextTick(() => lucide.createIcons())">
+
+  {# ── En-tête ──────────────────────────────────────────── #}
+  <div class="flex items-center justify-between mb-6">
+    <p class="text-sm text-gray-500">
+      {{ announcements|length }} annonce{{ announcements|length|pluralize }}
+    </p>
+    <button @click="showPanel = true"
+            class="btn-primary min-h-[44px]">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      <span>Nouvelle annonce</span>
+    </button>
+  </div>
+
+  {# ── Liste des annonces ───────────────────────────────── #}
+  <div id="announcements-list" class="space-y-3">
+
+    {% if not announcements %}
+    <div id="announcements-empty"
+         class="flex flex-col items-center justify-center py-20 text-center text-gray-400">
+      <i data-lucide="megaphone" class="w-12 h-12 text-gray-200 mb-3"></i>
+      <p class="font-medium text-gray-500">Aucune annonce pour le moment</p>
+      <p class="text-sm mt-1">Créez votre première annonce pour les parents.</p>
+    </div>
+    {% endif %}
+
+    {% for ann in announcements %}
+    {% include "schools/announcements/partials/announcement_card.html" %}
+    {% endfor %}
+
+  </div>
+
+  {# ── Backdrop ─────────────────────────────────────────── #}
+  <div x-show="showPanel"
+       x-cloak
+       @click="showPanel = false"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/30 z-40">
+  </div>
+
+  {# ── Panel slide-in ───────────────────────────────────── #}
+  <div x-show="showPanel"
+       x-cloak
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="translate-x-full"
+       class="fixed top-0 right-0 h-full w-full sm:w-[540px]
+              bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col">
+
+    {# En-tête panel #}
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+      <div>
+        <h2 class="text-base font-bold text-gray-900">Nouvelle annonce</h2>
+        <p class="text-xs text-gray-400 mt-0.5">Le brouillon sera envoyé à la publication</p>
+      </div>
+      <button @click="showPanel = false"
+              class="p-2 rounded-lg hover:bg-gray-100 transition text-gray-400 hover:text-gray-600">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    {# Formulaire #}
+    <form hx-post="{% url 'schools:announcement-create' %}"
+          hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+          hx-target="#announcements-list"
+          hx-swap="afterbegin"
+          hx-on::after-request="if(event.detail.successful){ this.reset(); }"
+          class="flex flex-col flex-1 overflow-hidden">
+
+      <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+        {# Titre #}
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Titre <span class="text-red-400">*</span>
+          </label>
+          <input type="text" name="title" required
+                 placeholder="Ex : Réunion parents-professeurs du 20 juin"
+                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-primary-500/30
+                        placeholder-gray-300 text-gray-900">
+        </div>
+
+        {# Contenu #}
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Message <span class="text-red-400">*</span>
+          </label>
+          <textarea name="body" required rows="5"
+                    placeholder="Rédigez votre message à destination des parents…"
+                    class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-primary-500/30
+                           resize-none leading-relaxed placeholder-gray-300 text-gray-700">
+          </textarea>
+        </div>
+
+        {# Audience #}
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Destinataires
+          </label>
+          <select name="audience"
+                  x-model="audience"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-primary-500/30
+                         text-gray-900 bg-white">
+            <option value="school">Tous les parents de l'école</option>
+            <option value="class">Parents d'une classe</option>
+            <option value="student">Parent d'un élève spécifique</option>
+          </select>
+        </div>
+
+        {# Classe (si audience = class) #}
+        <div x-show="audience === 'class'" x-cloak>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Classe ciblée <span class="text-red-400">*</span>
+          </label>
+          <select name="target_class_id"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-primary-500/30
+                         text-gray-900 bg-white">
+            <option value="">— Sélectionner une classe —</option>
+            {% for cls in classes %}
+            <option value="{{ cls.id }}">{{ cls.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {# Élève (si audience = student) #}
+        <div x-show="audience === 'student'" x-cloak>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Élève concerné <span class="text-red-400">*</span>
+          </label>
+          <select name="target_student_id"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-primary-500/30
+                         text-gray-900 bg-white">
+            <option value="">— Sélectionner un élève —</option>
+            {% for s in students %}
+            <option value="{{ s.id }}">{{ s.full_name }}{% if s.school_class %} — {{ s.school_class.name }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+      </div>
+
+      {# Pied de panel #}
+      <div class="px-6 py-4 border-t border-gray-100 bg-white shrink-0">
+        <button type="submit"
+                class="w-full h-12 rounded-xl bg-primary-600 hover:bg-primary-700
+                       text-white font-semibold text-sm transition-colors
+                       flex items-center justify-center gap-2
+                       active:scale-[0.99] select-none">
+          <i data-lucide="save" class="w-4 h-4"></i>
+          Enregistrer en brouillon
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+{% endblock %}

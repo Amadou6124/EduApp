@@ -102,10 +102,26 @@ def parent_dashboard(request):
     if not active_child and children:
         active_child = children[0]
 
+    from apps.schools.models import SchoolAnnouncement
+    from django.db.models import Q as _Q
+
+    _school_ids  = list({c['student'].school_id for c in children})
+    _class_ids   = [c['student'].school_class_id for c in children if c['student'].school_class_id]
+    _student_ids = [c['student'].id for c in children]
+
+    recent_announcements_count = SchoolAnnouncement.objects.filter(
+        is_published=True
+    ).filter(
+        _Q(audience='school',  school_id__in=_school_ids) |
+        _Q(audience='class',   target_class_id__in=_class_ids) |
+        _Q(audience='student', target_student_id__in=_student_ids)
+    ).count() if children else 0
+
     return render(request, 'parent/dashboard.html', {
-        'children':     children,
-        'active_child': active_child,
-        'has_multiple': len(children) > 1,
+        'children':                  children,
+        'active_child':              active_child,
+        'has_multiple':              len(children) > 1,
+        'recent_announcements_count': recent_announcements_count,
     })
 
 
@@ -301,6 +317,49 @@ def parent_suivi(request):
         'bulletins': bulletins,
         'n_absent': attendances.filter(status='absent').count(),
         'n_late': attendances.filter(status='late').count(),
+    })
+
+
+@login_required
+@parent_required
+def parent_annonces(request):
+    """Annonces publiées des écoles des enfants du parent. Groupées par école si multi-école."""
+    from collections import OrderedDict
+    from django.db.models import Q
+    from apps.schools.models import SchoolAnnouncement
+
+    links = (
+        request.user.guarded_students
+        .select_related('student', 'student__school', 'student__school_class')
+        .order_by('-is_primary', 'student__full_name')
+    )
+    student_ids = [l.student_id for l in links]
+    class_ids   = [l.student.school_class_id for l in links if l.student.school_class_id]
+    school_ids  = list({l.student.school_id for l in links})
+
+    announcements = (
+        SchoolAnnouncement.objects
+        .filter(is_published=True)
+        .filter(
+            Q(audience='school',  school_id__in=school_ids) |
+            Q(audience='class',   target_class_id__in=class_ids) |
+            Q(audience='student', target_student_id__in=student_ids)
+        )
+        .select_related('school', 'target_class', 'target_student', 'author')
+        .order_by('-published_at')
+    )
+
+    schools_map = OrderedDict()
+    for ann in announcements:
+        schools_map.setdefault(ann.school, []).append(ann)
+    schools_map = OrderedDict(
+        sorted(schools_map.items(), key=lambda x: x[0].name)
+    )
+
+    return render(request, 'parent/annonces.html', {
+        'announcements':        announcements,
+        'schools_map':          schools_map,
+        'has_multiple_schools': len(schools_map) > 1,
     })
 
 

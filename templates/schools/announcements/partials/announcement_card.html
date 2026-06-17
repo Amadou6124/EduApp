@@ -1,0 +1,84 @@
+<div id="announcement-{{ ann.pk }}"
+     class="bg-white rounded-xl border border-gray-200 shadow-sm p-4
+            flex items-start gap-4 animate-fade-in">
+
+  {# Icône statut #}
+  <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5
+              {% if ann.is_published %}bg-green-50{% else %}bg-gray-100{% endif %}">
+    {% if ann.is_published %}
+    <i data-lucide="send" class="w-5 h-5 text-green-600"></i>
+    {% else %}
+    <i data-lucide="file-edit" class="w-5 h-5 text-gray-500"></i>
+    {% endif %}
+  </div>
+
+  {# Corps #}
+  <div class="flex-1 min-w-0">
+
+    {# Badges #}
+    <div class="flex items-center gap-2 flex-wrap mb-1.5">
+      {% if ann.is_published %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700">
+        Publiée
+      </span>
+      {% else %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">
+        Brouillon
+      </span>
+      {% endif %}
+
+      {% if ann.audience == 'school' %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-100 text-primary-700">
+        <i data-lucide="users" class="w-2.5 h-2.5 inline-block -mt-0.5"></i> Tous les parents
+      </span>
+      {% elif ann.audience == 'class' %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100 text-indigo-700">
+        <i data-lucide="graduation-cap" class="w-2.5 h-2.5 inline-block -mt-0.5"></i>
+        {{ ann.target_class.name|default:"Classe" }}
+      </span>
+      {% elif ann.audience == 'student' %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700">
+        <i data-lucide="user" class="w-2.5 h-2.5 inline-block -mt-0.5"></i>
+        {{ ann.target_student.full_name|default:"Élève" }}
+      </span>
+      {% endif %}
+    </div>
+
+    {# Titre + corps #}
+    <p class="font-semibold text-gray-900 truncate">{{ ann.title }}</p>
+    <p class="text-sm text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{{ ann.body }}</p>
+
+    {# Meta #}
+    <p class="text-xs text-gray-400 mt-2">
+      {{ ann.author.full_name }} · {{ ann.created_at|date:"j N Y" }}
+      {% if ann.is_published and ann.published_at %}
+      · <span class="text-green-600">Publiée le {{ ann.published_at|date:"j N Y" }}</span>
+      {% endif %}
+    </p>
+
+  </div>
+
+  {# Actions (brouillon uniquement) #}
+  {% if not ann.is_published %}
+  <div class="flex flex-col gap-2 shrink-0">
+    <button type="button"
+            onclick="confirmPublish('{% url 'schools:announcement-publish' ann.pk %}', '#announcement-{{ ann.pk }}', '{{ ann.title|escapejs }}')"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                   bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold
+                   transition-colors min-h-[44px] sm:min-h-0">
+      <i data-lucide="send" class="w-3.5 h-3.5"></i>
+      Publier
+    </button>
+    <button type="button"
+            onclick="confirmDeleteAnnouncement('{% url 'schools:announcement-delete' ann.pk %}', '#announcement-{{ ann.pk }}')"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                   bg-white border border-gray-200 hover:bg-red-50 hover:border-red-200
+                   text-gray-500 hover:text-red-600 text-xs font-medium
+                   transition-colors min-h-[44px] sm:min-h-0">
+      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      Supprimer
+    </button>
+  </div>
+  {% endif %}
+
+</div>
