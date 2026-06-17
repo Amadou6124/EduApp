@@ -249,6 +249,63 @@ def parent_notes(request):
 
 @login_required
 @parent_required
+def parent_suivi(request):
+    """Suivi scolaire : absences/retards, observations partagées, appréciations."""
+    from datetime import date
+    from apps.schools.models import SchoolYear, Bulletin
+    from apps.teachers.models import Attendance, StudentObservation
+
+    links = (
+        request.user.guarded_students
+        .select_related('student', 'student__school', 'student__school_class')
+        .order_by('-is_primary', 'student__full_name')
+    )
+    children = [l.student for l in links]
+
+    if not children:
+        return render(request, 'parent/suivi.html', {
+            'children': [], 'active_student': None,
+            'attendances': [], 'observations': [], 'bulletins': [],
+            'n_absent': 0, 'n_late': 0,
+        })
+
+    active_id = request.GET.get('child')
+    active_student = next((s for s in children if str(s.id) == active_id), None) or children[0]
+
+    sy = SchoolYear.objects.filter(school=active_student.school, is_active=True).first()
+    since = sy.start_date if sy else date.today().replace(month=9, day=1)
+
+    attendances = (
+        Attendance.objects
+        .filter(student=active_student, status__in=['absent', 'late'], date__gte=since)
+        .order_by('-date')
+    )
+    observations = (
+        StudentObservation.objects
+        .filter(student=active_student, is_visible_to_parent=True)
+        .select_related('teacher')
+        .order_by('-created_at')
+    )
+    bulletins = (
+        Bulletin.objects
+        .filter(student=active_student, is_published=True, is_cancelled=False)
+        .select_related('period', 'period__school_year')
+        .order_by('-period__school_year__start_date', '-period__order')
+    )
+
+    return render(request, 'parent/suivi.html', {
+        'children': children,
+        'active_student': active_student,
+        'attendances': attendances,
+        'observations': observations,
+        'bulletins': bulletins,
+        'n_absent': attendances.filter(status='absent').count(),
+        'n_late': attendances.filter(status='late').count(),
+    })
+
+
+@login_required
+@parent_required
 def parent_notifications(request):
     """Liste des notifications du parent. Ordonné -created_at (Meta)."""
     from datetime import timedelta

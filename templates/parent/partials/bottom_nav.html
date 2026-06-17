@@ -19,6 +19,12 @@
       <i data-lucide="wallet" class="w-5 h-5"></i>
       <span class="text-[10px] {% if active == 'payments' %}font-semibold{% endif %}">Paiements</span>
     </a>
+    <a href="{% url 'parent:suivi' %}"
+       class="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] transition-colors
+              {% if active == 'suivi' %}text-primary-600{% else %}text-gray-400{% endif %}">
+      <i data-lucide="activity" class="w-5 h-5"></i>
+      <span class="text-[10px] {% if active == 'suivi' %}font-semibold{% endif %}">Suivi</span>
+    </a>
     <a href="{% url 'parent:account' %}"
        class="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] transition-colors
               {% if active == 'compte' %}text-primary-600{% else %}text-gray-400{% endif %}">
