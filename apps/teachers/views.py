@@ -877,3 +877,37 @@ def teacher_notif_clear(request):
     """Supprime toutes les notifications de l'enseignant."""
     request.user.notifications.all().delete()
     return redirect('teacher:notifications')
+
+
+# ─────────────────────────────────────────────────────────────
+# Toutes mes observations
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+@teacher_required
+def teacher_observations(request):
+    from .models import StudentObservation
+
+    user = request.user
+
+    raw_obs = list(
+        StudentObservation.objects
+        .filter(teacher=user)
+        .select_related('student', 'student__school_class')
+        .order_by('-created_at')
+    )
+
+    observations = [
+        {
+            'obs':         o,
+            'badge_css':   OBS_BADGE.get(o.observation_type, OBS_BADGE['other'])[0],
+            'badge_label': OBS_BADGE.get(o.observation_type, OBS_BADGE['other'])[1],
+            'rel_date':    _relative_date_fr(o.created_at),
+        }
+        for o in raw_obs
+    ]
+
+    return render(request, 'teachers/observations.html', {
+        'observations': observations,
+        'total_count':  len(observations),
+    })
