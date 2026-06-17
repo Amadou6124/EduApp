@@ -113,6 +113,16 @@
             <span class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-600">
               <i data-lucide="send" class="w-2.5 h-2.5"></i> Admin
             </span>
+            {% if item.obs.is_read %}
+            <span class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700">
+              <i data-lucide="check-circle" class="w-2.5 h-2.5"></i> Lu
+            </span>
+            {% else %}
+            <span title="Le directeur n'a pas encore consulté cette observation"
+                  class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 cursor-help">
+              <i data-lucide="clock" class="w-2.5 h-2.5"></i> En attente
+            </span>
+            {% endif %}
             {% endif %}
           </div>
           <span class="text-[11px] text-gray-400 shrink-0">{{ item.rel_date }}</span>
