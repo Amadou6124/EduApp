@@ -288,17 +288,31 @@
 {% if c.recent_absences %}
 <div class="mx-4 mt-4 animate-fade-in-up animate-delay-200">
   <p class="text-sm font-semibold text-gray-700 mb-2">Absences récentes</p>
-  {% for a in c.recent_absences %}
-  <div class="flex items-center gap-3 py-2">
-    <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-      <i data-lucide="calendar-x" class="w-4 h-4 text-orange-600"></i>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    {% for a in c.recent_absences %}
+    {% if not forloop.first %}<div class="border-t border-gray-50"></div>{% endif %}
+    <div class="flex items-center gap-3 py-2.5">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0
+                  {% if a.status == 'late' %}bg-amber-100{% else %}bg-red-100{% endif %}">
+        {% if a.status == 'late' %}
+          <i data-lucide="clock" class="w-4 h-4 text-amber-600"></i>
+        {% else %}
+          <i data-lucide="calendar-x" class="w-4 h-4 text-red-600"></i>
+        {% endif %}
+      </div>
+      <div>
+        <p class="text-sm text-gray-700">{{ a.date|date:"j F Y" }}</p>
+        <p class="text-xs font-medium
+                  {% if a.status == 'late' %}text-amber-600{% else %}text-red-600{% endif %}">
+          {{ a.get_status_display }}
+        </p>
+        {% if a.note %}
+        <p class="text-xs text-gray-400 mt-0.5">{{ a.note }}</p>
+        {% endif %}
+      </div>
     </div>
-    <div>
-      <p class="text-sm text-gray-700">{{ a.date|date:"j F Y" }}</p>
-      <p class="text-xs text-gray-400">Absent</p>
-    </div>
+    {% endfor %}
   </div>
-  {% endfor %}
 </div>
 {% endif %}
 
@@ -309,7 +323,13 @@
 <div class="mx-4 mt-4 mb-6 animate-fade-in-up animate-delay-200">
   <p class="text-sm font-semibold text-gray-700 mb-2">Messages de l'école</p>
   {% for o in c.observations %}
-  <div class="bg-white rounded-2xl p-4 shadow-sm mb-2">
+  <div x-data="{ expanded: false, overflow: false }"
+       x-init="$nextTick(() => { overflow = $refs.msg.scrollHeight > $refs.msg.clientHeight })"
+       class="bg-white rounded-2xl p-4 shadow-sm mb-2 border-l-4
+              {% if o.observation_type == 'behaviour' %}border-orange-400
+              {% elif o.observation_type == 'academic' %}border-blue-400
+              {% elif o.observation_type == 'health' %}border-red-400
+              {% else %}border-gray-200{% endif %}">
     <div class="mb-1.5">
       {% if o.observation_type == 'behaviour' %}
         <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
@@ -325,9 +345,15 @@
                      bg-gray-100 text-gray-600">Autre</span>
       {% endif %}
     </div>
-    <p class="text-sm text-gray-700 line-clamp-2">
+    <p x-ref="msg"
+       :class="expanded ? 'line-clamp-none' : 'line-clamp-3'"
+       class="text-sm text-gray-700">
       {{ o.parent_message|default:o.content }}
     </p>
+    <button x-show="overflow"
+            x-on:click="expanded = !expanded"
+            x-text="expanded ? 'Réduire' : 'Lire'"
+            class="text-xs font-medium text-primary-600 mt-1"></button>
     <p class="text-xs text-gray-400 mt-1.5">
       {% if o.teacher %}{{ o.teacher.full_name }} · {% endif %}{{ o.created_at|naturaltime }}
     </p>

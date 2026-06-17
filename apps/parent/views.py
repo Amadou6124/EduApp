@@ -48,7 +48,7 @@ def parent_dashboard(request):
             Prefetch(
                 'student__attendances',
                 queryset=Attendance.objects
-                    .filter(status='absent', date__gte=since_30)
+                    .filter(status__in=['absent', 'late'], date__gte=since_30)
                     .order_by('-date'),
                 to_attr='recent_absences',
             ),
