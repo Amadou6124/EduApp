@@ -18,7 +18,7 @@
       groupNames: [''],
       groupClassId: null,
       classes: JSON.parse(document.getElementById('classes-data').textContent),
-      viewMode: localStorage.getItem('studentsView') || 'cards',
+      viewMode: window.innerWidth < 640 ? 'cards' : (localStorage.getItem('studentsView') || 'cards'),
       get selectedClass() { return this.classes.find(c => c.id == this.selectedClassId) },
       get selectedFee() { return this.selectedClass ? this.selectedClass.annual_fee : null },
       addGroupName() { this.groupNames.push('') },
@@ -80,7 +80,7 @@
   </div>
 
   {# ── Onglets filtre ── #}
-  <div class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 overflow-x-auto mb-5">
+  <div class="bg-gray-100 rounded-lg p-1 flex gap-1 overflow-x-auto mb-5">
     <a href="?filter=all"
        class="px-4 py-2 rounded-md text-sm transition-all {% if filter_type == 'all' %}bg-white shadow-sm text-gray-900 font-medium{% else %}text-gray-600 hover:bg-white/60 hover:text-gray-900{% endif %}">Tous</a>
     <a href="?filter=class"

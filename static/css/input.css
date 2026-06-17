@@ -117,9 +117,9 @@
   .kpi-trend-down { @apply inline-flex items-center gap-0.5 text-xs font-medium text-red-600; }
 
   /* ─────────────── TABLES ─────────────── */
-  /* Wrapper : applique le radius + bordure (overflow-hidden coupe les coins) */
+  /* Wrapper : overflow-x-auto pour scroll horizontal sur mobile (overflow-hidden coupait les données) */
   .table-card {
-    @apply overflow-hidden rounded-xl border border-gray-200 bg-white;
+    @apply overflow-x-auto rounded-xl border border-gray-200 bg-white;
   }
   /* Table sémantique : style appliqué via les balises pour éviter de
      répéter les classes sur chaque th/td dans les templates */
