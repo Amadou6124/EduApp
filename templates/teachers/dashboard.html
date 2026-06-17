@@ -266,6 +266,12 @@
       </div>
       {% endfor %}
     </div>
+    <a href="{% url 'teacher:observations' %}"
+       class="flex items-center justify-end gap-1 mt-3 text-sm font-medium
+              text-primary-600 hover:text-primary-700 transition">
+      Voir toutes mes observations
+      <i data-lucide="arrow-right" class="w-4 h-4"></i>
+    </a>
   </div>
   {% endif %}
 

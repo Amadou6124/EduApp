@@ -35,4 +35,7 @@ urlpatterns = [
     path('notifications/<int:notif_id>/delete/', views.teacher_notif_delete, name='notif-delete'),
     path('notifications/read-all/', views.teacher_notif_read_all, name='notif-read-all'),
     path('notifications/clear/', views.teacher_notif_clear, name='notif-clear'),
+
+    # ── Observations ──────────────────────────────────────────
+    path('observations/', views.teacher_observations, name='observations'),
 ]
