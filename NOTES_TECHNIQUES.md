@@ -15,3 +15,16 @@
 - Branche suggérée : chore/lucide-upgrade
 
 ### Chart.js : déjà self-hosté (4.4.1) ✅
+
+---
+
+## Scroll horizontal résiduel (Safari iOS)
+- HTML/BODY débordent de 136px (scrollWidth 536 dans viewport 400px)
+- Suspect : enfant direct de `div.flex.min-h-screen` dans base.html
+- Script de détection déjà prêt (console Safari Web Inspector)
+- Branche suggérée : fix/mobile-scroll
+
+## Erreurs Alpine console
+- `this.classes.find is not a function` (page inscription élève ?)
+- `lucide.min.js.map` 404 (source map manquante, sans impact fonctionnel)
+- Branche suggérée : fix/alpine-errors
