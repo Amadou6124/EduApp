@@ -16,11 +16,76 @@
   </div>
 
   {% if lesson.status == 'processing' or lesson.status == 'draft' %}
-    {# ── En cours : polling HTMX ── #}
-    {% include "lessons/partials/lesson_status_card.html" %}
+    <div x-data="{
+      steps: [
+        { text: 'Lecture du document...' },
+        { text: 'Analyse du contenu pédagogique...' },
+        { text: 'Structuration de la leçon...' },
+        { text: 'Génération des quiz...' },
+        { text: 'Création de la story interactive...' },
+        { text: 'Préparation des flashcards...' },
+        { text: 'Finalisation...' },
+      ],
+      currentStep: 0,
+      elapsed: 0,
+      init() {
+        setInterval(() => {
+          this.currentStep = (this.currentStep + 1) % this.steps.length;
+        }, 5000);
+        setInterval(() => { this.elapsed++; }, 1000);
+      },
+      get elapsedStr() {
+        const m = Math.floor(this.elapsed / 60);
+        const s = this.elapsed % 60;
+        return m > 0
+          ? m + 'min ' + String(s).padStart(2, '0') + 's'
+          : String(s) + 's';
+      }
+    }">
+
+      <div class="bg-white rounded-2xl border border-gray-200 p-10 text-center
+                  max-w-sm mx-auto animate-fade-in-up"
+           style="animation-fill-mode:both">
+
+        <div class="w-16 h-16 rounded-2xl bg-primary-100 flex items-center justify-center
+                    mx-auto mb-6 animate-pulse relative">
+          <span x-show="currentStep === 0" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="search" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 1" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="book-open" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 2" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="pen-line" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 3" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="help-circle" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 4" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="message-circle" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 5" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="layers" class="w-8 h-8 text-primary-600"></i></span>
+          <span x-show="currentStep === 6" class="absolute inset-0 flex items-center justify-center">
+            <i data-lucide="sparkles" class="w-8 h-8 text-primary-600"></i></span>
+        </div>
+
+        <p class="font-semibold text-gray-800 mb-1" x-text="steps[currentStep].text"></p>
+        <p class="text-sm text-gray-400 mb-6">
+          {{ lesson.subject }}{% if lesson.level_detail %} · {{ lesson.level_detail }}{% endif %}
+        </p>
+
+        <div class="flex items-center justify-center gap-1.5 mb-5">
+          <template x-for="(step, i) in steps" :key="i">
+            <div class="h-2 rounded-full transition-all duration-500"
+                 :class="i === currentStep
+                   ? 'bg-primary-600 w-4'
+                   : i < currentStep ? 'bg-primary-200 w-2' : 'bg-gray-200 w-2'"></div>
+          </template>
+        </div>
+
+        <p class="text-xs text-gray-400">⏱ <span x-text="elapsedStr"></span></p>
+      </div>
+
+      {% include "lessons/partials/lesson_status_card.html" %}
+    </div>
 
   {% elif lesson.status == 'error' %}
-    {# ── Erreur ── #}
     <div class="bg-red-50 border border-red-200 rounded-2xl p-6">
       <div class="flex items-center gap-2 text-red-700 mb-2">
         <i data-lucide="circle-x" class="w-5 h-5"></i><p class="font-semibold">Erreur lors de la génération</p>
@@ -33,7 +98,6 @@
     </div>
 
   {% else %}
-    {# ── Prête ── #}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
       <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
         <p class="text-xl font-extrabold text-gray-900">{{ lesson.structured_content.blocks|length }}</p>
@@ -53,7 +117,6 @@
       </div>
     </div>
 
-    {# Aperçu des 3 premiers quiz #}
     {% if lesson.quiz_data.quizzes %}
     <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
       <p class="text-sm font-bold text-gray-900 mb-4">Aperçu des quiz</p>
@@ -79,7 +142,6 @@
     </div>
     {% endif %}
 
-    {# Déploiement (action complète en phase ultérieure) #}
     <div class="bg-white rounded-2xl border border-gray-200 p-6">
       <p class="text-sm font-bold text-gray-900 mb-1">Déployer vers mes classes</p>
       <p class="text-xs text-gray-400 mb-4">Sélection des classes — l'envoi aux élèves arrive dans une prochaine étape.</p>
