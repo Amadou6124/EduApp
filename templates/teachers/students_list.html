@@ -8,7 +8,10 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="{ search: '' }" class="max-w-2xl mx-auto space-y-5">
+<div x-data="{
+  search: '',
+  studentNames: [{% for group in class_groups %}{% for student in group.students %}'{{ student.full_name|lower|escapejs }}'{% if not forloop.last or not forloop.parentloop.last %},{% endif %}{% endfor %}{% endfor %}]
+}" class="max-w-2xl mx-auto space-y-5">
 
   {# ── Barre de recherche ─────────────────────────────── #}
   <div class="relative">
@@ -80,7 +83,7 @@
     {% endfor %}
 
   {% else %}
-  <div class="bg-white rounded-xl border border-gray-200 p-10 text-center">
+  <div class="bg-white rounded-2xl border border-gray-200 p-10 text-center">
     <i data-lucide="users" class="w-12 h-12 mx-auto text-gray-300 mb-3"></i>
     <p class="text-sm font-medium text-gray-500">Aucune classe assignée</p>
     <p class="text-xs text-gray-400 mt-1">Contactez le directeur pour être affecté à des classes.</p>
@@ -88,7 +91,7 @@
   {% endif %}
 
   {# Message aucun résultat #}
-  <p x-show="search && {{ total_students }} > 0 && document.querySelectorAll('[x-show]').length === 0"
+  <p x-show="search && !studentNames.some(n => n.includes(search.toLowerCase()))"
      x-cloak
      class="text-center text-sm text-gray-400 py-8">
     Aucun élève ne correspond à « <span x-text="search"></span> »

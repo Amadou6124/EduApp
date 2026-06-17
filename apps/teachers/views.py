@@ -807,3 +807,73 @@ def quick_assessment_save(request):
         },
     })
     return resp
+
+
+# ── Notifications enseignant ──────────────────────────────────────────────
+
+@login_required
+@teacher_required
+def teacher_notifications(request):
+    """Liste des notifications de l'enseignant, groupées par date."""
+    from datetime import timedelta
+    from django.utils import timezone
+    today     = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+    week_ago  = today - timedelta(days=7)
+
+    notifs = list(request.user.notifications.all())
+    for n in notifs:
+        d = n.created_at.date()
+        if d == today:
+            n.date_group = "Aujourd'hui"
+        elif d == yesterday:
+            n.date_group = "Hier"
+        elif d >= week_ago:
+            n.date_group = "Cette semaine"
+        else:
+            n.date_group = "Plus ancien"
+
+    return render(request, 'teachers/notifications.html', {
+        'notifications': notifs,
+        'unread_count': sum(1 for n in notifs if not n.is_read),
+    })
+
+
+@login_required
+@teacher_required
+def teacher_notif_open(request, notif_id):
+    """Marque lu puis redirige vers la cible de la notification."""
+    from apps.notifications.models import Notification
+    notif = get_object_or_404(Notification, id=notif_id, recipient=request.user)
+    if not notif.is_read:
+        notif.is_read = True
+        notif.save(update_fields=['is_read'])
+    return redirect(notif.url or 'teacher:notifications')
+
+
+@login_required
+@teacher_required
+@require_POST
+def teacher_notif_delete(request, notif_id):
+    """Supprime une notification. Renvoie '' → la card disparaît (HTMX swap)."""
+    from apps.notifications.models import Notification
+    get_object_or_404(Notification, id=notif_id, recipient=request.user).delete()
+    return HttpResponse('')
+
+
+@login_required
+@teacher_required
+@require_POST
+def teacher_notif_read_all(request):
+    """Marque toutes les notifications comme lues."""
+    request.user.notifications.filter(is_read=False).update(is_read=True)
+    return redirect('teacher:notifications')
+
+
+@login_required
+@teacher_required
+@require_POST
+def teacher_notif_clear(request):
+    """Supprime toutes les notifications de l'enseignant."""
+    request.user.notifications.all().delete()
+    return redirect('teacher:notifications')

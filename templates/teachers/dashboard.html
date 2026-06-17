@@ -12,7 +12,7 @@
 {% endblock %}
 
 {# ── Titre header : "Bonjour Prénom 👋" ─────────────────── #}
-{% block page_title %}Bonjour {{ first_name }} 👋{% endblock %}
+{% block page_title %}Bonjour {{ first_name }}{% endblock %}
 {% block page_subtitle %}{% endblock %}
 
 {% block content %}
@@ -44,7 +44,7 @@
   {# ══════════════════════════════════════════════════════ #}
   <div class="grid grid-cols-2 gap-3">
 
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-white rounded-2xl border border-gray-200 p-4">
       <div class="flex items-center gap-2 mb-1">
         <i data-lucide="book-open" class="w-5 h-5 text-primary-600 shrink-0"></i>
         <span class="text-xs text-gray-500 font-medium">Mes classes</span>
@@ -52,7 +52,7 @@
       <p class="text-2xl font-bold text-gray-900">{{ nb_classes }}</p>
     </div>
 
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-white rounded-2xl border border-gray-200 p-4">
       <div class="flex items-center gap-2 mb-1">
         <i data-lucide="users" class="w-5 h-5 text-indigo-500 shrink-0"></i>
         <span class="text-xs text-gray-500 font-medium">Total élèves</span>
@@ -60,7 +60,7 @@
       <p class="text-2xl font-bold text-gray-900">{{ total_students }}</p>
     </div>
 
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-white rounded-2xl border border-gray-200 p-4">
       <div class="flex items-center gap-2 mb-1">
         <i data-lucide="check-circle" class="w-5 h-5 text-green-500 shrink-0"></i>
         <span class="text-xs text-gray-500 font-medium">Notes saisies</span>
@@ -70,7 +70,7 @@
       </p>
     </div>
 
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-white rounded-2xl border border-gray-200 p-4">
       <div class="flex items-center gap-2 mb-1">
         <i data-lucide="alert-circle" class="w-5 h-5 text-amber-500 shrink-0"></i>
         <span class="text-xs text-gray-500 font-medium">Absences auj.</span>
@@ -91,7 +91,7 @@
     {% if class_cards %}
       <div class="space-y-3">
         {% for card in class_cards %}
-        <div class="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+        <div class="bg-white rounded-2xl border border-gray-200 p-4 space-y-3">
 
           {# Nom + badge niveau #}
           <div class="flex items-start justify-between gap-2">
@@ -176,7 +176,7 @@
       </div>
 
     {% else %}
-      <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+      <div class="bg-white rounded-2xl border border-gray-200 p-8 text-center">
         <i data-lucide="book-open" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i>
         <p class="text-sm font-medium text-gray-500">Aucune classe assignée</p>
         <p class="text-xs text-gray-400 mt-1">
@@ -237,7 +237,7 @@
     <h2 class="text-base font-semibold text-gray-800 mb-3">Mes observations récentes</h2>
     <div class="space-y-2">
       {% for item in recent_observations %}
-      <div class="bg-white rounded-xl border border-gray-200 p-4">
+      <div class="bg-white rounded-2xl border border-gray-200 p-4">
         <div class="flex items-start justify-between gap-2 mb-1">
           <div class="flex items-center gap-2 min-w-0">
             <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0
@@ -250,11 +250,12 @@
           </div>
           {% if item.obs.is_read %}
           <span class="shrink-0 flex items-center gap-1 text-[10px] text-green-600 font-medium">
-            <i data-lucide="check-circle" class="w-3 h-3"></i> lu
+            <i data-lucide="check-circle" class="w-3 h-3"></i> Lu
           </span>
           {% else %}
-          <span class="shrink-0 flex items-center gap-1 text-[10px] text-amber-600 font-medium">
-            <i data-lucide="clock" class="w-3 h-3"></i> en attente
+          <span title="Le directeur n'a pas encore consulté cette observation"
+                class="shrink-0 flex items-center gap-1 text-[10px] text-gray-400 font-medium cursor-help">
+            <i data-lucide="clock" class="w-3 h-3"></i> En attente
           </span>
           {% endif %}
         </div>

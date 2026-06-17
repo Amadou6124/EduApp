@@ -611,10 +611,19 @@
             {% endif %}
           </div>
 
-          <!-- Cloche décorative (page notifications enseignant à venir) -->
-          <div class="shrink-0 p-2 text-gray-300">
+          <!-- Cloche — notifications enseignant -->
+          <a href="{% url 'teacher:notifications' %}"
+             class="relative shrink-0 p-2 text-gray-400 hover:text-gray-600
+                    hover:bg-gray-100 rounded-lg transition">
             <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
-          </div>
+            {% if teacher_unread_count %}
+            <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
+                         bg-red-500 rounded-full text-white text-[9px] font-bold
+                         flex items-center justify-center leading-none">
+              {{ teacher_unread_count }}
+            </span>
+            {% endif %}
+          </a>
         </div>
         {% endif %}
 
@@ -663,10 +672,24 @@
               <span>{{ badge_year.name }}{% if badge_year.period_name %} · {{ badge_year.period_name }}{% endif %}</span>
             </a>
             {% endif %}
+            {% if request.role == 'teacher' %}
+            <a href="{% url 'teacher:notifications' %}"
+               class="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+              <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
+              {% if teacher_unread_count %}
+              <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
+                           bg-red-500 rounded-full text-white text-[9px] font-bold
+                           flex items-center justify-center leading-none">
+                {{ teacher_unread_count }}
+              </span>
+              {% endif %}
+            </a>
+            {% else %}
             <button type="button" aria-label="Notifications"
                     class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
               <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
             </button>
+            {% endif %}
           </div>
 
           {# Ligne 2 MOBILE (directeur/staff) : école · année · période — toujours visible #}

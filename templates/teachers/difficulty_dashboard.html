@@ -37,8 +37,32 @@
         this.qaSelectedCsId = subjects.length ? subjects[0].id : null;
         this.qaType = 'oral';
         this.qaPanel = true;
+    },
+    handleScoreUpdate(d) {
+        const card = document.getElementById('difficulty-card-' + d.student_id);
+        if (!card) return;
+        const lvl = d.level || 'good';
+        const bg  = {critical:'bg-red-50',  warning:'bg-amber-50',  watch:'bg-yellow-50',  good:'bg-green-50'};
+        const bd  = {critical:'border-red-200',warning:'border-amber-200',watch:'border-yellow-100',good:'border-green-100'};
+        const cl  = {critical:'text-red-600',warning:'text-amber-600',watch:'text-yellow-600',good:'text-green-600'};
+        ['bg-red-50','bg-amber-50','bg-yellow-50','bg-green-50'].forEach(c=>card.classList.remove(c));
+        ['border-red-200','border-amber-200','border-yellow-100','border-green-100'].forEach(c=>card.classList.remove(c));
+        card.classList.add(bg[lvl], bd[lvl]);
+        const s = card.querySelector('.js-score');
+        if (s) {
+            ['text-red-600','text-amber-600','text-yellow-600','text-green-600'].forEach(c=>s.classList.remove(c));
+            s.classList.add(cl[lvl]);
+            if (d.score !== null) s.textContent = parseFloat(d.score).toFixed(2)+'/20';
+        }
+        const t = card.querySelector('.js-trend');
+        if (t) {
+            if (d.trend==='down'){t.className='js-trend text-red-600 font-black text-lg leading-none';t.title='Tendance en baisse';t.textContent='↓';}
+            else if(d.trend==='up'){t.className='js-trend text-green-600 font-bold text-lg leading-none';t.title='Tendance en hausse';t.textContent='↑';}
+            else{t.className='js-trend text-gray-400 text-lg leading-none';t.title='';t.textContent='→';}
+        }
     }
 }"
+@score-updated.window="handleScoreUpdate($event.detail)"
     class="max-w-2xl mx-auto space-y-4">
 
   {# ── Résumé global ────────────────────────────────────── #}
@@ -63,7 +87,7 @@
 
   {# ── Sans période active ──────────────────────────────── #}
   {% if not active_period %}
-  <div class="bg-white rounded-xl border border-gray-200 p-10 text-center">
+  <div class="bg-white rounded-2xl border border-gray-200 p-10 text-center">
     <i data-lucide="calendar-off" class="w-12 h-12 mx-auto text-gray-300 mb-3"></i>
     <p class="text-sm font-medium text-gray-500">Aucune période scolaire active</p>
     <p class="text-xs text-gray-400 mt-1">Contactez le directeur pour activer une période.</p>
@@ -71,7 +95,7 @@
 
   {# ── Tout au vert ─────────────────────────────────────── #}
   {% elif total_struggling == 0 %}
-  <div class="bg-white rounded-xl border border-green-100 p-10 text-center">
+  <div class="bg-white rounded-2xl border border-green-100 p-10 text-center">
     <i data-lucide="check-circle" class="w-16 h-16 mx-auto text-green-400 mb-4"></i>
     <p class="text-base font-semibold text-gray-800 mb-1">Tous vos élèves progressent bien</p>
     <p class="text-sm text-gray-400">Continuez le bon travail !</p>
@@ -82,7 +106,7 @@
   {% for cd in classes_data %}
   {% if cd.total_struggling > 0 %}
   <div x-data="{ open: {% if cd.critical_count > 0 %}true{% else %}false{% endif %} }"
-       class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+       class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
 
     {# En-tête cliquable #}
     <button @click="open = !open"
