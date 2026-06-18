@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% load humanize static %}
+
+{% block title %}Synthèse{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+{% block page_subtitle %}{% if group %}{{ group.name }} — {{ total_schools }} école{{ total_schools|pluralize }}{% endif %}{% endblock %}
+
+{% block extra_head %}
+  <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+{% if not group %}
+<div class="flex flex-col items-center justify-center py-20 text-center px-6">
+  <i data-lucide="building-2" class="w-12 h-12 text-gray-300 mb-4"></i>
+  <p class="text-gray-500 text-sm">Aucun groupe d'écoles configuré pour votre compte.</p>
+  <p class="text-gray-400 text-xs mt-1">Contactez l'administrateur pour associer vos écoles.</p>
+</div>
+{% else %}
+<div class="max-w-5xl mx-auto space-y-5">
+
+  {# ── Hero KPIs ─────────────────────────────────────────────────── #}
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="building-2" class="w-4 h-4 text-gray-400 shrink-0"></i>
+        <p class="text-xs text-gray-500">Écoles actives</p>
+      </div>
+      <p class="text-2xl font-bold text-gray-900">{{ total_schools }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="users" class="w-4 h-4 text-gray-400 shrink-0"></i>
+        <p class="text-xs text-gray-500">Élèves</p>
+      </div>
+      <p class="text-2xl font-bold text-gray-900">{{ total_students }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="percent" class="w-4 h-4 text-gray-400 shrink-0"></i>
+        <p class="text-xs text-gray-500">Recouvrement</p>
+      </div>
+      <p class="text-2xl font-bold {% if taux_group >= 80 %}text-green-600{% elif taux_group >= 60 %}text-yellow-500{% else %}text-red-600{% endif %}">{{ taux_group }} %</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="trending-up" class="w-4 h-4 text-gray-400 shrink-0"></i>
+        <p class="text-xs text-gray-500">Ce mois</p>
+      </div>
+      <p class="text-xl font-bold text-primary-700">{{ total_paid_month|floatformat:0|intcomma }}</p>
+      <p class="text-[10px] text-gray-400 -mt-0.5">FCFA</p>
+    </div>
+  </div>
+
+  {# ── Alertes ──────────────────────────────────────────────────── #}
+  {% if alerts %}
+  <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+    <div class="flex items-center gap-2 mb-3">
+      <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600 shrink-0"></i>
+      <p class="text-sm font-semibold text-red-700">{{ alerts|length }} école{{ alerts|length|pluralize }} en alerte — recouvrement &lt; 60 %</p>
+    </div>
+    <div class="space-y-2">
+      {% for d in alerts %}
+      <a href="{% url 'promoter:school-detail' d.school.id %}"
+         class="flex items-center justify-between px-3 py-2.5 bg-white rounded-xl border border-red-100 hover:border-red-300 transition active:scale-[0.99]">
+        <span class="text-sm font-medium text-gray-800 truncate">{{ d.school.name }}</span>
+        <div class="flex items-center gap-2 shrink-0 ml-3">
+          <span class="text-sm font-bold text-red-600">{{ d.taux }} %</span>
+          <span class="text-xs text-gray-400">{{ d.unpaid_count }} élève{{ d.unpaid_count|pluralize }} en retard</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Classement des écoles ────────────────────────────────────── #}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div>
+        <h2 class="text-base font-semibold text-gray-900">Classement des écoles</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Pire recouvrement en premier</p>
+      </div>
+      <a href="{% url 'promoter:ecoles' %}"
+         class="text-xs text-primary-600 font-medium hover:underline shrink-0">Voir détails →</a>
+    </div>
+    <div class="divide-y divide-gray-100">
+      {% for d in schools_data %}
+      <a href="{% url 'promoter:school-detail' d.school.id %}"
+         class="flex items-start sm:items-center gap-3 px-4 sm:px-6 py-4 hover:bg-gray-50 transition active:bg-gray-100">
+        <span class="text-sm font-bold text-gray-300 shrink-0 w-5 pt-0.5 sm:pt-0">{{ forloop.counter }}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="text-sm font-semibold text-gray-900 truncate">{{ d.school.name }}</p>
+            <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold
+                         {% if d.status == 'green' %}bg-green-100 text-green-700
+                         {% elif d.status == 'yellow' %}bg-yellow-100 text-yellow-700
+                         {% else %}bg-red-100 text-red-700{% endif %}">
+              {{ d.taux }} %
+            </span>
+          </div>
+          <div class="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-1.5 rounded-full
+                        {% if d.status == 'green' %}bg-green-500{% elif d.status == 'yellow' %}bg-yellow-400{% else %}bg-red-400{% endif %}"
+                 style="width: {{ d.taux }}%"></div>
+          </div>
+          <div class="flex items-center gap-2 mt-1 text-[11px] text-gray-500 flex-wrap">
+            <span>{{ d.student_count }} élève{{ d.student_count|pluralize }}</span>
+            <span class="text-gray-300">·</span>
+            <span>{{ d.total_paid|floatformat:0|intcomma }} / {{ d.total_due|floatformat:0|intcomma }} FCFA</span>
+          </div>
+        </div>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 shrink-0 mt-0.5 sm:mt-0"></i>
+      </a>
+      {% empty %}
+      <div class="px-6 py-12 text-center">
+        <i data-lucide="building-2" class="w-8 h-8 text-gray-200 mx-auto mb-2"></i>
+        <p class="text-sm text-gray-400">Aucune école active dans votre groupe.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Graphique 6 mois ─────────────────────────────────────────── #}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-6">
+    <h2 class="text-base font-semibold text-gray-900 mb-4">Paiements — 6 derniers mois</h2>
+    <div class="h-52 sm:h-64">
+      <canvas id="syntheseChart"></canvas>
+    </div>
+    {{ chart_labels|json_script:"chart-labels" }}
+    {{ chart_values|json_script:"chart-values" }}
+  </div>
+
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const ctx = document.getElementById('syntheseChart');
+  if (!ctx || typeof Chart === 'undefined') return;
+  const labels = JSON.parse(document.getElementById('chart-labels').textContent);
+  const values = JSON.parse(document.getElementById('chart-values').textContent);
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Paiements (FCFA)',
+        data: values,
+        fill: true,
+        backgroundColor: 'rgba(79,70,229,0.08)',
+        borderColor: '#4F46E5',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#4F46E5',
+        tension: 0.3,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a1a',
+          cornerRadius: 8,
+          padding: 10,
+          callbacks: {
+            label: c => new Intl.NumberFormat('fr-FR').format(c.parsed.y) + ' FCFA',
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: {
+            font: { size: 11 },
+            callback: v => new Intl.NumberFormat('fr-FR', { notation: 'compact' }).format(v),
+          },
+        },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      },
+    },
+  });
+});
+</script>
+{% endblock %}

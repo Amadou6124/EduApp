@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% load humanize static %}
+
+{% block title %}Finances{% endblock %}
+{% block page_title %}Finances{% endblock %}
+{% block page_subtitle %}{% if group %}{{ group.name }}{% endif %}{% endblock %}
+
+{% block extra_head %}
+  <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+{% if not group %}
+<div class="flex flex-col items-center justify-center py-20 text-center px-6">
+  <i data-lucide="bar-chart-2" class="w-12 h-12 text-gray-300 mb-4"></i>
+  <p class="text-gray-500 text-sm">Aucun groupe d'écoles configuré.</p>
+</div>
+{% else %}
+<div class="max-w-5xl mx-auto space-y-5">
+
+  {# ── Sélecteur de mois ─────────────────────────────────────────── #}
+  <div class="flex items-center gap-2">
+    <a href="?month={{ prev_year }}-{% if prev_month < 10 %}0{% endif %}{{ prev_month }}"
+       class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition">
+      <i data-lucide="chevron-left" class="w-4 h-4"></i>
+    </a>
+    <span class="flex-1 text-center px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-800">
+      {{ month_label }} {{ year }}
+    </span>
+    {% if not is_future %}
+    <a href="?month={{ next_year }}-{% if next_month < 10 %}0{% endif %}{{ next_month }}"
+       class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition">
+      <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    </a>
+    {% else %}
+    <span class="p-2 rounded-lg border border-gray-100 text-gray-200 cursor-not-allowed">
+      <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    </span>
+    {% endif %}
+  </div>
+
+  {# ── Résumé P&L ───────────────────────────────────────────────── #}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div class="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="arrow-down-circle" class="w-4 h-4 text-primary-500 shrink-0"></i>
+        <p class="text-xs text-gray-500">Revenus (paiements)</p>
+      </div>
+      <p class="text-2xl font-bold text-gray-900">{{ total_revenus|floatformat:0|intcomma }}</p>
+      <p class="text-[11px] text-gray-400 mt-0.5">FCFA</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="arrow-up-circle" class="w-4 h-4 text-red-400 shrink-0"></i>
+        <p class="text-xs text-gray-500">Charges (sal. + dép.)</p>
+      </div>
+      <p class="text-2xl font-bold text-gray-900">{{ total_charges|floatformat:0|intcomma }}</p>
+      <p class="text-[11px] text-gray-400 mt-0.5">FCFA</p>
+    </div>
+    <div class="rounded-2xl p-4 sm:p-5 border shadow-sm
+                {% if total_net >= 0 %}bg-green-50 border-green-200{% else %}bg-red-50 border-red-200{% endif %}">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="{% if total_net >= 0 %}trending-up{% else %}trending-down{% endif %}"
+           class="w-4 h-4 shrink-0 {% if total_net >= 0 %}text-green-600{% else %}text-red-500{% endif %}"></i>
+        <p class="text-xs {% if total_net >= 0 %}text-green-700{% else %}text-red-700{% endif %}">Résultat net</p>
+      </div>
+      <p class="text-2xl font-bold {% if total_net >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+        {% if total_net >= 0 %}+{% endif %}{{ total_net|floatformat:0|intcomma }}
+      </p>
+      <p class="text-[11px] mt-0.5 {% if total_net >= 0 %}text-green-600{% else %}text-red-600{% endif %}">FCFA</p>
+    </div>
+  </div>
+
+  {# ── Graphique 12 mois ────────────────────────────────────────── #}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-6">
+    <h2 class="text-base font-semibold text-gray-900 mb-4">Évolution sur 12 mois</h2>
+    <div class="h-52 sm:h-64">
+      <canvas id="financesChart"></canvas>
+    </div>
+    {{ chart_labels|json_script:"fin-labels" }}
+    {{ chart_revenus|json_script:"fin-revenus" }}
+    {{ chart_charges|json_script:"fin-charges" }}
+  </div>
+
+  {# ── Tableau par école ────────────────────────────────────────── #}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-100">
+      <h2 class="text-base font-semibold text-gray-900">Détail par école — {{ month_label }} {{ year }}</h2>
+    </div>
+
+    {# Desktop : tableau #}
+    <div class="hidden sm:block overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 text-xs text-gray-500 bg-gray-50">
+            <th class="text-left px-6 py-3 font-medium">École</th>
+            <th class="text-right px-4 py-3 font-medium">Revenus</th>
+            <th class="text-right px-4 py-3 font-medium">Salaires</th>
+            <th class="text-right px-4 py-3 font-medium">Dépenses</th>
+            <th class="text-right px-6 py-3 font-medium">Net</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for d in schools_data %}
+          <tr class="hover:bg-gray-50 transition">
+            <td class="px-6 py-3.5">
+              <div class="font-medium text-gray-900 truncate max-w-[200px]">{{ d.school.name }}</div>
+              {% if not d.school.accounting_enabled %}
+              <div class="text-[10px] text-gray-400">Compta désactivée</div>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3.5 text-right text-gray-800 font-medium">{{ d.revenus|floatformat:0|intcomma }}</td>
+            <td class="px-4 py-3.5 text-right text-gray-500">
+              {% if d.school.accounting_enabled %}{{ d.salaires|floatformat:0|intcomma }}{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3.5 text-right text-gray-500">
+              {% if d.school.accounting_enabled %}{{ d.depenses|floatformat:0|intcomma }}{% else %}—{% endif %}
+            </td>
+            <td class="px-6 py-3.5 text-right font-bold {% if d.net >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+              {% if d.net >= 0 %}+{% endif %}{{ d.net|floatformat:0|intcomma }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="border-t-2 border-gray-200 bg-gray-50">
+          <tr>
+            <td class="px-6 py-3.5 text-sm font-semibold text-gray-700">Total groupe</td>
+            <td class="px-4 py-3.5 text-right font-bold text-gray-900">{{ total_revenus|floatformat:0|intcomma }}</td>
+            <td class="px-4 py-3.5"></td>
+            <td class="px-4 py-3.5 text-right font-bold text-gray-900">{{ total_charges|floatformat:0|intcomma }}</td>
+            <td class="px-6 py-3.5 text-right font-bold text-lg {% if total_net >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+              {% if total_net >= 0 %}+{% endif %}{{ total_net|floatformat:0|intcomma }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    {# Mobile : cartes #}
+    <div class="sm:hidden divide-y divide-gray-100">
+      {% for d in schools_data %}
+      <div class="px-4 py-4">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm font-semibold text-gray-900 truncate">{{ d.school.name }}</p>
+          <span class="text-sm font-bold {% if d.net >= 0 %}text-green-600{% else %}text-red-600{% endif %} shrink-0 ml-2">
+            {% if d.net >= 0 %}+{% endif %}{{ d.net|floatformat:0|intcomma }} F
+          </span>
+        </div>
+        <div class="grid grid-cols-3 gap-1 text-[11px]">
+          <div>
+            <p class="text-gray-400">Revenus</p>
+            <p class="font-medium text-gray-700">{{ d.revenus|floatformat:0|intcomma }}</p>
+          </div>
+          <div>
+            <p class="text-gray-400">Salaires</p>
+            <p class="font-medium text-gray-700">
+              {% if d.school.accounting_enabled %}{{ d.salaires|floatformat:0|intcomma }}{% else %}—{% endif %}
+            </p>
+          </div>
+          <div>
+            <p class="text-gray-400">Dépenses</p>
+            <p class="font-medium text-gray-700">
+              {% if d.school.accounting_enabled %}{{ d.depenses|floatformat:0|intcomma }}{% else %}—{% endif %}
+            </p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      <div class="px-4 py-4 bg-gray-50 border-t-2 border-gray-200">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-semibold text-gray-700">Total</p>
+          <p class="text-sm font-bold {% if total_net >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+            {% if total_net >= 0 %}+{% endif %}{{ total_net|floatformat:0|intcomma }} FCFA
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const ctx = document.getElementById('financesChart');
+  if (!ctx || typeof Chart === 'undefined') return;
+  const labels  = JSON.parse(document.getElementById('fin-labels').textContent);
+  const revenus = JSON.parse(document.getElementById('fin-revenus').textContent);
+  const charges = JSON.parse(document.getElementById('fin-charges').textContent);
+  new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Revenus',
+          data: revenus,
+          backgroundColor: 'rgba(79,70,229,0.75)',
+          borderRadius: 4,
+          barPercentage: 0.7,
+          categoryPercentage: 0.7,
+          order: 2,
+        },
+        {
+          type: 'bar',
+          label: 'Charges',
+          data: charges,
+          backgroundColor: 'rgba(220,38,38,0.55)',
+          borderRadius: 4,
+          barPercentage: 0.7,
+          categoryPercentage: 0.7,
+          order: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, usePointStyle: true } },
+        tooltip: {
+          backgroundColor: '#1a1a1a',
+          cornerRadius: 8,
+          padding: 10,
+          callbacks: {
+            label: c => c.dataset.label + ' : ' + new Intl.NumberFormat('fr-FR').format(c.parsed.y) + ' FCFA',
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: {
+            font: { size: 11 },
+            callback: v => new Intl.NumberFormat('fr-FR', { notation: 'compact' }).format(v),
+          },
+        },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      },
+    },
+  });
+});
+</script>
+{% endblock %}

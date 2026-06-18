@@ -170,14 +170,30 @@
         {# ══ Navigation DIRECTEUR / STAFF / PROMOTEUR ══════════════════ #}
 
         {% if request.role == 'promoter' %}
-        {# Promoteur : uniquement son dashboard consolidé #}
-        <a href="{% url 'promoter:dashboard' %}"
+        {# Promoteur : 3 items — Synthèse | Mes écoles | Finances #}
+        <a href="{% url 'promoter:synthese' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'promoter' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.url_name == 'synthese' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Mon tableau de bord'">
+           :title="$store.sidebar.open ? '' : 'Synthèse'">
           <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Mon tableau de bord</span>
+          <span x-show="$store.sidebar.open">Synthèse</span>
+        </a>
+        <a href="{% url 'promoter:ecoles' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Mes écoles'">
+          <i data-lucide="building-2" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mes écoles</span>
+        </a>
+        <a href="{% url 'promoter:finances' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'finances' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Finances'">
+          <i data-lucide="bar-chart-2" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Finances</span>
         </a>
 
         {% elif request.role == 'parent' %}
@@ -803,12 +819,23 @@
     </button>
 
     {% elif request.role == 'promoter' %}
-    {# ── Nav mobile PROMOTEUR : un seul item centré ── #}
-    <a href="{% url 'promoter:dashboard' %}"
-       class="flex-1 flex flex-col items-center justify-center">
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.app_name == 'promoter' %}bg-primary-600/10 rounded-xl{% endif %}">
-        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'promoter' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
-        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'promoter' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Tableau de bord</span>
+    {# ── Nav mobile PROMOTEUR : Synthèse | Mes écoles | Finances ── #}
+    <a href="{% url 'promoter:synthese' %}" class="flex-1 flex flex-col items-center justify-center">
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.url_name == 'synthese' %}bg-primary-600/10 rounded-xl{% endif %}">
+        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 {% if request.resolver_match.url_name == 'synthese' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.url_name == 'synthese' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Synthèse</span>
+      </span>
+    </a>
+    <a href="{% url 'promoter:ecoles' %}" class="flex-1 flex flex-col items-center justify-center">
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}bg-primary-600/10 rounded-xl{% endif %}">
+        <i data-lucide="building-2" class="w-5 h-5 shrink-0 {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Mes écoles</span>
+      </span>
+    </a>
+    <a href="{% url 'promoter:finances' %}" class="flex-1 flex flex-col items-center justify-center">
+      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.url_name == 'finances' %}bg-primary-600/10 rounded-xl{% endif %}">
+        <i data-lucide="bar-chart-2" class="w-5 h-5 shrink-0 {% if request.resolver_match.url_name == 'finances' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.url_name == 'finances' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Finances</span>
       </span>
     </a>
 

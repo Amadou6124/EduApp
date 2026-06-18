@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Mes écoles{% endblock %}
+{% block page_title %}Mes écoles{% endblock %}
+{% block page_subtitle %}{% if group %}{{ group.name }}{% endif %}{% endblock %}
+
+{% block content %}
+{% if not group %}
+<div class="flex flex-col items-center justify-center py-20 text-center px-6">
+  <i data-lucide="building-2" class="w-12 h-12 text-gray-300 mb-4"></i>
+  <p class="text-gray-500 text-sm">Aucun groupe d'écoles configuré.</p>
+</div>
+{% else %}
+<div class="max-w-5xl mx-auto space-y-4">
+
+  {% for d in schools_data %}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+
+    {# ── En-tête école ── #}
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="text-base font-semibold text-gray-900 truncate">{{ d.school.name }}</h2>
+          <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold
+                       {% if d.status == 'green' %}bg-green-100 text-green-700
+                       {% elif d.status == 'yellow' %}bg-yellow-100 text-yellow-700
+                       {% else %}bg-red-100 text-red-700{% endif %}">
+            {{ d.taux }} % recouvrement
+          </span>
+        </div>
+        {% if d.school.city %}
+        <p class="text-xs text-gray-400 mt-0.5">{{ d.school.city }}</p>
+        {% endif %}
+      </div>
+      <a href="{% url 'promoter:school-detail' d.school.id %}"
+         class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 transition">
+        Détail <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+      </a>
+    </div>
+
+    {# ── Métriques ── #}
+    <div class="px-4 sm:px-6 py-4">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div class="text-center">
+          <p class="text-xl font-bold text-gray-900">{{ d.student_count }}</p>
+          <p class="text-[11px] text-gray-500 mt-0.5">Élèves</p>
+        </div>
+        <div class="text-center">
+          <p class="text-xl font-bold text-gray-900">{{ d.class_count }}</p>
+          <p class="text-[11px] text-gray-500 mt-0.5">Classes</p>
+        </div>
+        <div class="text-center">
+          <p class="text-xl font-bold text-gray-900">{{ d.teacher_count }}</p>
+          <p class="text-[11px] text-gray-500 mt-0.5">Enseignants</p>
+        </div>
+        <div class="text-center">
+          <p class="text-xl font-bold {% if d.taux >= 80 %}text-green-600{% elif d.taux >= 60 %}text-yellow-500{% else %}text-red-600{% endif %}">{{ d.taux }} %</p>
+          <p class="text-[11px] text-gray-500 mt-0.5">Recouvrement</p>
+        </div>
+      </div>
+
+      {# Barre de progression #}
+      <div class="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+        <div class="h-2 rounded-full transition-all
+                    {% if d.status == 'green' %}bg-green-500{% elif d.status == 'yellow' %}bg-yellow-400{% else %}bg-red-400{% endif %}"
+             style="width: {{ d.taux }}%"></div>
+      </div>
+
+      {# Paiements #}
+      <div class="flex items-center justify-between text-sm mb-3">
+        <span class="text-gray-500">Encaissé / Attendu</span>
+        <span class="font-semibold text-gray-800">{{ d.total_paid|floatformat:0|intcomma }} / {{ d.total_due|floatformat:0|intcomma }} FCFA</span>
+      </div>
+
+      {# Alertes internes #}
+      {% if d.unpaid_30 or d.absences_month %}
+      <div class="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+        {% if d.unpaid_30 %}
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium">
+          <i data-lucide="clock" class="w-3 h-3 shrink-0"></i>
+          {{ d.unpaid_30 }} impayé{{ d.unpaid_30|pluralize }} &gt; 30 j
+        </span>
+        {% endif %}
+        {% if d.absences_month %}
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+          <i data-lucide="user-x" class="w-3 h-3 shrink-0"></i>
+          {{ d.absences_month }} absence{{ d.absences_month|pluralize }} ce mois
+        </span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+  {% empty %}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-16 text-center">
+    <i data-lucide="building-2" class="w-10 h-10 text-gray-200 mx-auto mb-3"></i>
+    <p class="text-sm text-gray-400">Aucune école active dans votre groupe.</p>
+  </div>
+  {% endfor %}
+
+</div>
+{% endif %}
+{% endblock %}
