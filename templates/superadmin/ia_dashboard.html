@@ -1,0 +1,122 @@
+{% extends "superadmin/base_superadmin.html" %}
+{% load humanize %}
+
+{% block title %}IA & Leçons{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-5">
+
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">IA & Leçons</h1>
+    <p class="text-sm text-gray-400 mt-0.5">Suivi des générations IA sur toute la plateforme</p>
+  </div>
+
+  {# ── KPIs ── #}
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="cpu" class="w-4 h-4 text-violet-400 shrink-0"></i>
+        <p class="text-xs text-gray-500">Coût total</p>
+      </div>
+      <p class="text-2xl font-bold text-violet-700">{{ totals.total_cost|default:0|floatformat:4 }}</p>
+      <p class="text-[10px] text-gray-400 mt-0.5">USD</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="check-circle" class="w-4 h-4 text-green-500 shrink-0"></i>
+        <p class="text-xs text-gray-500">Leçons ready</p>
+      </div>
+      <p class="text-2xl font-bold text-green-700">{{ totals.n_ready }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="x-circle" class="w-4 h-4 text-red-400 shrink-0"></i>
+        <p class="text-xs text-gray-500">Erreurs</p>
+      </div>
+      <p class="text-2xl font-bold text-red-600">{{ totals.n_errors }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="layers" class="w-4 h-4 text-gray-400 shrink-0"></i>
+        <p class="text-xs text-gray-500">Total leçons</p>
+      </div>
+      <p class="text-2xl font-bold text-gray-900">{{ totals.n_total }}</p>
+    </div>
+  </div>
+
+  {# ── Filtres ── #}
+  <form method="GET" class="flex flex-wrap gap-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-3">
+    <select name="school"
+            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary-500 bg-white">
+      <option value="">Toutes les écoles</option>
+      {% for s in ia_schools %}
+      <option value="{{ s.id }}" {% if school_filter == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="status"
+            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary-500 bg-white">
+      <option value="">Tous les statuts</option>
+      <option value="ready"      {% if status_filter == 'ready' %}selected{% endif %}>Prêtes</option>
+      <option value="error"      {% if status_filter == 'error' %}selected{% endif %}>Erreurs</option>
+      <option value="processing" {% if status_filter == 'processing' %}selected{% endif %}>En cours</option>
+      <option value="draft"      {% if status_filter == 'draft' %}selected{% endif %}>Brouillons</option>
+    </select>
+    <button type="submit"
+            class="px-4 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition">
+      Filtrer
+    </button>
+    {% if school_filter or status_filter %}
+    <a href="{% url 'superadmin:ia-dashboard' %}"
+       class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition">
+      Effacer
+    </a>
+    {% endif %}
+  </form>
+
+  {# ── Tableau leçons ── #}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
+            <th class="px-5 py-3 font-medium">Titre</th>
+            <th class="px-4 py-3 font-medium hidden md:table-cell">École</th>
+            <th class="px-4 py-3 font-medium hidden sm:table-cell">Enseignant</th>
+            <th class="px-4 py-3 font-medium text-center">Statut</th>
+            <th class="px-4 py-3 font-medium text-right">Coût</th>
+            <th class="px-4 py-3 font-medium hidden lg:table-cell">Provider</th>
+            <th class="px-5 py-3 font-medium">Date</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for lesson in lessons %}
+          <tr class="hover:bg-gray-50 transition">
+            <td class="px-5 py-3.5">
+              <p class="font-medium text-gray-900 truncate max-w-[180px]">{{ lesson.title }}</p>
+              <p class="text-xs text-gray-400">{{ lesson.subject }} · {{ lesson.get_level_display }}</p>
+            </td>
+            <td class="px-4 py-3.5 text-gray-600 text-xs hidden md:table-cell">{{ lesson.school.name|default:"—" }}</td>
+            <td class="px-4 py-3.5 text-gray-600 text-xs hidden sm:table-cell">{{ lesson.teacher.full_name }}</td>
+            <td class="px-4 py-3.5 text-center">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold
+                {% if lesson.status == 'ready' %}bg-green-100 text-green-700
+                {% elif lesson.status == 'error' %}bg-red-100 text-red-600
+                {% elif lesson.status == 'processing' %}bg-blue-100 text-blue-700
+                {% else %}bg-gray-100 text-gray-500{% endif %}">
+                {{ lesson.get_status_display }}
+              </span>
+            </td>
+            <td class="px-4 py-3.5 text-right font-mono text-xs text-gray-700">${{ lesson.generation_cost_usd|floatformat:6 }}</td>
+            <td class="px-4 py-3.5 text-xs text-gray-500 hidden lg:table-cell">{{ lesson.ai_provider_used|default:"—" }}</td>
+            <td class="px-5 py-3.5 text-xs text-gray-400">{{ lesson.created_at|date:"d/m/Y" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="px-5 py-12 text-center text-sm text-gray-400">Aucune leçon trouvée.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

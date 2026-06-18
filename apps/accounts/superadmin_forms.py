@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from apps.schools.models import School
-from .models import User
+from .models import User, UserRole
 
 
 class SchoolCreateForm(forms.ModelForm):
@@ -119,4 +119,53 @@ class DirectorUpdateForm(forms.ModelForm):
         if pwd or pwd2:
             if pwd != pwd2:
                 self.add_error('password_confirm', _('Les mots de passe ne correspondent pas.'))
+        return cleaned
+
+
+class UserCreateForm(forms.ModelForm):
+    role = forms.ChoiceField(
+        label=_('Rôle'),
+        choices=[
+            (UserRole.DIRECTOR, _('Directeur')),
+            (UserRole.PROMOTER, _('Promoteur')),
+        ],
+        widget=forms.Select(),
+    )
+    school = forms.ModelChoiceField(
+        queryset=School.objects.filter(is_active=True).order_by('name'),
+        label=_('École (obligatoire pour directeur)'),
+        required=False,
+        empty_label='— Sélectionner une école —',
+    )
+    password = forms.CharField(
+        label=_('Mot de passe'),
+        widget=forms.PasswordInput(attrs={'placeholder': 'Minimum 8 caractères'}),
+        min_length=8,
+    )
+    password_confirm = forms.CharField(
+        label=_('Confirmer le mot de passe'),
+        widget=forms.PasswordInput(attrs={'placeholder': 'Répéter le mot de passe'}),
+    )
+
+    class Meta:
+        model = User
+        fields = ['full_name', 'phone_number']
+        widgets = {
+            'full_name':    forms.TextInput(attrs={'placeholder': 'Nom Prénom'}),
+            'phone_number': forms.TextInput(attrs={'placeholder': '+225 07 00 00 00 00'}),
+        }
+
+    def clean_phone_number(self):
+        phone = self.cleaned_data['phone_number']
+        if User.objects.filter(phone_number=phone).exists():
+            raise ValidationError(_('Ce numéro de téléphone est déjà utilisé.'))
+        return phone
+
+    def clean(self):
+        cleaned = super().clean()
+        pwd, pwd2 = cleaned.get('password'), cleaned.get('password_confirm')
+        if pwd and pwd2 and pwd != pwd2:
+            self.add_error('password_confirm', _('Les mots de passe ne correspondent pas.'))
+        if cleaned.get('role') == UserRole.DIRECTOR and not cleaned.get('school'):
+            self.add_error('school', _("L'école est obligatoire pour un directeur."))
         return cleaned

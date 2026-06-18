@@ -1,0 +1,129 @@
+{% extends "superadmin/base_superadmin.html" %}
+{% load humanize %}
+
+{% block title %}Écoles{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-5">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Toutes les écoles</h1>
+      <p class="text-sm text-gray-400 mt-0.5">{{ school_data|length }} école{{ school_data|length|pluralize }}</p>
+    </div>
+    <a href="{% url 'superadmin:school-create' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition">
+      <i data-lucide="plus" class="w-4 h-4"></i> Nouvelle école
+    </a>
+  </div>
+
+  {# ── Desktop : tableau ── #}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hidden sm:block">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
+            <th class="px-5 py-3 font-medium">École</th>
+            <th class="px-3 py-3 font-medium text-center">Élèves</th>
+            <th class="px-3 py-3 font-medium text-right">FCFA</th>
+            <th class="px-3 py-3 font-medium text-center">Leçons</th>
+            <th class="px-3 py-3 font-medium text-center">Compta</th>
+            <th class="px-3 py-3 font-medium text-center">Statut</th>
+            <th class="px-5 py-3 font-medium text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for d in school_data %}
+          <tr class="hover:bg-gray-50 transition">
+            <td class="px-5 py-3.5">
+              <p class="font-semibold text-gray-900 truncate max-w-[180px]">{{ d.school.name }}</p>
+              <p class="text-xs text-gray-400">{{ d.school.city }}{% if d.director %} · {{ d.director.full_name }}{% endif %}</p>
+            </td>
+            <td class="px-3 py-3.5 text-center font-medium text-gray-700">{{ d.students_count }}</td>
+            <td class="px-3 py-3.5 text-right text-gray-600">{{ d.revenus|floatformat:0|intcomma }}</td>
+            <td class="px-3 py-3.5 text-center text-gray-500">{{ d.lessons }}</td>
+            <td class="px-3 py-3.5 text-center">
+              <form method="POST" action="{% url 'superadmin:accounting-toggle' d.school.id %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold cursor-pointer transition
+                               {% if d.school.accounting_enabled %}bg-green-100 text-green-700 hover:bg-green-200{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                  {% if d.school.accounting_enabled %}✓ Activée{% else %}✗ Désactivée{% endif %}
+                </button>
+              </form>
+            </td>
+            <td class="px-3 py-3.5 text-center">
+              <form method="POST" action="{% url 'superadmin:school-toggle' d.school.id %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold cursor-pointer transition
+                               {% if d.school.is_active %}bg-green-100 text-green-700 hover:bg-green-200{% else %}bg-red-100 text-red-600 hover:bg-red-200{% endif %}">
+                  {% if d.school.is_active %}Actif{% else %}Inactif{% endif %}
+                </button>
+              </form>
+            </td>
+            <td class="px-5 py-3.5 text-center">
+              <div class="flex items-center justify-center gap-2">
+                <a href="{% url 'superadmin:school-update' d.school.id %}"
+                   class="text-xs text-primary-600 hover:underline font-medium">Modifier</a>
+                <span class="text-gray-200">·</span>
+                {% if d.director %}
+                <a href="{% url 'superadmin:director-update' d.school.id d.director.id %}"
+                   class="text-xs text-green-600 hover:underline font-medium">Directeur</a>
+                {% else %}
+                <a href="{% url 'superadmin:director-create' d.school.id %}"
+                   class="text-xs text-orange-600 hover:underline font-medium">+ Directeur</a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="px-5 py-12 text-center text-sm text-gray-400">Aucune école créée.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ── Mobile : cartes ── #}
+  <div class="sm:hidden space-y-3">
+    {% for d in school_data %}
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div class="min-w-0">
+          <p class="font-semibold text-gray-900 truncate">{{ d.school.name }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">{{ d.school.city }}</p>
+        </div>
+        <form method="POST" action="{% url 'superadmin:school-toggle' d.school.id %}" class="shrink-0">
+          {% csrf_token %}
+          <button type="submit"
+                  class="px-2.5 py-1 rounded-full text-[10px] font-bold
+                         {% if d.school.is_active %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">
+            {% if d.school.is_active %}Actif{% else %}Inactif{% endif %}
+          </button>
+        </form>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center text-xs mb-3">
+        <div><p class="font-bold text-gray-800">{{ d.students_count }}</p><p class="text-gray-400">Élèves</p></div>
+        <div><p class="font-bold text-gray-800">{{ d.revenus|floatformat:0|intcomma }}</p><p class="text-gray-400">FCFA</p></div>
+        <div><p class="font-bold text-gray-800">{{ d.lessons }}</p><p class="text-gray-400">Leçons</p></div>
+      </div>
+      <div class="flex gap-2 pt-3 border-t border-gray-100">
+        <a href="{% url 'superadmin:school-update' d.school.id %}"
+           class="flex-1 text-center py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold">Modifier</a>
+        {% if d.director %}
+        <a href="{% url 'superadmin:director-update' d.school.id d.director.id %}"
+           class="flex-1 text-center py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-semibold">Directeur</a>
+        {% else %}
+        <a href="{% url 'superadmin:director-create' d.school.id %}"
+           class="flex-1 text-center py-1.5 rounded-lg bg-orange-50 text-orange-700 text-xs font-semibold">+ Directeur</a>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="bg-white rounded-2xl border border-gray-200 p-10 text-center text-sm text-gray-400">Aucune école.</div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

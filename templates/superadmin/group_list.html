@@ -1,0 +1,61 @@
+{% extends "superadmin/base_superadmin.html" %}
+
+{% block title %}Groupes scolaires{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-5">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Groupes scolaires</h1>
+      <p class="text-sm text-gray-400 mt-0.5">{{ groups|length }} groupe{{ groups|length|pluralize }}</p>
+    </div>
+    <a href="{% url 'superadmin:group-create' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition">
+      <i data-lucide="plus" class="w-4 h-4"></i> Créer un groupe
+    </a>
+  </div>
+
+  {% if groups %}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
+            <th class="px-5 py-3 font-medium">Groupe</th>
+            <th class="px-4 py-3 font-medium">Propriétaire (promoteur)</th>
+            <th class="px-4 py-3 font-medium text-center">Écoles</th>
+            <th class="px-4 py-3 font-medium text-center">Élèves</th>
+            <th class="px-5 py-3 font-medium">Créé le</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for g in groups %}
+          <tr class="hover:bg-gray-50 transition">
+            <td class="px-5 py-3.5 font-semibold text-gray-900">{{ g.name }}</td>
+            <td class="px-4 py-3.5">
+              <p class="text-gray-700 font-medium">{{ g.owner.full_name }}</p>
+              <p class="text-xs text-gray-400">{{ g.owner.phone_number }}</p>
+            </td>
+            <td class="px-4 py-3.5 text-center font-medium text-gray-700">{{ g.schools_count }}</td>
+            <td class="px-4 py-3.5 text-center font-medium text-gray-700">{{ g.students_count }}</td>
+            <td class="px-5 py-3.5 text-xs text-gray-400">{{ g.created_at|date:"d/m/Y" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-16 text-center">
+    <i data-lucide="layers" class="w-10 h-10 text-gray-200 mx-auto mb-3"></i>
+    <p class="text-sm text-gray-400 mb-4">Aucun groupe scolaire créé.</p>
+    <a href="{% url 'superadmin:group-create' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition">
+      <i data-lucide="plus" class="w-4 h-4"></i> Créer le premier groupe
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
