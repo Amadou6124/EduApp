@@ -71,3 +71,46 @@
 - Vue admin : valider ou refuser avec note
 - Branche suggérée : feature/parent-justification
 - Priorité : moyenne
+
+---
+
+## Gaps critiques identifiés — Gestion scolaire Mali
+
+### 1. Caisse journalière
+- Vue /accounting/caisse/ — journal chronologique du jour
+- Solde ouverture + entrées (paiements) + sorties (dépenses)
+  + solde clôture
+- Bouton "Clôturer la journée"
+- Effort estimé : 3 jours
+
+### 2. Certificats & attestations PDF
+- /students/<id>/certificat/ → PDF avec logo école,
+  en-tête officiel, photo, classe, année, signature
+- Types : scolarité, présence, radiation, transfert
+- Effort estimé : 2 jours
+
+### 3. Frais annexes + échéancier
+- FeeType (inscription/mensualité/cantine/transport)
+- FeeSchedule (dates d'échéance par classe)
+- Suivi par type de frais par élève
+- Effort estimé : 5-6 jours
+
+### 4. Relances automatiques impayés
+- Notification auto J+5 / J+15 après échéance
+- Liste des relances envoyées
+- Effort estimé : 3 jours
+
+### 5. Dossier élève — pièces jointes
+- Upload documents (extrait naissance, vaccins, photo)
+- Indicateur dossier complet/incomplet
+- Effort estimé : 3 jours
+
+### 6. Messagerie bidirectionnelle parent-école
+- Parent peut écrire à l'école, admin répond
+- Badge non-lu dans portail parent et admin
+- Effort estimé : 4 jours
+
+### 7. Bilan annuel consolidé
+- P&L sur l'année scolaire entière
+- Export PDF rapport propriétaire
+- Effort estimé : 2 jours
