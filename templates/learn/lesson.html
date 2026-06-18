@@ -178,8 +178,17 @@
   </div>
   {% endfor %}
 
-  {# Story interactive (Phase 10) #}
   {% if has_story %}
+  {% if is_preview %}
+  <div class="block bg-purple-50 border border-purple-200 rounded-2xl p-4 mb-4 opacity-60 cursor-not-allowed">
+    <div class="flex items-center gap-2 mb-1">
+      <span class="text-xl">🎭</span>
+      <span class="text-sm font-bold text-purple-700">Histoire interactive</span>
+      <span class="ml-auto bg-purple-100 text-purple-500 text-xs px-2 py-0.5 rounded-full">Prévisualisation</span>
+    </div>
+    <p class="text-purple-500 text-xs leading-relaxed">Non disponible en mode prévisualisation.</p>
+  </div>
+  {% else %}
   <a href="{% url 'learn:story' lesson.id %}"
      class="block bg-purple-50 border border-purple-200 rounded-2xl p-4 mb-4 active:scale-[0.98] transition">
     <div class="flex items-center gap-2 mb-1">
@@ -195,6 +204,7 @@
       {% if already_done %}Tu as déjà joué cette histoire. Rejoue pour réviser !{% else %}Discute avec des personnages maliens et teste ta compréhension.{% endif %}
     </p>
   </a>
+  {% endif %}
   {% endif %}
 
   {% if not is_preview %}
