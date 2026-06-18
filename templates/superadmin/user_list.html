@@ -1,0 +1,141 @@
+{% extends "superadmin/base_superadmin.html" %}
+
+{% block title %}Utilisateurs{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-5">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Utilisateurs</h1>
+      <p class="text-sm text-gray-400 mt-0.5">{{ users|length }} utilisateur{{ users|length|pluralize }}</p>
+    </div>
+    <a href="{% url 'superadmin:user-create' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition">
+      <i data-lucide="user-plus" class="w-4 h-4"></i> Créer
+    </a>
+  </div>
+
+  {# ── Filtres tabs ── #}
+  <div class="flex flex-wrap gap-1.5">
+    <a href="{% url 'superadmin:user-list' %}"
+       class="px-3 py-1.5 rounded-xl text-xs font-semibold transition
+              {% if not role_filter %}bg-primary-600 text-white{% else %}bg-white border border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+      Tous
+    </a>
+    {% for value, label in role_choices %}
+    <a href="?role={{ value }}"
+       class="px-3 py-1.5 rounded-xl text-xs font-semibold transition
+              {% if role_filter == value %}bg-primary-600 text-white{% else %}bg-white border border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+      {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+
+  {# ── Desktop : tableau ── #}
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hidden sm:block">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
+            <th class="px-5 py-3 font-medium">Utilisateur</th>
+            <th class="px-3 py-3 font-medium">Téléphone</th>
+            <th class="px-3 py-3 font-medium">Rôle</th>
+            <th class="px-3 py-3 font-medium">École</th>
+            <th class="px-3 py-3 font-medium text-center">Statut</th>
+            <th class="px-5 py-3 font-medium text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for u in users %}
+          <tr class="hover:bg-gray-50 transition">
+            <td class="px-5 py-3.5">
+              <p class="font-semibold text-gray-900">{{ u.full_name }}</p>
+              {% if u.email %}<p class="text-xs text-gray-400">{{ u.email }}</p>{% endif %}
+            </td>
+            <td class="px-3 py-3.5 text-gray-600 font-mono text-xs">{{ u.phone_number }}</td>
+            <td class="px-3 py-3.5">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold
+                {% if u.role == 'director' %}bg-primary-100 text-primary-700
+                {% elif u.role == 'teacher' %}bg-blue-100 text-blue-700
+                {% elif u.role == 'promoter' %}bg-violet-100 text-violet-700
+                {% elif u.role == 'staff' %}bg-amber-100 text-amber-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ u.get_role_display }}
+              </span>
+            </td>
+            <td class="px-3 py-3.5 text-gray-500 text-xs">{{ u.school.name|default:"—" }}</td>
+            <td class="px-3 py-3.5 text-center">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold
+                           {% if u.is_active %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">
+                {% if u.is_active %}Actif{% else %}Inactif{% endif %}
+              </span>
+            </td>
+            <td class="px-5 py-3.5 text-center">
+              <div class="flex items-center justify-center gap-2">
+                <form method="POST" action="{% url 'superadmin:user-toggle' u.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="text-xs {% if u.is_active %}text-red-600{% else %}text-green-600{% endif %} hover:underline font-medium">
+                    {% if u.is_active %}Désactiver{% else %}Activer{% endif %}
+                  </button>
+                </form>
+                <span class="text-gray-200">·</span>
+                <form method="POST" action="{% url 'superadmin:user-reset-pwd' u.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="text-xs text-amber-600 hover:underline font-medium">
+                    Reset pwd
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="px-5 py-12 text-center text-sm text-gray-400">Aucun utilisateur.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ── Mobile : cartes ── #}
+  <div class="sm:hidden space-y-3">
+    {% for u in users %}
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold shrink-0">
+          {{ u.get_initials }}
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold text-gray-900 truncate">{{ u.full_name }}</p>
+          <p class="text-xs text-gray-400">{{ u.phone_number }}</p>
+        </div>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0
+          {% if u.role == 'director' %}bg-primary-100 text-primary-700
+          {% elif u.role == 'teacher' %}bg-blue-100 text-blue-700
+          {% elif u.role == 'promoter' %}bg-violet-100 text-violet-700
+          {% else %}bg-gray-100 text-gray-600{% endif %}">
+          {{ u.get_role_display }}
+        </span>
+      </div>
+      {% if u.school %}<p class="text-xs text-gray-400 mb-3">{{ u.school.name }}</p>{% endif %}
+      <div class="flex gap-2 pt-3 border-t border-gray-100">
+        <form method="POST" action="{% url 'superadmin:user-toggle' u.id %}" class="flex-1">
+          {% csrf_token %}
+          <button type="submit" class="w-full py-1.5 rounded-lg text-xs font-semibold
+                  {% if u.is_active %}bg-red-50 text-red-600{% else %}bg-green-50 text-green-700{% endif %}">
+            {% if u.is_active %}Désactiver{% else %}Activer{% endif %}
+          </button>
+        </form>
+        <form method="POST" action="{% url 'superadmin:user-reset-pwd' u.id %}" class="flex-1">
+          {% csrf_token %}
+          <button type="submit" class="w-full py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-semibold">Reset pwd</button>
+        </form>
+      </div>
+    </div>
+    {% empty %}
+    <div class="bg-white rounded-2xl border border-gray-200 p-10 text-center text-sm text-gray-400">Aucun utilisateur.</div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}
