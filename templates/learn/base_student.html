@@ -5,75 +5,145 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>{% block title %}EduApp{% endblock %}</title>
 
-  <!-- Google Fonts : Manrope -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{% static 'css/output.css' %}">
   <link rel="stylesheet" href="{% static 'css/student.css' %}">
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
-  </script>
+  <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
+  <script src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => lucide.createIcons());</script>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-[#F0FDF9] min-h-screen flex flex-col max-w-md mx-auto relative">
+
+{# x-data racine : subjectOpen partagé entre header et bottom-sheet matières #}
+<body class="bg-[#F0FDF9] min-h-screen flex flex-col max-w-md mx-auto relative"
+      x-data="{ subjectOpen: false }">
 
   {% block header %}
-  <header class="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <div class="w-9 h-9 rounded-full bg-student-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
-        {{ student.full_name|first|upper }}
-      </div>
-      <div>
-        <p class="text-xs text-gray-500 leading-none">Bonjour 👋</p>
-        <p class="text-sm font-semibold text-gray-900 leading-tight">{{ student.full_name|truncatechars:15 }}</p>
-      </div>
+  <header class="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
+
+    {# Gauche : streak 🔥 #}
+    <div class="flex items-center gap-1 shrink-0">
+      <span class="text-base leading-none">🔥</span>
+      <span class="text-sm font-bold text-orange-500 tabular-nums">
+        {% if student %}{{ student.streak_days }}{% else %}0{% endif %}
+      </span>
     </div>
-    <div class="flex items-center gap-3">
-      <div class="flex items-center gap-1">
-        <span class="text-yellow-500 text-sm">⭐</span>
-        <span class="text-sm font-bold text-gray-800">{{ student.total_xp }}</span>
-      </div>
-      <div class="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded-lg">
-        <span class="text-sm">🔥</span>
-        <span class="text-sm font-bold text-orange-600">{{ student.streak_days }}</span>
-      </div>
+
+    {# Centre : titre dynamique (mis à jour par IntersectionObserver sur le dashboard) #}
+    <div class="flex-1 min-w-0 text-center px-1">
+      <span id="header-lesson-title"
+            class="text-sm font-semibold text-gray-800 truncate block">
+        {{ active_subject|default:"EduApp" }}
+      </span>
     </div>
+
+    {# Droite : pill matière si plusieurs, sinon XP #}
+    {% if subjects|length > 1 %}
+    <button type="button"
+            @click="subjectOpen = true"
+            class="shrink-0 flex items-center gap-1 bg-indigo-50 text-indigo-700
+                   px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap
+                   active:bg-indigo-100 transition">
+      <span>{{ active_subject|truncatechars:10 }}</span>
+      <span>▾</span>
+    </button>
+    {% else %}
+    <div class="shrink-0 flex items-center gap-1.5">
+      <span class="text-yellow-500 text-sm">⭐</span>
+      <span class="text-sm font-bold text-gray-800 tabular-nums">
+        {% if student %}{{ student.total_xp }}{% else %}0{% endif %}
+      </span>
+    </div>
+    {% endif %}
   </header>
   {% endblock %}
+
+  {# ── Bottom-sheet switch matière (visible uniquement si plusieurs matières) ── #}
+  {% if subjects|length > 1 %}
+  <div x-show="subjectOpen" x-cloak
+       @click="subjectOpen = false"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/40 z-50"></div>
+  <div x-show="subjectOpen" x-cloak
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="translate-y-full"
+       x-transition:enter-end="translate-y-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="translate-y-0"
+       x-transition:leave-end="translate-y-full"
+       class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md
+              bg-white rounded-t-3xl z-50 p-5 pb-8 shadow-2xl">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5"></div>
+    <h3 class="text-base font-bold text-gray-900 mb-3">Choisir une matière</h3>
+    <div class="divide-y divide-gray-100">
+      {% for subject in subjects %}
+      <a href="?subject={{ subject.name|urlencode }}"
+         class="flex items-center gap-3 py-3 active:bg-gray-50 transition rounded-lg">
+        <span class="text-xl w-8 text-center">
+          {% if subject.type == 'math' %}🔢
+          {% elif subject.type == 'scientific' %}🔬
+          {% elif subject.type == 'literary' %}📖
+          {% elif subject.type == 'language' %}💬
+          {% elif subject.type == 'geography' %}🗺️
+          {% elif subject.type == 'accounting' %}💰
+          {% elif subject.type == 'code' %}💻
+          {% else %}📚{% endif %}
+        </span>
+        <span class="flex-1 text-sm font-semibold text-gray-800">{{ subject.name }}</span>
+        {% if subject.name == active_subject %}
+        <span class="text-indigo-600 font-bold text-base">✓</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   <main class="flex-1 pb-20 overflow-y-auto">
     {% block content %}{% endblock %}
   </main>
 
   {% block bottom_nav %}
-  <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-40">
+  <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white
+              border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-40">
     <div class="flex items-center justify-around px-2 py-2">
       <a href="{% url 'learn:dashboard' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
+                {% if request.resolver_match.url_name == 'dashboard' %}text-student-500{% else %}text-gray-400{% endif %}">
         <i data-lucide="home" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Accueil</span>
       </a>
       <a href="{% url 'learn:grades' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'grades' or request.resolver_match.url_name == 'bulletin-pdf' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
+                {% if request.resolver_match.url_name == 'grades' or request.resolver_match.url_name == 'bulletin-pdf' %}text-student-500{% else %}text-gray-400{% endif %}">
         <i data-lucide="award" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Notes</span>
       </a>
       <a href="{% url 'learn:flashcards' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'flashcards' or request.resolver_match.url_name == 'flashcards-session' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
+                {% if request.resolver_match.url_name == 'flashcards' or request.resolver_match.url_name == 'flashcards-session' %}text-student-500{% else %}text-gray-400{% endif %}">
         <div class="relative">
           <i data-lucide="layers" class="w-5 h-5"></i>
           {% if student_due_count %}
-          <span class="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{% if student_due_count > 9 %}9+{% else %}{{ student_due_count }}{% endif %}</span>
+          <span class="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500
+                       text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+            {% if student_due_count > 9 %}9+{% else %}{{ student_due_count }}{% endif %}
+          </span>
           {% endif %}
         </div>
         <span class="text-[10px] font-medium">Flashcards</span>
       </a>
       <a href="{% url 'learn:profile' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'profile' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
+                {% if request.resolver_match.url_name == 'profile' %}text-student-500{% else %}text-gray-400{% endif %}">
         <i data-lucide="user" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Profil</span>
       </a>
@@ -81,41 +151,40 @@
   </nav>
   {% endblock %}
 
-  {# Confettis partagés (complétion leçon, montée de niveau quiz) — window.launchConfetti #}
-  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
+  {# Confettis partagés — window.launchConfetti #}
+  <canvas id="confetti-canvas"
+          style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
   <script>
     window.launchConfetti = function () {
-      const canvas = document.getElementById('confetti-canvas');
+      var canvas = document.getElementById('confetti-canvas');
       if (!canvas) return;
       canvas.style.display = 'block';
-      const ctx = canvas.getContext('2d');
+      var ctx = canvas.getContext('2d');
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
-      const particles = Array.from({ length: 80 }, () => ({
+      var colors = ['#FFD700','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7'];
+      var particles = Array.from({ length: 80 }, function () { return {
         x: Math.random() * canvas.width, y: -10,
         r: Math.random() * 6 + 2, d: Math.random() * 80,
         color: colors[Math.floor(Math.random() * 6)],
         tilt: Math.random() * 10 - 10, tiltAngle: 0,
         tiltAngleInc: Math.random() * 0.07 + 0.05,
-      }));
-      let frame = 0;
-      const animate = () => {
+      }; });
+      var frame = 0;
+      var animate = function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        particles.forEach(p => {
+        particles.forEach(function (p) {
           p.tiltAngle += p.tiltAngleInc;
           p.y += (Math.cos(frame / 10 + p.d) + 3) * 2;
           p.tilt = Math.sin(p.tiltAngle) * 15;
-          ctx.beginPath();
-          ctx.lineWidth = p.r;
-          ctx.strokeStyle = p.color;
+          ctx.beginPath(); ctx.lineWidth = p.r; ctx.strokeStyle = p.color;
           ctx.moveTo(p.x + p.tilt + p.r / 3, p.y);
           ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
           ctx.stroke();
         });
         frame++;
         if (frame < 150) requestAnimationFrame(animate);
-        else { canvas.style.display = 'none'; }
+        else canvas.style.display = 'none';
       };
       animate();
     };

@@ -97,6 +97,15 @@ STRUCTURE JSON EXACTE À PRODUIRE
     ]
   },
   "quiz": {
+    "concepts": [
+      {
+        "id": "phrase_declarative",
+        "name": "La phrase déclarative",
+        "order": 1,
+        "icon": "📝",
+        "quiz_ids": ["q1", "q2", "q3"]
+      }
+    ],
     "quizzes": [
       {
         "id": "q1", "concept_id": "...", "subject_type": "{subject_type}",
@@ -183,6 +192,9 @@ EXIGENCES DE VOLUME
     * narration (type=narration) = décor/atmosphère, sans speaker.
     * Situation de vie quotidienne malienne (marché de Bamako, famille, école, taxi, champs, boutique, mosquée...).
     * questions[].expected = réponse courte en minuscules sans accents.
+- quiz.concepts : 3 à 6 concepts pédagogiques distincts. id = snake_case identique aux concept_id
+  des quizzes, name = titre lisible en {language}, icon = emoji représentatif, order = 1..N,
+  quiz_ids = liste exacte des "id" des quizzes appartenant à ce concept.
 - quiz.quizzes : 8 à 20 questions, difficulté croissante, types variés selon la table ci-dessus.
 - flashcards.flashcards : 6 à 15 cartes, une par concept clé (concept_id réutilisé du contenu).
 - N'utilise QUE les 6 types ci-dessus (mcq, true_false, fill_blank, number_input, ordering, short_answer). Jamais matching, hotspot ni code_completion.
