@@ -1,5 +1,7 @@
 import json
 import logging
+import math
+from collections import defaultdict, OrderedDict
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -19,7 +21,7 @@ from apps.lessons.models import Lesson, LessonDeployment, LessonStatus
 from apps.lessons.services import (
     evaluate_answer, calculate_lesson_mastery, sm2_update,
 )
-from apps.student_learning.services import award_xp, student_stats, BADGES_CATALOG
+from apps.student_learning.services import award_xp, student_stats, BADGES_CATALOG, level_info, xp_for_next_level
 from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard, StoryAttempt
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,115 @@ def learn_logout(request):
     return redirect('learn:login')
 
 
+# ─── Dashboard helpers — concept nodes ───────────────────────────────────────
+
+_SUBJECT_ICONS = {
+    'math': '🔢', 'scientific': '🔬', 'literary': '📖',
+    'language': '💬', 'geography': '🗺️', 'accounting': '💰', 'code': '💻',
+}
+_CONCEPT_ICON_HINTS = [
+    ('phrase', '📝'), ('verbe', '✏️'), ('conjugaison', '✏️'),
+    ('grammaire', '📚'), ('vocabulaire', '💬'), ('lecture', '📖'),
+    ('fraction', '½'), ('equation', '⚖️'), ('geometrie', '📐'),
+    ('calcul', '🧮'), ('nombre', '🔢'), ('histoire', '📜'),
+    ('geo', '🗺️'), ('carte', '🗺️'), ('mot', '💬'),
+]
+_RING_COLORS = {
+    'new': '#818cf8', 'done-weak': '#86efac',
+    'done-mid': '#4ade80', 'done-strong': '#fbbf24',
+}
+_SUBJECT_LUCIDE = {
+    'math': 'calculator', 'scientific': 'activity', 'literary': 'pen-line',
+    'language': 'globe', 'geography': 'map-pin', 'code': 'code', 'accounting': 'bar-chart-2',
+}
+_CIRC = round(2 * math.pi * 38, 2)   # SVG r=38 → 238.76
+
+
+def _humanize_concept_id(cid: str) -> str:
+    return cid.replace('_', ' ').capitalize()
+
+
+def _concept_icon(cid: str, subject_type: str) -> str:
+    lower = cid.lower()
+    for hint, icon in _CONCEPT_ICON_HINTS:
+        if hint in lower:
+            return icon
+    return _SUBJECT_ICONS.get(subject_type, '📚')
+
+
+def _concept_state(done: int, total: int) -> str:
+    if done == 0:
+        return 'new'
+    ratio = done / total if total else 0
+    if ratio >= 0.8:
+        return 'done-strong'
+    if ratio >= 0.5:
+        return 'done-mid'
+    return 'done-weak'
+
+
+def _stars(done: int, total: int) -> str:
+    if not total or done == 0:
+        return ''
+    ratio = done / total
+    if ratio >= 0.8:
+        return '★★★'
+    if ratio >= 0.5:
+        return '★★☆'
+    return '★☆☆'
+
+
+def _build_lesson_concepts(lesson, correct_quiz_set: set) -> list:
+    """Construit les groupes de concepts pour le chemin d'apprentissage.
+    Priorité : quiz_data.concepts (format riche) → fallback groupement par concept_id."""
+    qd = lesson.quiz_data or {}
+    quizzes = qd.get('quizzes', [])
+    concepts_raw = qd.get('concepts')
+
+    def _enrich(cid, name, icon, order, quiz_ids):
+        done = sum(1 for qid in quiz_ids if (lesson.id, qid) in correct_quiz_set)
+        total = len(quiz_ids)
+        arc_done = round(done / total * _CIRC, 1) if total else 0.0
+        state = _concept_state(done, total)
+        return {
+            'id': cid, 'name': name, 'icon': icon, 'order': order,
+            'quiz_ids': quiz_ids, 'done_count': done, 'total_count': total,
+            'arc_done': arc_done, 'arc_gap': round(_CIRC - arc_done, 1),
+            'state': state, 'stars': _stars(done, total),
+            'ring_color': _RING_COLORS.get(state, '#d1d5db'),
+            'lucide_icon': _SUBJECT_LUCIDE.get(lesson.subject_type, 'book-open'),
+        }
+
+    if concepts_raw:
+        return [
+            _enrich(c['id'],
+                    c.get('name', _humanize_concept_id(c['id'])),
+                    c.get('icon', '📚'),
+                    c.get('order', i),
+                    c.get('quiz_ids', []))
+            for i, c in enumerate(concepts_raw[:6], 1)
+        ]
+
+    # Fallback : groupement par concept_id, ordre d'apparition dans les quizzes
+    seen = list(OrderedDict.fromkeys(
+        q.get('concept_id', '') for q in quizzes if q.get('concept_id')
+    ))
+    by_concept: dict = defaultdict(list)
+    for q in quizzes:
+        cid = q.get('concept_id', '')
+        if cid:
+            by_concept[cid].append(q['id'])
+
+    return [
+        _enrich(cid,
+                _humanize_concept_id(cid),
+                _concept_icon(cid, lesson.subject_type),
+                order,
+                by_concept[cid])
+        for order, cid in enumerate(seen[:6], 1)
+    ]
+
+
 # ─── Dashboard ───────────────────────────────────────────────────────────────
 
 @student_required
@@ -107,28 +218,39 @@ def learn_dashboard(request):
             for p in LessonProgress.objects.filter(
                 student=student, lesson_id__in=lesson_ids)
         }
+        # Batch unique : toutes les bonnes réponses de l'élève sur ces leçons
+        correct_quiz_set = set(
+            QuizAttempt.objects
+            .filter(student=student, lesson_id__in=lesson_ids, is_correct=True)
+            .values_list('lesson_id', 'quiz_id')
+            .distinct()
+        )
 
         for dep in deployments:
             prog = progress_map.get(dep.lesson_id)
             mastery = calculate_lesson_mastery(student, dep.lesson)
-            # Node done si lecture terminée OU mastery quiz >= 80% (décision Phase 6).
             if (prog and prog.is_completed) or mastery >= 80:
                 node_state, progress_pct = 'completed', 100
             elif prog or mastery >= 40:
                 node_state = 'in_progress'
                 if prog and not prog.is_completed:
-                    blocks_total = len((dep.lesson.structured_content or {}).get('blocks', [])) or 1
-                    progress_pct = min(int(prog.last_block_index / blocks_total * 100), 99)
+                    blocks_total = len(
+                        (dep.lesson.structured_content or {}).get('blocks', [])) or 1
+                    progress_pct = min(
+                        int(prog.last_block_index / blocks_total * 100), 99)
                 else:
                     progress_pct = mastery
             else:
                 node_state, progress_pct = 'not_started', 0
 
             lessons_data.append({
-                'lesson': dep.lesson,
-                'node_state': node_state,
+                'lesson':       dep.lesson,
+                'node_state':   node_state,
                 'progress_pct': progress_pct,
-                'mastery': mastery,
+                'mastery':      mastery,
+                'mastery_arc':  round(mastery / 100 * _CIRC, 1),
+                'concepts':     _build_lesson_concepts(dep.lesson, correct_quiz_set),
+                'has_story':    bool(dep.lesson.story_data),
             })
 
     # 4. Leçon en cours
@@ -143,14 +265,21 @@ def learn_dashboard(request):
     # 5. Streak quotidien
     _update_streak(student, today)
 
+    # 6. Infos niveau
+    level_emoji, level_name = level_info(student.current_level)
+
     return render(request, 'learn/dashboard.html', {
-        'student': student,
-        'subjects': subjects,
-        'active_subject': active_subject,
-        'lessons_data': lessons_data,
+        'student':                 student,
+        'subjects':                subjects,
+        'active_subject':          active_subject,
+        'lessons_data':            lessons_data,
         'current_lesson_progress': current_lesson_progress,
-        'today': today,
-        'learn_toast': request.session.pop('learn_toast', None),
+        'today':                   today,
+        'learn_toast':             request.session.pop('learn_toast', None),
+        'level_emoji':             level_emoji,
+        'level_name':              level_name,
+        'xp_to_next':              xp_for_next_level(student.total_xp),
+        'xp_in_level':             student.total_xp % 500,
     })
 
 

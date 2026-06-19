@@ -5,75 +5,110 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>{% block title %}EduApp{% endblock %}</title>
 
-  <!-- Google Fonts : Manrope -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{% static 'css/output.css' %}">
   <link rel="stylesheet" href="{% static 'css/student.css' %}">
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
-  </script>
+  <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
+  <script src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => lucide.createIcons());</script>
   {% block extra_head %}{% endblock %}
 </head>
+
 <body class="bg-[#F0FDF9] min-h-screen flex flex-col max-w-md mx-auto relative">
 
   {% block header %}
-  <header class="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <div class="w-9 h-9 rounded-full bg-student-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
-        {{ student.full_name|first|upper }}
-      </div>
-      <div>
-        <p class="text-xs text-gray-500 leading-none">Bonjour 👋</p>
-        <p class="text-sm font-semibold text-gray-900 leading-tight">{{ student.full_name|truncatechars:15 }}</p>
-      </div>
+  <header class="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
+
+    {# Gauche : streak 🔥 #}
+    <div class="flex items-center gap-1 shrink-0">
+      <span class="text-base leading-none">🔥</span>
+      <span class="text-sm font-bold text-orange-500 tabular-nums">
+        {% if student %}{{ student.streak_days }}{% else %}0{% endif %}
+      </span>
     </div>
-    <div class="flex items-center gap-3">
-      <div class="flex items-center gap-1">
-        <span class="text-yellow-500 text-sm">⭐</span>
-        <span class="text-sm font-bold text-gray-800">{{ student.total_xp }}</span>
-      </div>
-      <div class="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded-lg">
-        <span class="text-sm">🔥</span>
-        <span class="text-sm font-bold text-orange-600">{{ student.streak_days }}</span>
+
+    {# Centre : titre cliquable → leçon visible (href mis à jour par IntersectionObserver) #}
+    <div class="flex-1 min-w-0 text-center px-1">
+      <a id="header-lesson-link" href="#"
+         class="text-sm font-semibold text-gray-800 truncate block hover:text-indigo-600 transition">
+        <span id="header-lesson-title">{{ active_subject|default:"EduApp" }}</span>
+      </a>
+    </div>
+
+    {# Droite : icône switch matière — toujours visible #}
+    <div class="relative shrink-0" x-data="{ subjectOpen: false }" @click.away="subjectOpen = false">
+      <button type="button"
+              @click="subjectOpen = !subjectOpen"
+              class="p-2 rounded-full text-gray-500 active:bg-gray-100 transition"
+              aria-label="Choisir une matière">
+        <i data-lucide="book-open" class="w-5 h-5"></i>
+      </button>
+      <div x-show="subjectOpen" x-cloak
+           x-transition:enter="transition ease-out duration-150"
+           x-transition:enter-start="opacity-0 scale-95"
+           x-transition:enter-end="opacity-100 scale-100"
+           x-transition:leave="transition ease-in duration-100"
+           x-transition:leave-start="opacity-100 scale-100"
+           x-transition:leave-end="opacity-0 scale-95"
+           class="absolute top-full right-0 mt-2 w-52 bg-white rounded-2xl shadow-lg z-50 py-2 origin-top-right">
+        {% for subject in subjects %}
+        <a href="?subject={{ subject.name|urlencode }}"
+           class="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50 transition">
+          <i data-lucide="{% if subject.type == 'math' %}calculator{% elif subject.type == 'scientific' %}activity{% elif subject.type == 'literary' %}pen-line{% elif subject.type == 'language' %}globe{% elif subject.type == 'geography' %}map-pin{% elif subject.type == 'code' %}code{% elif subject.type == 'accounting' %}bar-chart-2{% else %}book-open{% endif %}"
+             class="w-4 h-4 text-gray-400 shrink-0"></i>
+          <span class="flex-1 text-sm font-semibold text-gray-800">{{ subject.name }}</span>
+          {% if subject.name == active_subject %}
+          <i data-lucide="check" class="w-4 h-4 text-indigo-600 shrink-0"></i>
+          {% endif %}
+        </a>
+        {% endfor %}
       </div>
     </div>
   </header>
   {% endblock %}
+
+  {# bottom-sheet matières supprimé → dropdown dans le header #}
 
   <main class="flex-1 pb-20 overflow-y-auto">
     {% block content %}{% endblock %}
   </main>
 
   {% block bottom_nav %}
-  <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-40">
+  <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white
+              border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-40">
     <div class="flex items-center justify-around px-2 py-2">
       <a href="{% url 'learn:dashboard' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'dashboard' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
+                {% if request.resolver_match.url_name == 'dashboard' %}text-student-500{% else %}text-gray-400{% endif %}">
         <i data-lucide="home" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Accueil</span>
       </a>
       <a href="{% url 'learn:grades' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'grades' or request.resolver_match.url_name == 'bulletin-pdf' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
+                {% if request.resolver_match.url_name == 'grades' or request.resolver_match.url_name == 'bulletin-pdf' %}text-student-500{% else %}text-gray-400{% endif %}">
         <i data-lucide="award" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Notes</span>
       </a>
       <a href="{% url 'learn:flashcards' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'flashcards' or request.resolver_match.url_name == 'flashcards-session' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
+                {% if request.resolver_match.url_name == 'flashcards' or request.resolver_match.url_name == 'flashcards-session' %}text-student-500{% else %}text-gray-400{% endif %}">
         <div class="relative">
           <i data-lucide="layers" class="w-5 h-5"></i>
           {% if student_due_count %}
-          <span class="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{% if student_due_count > 9 %}9+{% else %}{{ student_due_count }}{% endif %}</span>
+          <span class="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500
+                       text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+            {% if student_due_count > 9 %}9+{% else %}{{ student_due_count }}{% endif %}
+          </span>
           {% endif %}
         </div>
         <span class="text-[10px] font-medium">Flashcards</span>
       </a>
       <a href="{% url 'learn:profile' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition {% if request.resolver_match.url_name == 'profile' %}text-student-500{% else %}text-gray-400 hover:text-gray-600{% endif %}">
+         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
+                {% if request.resolver_match.url_name == 'profile' %}text-student-500{% else %}text-gray-400{% endif %}">
         <i data-lucide="user" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Profil</span>
       </a>
@@ -81,41 +116,40 @@
   </nav>
   {% endblock %}
 
-  {# Confettis partagés (complétion leçon, montée de niveau quiz) — window.launchConfetti #}
-  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
+  {# Confettis partagés — window.launchConfetti #}
+  <canvas id="confetti-canvas"
+          style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
   <script>
     window.launchConfetti = function () {
-      const canvas = document.getElementById('confetti-canvas');
+      var canvas = document.getElementById('confetti-canvas');
       if (!canvas) return;
       canvas.style.display = 'block';
-      const ctx = canvas.getContext('2d');
+      var ctx = canvas.getContext('2d');
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
-      const particles = Array.from({ length: 80 }, () => ({
+      var colors = ['#FFD700','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7'];
+      var particles = Array.from({ length: 80 }, function () { return {
         x: Math.random() * canvas.width, y: -10,
         r: Math.random() * 6 + 2, d: Math.random() * 80,
         color: colors[Math.floor(Math.random() * 6)],
         tilt: Math.random() * 10 - 10, tiltAngle: 0,
         tiltAngleInc: Math.random() * 0.07 + 0.05,
-      }));
-      let frame = 0;
-      const animate = () => {
+      }; });
+      var frame = 0;
+      var animate = function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        particles.forEach(p => {
+        particles.forEach(function (p) {
           p.tiltAngle += p.tiltAngleInc;
           p.y += (Math.cos(frame / 10 + p.d) + 3) * 2;
           p.tilt = Math.sin(p.tiltAngle) * 15;
-          ctx.beginPath();
-          ctx.lineWidth = p.r;
-          ctx.strokeStyle = p.color;
+          ctx.beginPath(); ctx.lineWidth = p.r; ctx.strokeStyle = p.color;
           ctx.moveTo(p.x + p.tilt + p.r / 3, p.y);
           ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
           ctx.stroke();
         });
         frame++;
         if (frame < 150) requestAnimationFrame(animate);
-        else { canvas.style.display = 'none'; }
+        else canvas.style.display = 'none';
       };
       animate();
     };
