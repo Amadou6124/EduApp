@@ -78,8 +78,7 @@
                     data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
                     data-node-state="{{ item.node_state }}"
                     @click="openNode = { ...$el.dataset }">
-              <span>{{ concept.icon }}</span>
-              {% if concept.stars %}<span class="node-stars">{{ concept.stars }}</span>{% endif %}
+              <i data-lucide="{{ concept.lucide_icon }}" class="w-7 h-7"></i>
             </button>
           </div>
 
@@ -119,7 +118,7 @@
                   data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
                   data-node-state="{{ item.node_state }}"
                   @click="openNode = { ...$el.dataset }">
-            <span>{% if item.node_state == 'completed' %}✅{% elif item.node_state == 'in_progress' %}▶️{% else %}📖{% endif %}</span>
+            <i data-lucide="{% if item.node_state == 'completed' %}check-circle{% elif item.node_state == 'in_progress' %}chevrons-right{% else %}play{% endif %}" class="w-7 h-7"></i>
           </button>
         </div>
         <span class="node-label">{{ item.lesson.title|truncatechars:18 }}</span>
@@ -139,7 +138,7 @@
                   data-icon="🎭"
                   data-story-url="{% url 'learn:story' item.lesson.id %}"
                   @click="openNode = { ...$el.dataset }">
-            <span>🎭</span>
+            <i data-lucide="message-circle" class="w-7 h-7"></i>
           </button>
         </div>
         <span class="node-label">Histoire</span>
@@ -170,10 +169,7 @@
                   data-mastery="{{ item.mastery }}"
                   data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
                   @click="openNode = { ...$el.dataset }">
-            <span>🏆</span>
-            {% if item.mastery >= 1 %}
-            <span class="node-stars text-[10px] text-amber-500">{{ item.mastery }}%</span>
-            {% endif %}
+            <i data-lucide="trophy" class="w-7 h-7"></i>
           </button>
         </div>
         <span class="node-label">Quiz final</span>
@@ -252,19 +248,18 @@
 
     {# CTA #}
     <a :href="openNode?.type === 'story' ? openNode?.storyUrl
-            : openNode?.type === 'quiz'  ? openNode?.quizUrl
-            : openNode?.lessonUrl"
+            : openNode?.quizUrl"
        class="block w-full py-3.5 rounded-2xl font-bold text-center text-base
               active:scale-95 transition text-white"
        :class="openNode?.type === 'story' ? 'bg-purple-600'
              : openNode?.type === 'quiz'  ? 'bg-amber-500'
              : 'bg-indigo-600'">
       <span x-show="openNode?.type === 'story'">Lire l'histoire →</span>
-      <span x-show="openNode?.type === 'quiz'">Faire le quiz →</span>
+      <span x-show="openNode?.type === 'quiz'">Faire le quiz final →</span>
       <span x-show="openNode?.type === 'concept'"
             x-text="(!openNode?.done || openNode?.done === '0')
-                    ? 'Commencer la leçon →'
-                    : 'Continuer la leçon →'">
+                    ? 'Commencer →'
+                    : 'Continuer →'">
       </span>
     </a>
   </div>
@@ -284,13 +279,18 @@
 <script>
 (function () {
   var titleEl = document.getElementById('header-lesson-title');
+  var linkEl  = document.getElementById('header-lesson-link');
   if (!titleEl) return;
   var pills = document.querySelectorAll('[data-lesson-title]');
   if (!pills.length) return;
   titleEl.textContent = pills[0].dataset.lessonTitle;
+  if (linkEl) linkEl.href = pills[0].href;
   var obs = new IntersectionObserver(function (entries) {
     entries.forEach(function (e) {
-      if (e.isIntersecting) titleEl.textContent = e.target.dataset.lessonTitle;
+      if (e.isIntersecting) {
+        titleEl.textContent = e.target.dataset.lessonTitle;
+        if (linkEl) linkEl.href = e.target.href;
+      }
     });
   }, { rootMargin: '-56px 0px -40% 0px', threshold: 0 });
   pills.forEach(function (p) { obs.observe(p); });

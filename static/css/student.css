@@ -119,6 +119,7 @@
 }
 .path-node-new {
   background: #eef2ff;
+  color: #6366f1;
   animation: breathe 2.4s ease-in-out infinite;
 }
 @keyframes breathe {
@@ -131,18 +132,19 @@
     box-shadow: 0 0 0 3px rgba(99,102,241,0.30);
   }
 }
-.path-node-progress   { background: #fffbeb; }
-.path-node-done-weak  { background: #f0fdf4; }
-.path-node-done-mid   { background: #dcfce7; }
+.path-node-progress   { background: #fffbeb; color: #f59e0b; }
+.path-node-done-weak  { background: #f0fdf4; color: #4ade80; }
+.path-node-done-mid   { background: #dcfce7; color: #22c55e; }
 .path-node-done-strong {
   background: #bbf7d0;
+  color: #fbbf24;
   box-shadow: 0 0 0 3px #fbbf24, 0 0 14px rgba(251,191,36,0.30);
 }
 @media (prefers-reduced-motion: reduce) {
   .path-node-done-strong { box-shadow: 0 0 0 3px #fbbf24; }
 }
-.path-node-story { background: #faf5ff; }
-.path-node-quiz  { background: #fefce8; }
+.path-node-story { background: #faf5ff; color: #a855f7; }
+.path-node-quiz  { background: #fefce8; color: #f59e0b; }
 
 /* Étoiles de maîtrise (intérieur du node) */
 .node-stars {

@@ -86,6 +86,10 @@ _RING_COLORS = {
     'new': '#818cf8', 'done-weak': '#86efac',
     'done-mid': '#4ade80', 'done-strong': '#fbbf24',
 }
+_SUBJECT_LUCIDE = {
+    'math': 'calculator', 'scientific': 'activity', 'literary': 'pen-line',
+    'language': 'globe', 'geography': 'map-pin', 'code': 'code', 'accounting': 'bar-chart-2',
+}
 _CIRC = round(2 * math.pi * 38, 2)   # SVG r=38 → 238.76
 
 
@@ -141,6 +145,7 @@ def _build_lesson_concepts(lesson, correct_quiz_set: set) -> list:
             'arc_done': arc_done, 'arc_gap': round(_CIRC - arc_done, 1),
             'state': state, 'stars': _stars(done, total),
             'ring_color': _RING_COLORS.get(state, '#d1d5db'),
+            'lucide_icon': _SUBJECT_LUCIDE.get(lesson.subject_type, 'book-open'),
         }
 
     if concepts_raw:
