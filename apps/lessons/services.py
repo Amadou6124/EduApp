@@ -405,12 +405,17 @@ def _parse_and_validate(raw: str, cost: Decimal) -> dict:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        # Récupération : tronque après la dernière } si du texte parasite a été ajouté.
+        # Récupération 1 : json-repair corrige virgules manquantes et erreurs internes.
         try:
-            last_brace = raw.rfind('}')
-            data = json.loads(raw[:last_brace + 1])
+            from json_repair import repair_json
+            data = json.loads(repair_json(raw))
         except Exception:
-            raise ValueError(f'JSON invalide: {e}\nDébut de la réponse: {raw[:200]}')
+            # Récupération 2 : tronque après la dernière } (troncature en fin de réponse).
+            try:
+                last_brace = raw.rfind('}')
+                data = json.loads(raw[:last_brace + 1])
+            except Exception:
+                raise ValueError(f'JSON invalide: {e}\nDébut de la réponse: {raw[:200]}')
 
     required = ['metadata', 'structured_content', 'quiz', 'flashcards']
     missing = [k for k in required if k not in data]

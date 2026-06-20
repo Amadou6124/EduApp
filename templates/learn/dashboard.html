@@ -23,160 +23,109 @@
 </div>
 {% endif %}
 
-<div class="pt-2" x-data="{ openNode: null }">
+<div class="pt-2" x-data="{
+  openNode: null,
+  get isDone() {
+    return ['done-weak','done-mid','done-strong'].includes(this.openNode?.nodeState ?? '');
+  }
+}">
 
   {% if lessons_data %}
   {# ── CHEMIN D'APPRENTISSAGE ── #}
   <div class="learning-path">
 
     {% for item in lessons_data %}
+    {# Wrapper par leçon — cible du sélecteur zigzag '.learning-path > div' #}
+    <div>
 
-    {# Pill leçon — cible IntersectionObserver pour le titre dans le header #}
-    <div class="flex justify-center">
-      <a href="{% url 'learn:lesson' item.lesson.id %}"
-         class="lesson-pill"
-         data-lesson-title="{{ item.lesson.title }}">
-        📖 {{ item.lesson.title|truncatechars:36 }}
-      </a>
-    </div>
-
-    {# ── Nodes concept ── #}
-    {% if item.concepts %}
-      {% for concept in item.concepts %}
-      <div class="path-step {% if forloop.counter|divisibleby:2 %}right{% else %}left{% endif %}">
-        <div class="node-block">
-          <div class="node-ring-wrap">
-
-            {# Bulle COMMENCER : premier concept d'une leçon jamais commencée #}
-            {% if forloop.first and item.node_state == 'not_started' %}
-            <span class="start-bubble">COMMENCER</span>
-            {% endif %}
-
-            {# Anneau SVG (cercle r=38, viewBox 92×92, centre 46,46) #}
-            <svg class="node-ring-svg" viewBox="0 0 92 92" fill="none" aria-hidden="true">
-              <circle cx="46" cy="46" r="38" stroke="#e5e7eb" stroke-width="4"/>
-              {% if concept.done_count %}
-              <circle cx="46" cy="46" r="38"
-                      stroke="{{ concept.ring_color }}"
-                      stroke-width="4"
-                      stroke-linecap="round"
-                      stroke-dasharray="{{ concept.arc_done }} {{ concept.arc_gap }}"
-                      transform="rotate(-90 46 46)"/>
-              {% endif %}
-            </svg>
-
-            {# Bouton node — URLs dans data-* pour Alpine (évite les conflits de quotes) #}
-            <button type="button"
-                    class="path-node path-node-{{ concept.state }}"
-                    data-type="concept"
-                    data-title="{{ concept.name }}"
-                    data-icon="{{ concept.icon }}"
-                    data-stars="{{ concept.stars }}"
-                    data-done="{{ concept.done_count }}"
-                    data-total="{{ concept.total_count }}"
-                    data-lesson-url="{% url 'learn:lesson' item.lesson.id %}"
-                    data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
-                    data-node-state="{{ item.node_state }}"
-                    @click="openNode = { ...$el.dataset }">
-              <i data-lucide="{{ concept.lucide_icon }}" class="w-7 h-7"></i>
-            </button>
-          </div>
-
-          <span class="node-label">{{ concept.name }}</span>
-        </div>
+      {# Pill leçon — cible IntersectionObserver pour titre dans le header #}
+      <div class="px-4 mb-2 {% if not forloop.first %}mt-8{% else %}mt-4{% endif %}">
+        <a href="{% url 'learn:lesson' item.lesson.id %}"
+           class="lesson-pill"
+           data-lesson-title="{{ item.lesson.title }}">
+          📖 {{ item.lesson.title|truncatechars:36 }}
+        </a>
       </div>
-      {% endfor %}
 
-    {% else %}
-    {# Fallback : pas de concepts → node unique leçon avec anneau de maîtrise #}
-    <div class="path-step {% if forloop.counter|divisibleby:2 %}right{% else %}left{% endif %}">
-      <div class="node-block">
-        <div class="node-ring-wrap">
-          {% if item.node_state == 'not_started' %}
-          <span class="start-bubble">COMMENCER</span>
-          {% endif %}
-          <svg class="node-ring-svg" viewBox="0 0 92 92" fill="none" aria-hidden="true">
-            <circle cx="46" cy="46" r="38" stroke="#e5e7eb" stroke-width="4"/>
-            {% if item.mastery_arc %}
-            <circle cx="46" cy="46" r="38"
-                    stroke="#4ade80"
-                    stroke-width="4"
-                    stroke-linecap="round"
-                    stroke-dasharray="{{ item.mastery_arc }} 1000"
-                    transform="rotate(-90 46 46)"/>
-            {% endif %}
-          </svg>
+      {# ── Nodes concept ── #}
+      {% if item.concepts %}
+        {% for concept in item.concepts %}
+        <div class="py-3 flex">
           <button type="button"
-                  class="path-node {% if item.node_state == 'completed' %}path-node-done-strong{% elif item.node_state == 'in_progress' %}path-node-progress{% else %}path-node-new{% endif %}"
+                  class="track-node track-node-{{ concept.state }}"
                   data-type="concept"
-                  data-title="{{ item.lesson.title }}"
-                  data-icon="{% if item.node_state == 'completed' %}✅{% elif item.node_state == 'in_progress' %}▶️{% else %}📖{% endif %}"
-                  data-stars=""
-                  data-done="0"
-                  data-total="0"
+                  data-title="{{ concept.name }}"
+                  data-icon="{{ concept.icon }}"
+                  data-node-state="{{ concept.state }}"
+                  data-lucide-icon="{{ concept.lucide_icon }}"
+                  data-done="{{ concept.done_count }}"
+                  data-total="{{ concept.total_count }}"
                   data-lesson-url="{% url 'learn:lesson' item.lesson.id %}"
                   data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
-                  data-node-state="{{ item.node_state }}"
                   @click="openNode = { ...$el.dataset }">
-            <i data-lucide="{% if item.node_state == 'completed' %}check-circle{% elif item.node_state == 'in_progress' %}chevrons-right{% else %}play{% endif %}" class="w-7 h-7"></i>
+            <i data-lucide="{% if concept.state == 'new' %}play{% else %}check{% endif %}"
+               class="w-6 h-6"></i>
           </button>
         </div>
-        <span class="node-label">{{ item.lesson.title|truncatechars:18 }}</span>
-      </div>
-    </div>
-    {% endif %}
+        {% endfor %}
 
-    {# ── Node STORY (violet 🎭) ── #}
-    {% if item.has_story %}
-    <div class="path-step right">
-      <div class="node-block">
-        <div class="node-ring-wrap">
-          <button type="button"
-                  class="path-node path-node-story"
-                  data-type="story"
-                  data-title="Histoire interactive"
-                  data-icon="🎭"
-                  data-story-url="{% url 'learn:story' item.lesson.id %}"
-                  @click="openNode = { ...$el.dataset }">
-            <i data-lucide="message-circle" class="w-7 h-7"></i>
-          </button>
-        </div>
-        <span class="node-label">Histoire</span>
+      {% else %}
+      {# Fallback : pas de concepts → node unique leçon #}
+      <div class="py-3 flex">
+        <button type="button"
+                class="track-node {% if item.node_state == 'completed' %}track-node-done-strong{% elif item.node_state == 'in_progress' %}track-node-in-progress{% else %}track-node-new{% endif %}"
+                data-type="concept"
+                data-title="{{ item.lesson.title }}"
+                data-icon="📖"
+                data-node-state="{% if item.node_state == 'completed' %}done-strong{% elif item.node_state == 'in_progress' %}in-progress{% else %}new{% endif %}"
+                data-lucide-icon="{% if item.node_state == 'completed' %}check{% elif item.node_state == 'in_progress' %}chevrons-right{% else %}play{% endif %}"
+                data-done="0"
+                data-total="0"
+                data-lesson-url="{% url 'learn:lesson' item.lesson.id %}"
+                data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
+                @click="openNode = { ...$el.dataset }">
+          <i data-lucide="{% if item.node_state == 'completed' %}check{% elif item.node_state == 'in_progress' %}chevrons-right{% else %}play{% endif %}"
+             class="w-6 h-6"></i>
+        </button>
       </div>
-    </div>
-    {% endif %}
+      {% endif %}
 
-    {# ── Node QUIZ FINAL (or 🏆) — toujours présent ── #}
-    <div class="path-step left">
-      <div class="node-block">
-        <div class="node-ring-wrap">
-          <svg class="node-ring-svg" viewBox="0 0 92 92" fill="none" aria-hidden="true">
-            <circle cx="46" cy="46" r="38" stroke="#e5e7eb" stroke-width="4"/>
-            {% if item.mastery_arc %}
-            <circle cx="46" cy="46" r="38"
-                    stroke="#fbbf24"
-                    stroke-width="4"
-                    stroke-linecap="round"
-                    stroke-dasharray="{{ item.mastery_arc }} 1000"
-                    transform="rotate(-90 46 46)"/>
-            {% endif %}
-          </svg>
-          <button type="button"
-                  class="path-node path-node-quiz"
-                  data-type="quiz"
-                  data-title="Quiz final"
-                  data-icon="🏆"
-                  data-mastery="{{ item.mastery }}"
-                  data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
-                  @click="openNode = { ...$el.dataset }">
-            <i data-lucide="trophy" class="w-7 h-7"></i>
-          </button>
-        </div>
-        <span class="node-label">Quiz final</span>
+      {# ── Node STORY (violet) ── #}
+      {% if item.has_story %}
+      <div class="py-3 flex">
+        <button type="button"
+                class="track-node track-node-story"
+                data-type="story"
+                data-title="Histoire interactive"
+                data-icon="🎭"
+                data-node-state="story"
+                data-lucide-icon="message-circle"
+                data-story-url="{% url 'learn:story' item.lesson.id %}"
+                @click="openNode = { ...$el.dataset }">
+          <i data-lucide="message-circle" class="w-6 h-6"></i>
+        </button>
       </div>
-    </div>
+      {% endif %}
 
+      {# ── Node QUIZ FINAL (amber) ── #}
+      <div class="py-3 flex">
+        <button type="button"
+                class="track-node track-node-quiz"
+                data-type="quiz"
+                data-title="Quiz final"
+                data-icon="🏆"
+                data-node-state="quiz"
+                data-lucide-icon="trophy"
+                data-mastery="{{ item.mastery }}"
+                data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
+                @click="openNode = { ...$el.dataset }">
+          <i data-lucide="trophy" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+    </div>
     {% endfor %}
+
   </div>
 
   {% else %}
@@ -190,7 +139,7 @@
   </div>
   {% endif %}
 
-  {# ── PANEL bottom-sheet (concept / story / quiz) ── #}
+  {# ── PANEL bottom-sheet ── #}
   <div x-show="openNode" x-cloak
        @click="openNode = null"
        x-transition:enter="transition ease-out duration-200"
@@ -205,63 +154,100 @@
        x-transition:leave="transition ease-in duration-200"
        x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md
-              bg-white rounded-t-3xl z-50 p-5 pb-8 shadow-2xl">
+              bg-white rounded-t-3xl z-50 shadow-2xl">
 
-    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <div class="flex justify-center pt-3 pb-1">
+      <div class="w-10 h-1 rounded-full bg-gray-200"></div>
+    </div>
 
-    {# En-tête panel #}
-    <div class="flex items-start gap-3 mb-4">
-      <span class="text-3xl leading-none mt-0.5" x-text="openNode?.icon"></span>
-      <div class="flex-1 min-w-0">
-        <h3 class="text-gray-900 font-bold text-lg leading-tight"
-            x-text="openNode?.title"></h3>
-        <p class="text-xs mt-0.5"
-           :class="openNode?.type === 'story' ? 'text-purple-400'
-                 : openNode?.type === 'quiz'  ? 'text-amber-500'
-                 : 'text-gray-400'"
-           x-text="openNode?.type === 'story'
-                 ? 'Dialogue immersif'
-                 : openNode?.type === 'quiz'
-                   ? 'Maîtrise : ' + (openNode?.mastery || 0) + '%'
-                   : (openNode?.total || 0) + ' quiz dans ce concept'">
-        </p>
+    <div class="px-5 pb-8 pt-3">
+
+      {# En-tête : icône + état + titre + bouton fermer #}
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3 flex-1 min-w-0 pr-3">
+
+          {# Icône Lucide pré-rendue au page load, masquée via x-show sur <span> wrapper #}
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+               :class="openNode?.type === 'story'            ? 'bg-violet-100 text-violet-600'
+                     : openNode?.type === 'quiz'             ? 'bg-amber-100  text-amber-600'
+                     : openNode?.nodeState === 'new'         ? 'bg-indigo-100 text-indigo-600'
+                     : openNode?.nodeState === 'in-progress' ? 'bg-amber-100  text-amber-600'
+                     :                                         'bg-green-100  text-green-700'">
+            <span x-show="openNode?.lucideIcon === 'calculator'"><i data-lucide="calculator" class="w-6 h-6"></i></span>
+            <span x-show="openNode?.lucideIcon === 'activity'"><i data-lucide="activity" class="w-6 h-6"></i></span>
+            <span x-show="openNode?.lucideIcon === 'pen-line'"><i data-lucide="pen-line" class="w-6 h-6"></i></span>
+            <span x-show="openNode?.lucideIcon === 'globe'"><i data-lucide="globe" class="w-6 h-6"></i></span>
+            <span x-show="openNode?.lucideIcon === 'map-pin'"><i data-lucide="map-pin" class="w-6 h-6"></i></span>
+            <span x-show="openNode?.lucideIcon === 'code'"><i data-lucide="code" class="w-6 h-6"></i></span>
+            <span x-show="openNode?.lucideIcon === 'bar-chart-2'"><i data-lucide="bar-chart-2" class="w-6 h-6"></i></span>
+            <span x-show="openNode?.lucideIcon === 'book-open'"><i data-lucide="book-open" class="w-6 h-6"></i></span>
+            <span x-show="openNode?.type === 'story'"><i data-lucide="message-circle" class="w-6 h-6"></i></span>
+            <span x-show="openNode?.type === 'quiz'"><i data-lucide="trophy" class="w-6 h-6"></i></span>
+          </div>
+
+          <div class="min-w-0">
+            <p class="text-[11px] font-semibold uppercase tracking-wide mb-0.5"
+               :class="openNode?.type === 'story'            ? 'text-violet-500'
+                     : openNode?.type === 'quiz'             ? 'text-amber-500'
+                     : openNode?.nodeState === 'new'         ? 'text-indigo-500'
+                     : openNode?.nodeState === 'in-progress' ? 'text-amber-500'
+                     :                                         'text-green-600'"
+               x-text="openNode?.type === 'story'            ? 'Dialogue immersif'
+                      : openNode?.type === 'quiz'             ? 'Quiz final'
+                      : openNode?.nodeState === 'new'         ? 'Nouveau'
+                      : openNode?.nodeState === 'in-progress' ? 'En cours'
+                      :                                         'Terminé'">
+            </p>
+            <h3 class="text-gray-900 font-bold text-base leading-tight truncate"
+                x-text="openNode?.title"></h3>
+          </div>
+        </div>
+
+        <button @click="openNode = null"
+                class="w-8 h-8 flex items-center justify-center rounded-full
+                       hover:bg-gray-100 transition-colors shrink-0 mt-0.5">
+          <i data-lucide="x" class="w-4 h-4 text-gray-400"></i>
+        </button>
       </div>
-    </div>
 
-    {# Étoiles (concept uniquement) #}
-    <div x-show="openNode?.type === 'concept' && openNode?.stars"
-         class="flex items-center gap-3 mb-4">
-      <span class="text-xl text-yellow-400 tracking-tight"
-            x-text="openNode?.stars"></span>
-      <span class="text-xs text-gray-500"
-            x-text="(openNode?.done || 0) + '/' + (openNode?.total || 0) + ' quiz réussis'">
-      </span>
-    </div>
+      {# Sous-info : X quiz (concept) #}
+      <p class="text-sm text-gray-400 mb-4"
+         x-show="openNode?.type === 'concept' && openNode?.total > 0"
+         x-text="openNode?.total + ' quiz dans ce concept'">
+      </p>
 
-    {# Barre maîtrise (quiz final) #}
-    <div x-show="openNode?.type === 'quiz'" class="mb-4">
-      <div class="bg-gray-100 rounded-full h-2.5 overflow-hidden">
-        <div class="h-2.5 rounded-full bg-amber-400 transition-all"
-             :style="`width:${Math.min(openNode?.mastery || 0, 100)}%`"></div>
+      {# Barre maîtrise (quiz final uniquement) #}
+      <div x-show="openNode?.type === 'quiz'" class="mb-4">
+        <div class="flex justify-between text-xs text-gray-400 mb-1.5">
+          <span>Maîtrise</span>
+          <span x-text="(openNode?.mastery || 0) + '%'"></span>
+        </div>
+        <div class="bg-gray-100 rounded-full h-2 overflow-hidden">
+          <div class="h-2 rounded-full bg-amber-400 transition-all"
+               :style="`width:${Math.min(openNode?.mastery || 0, 100)}%`"></div>
+        </div>
       </div>
-    </div>
 
-    {# CTA #}
-    <a :href="openNode?.type === 'story' ? openNode?.storyUrl
-            : openNode?.quizUrl"
-       class="block w-full py-3.5 rounded-2xl font-bold text-center text-base
-              active:scale-95 transition text-white"
-       :class="openNode?.type === 'story' ? 'bg-purple-600'
-             : openNode?.type === 'quiz'  ? 'bg-amber-500'
-             : 'bg-indigo-600'">
-      <span x-show="openNode?.type === 'story'">Lire l'histoire →</span>
-      <span x-show="openNode?.type === 'quiz'">Faire le quiz final →</span>
-      <span x-show="openNode?.type === 'concept'"
-            x-text="(!openNode?.done || openNode?.done === '0')
-                    ? 'Commencer →'
-                    : 'Continuer →'">
-      </span>
-    </a>
+      {# CTA — URL et libellé selon type + état #}
+      <a :href="openNode?.type === 'story' ? openNode?.storyUrl
+              : openNode?.type === 'quiz'  ? openNode?.quizUrl
+              : isDone                     ? openNode?.quizUrl
+              :                              openNode?.lessonUrl"
+         class="block w-full py-3.5 rounded-2xl font-bold text-center text-sm
+                active:scale-95 transition"
+         :class="openNode?.type === 'story'            ? 'bg-violet-600 text-white'
+               : openNode?.type === 'quiz'             ? 'bg-amber-500  text-white'
+               : openNode?.nodeState === 'new'         ? 'bg-indigo-600 text-white'
+               : openNode?.nodeState === 'in-progress' ? 'bg-amber-500  text-white'
+               :                                         'bg-gray-200   text-gray-800'"
+         x-text="openNode?.type === 'story'            ? 'Lire l\'histoire →'
+               : openNode?.type === 'quiz'             ? 'Faire le quiz final →'
+               : openNode?.nodeState === 'new'         ? 'Commencer →'
+               : openNode?.nodeState === 'in-progress' ? 'Continuer →'
+               :                                         'Réviser →'">
+      </a>
+
+    </div>
   </div>
 
 </div>
@@ -275,7 +261,19 @@
 </script>
 {% endif %}
 
-{# IntersectionObserver : titre du header = leçon visible à l'écran #}
+{# Zigzag Modulo — index reset par leçon via '.learning-path > div' wrappers #}
+<script>
+(function () {
+  var Z = [50, 64, 72, 64, 50, 36, 28, 36];
+  document.querySelectorAll('.learning-path > div').forEach(function (group) {
+    group.querySelectorAll('.track-node').forEach(function (el, i) {
+      el.style.marginLeft = 'calc(' + Z[i % Z.length] + '% - 28px)';
+    });
+  });
+})();
+</script>
+
+{# IntersectionObserver : titre header = leçon visible — INCHANGÉ #}
 <script>
 (function () {
   var titleEl = document.getElementById('header-lesson-title');
