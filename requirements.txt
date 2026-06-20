@@ -40,6 +40,7 @@ httpx==0.28.1
 idna==3.11
 inflection==0.5.1
 jiter==0.15.0
+json-repair==0.61.0
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 lxml==6.1.0

@@ -1,6 +1,5 @@
 import json
 import logging
-import math
 from collections import defaultdict, OrderedDict
 from datetime import timedelta
 from urllib.parse import urlencode
@@ -82,15 +81,10 @@ _CONCEPT_ICON_HINTS = [
     ('calcul', '🧮'), ('nombre', '🔢'), ('histoire', '📜'),
     ('geo', '🗺️'), ('carte', '🗺️'), ('mot', '💬'),
 ]
-_RING_COLORS = {
-    'new': '#818cf8', 'done-weak': '#86efac',
-    'done-mid': '#4ade80', 'done-strong': '#fbbf24',
-}
 _SUBJECT_LUCIDE = {
     'math': 'calculator', 'scientific': 'activity', 'literary': 'pen-line',
     'language': 'globe', 'geography': 'map-pin', 'code': 'code', 'accounting': 'bar-chart-2',
 }
-_CIRC = round(2 * math.pi * 38, 2)   # SVG r=38 → 238.76
 
 
 def _humanize_concept_id(cid: str) -> str:
@@ -116,17 +110,6 @@ def _concept_state(done: int, total: int) -> str:
     return 'done-weak'
 
 
-def _stars(done: int, total: int) -> str:
-    if not total or done == 0:
-        return ''
-    ratio = done / total
-    if ratio >= 0.8:
-        return '★★★'
-    if ratio >= 0.5:
-        return '★★☆'
-    return '★☆☆'
-
-
 def _build_lesson_concepts(lesson, correct_quiz_set: set) -> list:
     """Construit les groupes de concepts pour le chemin d'apprentissage.
     Priorité : quiz_data.concepts (format riche) → fallback groupement par concept_id."""
@@ -137,14 +120,11 @@ def _build_lesson_concepts(lesson, correct_quiz_set: set) -> list:
     def _enrich(cid, name, icon, order, quiz_ids):
         done = sum(1 for qid in quiz_ids if (lesson.id, qid) in correct_quiz_set)
         total = len(quiz_ids)
-        arc_done = round(done / total * _CIRC, 1) if total else 0.0
         state = _concept_state(done, total)
         return {
             'id': cid, 'name': name, 'icon': icon, 'order': order,
             'quiz_ids': quiz_ids, 'done_count': done, 'total_count': total,
-            'arc_done': arc_done, 'arc_gap': round(_CIRC - arc_done, 1),
-            'state': state, 'stars': _stars(done, total),
-            'ring_color': _RING_COLORS.get(state, '#d1d5db'),
+            'state': state,
             'lucide_icon': _SUBJECT_LUCIDE.get(lesson.subject_type, 'book-open'),
         }
 
@@ -248,7 +228,6 @@ def learn_dashboard(request):
                 'node_state':   node_state,
                 'progress_pct': progress_pct,
                 'mastery':      mastery,
-                'mastery_arc':  round(mastery / 100 * _CIRC, 1),
                 'concepts':     _build_lesson_concepts(dep.lesson, correct_quiz_set),
                 'has_story':    bool(dep.lesson.story_data),
             })
