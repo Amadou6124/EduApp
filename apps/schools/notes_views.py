@@ -11,6 +11,8 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
+
+from apps.accounts.models import UserRole
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
@@ -177,7 +179,7 @@ def notes_dashboard(request):
 
     # Filtre enseignant : uniquement ses classes (assigné ou délégué)
     teacher_class_ids = None
-    if request.role == 'teacher':
+    if request.role == UserRole.TEACHER:
         assigned_ids  = ClassSubject.objects.filter(
             teacher=request.user, is_active=True,
         ).values_list('school_class_id', flat=True).distinct()
@@ -301,7 +303,7 @@ def notes_class(request, class_id, period_id):
     user         = request.user
 
     # Sécurité enseignant : accès refusé si la classe ne lui appartient pas
-    if user.role == 'teacher':
+    if user.role == UserRole.TEACHER:
         has_access = (
             ClassSubject.objects.filter(
                 school_class=school_class, teacher=user, is_active=True,
@@ -319,7 +321,7 @@ def notes_class(request, class_id, period_id):
         .order_by('order', 'subject__name')
     )
 
-    if user.role == 'teacher':
+    if user.role == UserRole.TEACHER:
         # Enseignant : ses matières OU classes où il est délégué
         delegated = school_class.notes_delegates.filter(pk=user.pk).exists()
         if not delegated:
@@ -579,7 +581,7 @@ def note_cancel(request, note_id):
     school = get_school(request)
     user   = request.user
 
-    if user.role not in ('director', 'staff') and not user.is_superuser:
+    if user.role not in (UserRole.DIRECTOR, UserRole.STAFF) and not user.is_superuser:
         return HttpResponse(
             '<span class="text-red-500 text-xs">Réservé au directeur.</span>',
             status=403,

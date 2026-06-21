@@ -12,6 +12,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+
+from apps.accounts.models import UserRole
 from django.db.models import Avg, Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
@@ -103,7 +105,7 @@ def bulletins_main(request):
         'active_class':    active_class,
         'active_tab':      active_tab,
         'active_section':  'bulletins',
-        'can_generate':    request.user.role in ('director', 'staff') or request.user.is_superuser,
+        'can_generate':    request.user.role in (UserRole.DIRECTOR, UserRole.STAFF) or request.user.is_superuser,
     }
 
     # Stats globales si classe + période sélectionnées
@@ -148,7 +150,7 @@ def health_tab(request):
     ctx = _get_class_stats(active_class, active_period, school)
     ctx['active_class'] = active_class
     ctx['active_period'] = active_period
-    ctx['can_generate'] = request.user.role in ('director', 'staff') or request.user.is_superuser
+    ctx['can_generate'] = request.user.role in (UserRole.DIRECTOR, UserRole.STAFF) or request.user.is_superuser
 
     return render(request, 'bulletins/partials/health_tab.html', ctx)
 
@@ -193,7 +195,7 @@ def bulletins_tab(request):
         'rows':            rows,
         'school_class':    active_class,
         'period':          active_period,
-        'can_generate':    request.user.role in ('director', 'staff') or request.user.is_superuser,
+        'can_generate':    request.user.role in (UserRole.DIRECTOR, UserRole.STAFF) or request.user.is_superuser,
         'generated_count': generated_count,
         'total_count':     total_count,
         'pending_count':   total_count - generated_count,
@@ -230,7 +232,7 @@ def rankings_tab(request):
         'class_average': class_average,
         'first_average': averages[0] if averages else None,
         'last_average':  averages[-1] if averages else None,
-        'can_generate':  request.user.role in ('director', 'staff') or request.user.is_superuser,
+        'can_generate':  request.user.role in (UserRole.DIRECTOR, UserRole.STAFF) or request.user.is_superuser,
     })
 
 
@@ -395,7 +397,7 @@ def bulletin_publish(request, bulletin_id):
                     f'Le bulletin de {bulletin.student.full_name} '
                     f'pour {bulletin.period.name} est disponible.'
                 ),
-                url='/portal/parent/bulletins/',
+                url=reverse('parent:bulletins'),
                 target=bulletin,
             )
         except Exception:

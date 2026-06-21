@@ -10,6 +10,7 @@ from openpyxl.utils import get_column_letter
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from apps.accounts.models import UserRole
 from django.db import IntegrityError, transaction
 from django.core.paginator import Paginator
 from django.db.models import Count, DecimalField, F, Q, Subquery, OuterRef, Sum
@@ -103,7 +104,7 @@ def compute_student_stats(school):
 
 @login_required
 def student_list(request):
-    if request.user.role == 'teacher':
+    if request.user.role == UserRole.TEACHER:
         return redirect('teacher:dashboard')
     school = get_school(request)
     filter_type = request.GET.get('filter', 'all')
@@ -226,7 +227,7 @@ def student_detail(request, student_id):
     )
 
     observations = None
-    if request.role in ('director', 'staff') or request.user.is_superuser:
+    if request.role in (UserRole.DIRECTOR, UserRole.STAFF) or request.user.is_superuser:
         from apps.teachers.models import StudentObservation
         observations = list(
             StudentObservation.objects
@@ -282,7 +283,7 @@ def student_detail(request, student_id):
         'notes_periode':     notes_periode,
         'active_period':     active_period,
         'notifs_parents':    notifs_parents,
-        'is_director':       request.role == 'director' or request.user.is_superuser,
+        'is_director':       request.role == UserRole.DIRECTOR or request.user.is_superuser,
     })
 
 
@@ -349,7 +350,7 @@ def observation_share_parent(request, student_id, obs_id):
             category=NotificationCategory.OBSERVATION,
             title=f"Message de l'école concernant {student.full_name}",
             body=message,
-            url='/portal/parent/',
+            url=reverse('parent:dashboard'),
             target=obs,
         )
         notify(
@@ -358,7 +359,7 @@ def observation_share_parent(request, student_id, obs_id):
             category=NotificationCategory.OBSERVATION,
             title="Votre observation a été partagée",
             body=f"Le directeur a partagé votre observation sur {student.full_name} avec les parents.",
-            url='/teacher/notifications/',
+            url=reverse('teacher:notifications'),
             target=obs,
         )
         msg, notif_type = 'Observation partagée avec les parents.', 'success'
@@ -432,7 +433,7 @@ def student_withdraw(request, student_id):
     Action réservée au directeur.
     """
     school = get_school(request)
-    if request.role != 'director' and not request.user.is_superuser:
+    if request.role != UserRole.DIRECTOR and not request.user.is_superuser:
         return HttpResponse(status=403)
 
     student = get_object_or_404(Student, id=student_id, school=school, is_active=True)
@@ -828,7 +829,7 @@ def guardian_search(request, student_id):
     found, already_linked, blocked_role = None, False, None
     if phone:
         candidate = User.objects.filter(phone_number=phone).first()
-        if candidate and candidate.role != 'parent':
+        if candidate and candidate.role != UserRole.PARENT:
             blocked_role = candidate.get_role_display()
         elif candidate:
             found = candidate
@@ -860,7 +861,7 @@ def guardian_add(request, student_id):
     user_id = request.POST.get('user_id', '').strip()
 
     if user_id:
-        parent = get_object_or_404(User, id=user_id, role='parent')
+        parent = get_object_or_404(User, id=user_id, role=UserRole.PARENT)
     else:
         full_name = request.POST.get('full_name', '').strip()
         phone     = request.POST.get('phone', '').strip()
@@ -871,7 +872,7 @@ def guardian_add(request, student_id):
         parent = User.objects.create_user(
             phone_number=phone,
             password=request.POST.get('password', '').strip() or generate_temp_password(),
-            full_name=full_name, role='parent',
+            full_name=full_name, role=UserRole.PARENT,
         )
 
     is_first = not student.guardians.exists()

@@ -7,6 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse
@@ -390,7 +391,7 @@ def attendance_save(request, class_id):
                     category=NotificationCategory.ABSENCE,
                     title=f'{st.full_name} était absent(e)',
                     body=f'Absence enregistrée le {session_date}.',
-                    url='/portal/parent/',
+                    url=reverse('parent:dashboard'),
                 )
         except Exception:
             pass
