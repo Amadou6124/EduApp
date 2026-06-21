@@ -6,6 +6,7 @@ from django.db.models import Count, DecimalField, F, Prefetch, Q, Subquery, Oute
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
@@ -290,7 +291,6 @@ def payment_cancel(request, payment_id):
 
 @login_required
 def receipt_preview(request, payment_id):
-    from django.urls import reverse
     school  = get_school(request)
     payment = get_object_or_404(
         Payment.objects.select_related('student__school_class'),
