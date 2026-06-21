@@ -67,3 +67,66 @@
 /* Scrollbar (INCHANGÉ) */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─── Story — animations & transitions ─────────────────────────────────────── */
+
+/* Apparition bulle : pop scale + translateY (via Alpine x-transition) */
+.story-pop-enter        { transition: opacity .35s cubic-bezier(.34,1.56,.64,1),
+                                      transform .35s cubic-bezier(.34,1.56,.64,1); }
+.story-pop-enter-start  { opacity: 0; transform: translateY(12px) scale(.92); }
+.story-pop-enter-end    { opacity: 1; transform: translateY(0)     scale(1);   }
+
+/* Typing — 3 points qui rebondissent, décalés */
+.story-typing-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+  opacity: .5; animation: story-blink 1.2s infinite;
+}
+.story-typing-dot:nth-child(2) { animation-delay: .2s; }
+.story-typing-dot:nth-child(3) { animation-delay: .4s; }
+@keyframes story-blink {
+  0%, 60%, 100% { transform: translateY(0);    opacity: .4; }
+  30%           { transform: translateY(-5px); opacity: 1;  }
+}
+
+/* Input bar — slide depuis le bas */
+.story-inputbar-enter       { transition: transform .4s cubic-bezier(.34,1.4,.64,1); }
+.story-inputbar-enter-start { transform: translateY(120%); }
+.story-inputbar-enter-end   { transform: translateY(0); }
+
+/* Feedback sheet — slide spring depuis le bas */
+.story-sheet-enter         { transition: transform .45s cubic-bezier(.34,1.5,.64,1); }
+.story-sheet-enter-start   { transform: translateY(110%); }
+.story-sheet-enter-end     { transform: translateY(0); }
+.story-overlay-enter       { transition: opacity .3s ease; }
+.story-overlay-enter-start { opacity: 0; }
+.story-overlay-enter-end   { opacity: 1; }
+
+/* Icône feedback — pop avec rotation */
+.story-sh-icon { animation: story-popbig .5s cubic-bezier(.34,1.7,.64,1); }
+@keyframes story-popbig {
+  from { transform: scale(0) rotate(-40deg); }
+  to   { transform: scale(1) rotate(0);      }
+}
+
+/* Écran de fin — fadeIn */
+.story-end { animation: story-fade .5s ease; }
+@keyframes story-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Étoiles — scale(0) → scale(1), décalées (classe .on posée par Alpine) */
+.story-star    { opacity: 0; transform: scale(0); }
+.story-star.on { animation: story-starpop .5s cubic-bezier(.34,1.8,.64,1) forwards; }
+.story-star.d1 { animation-delay: .1s; }
+.story-star.d2 { animation-delay: .45s; }
+.story-star.d3 { animation-delay: .8s; }
+@keyframes story-starpop { to { opacity: 1; transform: scale(1) rotate(0); } }
+
+/* Barre de progression — remplissage animé */
+.story-pfill { transition: width .6s cubic-bezier(.34,1.56,.64,1); }
+
+/* prefers-reduced-motion : tout désactiver */
+@media (prefers-reduced-motion: reduce) {
+  .story-pop-enter, .story-inputbar-enter, .story-sheet-enter,
+  .story-overlay-enter, .story-pfill { transition: none !important; }
+  .story-typing-dot, .story-sh-icon, .story-end, .story-star.on { animation: none !important; }
+  .story-star { opacity: 1; transform: none; }
+}
