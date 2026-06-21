@@ -6,9 +6,12 @@ from django.db.models import Count, DecimalField, F, Prefetch, Q, Subquery, Oute
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
+
+from apps.accounts.models import UserRole
 
 from apps.schools.models import SchoolClass
 from apps.core.mixins import get_school, director_or_staff_required
@@ -106,7 +109,7 @@ def _apply_filters(qs, q, status, class_id):
 
 @login_required
 def payment_dashboard(request):
-    if request.user.role == 'teacher':
+    if request.user.role == UserRole.TEACHER:
         return redirect('teacher:dashboard')
     school = get_school(request)
     q        = request.GET.get('q', '').strip()
@@ -188,7 +191,7 @@ def payment_create(request, student_id):
                 category=NotificationCategory.PAYMENT,
                 title='Paiement enregistré',
                 body=f'{payment.amount:,.0f} FCFA reçus le {payment.payment_date}.',
-                url='/portal/parent/payments/',
+                url=reverse('parent:payments'),
                 target=payment,
             )
         except Exception:
@@ -214,7 +217,7 @@ def payment_create(request, student_id):
             'showToast': {
                 'message': f'Versement de {payment.amount:,.0f} FCFA enregistré.',
                 'type':    'success',
-                'receipt_url': f'/payments/receipt/{payment.id}/',
+                'receipt_url': reverse('payments:receipt', args=[payment.id]),
             },
             'close-panel': True,
         })
@@ -288,7 +291,6 @@ def payment_cancel(request, payment_id):
 
 @login_required
 def receipt_preview(request, payment_id):
-    from django.urls import reverse
     school  = get_school(request)
     payment = get_object_or_404(
         Payment.objects.select_related('student__school_class'),

@@ -6,6 +6,8 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce
 
+from apps.accounts.models import UserRole
+
 
 def school_context(request):
     """
@@ -95,7 +97,7 @@ def school_context(request):
 
     # ── Requête 3 : observations non lues (directeur/staff uniquement) ───────
     unread_observations_count = 0
-    if request.role in ('director', 'staff') or request.user.is_superuser:
+    if request.role in (UserRole.DIRECTOR, UserRole.STAFF) or request.user.is_superuser:
         from apps.teachers.models import StudentObservation
         unread_observations_count = StudentObservation.objects.filter(
             school=school, is_read=False, is_private=False,

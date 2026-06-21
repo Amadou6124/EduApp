@@ -7,6 +7,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+
+from apps.accounts.models import UserRole
 from django.views.decorators.http import require_http_methods
 
 from apps.core.mixins import (
@@ -46,7 +48,7 @@ def accounting_staff_list(request):
     memberships = (
         Membership.objects
         .filter(school=school, is_active=True)
-        .exclude(role__in=['parent', 'student'])
+        .exclude(role__in=[UserRole.PARENT, UserRole.STUDENT])
         .select_related('user', 'employee_profile')   # reverse OneToOne → 1 requête
         .order_by('role', 'user__full_name')
     )
@@ -269,7 +271,7 @@ def emargement_save(request):
         sub_id = request.POST.get('substitute_id')
         if sub_id:
             substitute = User.objects.filter(
-                pk=sub_id, memberships__school=school, memberships__role='teacher',
+                pk=sub_id, memberships__school=school, memberships__role=UserRole.TEACHER,
             ).first()
 
     TeacherAttendance.objects.update_or_create(
@@ -296,7 +298,7 @@ def emargement_substitute_search(request):
     if len(q) >= 2:
         results = list(
             User.objects
-            .filter(memberships__school=school, memberships__role='teacher',
+            .filter(memberships__school=school, memberships__role=UserRole.TEACHER,
                     full_name__icontains=q, is_active=True)
             .distinct().order_by('full_name')[:8]
         )

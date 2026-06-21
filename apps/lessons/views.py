@@ -4,6 +4,7 @@ import threading
 from types import SimpleNamespace
 
 from django.db import close_old_connections
+from django.urls import reverse
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -326,5 +327,5 @@ def lesson_retry(request, lesson_id):
 
     resp = HttpResponse(status=200)
     resp['HX-Trigger'] = '{"showToast": {"message": "Génération relancée...", "type": "info"}}'
-    resp['HX-Redirect'] = f'/teacher/lessons/{lesson.id}/'
+    resp['HX-Redirect'] = reverse('lessons:detail', args=[lesson.id])
     return resp
