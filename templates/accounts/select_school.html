@@ -66,7 +66,7 @@
 
   <!-- Déconnexion -->
   <div class="text-center mt-6">
-    <a href="{% url 'accounts:logout' %}" class="text-sm text-gray-400 hover:text-gray-600 transition">Se déconnecter</a>
+    <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit" class="text-sm text-gray-400 hover:text-gray-600 transition">Se déconnecter</button></form>
   </div>
 
 </div>

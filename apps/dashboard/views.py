@@ -70,7 +70,7 @@ def dashboard_view(request):
         cache.set(cache_key, computed, 60 * 5)
 
     # Permissions per-école : directeur/superuser = tout ; staff = selon StaffPermission.
-    if request.role == 'director' or request.user.is_superuser:
+    if request.user.role == 'director' or request.user.is_superuser:
         can_pay, can_stu = True, True
     else:
         perm = getattr(request.user, 'staff_permission', None)
@@ -285,33 +285,62 @@ def _compute_class_health(school, active_period):
         .annotate(student_count=Count('students', filter=Q(students__is_active=True)))
         .order_by('level', 'name')
     )
+    if not classes:
+        return []
+    class_ids = [sc.id for sc in classes]
+
+    # 5 requêtes batch au lieu de 5×N
+    fees_map = {
+        r['school_class_id']: r['total']
+        for r in Student.objects.filter(
+            school_class__in=class_ids, school=school, is_active=True,
+        ).values('school_class_id').annotate(total=Sum('tuition_fee'))
+    }
+    paid_map = {
+        r['student__school_class_id']: r['total']
+        for r in Payment.objects.filter(
+            student__school_class__in=class_ids, student__school=school, is_cancelled=False,
+        ).values('student__school_class_id').annotate(total=Sum('amount'))
+    }
+    avg_map, total_bul_map, admitted_bul_map = {}, {}, {}
+    if active_period:
+        avg_map = {
+            r['class_subject__school_class_id']: r['avg']
+            for r in Note.objects.filter(
+                class_subject__school_class__in=class_ids,
+                period=active_period, is_cancelled=False,
+            ).values('class_subject__school_class_id').annotate(avg=Avg('value'))
+        }
+        total_bul_map = {
+            r['school_class_id']: r['count']
+            for r in Bulletin.objects.filter(
+                period=active_period, school_class__in=class_ids,
+                is_cancelled=False, general_average__isnull=False,
+            ).values('school_class_id').annotate(count=Count('id'))
+        }
+        admitted_bul_map = {
+            r['school_class_id']: r['count']
+            for r in Bulletin.objects.filter(
+                period=active_period, school_class__in=class_ids,
+                is_cancelled=False, general_average__gte=10,
+            ).values('school_class_id').annotate(count=Count('id'))
+        }
+
     rows = []
     for sc in classes:
         if sc.student_count == 0:
             continue
         class_avg = None
-        if active_period:
-            result = Note.objects.filter(
-                class_subject__school_class=sc, period=active_period, is_cancelled=False,
-            ).aggregate(avg=Avg('value'))
-            if result['avg']:
-                class_avg = round(float(result['avg']), 2)
+        raw_avg = avg_map.get(sc.id)
+        if raw_avg:
+            class_avg = round(float(raw_avg), 2)
         success_rate = None
-        if active_period:
-            buls = Bulletin.objects.filter(
-                period=active_period, school_class=sc, is_cancelled=False,
-                general_average__isnull=False,
-            )
-            total = buls.count()
-            if total > 0:
-                admitted = buls.filter(general_average__gte=10).count()
-                success_rate = round(admitted / total * 100, 1)
-        total_fees = Student.objects.filter(
-            school_class=sc, school=school, is_active=True,
-        ).aggregate(total=Sum('tuition_fee'))['total'] or 0
-        total_paid = Payment.objects.filter(
-            student__school_class=sc, student__school=school, is_cancelled=False,
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        total = total_bul_map.get(sc.id, 0)
+        if total > 0:
+            admitted = admitted_bul_map.get(sc.id, 0)
+            success_rate = round(admitted / total * 100, 1)
+        total_fees = fees_map.get(sc.id) or 0
+        total_paid = paid_map.get(sc.id) or 0
         payment_rate = round(total_paid / total_fees * 100, 1) if total_fees > 0 else 0
         if class_avg and class_avg >= 12 and payment_rate > 80:
             status = 'good'

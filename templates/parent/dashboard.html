@@ -21,10 +21,9 @@
   <p class="text-sm text-gray-400 mt-2 max-w-[260px]">
     Contactez l'école pour lier votre compte à vos enfants.
   </p>
-  <a href="{% url 'accounts:logout' %}"
-     class="mt-6 px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:bg-gray-50 transition">
-    Se déconnecter
-  </a>
+  <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+    <button type="submit" class="mt-6 px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:bg-gray-50 transition">Se déconnecter</button>
+  </form>
 </div>
 
 {% else %}
