@@ -442,7 +442,7 @@
 
           <!-- Email utilisateur -->
           <div class="px-3 py-2 text-xs text-gray-400 border-b border-gray-100 mb-1 truncate">
-            {{ request.user.email|default:request.user.phone_number }}
+            {% if request.user.is_authenticated %}{{ request.user.email|default:request.user.phone_number }}{% endif %}
           </div>
 
           <!-- Changer d'école (multi-école) -->
