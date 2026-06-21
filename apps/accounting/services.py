@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from django.db.models import Case, DecimalField, F, Sum, When
 
+from apps.accounts.models import UserRole
+
 
 def compute_teacher_hours(school, year, month):
     """
@@ -70,7 +72,7 @@ def compute_monthly_salary_preview(school, year, month):
     memberships = (
         Membership.objects
         .filter(school=school, is_active=True)
-        .exclude(role__in=['parent', 'student'])
+        .exclude(role__in=[UserRole.PARENT, UserRole.STUDENT])
         .select_related('user', 'employee_profile')
         .order_by('user__full_name')
     )

@@ -10,6 +10,9 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce, TruncMonth
+
+from apps.accounts.models import UserRole
+from apps.core.constants import PAYMENT_GOOD_THRESHOLD, PAYMENT_ALERT_THRESHOLD
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
@@ -20,9 +23,9 @@ _MOIS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
 
 
 def _status(taux):
-    if taux >= 80:
+    if taux >= PAYMENT_GOOD_THRESHOLD:
         return 'green'
-    if taux >= 60:
+    if taux >= PAYMENT_ALERT_THRESHOLD:
         return 'yellow'
     return 'red'
 
@@ -197,7 +200,7 @@ def promoter_ecoles(request):
     teacher_map = {
         r['school_id']: r['n']
         for r in Membership.objects
-        .filter(school_id__in=school_ids, role='teacher', is_active=True)
+        .filter(school_id__in=school_ids, role=UserRole.TEACHER, is_active=True)
         .values('school_id').annotate(n=Count('id'))
     }
     abs_map = {

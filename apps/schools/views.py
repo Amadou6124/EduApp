@@ -7,6 +7,9 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
+
+from apps.accounts.models import UserRole
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.shortcuts import render, get_object_or_404, redirect
@@ -83,7 +86,7 @@ def compute_class_stats(classes):
 
 @login_required
 def class_list(request):
-    if request.user.role == 'teacher':
+    if request.user.role == UserRole.TEACHER:
         return redirect('teacher:dashboard')
     school = get_school(request)
     classes = list(_classes_qs(school))
@@ -582,7 +585,7 @@ def announcement_publish(request, pk):
     ann.published_at = timezone.now()
     ann.save(update_fields=['is_published', 'published_at'])
 
-    notif_url  = '/portal/parent/annonces/'
+    notif_url  = reverse('parent:annonces')
     notif_body = ann.body[:150]
 
     if ann.audience == 'school':

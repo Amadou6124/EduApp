@@ -6,6 +6,12 @@ Zero donnee fictive.
 from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
+
+from apps.core.constants import (
+    PASS_THRESHOLD, GOOD_AVERAGE_THRESHOLD,
+    PAYMENT_GOOD_THRESHOLD, PAYMENT_CRITICAL_THRESHOLD,
+)
 from django.core.cache import cache
 from django.db.models import Count, Sum, Q, Avg, Subquery, OuterRef, F, DecimalField
 from django.db.models.functions import Coalesce, TruncMonth
@@ -17,7 +23,7 @@ from apps.schools.models import (
     SchoolClass, SchoolYear, Period, Bulletin, Note, ClassSubject,
 )
 from apps.payments.models import Payment
-from apps.accounts.models import User
+from apps.accounts.models import User, UserRole
 
 
 def invalidate_dashboard_cache(school):
@@ -32,12 +38,12 @@ def invalidate_dashboard_cache(school):
 
 @login_required
 def dashboard_view(request):
-    if request.user.role == 'teacher':
+    if request.user.role == UserRole.TEACHER:
         return redirect('teacher:dashboard')
     school = get_school(request)
     user = request.user
 
-    if user.role not in ('director', 'staff') and not user.is_superuser:
+    if user.role not in (UserRole.DIRECTOR, UserRole.STAFF) and not user.is_superuser:
         return render(request, 'dashboard/dashboard.html', {
             'school': school, 'no_access': True, 'active_section': 'dashboard',
         })
@@ -70,7 +76,7 @@ def dashboard_view(request):
         cache.set(cache_key, computed, 60 * 5)
 
     # Permissions per-école : directeur/superuser = tout ; staff = selon StaffPermission.
-    if request.user.role == 'director' or request.user.is_superuser:
+    if request.role == UserRole.DIRECTOR or request.user.is_superuser:
         can_pay, can_stu = True, True
     else:
         perm = getattr(request.user, 'staff_permission', None)
@@ -105,7 +111,7 @@ def dashboard_view(request):
 def _compute_kpis(school, active_period):
     student_count = Student.objects.filter(school=school, is_active=True).count()
     class_count = school.classes.filter(is_active=True).count()
-    teacher_count = User.objects.filter(school=school, role='teacher', is_active=True).count()
+    teacher_count = User.objects.filter(school=school, role=UserRole.TEACHER, is_active=True).count()
     total_collected = 0
     if active_period:
         result = Payment.objects.filter(
@@ -155,7 +161,7 @@ def _compute_alerts(school, active_period, unpaid_count=0):
             'level': 'critical', 'icon': 'alert-circle', 'category': 'payments',
             'title': f'{unpaid_count} eleve{"s" if unpaid_count > 1 else ""} avec solde impaye',
             'text': 'Ces eleves ont un solde impaye.',
-            'action_url': '/payments/', 'action_text': 'Voir les paiements >',
+            'action_url': reverse('payments:dashboard'), 'action_text': 'Voir les paiements >',
         })
     # Attention : moyenne < 8
     low = Bulletin.objects.filter(
@@ -167,7 +173,7 @@ def _compute_alerts(school, active_period, unpaid_count=0):
             'level': 'warning', 'icon': 'alert-triangle',
             'title': f'{low} eleve{"s" if low > 1 else ""} en grande difficulte',
             'text': 'Moyenne generale < 8/20.',
-            'action_url': '/bulletins/', 'action_text': 'Voir les bulletins >',
+            'action_url': reverse('bulletins:main'), 'action_text': 'Voir les bulletins >',
         })
     # Info : bulletins prets
     ready = 0
@@ -183,7 +189,7 @@ def _compute_alerts(school, active_period, unpaid_count=0):
             'level': 'info', 'icon': 'info',
             'title': f'{ready} bulletin{"s" if ready > 1 else ""} a generer',
             'text': 'Generation des bulletins pour cette periode.',
-            'action_url': '/bulletins/', 'action_text': 'Generer >',
+            'action_url': reverse('bulletins:main'), 'action_text': 'Generer >',
         })
     return alerts
 
@@ -342,9 +348,9 @@ def _compute_class_health(school, active_period):
         total_fees = fees_map.get(sc.id) or 0
         total_paid = paid_map.get(sc.id) or 0
         payment_rate = round(total_paid / total_fees * 100, 1) if total_fees > 0 else 0
-        if class_avg and class_avg >= 12 and payment_rate > 80:
+        if class_avg and class_avg >= GOOD_AVERAGE_THRESHOLD and payment_rate > PAYMENT_GOOD_THRESHOLD:
             status = 'good'
-        elif (class_avg and class_avg < 10) or payment_rate < 40:
+        elif (class_avg and class_avg < PASS_THRESHOLD) or payment_rate < PAYMENT_CRITICAL_THRESHOLD:
             status = 'critical'
         else:
             status = 'warning'
@@ -369,7 +375,7 @@ def _compute_activity(school):
             'color': 'text-green-500 bg-green-50',
             'time': p.payment_date,
             'text': f'{p.student.full_name} -- {int(p.amount):,} FCFA ({p.get_payment_method_display()})',
-            'url': '/payments/',
+            'url': reverse('payments:dashboard'),
         })
     for b in Bulletin.objects.filter(school_class__school=school, is_cancelled=False).select_related('student', 'school_class', 'period').order_by('-generated_at')[:5]:
         dt = b.generated_at
@@ -379,7 +385,7 @@ def _compute_activity(school):
             'color': 'text-blue-500 bg-blue-50',
             'time': dt,
             'text': f'{b.school_class.name} -- {b.period.name} -- {b.student.full_name}',
-            'url': '/bulletins/',
+            'url': reverse('bulletins:main'),
         })
     for n in Note.objects.filter(class_subject__school_class__school=school).select_related('student', 'class_subject__subject', 'class_subject__school_class', 'entered_by').order_by('-entered_at')[:5]:
         activity.append({
@@ -397,7 +403,7 @@ def _compute_activity(school):
             'color': 'text-purple-500 bg-purple-50',
             'time': s.enrolled_at,
             'text': f'{s.full_name} -- {s.school_class.name if s.school_class else "Aucune classe"}',
-            'url': '/students/',
+            'url': reverse('students:list'),
         })
     # Normaliser date -> datetime aware, puis trier par timestamp
     def _sort_key(item):

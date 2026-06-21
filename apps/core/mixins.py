@@ -4,6 +4,8 @@ from django.contrib.auth.mixins import AccessMixin
 from django.http import HttpResponseForbidden
 from django.urls import reverse
 
+from apps.accounts.models import UserRole
+
 
 class _NoSchoolError(Exception):
     """Levée quand un utilisateur sans école (superadmin) accède à une vue métier."""
@@ -75,7 +77,7 @@ def get_school(request):
         # Cachée sur la requête pour ne pas re-requêter aux appels suivants.
         if request.user.owned_groups.exists():
             exc = _PromoterNoSchoolError()
-        elif request.user.role == 'parent':
+        elif request.user.role == UserRole.PARENT:
             exc = _ParentNoSchoolError()
         else:
             exc = _NoSchoolError()
@@ -120,7 +122,7 @@ def director_or_staff_required(view_func):
         if not request.user.is_authenticated:
             return redirect(reverse('accounts:login') + f'?next={request.path}')
         # Rôle de l'école active (multi-école), fallback legacy User.role
-        if get_active_role(request) not in ('director', 'staff') and not request.user.is_superuser:
+        if get_active_role(request) not in (UserRole.DIRECTOR, UserRole.STAFF) and not request.user.is_superuser:
             return HttpResponseForbidden(
                 '<h1 style="font-family:sans-serif;padding:40px">403 — Accès réservé au directeur et au staff.</h1>'
             )
@@ -140,7 +142,7 @@ def director_or_accounting_required(view_func):
         if not request.user.is_authenticated:
             return redirect(reverse('accounts:login') + f'?next={request.path}')
         allowed = (
-            get_active_role(request) == 'director'
+            get_active_role(request) == UserRole.DIRECTOR
             or request.user.is_superuser
         )
         if not allowed:
@@ -166,7 +168,7 @@ def director_or_emargement_required(view_func):
         if not request.user.is_authenticated:
             return redirect(reverse('accounts:login') + f'?next={request.path}')
         allowed = (
-            get_active_role(request) == 'director'
+            get_active_role(request) == UserRole.DIRECTOR
             or request.user.is_superuser
         )
         if not allowed:
@@ -193,7 +195,7 @@ def promoter_required(view_func):
         if not request.user.is_authenticated:
             return redirect(reverse('accounts:login') + f'?next={request.path}')
         is_promoter = (
-            get_active_role(request) == 'promoter'
+            get_active_role(request) == UserRole.PROMOTER
             or request.user.owned_groups.exists()
             or request.user.is_superuser
         )
@@ -215,8 +217,8 @@ def parent_required(view_func):
         if not request.user.is_authenticated:
             return redirect(reverse('accounts:login') + f'?next={request.path}')
         is_parent = (
-            get_active_role(request) == 'parent'
-            or request.user.role == 'parent'
+            get_active_role(request) == UserRole.PARENT
+            or request.user.role == UserRole.PARENT
             or request.user.is_superuser
         )
         if not is_parent:
@@ -237,7 +239,7 @@ def teacher_required(view_func):
         if not request.user.is_authenticated:
             return redirect('accounts:login')
         # Rôle de l'école active (multi-école), fallback legacy User.role
-        if get_active_role(request) != 'teacher' and not request.user.is_superuser:
+        if get_active_role(request) != UserRole.TEACHER and not request.user.is_superuser:
             return redirect('notes:dashboard')
         return view_func(request, *args, **kwargs)
     return wrapper

@@ -16,11 +16,12 @@ from django.utils import timezone
 from apps.core.student_auth import (
     authenticate_student, login_student, logout_student, student_required,
 )
+from apps.core.constants import MASTERY_THRESHOLD, MASTERY_WEAK_THRESHOLD
 from apps.lessons.models import Lesson, LessonDeployment, LessonStatus
 from apps.lessons.services import (
     evaluate_answer, calculate_lesson_mastery, sm2_update,
 )
-from apps.student_learning.services import award_xp, student_stats, BADGES_CATALOG, level_info, xp_for_next_level
+from apps.student_learning.services import award_xp, student_stats, BADGES_CATALOG, level_info, xp_for_next_level, XP_PER_LEVEL
 from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard, StoryAttempt
 
 logger = logging.getLogger(__name__)
@@ -209,9 +210,9 @@ def learn_dashboard(request):
         for dep in deployments:
             prog = progress_map.get(dep.lesson_id)
             mastery = calculate_lesson_mastery(student, dep.lesson)
-            if (prog and prog.is_completed) or mastery >= 80:
+            if (prog and prog.is_completed) or mastery >= MASTERY_THRESHOLD:
                 node_state, progress_pct = 'completed', 100
-            elif prog or mastery >= 40:
+            elif prog or mastery >= MASTERY_WEAK_THRESHOLD:
                 node_state = 'in_progress'
                 if prog and not prog.is_completed:
                     blocks_total = len(
@@ -258,7 +259,7 @@ def learn_dashboard(request):
         'level_emoji':             level_emoji,
         'level_name':              level_name,
         'xp_to_next':              xp_for_next_level(student.total_xp),
-        'xp_in_level':             student.total_xp % 500,
+        'xp_in_level':             student.total_xp % XP_PER_LEVEL,
     })
 
 
@@ -278,7 +279,7 @@ def _update_streak(student, today):
 
     # Bonus de palier (idempotent : streak_days ne passe qu'une fois par valeur).
     if student.streak_days in (7, 30):
-        award_xp(student, 100 if student.streak_days == 7 else 500, f'streak_{student.streak_days}')
+        award_xp(student, 100 if student.streak_days == 7 else XP_PER_LEVEL, f'streak_{student.streak_days}')
 
 
 # ─── Stubs phases suivantes ──────────────────────────────────────────────────
