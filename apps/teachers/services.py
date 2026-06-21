@@ -124,9 +124,12 @@ def compute_difficulty_score(
         score = None
 
     # ── Tendance : fusion chrono notes + évals rapides ───────────
+    import datetime as _dt
+    from django.utils import timezone as _tz
     all_chrono = sorted(
         [(n.entered_at, _normalize(n.value, class_subject.max_grade)) for n in raw_notes]
-        + [(qa.assessed_at, _normalize(qa.value, qa.max_value)) for qa in raw_qa],
+        + [(_tz.make_aware(_dt.datetime(qa.assessed_at.year, qa.assessed_at.month, qa.assessed_at.day)),
+            _normalize(qa.value, qa.max_value)) for qa in raw_qa],
         key=lambda t: t[0],
     )
     trend = _trend([v for _, v in all_chrono]) if len(all_chrono) >= 2 else 'stable'

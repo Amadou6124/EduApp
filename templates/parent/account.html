@@ -118,12 +118,11 @@
                        hover:bg-gray-50 transition-colors">
           Annuler
         </button>
-        <a href="{% url 'accounts:logout' %}"
-           class="flex-1 h-11 rounded-xl bg-red-500 text-white
-                  text-sm font-semibold flex items-center justify-center
-                  hover:bg-red-600 transition-colors">
-          Confirmer
-        </a>
+        <form method="post" action="{% url 'accounts:logout' %}" class="flex-1">{% csrf_token %}
+          <button type="submit" class="w-full h-11 rounded-xl bg-red-500 text-white
+                     text-sm font-semibold flex items-center justify-center
+                     hover:bg-red-600 transition-colors">Confirmer</button>
+        </form>
       </div>
     </div>
 
