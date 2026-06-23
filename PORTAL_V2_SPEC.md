@@ -1746,6 +1746,17 @@ Chaque étape a un **critère de validation testable**.
 
 > Esquisse — **à détailler le moment venu**.
 
+> **⚠️ AVANT DE COMMENCER LA PHASE C — récupérer le design.**
+> Le design React de référence n'est PAS dans le repo : il se trouve sur la machine
+> du fondateur (Finder). Au moment d'attaquer la Phase C, Claude Code DOIT s'arrêter
+> et SIGNALER au fondateur qu'il a besoin du dossier du design, pour que celui-ci le
+> lui fournisse (glisser-déposer ou copie dans le projet). Ne JAMAIS commencer à
+> coder le frontend « de mémoire » ou en inventant le design : toujours partir du
+> design réel fourni à ce moment-là. Rappel §1.6 : le design est une référence
+> visuelle à reconstruire dans notre stack (HTML/HTMX/Alpine/Tailwind), et il ne
+> couvre que le MCQ — les 12 autres types de quiz sont à créer dans la même
+> esthétique.
+
 - **Interface de validation enseignant** (Temps 1 du flux §2.2) : afficher la
   structure proposée par l'Architecte, permettre **renommer / réordonner /
   fusionner / supprimer** les leçons, **confirmer** pour lancer le Temps 2. Le cas
