@@ -1688,6 +1688,11 @@ interactif conséquent**. À débloquer quand l'effort frontend est justifié.
 
 ### PHASE A — FORMAT IA (détaillée)
 
+> **✅ PHASE A TERMINÉE** (implémentée, testée, poussée sur origin). Étapes A.1→A.6
+> livrées : Architecte, B1 Noyau, B2 Lecture, B3 Histoire, évaluation des 13 types,
+> orchestration. Tout est additif et parallèle (le système v1 reste intact). Code
+> dans apps/lessons/services.py sous l'en-tête "v2".
+
 **But** : implémenter **toute la chaîne de génération** spécifiée en Section 4.
 Chaque étape a un **critère de validation testable**.
 
@@ -1801,6 +1806,7 @@ Chaque étape a un **critère de validation testable**.
 | Design React = **référence visuelle à reconstruire** ; ne couvre que le MCQ → à étendre aux 13 types | Style fourni, pas la couverture fonctionnelle | §1.6 |
 | Ordre d'exécution **A → B → C contraint** par dépendances | Format débloque modèles, modèles débloquent frontend | §6 |
 | Interface de validation enseignant = **Phase C** (frontend), pas Phase A | Phase A purement backend, testable sans écran | §6 |
+| Anti-triche dynamic_formula via **context serveur** | les variables tirées viennent d'une source serveur de confiance (`context`), jamais du client ; sans context → réponse rejetée. `draw_dynamic_formula` (tirage) se branchera en Phase B (stockage du tirage par élève) | §3 P2, A.5 |
 
 ### 7.2 Décisions en attente (à trancher plus tard)
 
@@ -1811,6 +1817,7 @@ Chaque étape a un **critère de validation testable**.
 | Types reportés **Vague 2** (`graph_plot`, `code_fill_blanks`, `predict_output`) | quand les activer (chacun = un composant/infra à construire) | §5.1 |
 | Types reportés **Vague 3** (image/audio) | déblocage commun : upload média · banque d'images · TTS | §5.2 |
 | Déploiement | hébergeur, domaine, stockage média, email — **non décidés** (hors périmètre spec, à planifier) | — |
+| `dynamic_formula` : résultats non entiers | le tirage peut donner des réponses non rondes (ex. 2.625) ; pédagogiquement moins bon. Options : B1 conçoit des variables qui tombent juste · `draw_dynamic_formula` re-tire si non entier · tolérance par défaut | §3 P2, A.5 |
 
 ---
 
