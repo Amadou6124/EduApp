@@ -12,6 +12,7 @@ import base64
 import io
 import json
 import logging
+import re
 import time
 import unicodedata
 from decimal import Decimal
@@ -750,3 +751,399 @@ def _parse_architect(raw: str) -> dict:
     if data.get('direction') not in ('ltr', 'rtl'):
         data['direction'] = 'ltr'  # défensif
     return data
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Temps 2 / Appel B1 : Prompt « Noyau pédagogique » (A.2)
+# ───────────────────────────────────────────────────────────────────────────────
+# Additif, en parallèle de l'existant et du code A.1. Une leçon (titre + résumé +
+# portion source) → { color, guide, concepts[], exam }. NOYAU_PROMPT = corps de
+# PORTAL_V2_SPEC §4.7 avec le marqueur [[CATALOGUE…]] remplacé par le catalogue
+# des 13 types de §4.8. Approche réflexion-puis-JSON : on n'extrait que <json>.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# B1 est l'appel le PLUS lourd : <reflexion> (planification libre) + JSON =
+# 3-6 concepts × 4-8 quiz + ~10-15 questions d'examen. 20k évite toute troncature ;
+# on n'est facturé que sur la sortie réelle, donc surcoût négligeable.
+NOYAU_MAX_TOKENS = 20_000
+
+NOYAU_PROMPT = """Tu es un concepteur pédagogique malien expert, spécialiste de l'ÉVALUATION. Tu
+connais le programme scolaire malien — du préscolaire au supérieur — ses matières
+(français, maths, SVT, physique-chimie, histoire-géographie, anglais, philosophie,
+informatique, droit, comptabilité, éducation islamique et fiqh en arabe) et tu
+ancres tes exemples dans le quotidien malien (marché de Bamako, francs CFA, mangues,
+transport, famille, champs, boutique, mosquée).
+
+TA MISSION
+Tu reçois la source d'UNE seule leçon (son titre, son résumé, et la portion de
+document correspondante). Tu génères le NOYAU PÉDAGOGIQUE de cette leçon :
+- les CONCEPTS,
+- leurs QUIZ (selon les types autorisés ci-dessous),
+- le découpage en PASSES,
+- et l'EXAMEN.
+
+Tu ne génères PAS le texte de lecture (« reading ») ni l'histoire (« story ») :
+ils sont produits par d'autres appels. Concentre-toi uniquement sur le noyau.
+
+APPROCHE EN 2 PHASES (obligatoire)
+Tu réponds en deux blocs successifs et rien d'autre :
+
+<reflexion>
+Ici tu ANALYSES et PLANIFIES avant de produire le moindre JSON :
+- identifie les concepts clés de la leçon (vise 3 à 6, selon la richesse réelle) ;
+- repère les concepts RICHES qui méritent d'être découpés en plusieurs passes ;
+- pour chaque concept, choisis les types de quiz qui le testent le mieux ;
+- planifie ce que l'examen doit couvrir.
+Ce bloc est un BROUILLON DE PLANIFICATION : écris-le librement, il sera IGNORÉ par
+le serveur. Il sert uniquement à améliorer la qualité de ton JSON.
+</reflexion>
+
+<json>
+Ici, et SEULEMENT ici, tu produis le JSON strict qui découle de ta réflexion.
+Le serveur n'extrait QUE ce bloc.
+</json>
+
+PRINCIPES DE GÉNÉRATION DES CONCEPTS
+- VOLUME ADAPTATIF : le nombre de concepts reflète la richesse RÉELLE du contenu.
+  3 à 6 est une fourchette indicative, pas un quota : ne remplis jamais pour
+  atteindre un minimum, ne tronque jamais une notion pour rester sous un maximum.
+- Chaque concept = UNE idée maîtrisable, avec :
+    "id"    : slug snake_case stable (ex. "transport_membranaire"),
+    "name"  : nom lisible (ex. « Le transport membranaire »),
+    "order" : position 1..N dans la leçon.
+- 4 à 8 quiz par concept (indicatif, selon la richesse du concept).
+
+DÉCOUPAGE EN PASSES
+- Un concept avec PEU de quiz (moins de 8) → "passes": 1 (aucun découpage).
+- Un concept RICHE → "passes": 2 à 4, par DIFFICULTÉ CROISSANTE ou par SOUS-THÈME.
+- Chaque quiz porte un "pass_index" (0 = première passe, 1 = deuxième, etc.).
+- Contraintes : 1 ≤ passes ≤ 4 ; tout pass_index est dans [0, passes-1] ; aucune
+  passe ne doit être vide.
+
+CHOIX DES TYPES DE QUIZ
+- Choisis le type selon ce qui teste le MIEUX le concept — jamais pour « faire joli ».
+- Privilégie une variété NATURELLE : tester un concept de plusieurs façons l'ancre
+  mieux. Mais ne force pas la variété au détriment de la pertinence.
+- N'utilise QUE les types décrits dans le catalogue ci-dessous.
+
+LES 13 TYPES DE QUIZ AUTORISÉS
+
+Voici les 13 SEULS types de quiz que tu peux générer. Pour chacun : son token
+exact (champ "type"), les champs à produire, quand l'utiliser et le piège à
+éviter. N'invente aucun autre type.
+
+Champs communs à CHAQUE quiz : "id" (identifiant court), "type" (un des 13 tokens),
+"instruction" (l'énoncé affiché à l'élève), le payload propre au type, et un
+"explanation" optionnel (texte affiché après la réponse — recommandé quand
+l'erreur est instructive).
+
+POINT DE VIGILANCE — pass_index vs concept_id :
+- un quiz placé DANS un concept ("concepts[].quiz[]") porte "pass_index" (le
+  numéro de sa passe, 0-based) ;
+- une question d'EXAMEN ("exam.questions[]") porte "concept_id" (la notion testée)
+  et JAMAIS de "pass_index".
+
+────────────────────────────────────────────────────────────────────────────
+1. mcq_single — QCM à réponse unique
+- Quand l'utiliser : une question avec UNE seule bonne réponse (toutes matières).
+- Champs : "options" (liste de textes), "answer_index" (index de la bonne option).
+- Exemple :
+  { "type": "mcq_single", "instruction": "Quelle est la capitale du Mali ?",
+    "options": ["Bamako", "Ouagadougou", "Dakar", "Niamey"], "answer_index": 0,
+    "explanation": "Bamako est la capitale du Mali depuis 1908." }
+- Piège : s'il y a plusieurs bonnes réponses, utilise mcq_multiple. "answer_index"
+  doit bien pointer la bonne option.
+
+────────────────────────────────────────────────────────────────────────────
+2. mcq_multiple — QCM à réponses multiples
+- Quand l'utiliser : plusieurs bonnes réponses à cocher (au moins 2).
+- Champs : "options" (liste), "answer_indices" (liste des index corrects).
+- Exemple :
+  { "type": "mcq_multiple", "instruction": "Lesquelles de ces villes sont au Mali ?",
+    "options": ["Ségou", "Abidjan", "Sikasso", "Mopti"], "answer_indices": [0, 2, 3],
+    "explanation": "Abidjan est en Côte d'Ivoire." }
+- Piège : prévois AU MOINS 2 bonnes réponses (sinon mcq_single). L'élève est jugé
+  sur l'ensemble EXACT (ni oubli ni excès).
+
+────────────────────────────────────────────────────────────────────────────
+3. true_false — Vrai / Faux
+- Quand l'utiliser : une affirmation franchement vraie ou fausse.
+- Champs : "answer" (booléen true ou false).
+- Exemple :
+  { "type": "true_false", "instruction": "Le fleuve Niger traverse le Mali.",
+    "answer": true, "explanation": "Le Niger traverse le Mali sur près de 1 700 km." }
+- Piège : l'affirmation doit être NETTE, jamais ambiguë ou « ça dépend ».
+
+────────────────────────────────────────────────────────────────────────────
+4. k_prime — Grille Vrai/Faux (type K')
+- Quand l'utiliser : tester plusieurs micro-affirmations liées à un même thème.
+- Champs : "statements" = liste d'objets { "text", "answer" (booléen) }.
+- Exemple :
+  { "type": "k_prime", "instruction": "Pour chaque affirmation, indique Vrai ou Faux :",
+    "statements": [
+      { "text": "La mitochondrie produit l'énergie.", "answer": true },
+      { "text": "Le noyau contient l'ADN.", "answer": true },
+      { "text": "La membrane laisse tout passer.", "answer": false } ],
+    "explanation": "La membrane est sélective." }
+- Piège : 3 à 5 affirmations INDÉPENDANTES, chacune avec son propre "answer".
+  L'élève doit avoir TOUTES les lignes justes.
+
+────────────────────────────────────────────────────────────────────────────
+5. cloze_test — Texte à trous
+- Quand l'utiliser : compléter des mots-clés dans une phrase (langues, définitions).
+- Champs : "text" avec des trous notés {{0}}, {{1}}… ; "answers" = liste, answers[i]
+  étant la réponse du trou i.
+- Exemple :
+  { "type": "cloze_test", "instruction": "Complète le texte :",
+    "text": "La photosynthèse produit du {{0}} et de l'{{1}}.",
+    "answers": ["glucose", "oxygène"] }
+- Piège : numérote les trous sans saut (0,1,2…) ; "answers" dans le MÊME ordre ;
+  réponses courtes (1 à 3 mots), comparées en ignorant accents/casse.
+
+────────────────────────────────────────────────────────────────────────────
+6. matching — Appariement
+- Quand l'utiliser : relier deux colonnes (organe→fonction, mot→traduction, date→événement).
+- Champs : "pairs" = liste d'objets { "left", "right" } dans l'ordre CORRECT.
+- Exemple :
+  { "type": "matching", "instruction": "Associe chaque organe à sa fonction :",
+    "pairs": [
+      { "left": "Cœur", "right": "Pompe le sang" },
+      { "left": "Poumon", "right": "Échange les gaz" },
+      { "left": "Rein", "right": "Filtre le sang" } ] }
+- Piège : donne les paires DANS LE BON APPARIEMENT (le frontend mélange l'affichage).
+  Chaque "left" a un seul "right" ; 3 à 5 paires ; pas de doublon.
+
+────────────────────────────────────────────────────────────────────────────
+7. chrono_order — Remise en ordre
+- Quand l'utiliser : remettre des étapes/événements en séquence (histoire, procédés).
+- Champs : "items" (liste de textes, affichés mélangés) ; "correct_order" = liste
+  des INDEX de "items" dans l'ordre attendu.
+- Exemple :
+  { "type": "chrono_order", "instruction": "Remets ces événements dans l'ordre :",
+    "items": ["Indépendance du Mali", "Empire du Mali (Soundiata)", "Colonisation française"],
+    "correct_order": [1, 2, 0] }
+- Piège : "correct_order" contient des INDEX de "items", pas les textes eux-mêmes.
+
+────────────────────────────────────────────────────────────────────────────
+8. number_input — Réponse numérique
+- Quand l'utiliser : une réponse chiffrée exacte (dénombrement, calcul simple).
+- Champs : "answer" (nombre) ; "tolerance" (optionnel, écart accepté, défaut 0).
+- Exemple :
+  { "type": "number_input", "instruction": "Combien de régions le Mali compte-t-il (2023) ?",
+    "answer": 19, "tolerance": 0 }
+- Piège : "answer" est un nombre PUR (pas de texte ni d'unité). Mets une "tolerance"
+  pour les résultats décimaux ou les mesures.
+
+────────────────────────────────────────────────────────────────────────────
+9. dynamic_formula — Formule à variables aléatoires
+- Quand l'utiliser : un calcul paramétré, RÉGÉNÉRÉ par élève (anti-triche) — maths,
+  physique, comptabilité.
+- Champs : "formula_template" (l'équation, ex. "a*x + b = c") ; "variables" (un objet
+  où chaque variable a { "min", "max", "step" }) ; "solution_formula" (la formule qui
+  CALCULE la réponse à partir des variables) ; "expected_input" ("numeric") ;
+  "correct_answer" (valeur témoin d'un tirage).
+- Exemple :
+  { "type": "dynamic_formula", "instruction": "Résous a·x + b = c pour x.",
+    "formula_template": "a*x + b = c",
+    "variables": { "a": {"min":2,"max":9,"step":1}, "b": {"min":1,"max":20,"step":1},
+                   "c": {"min":21,"max":60,"step":1} },
+    "solution_formula": "(c - b) / a", "expected_input": "numeric", "correct_answer": 4 }
+- Piège : "solution_formula" DOIT être une vraie formule CALCULABLE à partir des
+  variables (ex. "(c - b) / a"), jamais une constante. Choisis des "min"/"max"/"step"
+  qui donnent un résultat propre. Le serveur recalcule la réponse par élève.
+
+────────────────────────────────────────────────────────────────────────────
+10. math_expression — Expression mathématique
+- Quand l'utiliser : produire/transformer une expression algébrique (développer, factoriser).
+- Champs : "correct_expression" (forme de référence) ; "accepted_equivalents" (liste
+  de formes équivalentes acceptées).
+- Exemple :
+  { "type": "math_expression", "instruction": "Développe (x + 1)².",
+    "correct_expression": "x^2 + 2*x + 1",
+    "accepted_equivalents": ["x**2+2x+1", "1 + 2x + x^2"] }
+- Piège : fournis TOUJOURS quelques "accepted_equivalents" (ordre des termes, ^ vs **)
+  pour aider la comparaison. Évite les expressions trop ouvertes à interprétation.
+
+────────────────────────────────────────────────────────────────────────────
+11. spot_the_bug — Trouver le bug
+- Quand l'utiliser : identifier la ligne fautive d'un extrait de code (informatique).
+- Champs : "language" ; "code" (liste de lignes) ; "buggy_line" (index 0-based de la
+  ligne erronée) ; "correct_fix" (optionnel, la correction, affichée en explication).
+- Exemple :
+  { "type": "spot_the_bug", "instruction": "Quelle ligne contient l'erreur ?",
+    "language": "python",
+    "code": ["def moyenne(notes):", "    total = 0", "    for n in notes:",
+             "        total = n", "    return total / len(notes)"],
+    "buggy_line": 3, "correct_fix": "total += n" }
+- Piège : UNE seule ligne fautive, clairement identifiable ; "buggy_line" est un
+  index 0-based dans "code".
+
+────────────────────────────────────────────────────────────────────────────
+12. parsons_puzzle — Puzzle de code (Parsons)
+- Quand l'utiliser : reconstituer un code en ORDRE et INDENTATION (programmation).
+- Champs : "language" ; "lines" = liste de { "id", "text", "correct_indent" (niveau,
+  0 = sans indentation) } ; "correct_sequence" = liste des "id" dans l'ordre correct.
+- Exemple :
+  { "type": "parsons_puzzle", "instruction": "Remets ce code Python dans l'ordre :",
+    "language": "python",
+    "lines": [
+      { "id": "L1", "text": "def carre(x):", "correct_indent": 0 },
+      { "id": "L2", "text": "return x * x", "correct_indent": 1 },
+      { "id": "L3", "text": "print(carre(5))", "correct_indent": 0 } ],
+    "correct_sequence": ["L1", "L2", "L3"] }
+- Piège : "correct_sequence" liste des "id" (pas des textes) ; "correct_indent"
+  cohérent avec la syntaxe. Réservé au code.
+
+────────────────────────────────────────────────────────────────────────────
+13. odd_one_out — L'intrus
+- Quand l'utiliser : trouver l'élément qui n'appartient pas à un groupe.
+- Champs : "items" (liste de textes) ; "odd_index" (index 0-based de l'intrus).
+- Exemple :
+  { "type": "odd_one_out", "instruction": "Quel mot est l'intrus ?",
+    "items": ["Bambara", "Peul", "Songhaï", "Wolof"], "odd_index": 3,
+    "explanation": "Le wolof est surtout parlé au Sénégal, pas au Mali." }
+- Piège : UN seul intrus, avec un critère commun clair aux autres items ;
+  "odd_index" est 0-based.
+
+────────────────────────────────────────────────────────────────────────────
+
+Tu utilises CES 13 TYPES UNIQUEMENT — jamais les types reportés (image, audio,
+correction par IA, etc.).
+
+- RAPPEL STRICT : n'utilise JAMAIS de type reporté (ceux dépendant d'image, d'audio,
+  ou de correction par IA). Tu ne produis que les 13 types du catalogue ci-dessus.
+
+GÉNÉRATION DE L'EXAMEN
+- L'examen couvre les concepts de la leçon ; chaque question porte un "concept_id".
+- Les questions sont GÉNÉRÉES SPÉCIFIQUEMENT pour l'examen : ne reprends PAS les
+  quiz des concepts à l'identique. Reformule, teste les mêmes notions autrement —
+  l'examen ÉVALUE, il ne fait pas réciter.
+- "pass_mark" : 0.6 par défaut.
+- "duration" : durée en secondes, environ 60 s par question.
+- Les questions d'examen utilisent les mêmes types de quiz (catalogue ci-dessus).
+
+CHAMPS color ET guide
+Tu complètes deux champs de mise en forme de la leçon :
+- "color" : une couleur d'accent (hex) cohérente avec la matière.
+- "guide" : le nom d'un personnage fil rouge malien (ex. « Cyto », « Numa »). Ce
+  même personnage pourra être réutilisé par l'histoire de la leçon.
+
+FORMAT DE SORTIE (RÈGLE ABSOLUE)
+- Exactement DEUX blocs, dans cet ordre : <reflexion>…</reflexion> puis <json>…</json>.
+- Aucun texte hors de ces deux blocs. Aucun markdown.
+- Le contenu de <json> est un objet JSON VALIDE et STRICT, de la forme :
+{
+  "color": "#10B981",
+  "guide": "Cyto",
+  "concepts": [
+    {
+      "id": "transport_membranaire",
+      "name": "Le transport membranaire",
+      "order": 3,
+      "passes": 2,
+      "quiz": [ /* questions, types du catalogue, chacune avec pass_index */ ]
+    }
+  ],
+  "exam": {
+    "pass_mark": 0.6,
+    "duration": 600,
+    "questions": [ /* questions taguées concept_id, types du catalogue */ ]
+  }
+}
+- Le premier caractère du bloc <json> est { et le dernier est }.
+
+LEÇON À TRAITER
+Titre   : {lesson_title}
+Résumé  : {lesson_summary}
+Source  :
+{lesson_source}"""
+
+
+def call_noyau(lesson_title: str, lesson_summary: str, source) -> dict:
+    """Appel B1 « Noyau » : une leçon → { color, guide, concepts[], exam }.
+
+    lesson_title / lesson_summary : issus de l'Architecte (texte).
+    source : portion de document de la leçon — str (texte) OU list de blocs image
+             base64 (sortie de extract_content_from_file), comme call_architect.
+    Retourne le noyau validé. Lève ValueError si le JSON ou les passes sont invalides.
+    NE TOUCHE PAS à l'existant."""
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    # Injections texte communes (titre + résumé), toujours.
+    base = (NOYAU_PROMPT
+            .replace('{lesson_title}', lesson_title)
+            .replace('{lesson_summary}', lesson_summary))
+
+    if isinstance(source, str):
+        user_content = [{'type': 'text', 'text': base.replace('{lesson_source}', source)}]
+    else:
+        user_content = [
+            {'type': 'image',
+             'source': {'type': 'base64', 'media_type': img['media_type'], 'data': img['data']}}
+            for img in source
+        ]
+        prompt_imgs = base.replace('{lesson_source}', 'lis les images fournies ci-dessus.')
+        user_content.append({'type': 'text', 'text': prompt_imgs})
+
+    start = time.time()
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=NOYAU_MAX_TOKENS,
+        messages=[{'role': 'user', 'content': user_content}],
+    )
+    cost = (
+        Decimal(response.usage.input_tokens) / 1_000_000 * CLAUDE_INPUT_COST_PER_M
+        + Decimal(response.usage.output_tokens) / 1_000_000 * CLAUDE_OUTPUT_COST_PER_M
+    )
+    logger.info(
+        'Noyau B1: %d in / %d out / $%.6f / %.1fs',
+        response.usage.input_tokens, response.usage.output_tokens, cost, time.time() - start,
+    )
+
+    return _parse_noyau(response.content[0].text)
+
+
+def _parse_noyau(raw: str) -> dict:
+    """Extrait le bloc <json>…</json> (IGNORE <reflexion>), parse en résilient,
+    valide la forme { color, guide, concepts[], exam } et les invariants des passes."""
+    # 1. Extraire le <json> ; fallback sur le brut si les balises manquent.
+    m = re.search(r'<json>(.*?)</json>', raw, re.S)
+    json_str = m.group(1) if m else raw
+
+    # 2. Parse résilient (réutilise A.1).
+    data = _loads_json_resilient(json_str)
+
+    # 3. Forme attendue.
+    required = ['color', 'guide', 'concepts', 'exam']
+    missing = [k for k in required if k not in data]
+    if missing:
+        raise ValueError(f"Noyau B1 incomplet, clés manquantes: {missing}")
+    if not isinstance(data['concepts'], list) or not data['concepts']:
+        raise ValueError("Noyau B1: 'concepts' vide ou invalide")
+    if not isinstance(data['exam'], dict) or 'questions' not in data['exam']:
+        raise ValueError("Noyau B1: 'exam.questions' manquant")
+
+    # 4. Invariants des passes (§3.3).
+    _validate_passes(data['concepts'])
+    return data
+
+
+def _validate_passes(concepts: list) -> None:
+    """§3.3 : 1 ≤ passes ≤ 4 ; pass_index ∈ [0, passes-1] ; aucune passe vide."""
+    for c in concepts:
+        cid = c.get('id', '?')
+        passes = c.get('passes', 1)
+        if not isinstance(passes, int) or not (1 <= passes <= 4):
+            raise ValueError(f"concept '{cid}': passes invalide ({passes}) — attendu 1..4")
+        quiz = c.get('quiz', [])
+        if not isinstance(quiz, list) or not quiz:
+            raise ValueError(f"concept '{cid}': aucun quiz")
+        seen = set()
+        for q in quiz:
+            pi = q.get('pass_index', 0)
+            if not isinstance(pi, int) or not (0 <= pi <= passes - 1):
+                raise ValueError(f"concept '{cid}': pass_index {pi} hors [0,{passes - 1}]")
+            seen.add(pi)
+        vides = set(range(passes)) - seen
+        if vides:
+            raise ValueError(f"concept '{cid}': passe(s) vide(s) {sorted(vides)}")
