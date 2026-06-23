@@ -564,3 +564,189 @@ def get_due_flashcards(student, limit=20):
         .select_related('lesson')
         .order_by('next_review_date')[:limit]
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Temps 1 : Prompt Architecte (A.1)
+# ───────────────────────────────────────────────────────────────────────────────
+# Construit EN PARALLÈLE de l'existant : ne modifie ni SYSTEM_PROMPT, ni
+# generate_lesson_with_ai, ni _call_claude, ni _parse_and_validate, ni
+# evaluate_answer. Document → structure { unit_title, subject, direction,
+# lessons[] } (cf. PORTAL_V2_SPEC §4.2). Le contenu détaillé (Temps 2) viendra
+# ensuite, leçon par leçon.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Sortie légère (structure unité + leçons) → plafond bas, pas les 16k de la génération.
+ARCHITECT_MAX_TOKENS = 4_000
+
+ARCHITECT_PROMPT = """Tu es un concepteur pédagogique malien expert. Tu connais le système éducatif
+du Mali — du préscolaire à l'enseignement supérieur — et ses matières : français,
+maths, sciences (SVT, physique-chimie), histoire-géographie, anglais, philosophie,
+informatique, droit, comptabilité, ainsi que l'éducation islamique et le fiqh en
+arabe.
+
+TA MISSION
+Tu reçois UN document de cours fourni par un enseignant. Ce document peut être :
+- du texte,
+- OU un document visuel (PDF scanné, page photographiée au téléphone) que tu lis
+  directement avec ta vision.
+Tu dois proposer un DÉCOUPAGE de ce document en une UNITÉ et une liste de LEÇONS.
+
+TU NE GÉNÈRES AUCUN CONTENU.
+Pas de quiz, pas d'histoire, pas de texte de lecture, pas d'examen. UNIQUEMENT la
+structure : le titre de l'unité et la liste des leçons (titre + résumé d'une phrase).
+Le contenu détaillé sera généré dans une étape ultérieure, leçon par leçon.
+
+PRINCIPE DE DÉCOUPAGE (le cœur de ta tâche)
+- Une LEÇON est une unité d'apprentissage DIGESTE : un sous-thème cohérent qu'un
+  élève peut assimiler d'un seul tenant. Ce n'est PAS un découpage mécanique par
+  pages ou par paragraphes.
+- Raisonne sur le SENS : regroupe ce qui va ensemble, sépare les thèmes distincts.
+- Référence indicative (souple, pas une règle) : une leçon tient en environ une
+  séance de cours.
+- Petit document portant sur UN seul thème = UNE SEULE leçon. Ne découpe jamais
+  artificiellement un contenu qui forme un tout.
+- Gros document = plusieurs leçons logiques. Exemple : un document de 60 pages sur
+  « La Chine » se découpe en leçons comme « Le relief », « Le climat »,
+  « La population », « L'économie », etc.
+- Si le document couvre plusieurs sujets SANS lien clair entre eux, regroupe-les
+  sous l'unité la plus représentative et signale-le dans les résumés des leçons
+  concernées. Une SEULE unité par appel (tu ne produis jamais plusieurs unités).
+
+DÉTECTION AUTOMATIQUE
+- subject : déduis la matière ET le niveau à partir du document
+  (ex. « Histoire-Géographie — Terminale »).
+- direction : « rtl » si le document est rédigé en arabe (fiqh, éducation
+  islamique), sinon « ltr ».
+- unit_title : un titre d'unité clair et fidèle au document.
+
+GARDE-FOU LECTURE
+Si le document est ILLISIBLE — page vide, scan trop flou ou trop sombre, écriture
+manuscrite indéchiffrable, contenu incohérent — n'INVENTE PAS de structure.
+Retourne à la place l'objet d'erreur prévu ci-dessous.
+
+FORMAT DE SORTIE (RÈGLE ABSOLUE)
+Tu réponds UNIQUEMENT avec un objet JSON valide. Aucun texte avant, aucun texte
+après, aucun bloc markdown. Le premier caractère est { et le dernier est }.
+
+Cas normal — découpage réussi :
+{
+  "unit_title": "La Chine",
+  "subject": "Histoire-Géographie — Terminale",
+  "direction": "ltr",
+  "lessons": [
+    { "id": "le-relief", "title": "Le relief de la Chine",
+      "summary": "Les grands ensembles de relief : montagnes de l'ouest, plaines de l'est." },
+    { "id": "le-climat", "title": "Le climat",
+      "summary": "Les zones climatiques et la mousson, du nord aride au sud humide." },
+    { "id": "la-population", "title": "La population",
+      "summary": "Répartition, densités et grandes villes de la Chine." }
+  ]
+}
+
+Cas document illisible :
+{
+  "error": "unreadable",
+  "message": "Document difficile à lire (qualité ou écriture manuscrite). Réessaie avec un document plus net, un fichier texte, ou colle le contenu directement."
+}
+
+CONTRAINTES
+- JSON valide uniquement.
+- "id" = slug stable : minuscules, mots séparés par des tirets, sans accents ni
+  espaces (ex. « la-population »).
+- "summary" = une phrase courte et informative : elle aide l'enseignant à VALIDER
+  le découpage, donc elle doit dire clairement ce que couvre la leçon.
+- Respecte la langue du document pour les titres et résumés.
+
+RAPPEL IMPORTANT SUR LE NOMBRE DE LEÇONS
+Le nombre de leçons doit refléter le CONTENU RÉEL, jamais un minimum à atteindre.
+S'il n'y a qu'un seul thème, renvoie UNE SEULE leçon dans le tableau "lessons".
+Ne multiplie jamais les leçons par mimétisme de l'exemple ci-dessus : un document
+court et mono-thème = une seule leçon, et c'est parfaitement correct.
+
+DOCUMENT À STRUCTURER :
+{content}"""
+
+
+def _loads_json_resilient(raw: str) -> dict:
+    """json.loads avec récupération : direct → json-repair → troncature après dernière }.
+
+    Même stratégie que _parse_and_validate, isolée pour réemploi par le pipeline v2
+    (on ne modifie pas _parse_and_validate — duplication assumée et voulue)."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        try:
+            from json_repair import repair_json
+            return json.loads(repair_json(raw))
+        except Exception:
+            try:
+                last = raw.rfind('}')
+                return json.loads(raw[:last + 1])
+            except Exception:
+                raise ValueError(f'JSON invalide: {e}\nDébut de la réponse: {raw[:200]}')
+
+
+def call_architect(content) -> dict:
+    """Temps 1 (A.1) : document → structure { unit_title, subject, direction, lessons[] }.
+
+    `content` = str (texte extrait) OU list de blocs image base64 (sortie de
+    extract_content_from_file), exactement comme l'attend _call_claude.
+
+    Retourne :
+      - un dict structure valide { unit_title, subject, direction, lessons[] }, OU
+      - { 'error': 'unreadable', 'message': ... } si Claude juge le document illisible.
+    Lève ValueError si la réponse JSON est inexploitable.
+    NE TOUCHE PAS au pipeline existant (generate_lesson_with_ai)."""
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    if isinstance(content, str):
+        # Entrée texte : le contenu est injecté dans le prompt.
+        user_content = [{'type': 'text', 'text': ARCHITECT_PROMPT.replace('{content}', content)}]
+    else:
+        # Entrée visuelle (PDF scanné / photo) : vision native de Claude.
+        user_content = [
+            {'type': 'image',
+             'source': {'type': 'base64', 'media_type': img['media_type'], 'data': img['data']}}
+            for img in content
+        ]
+        prompt_imgs = ARCHITECT_PROMPT.replace('{content}', 'lis les images fournies ci-dessus.')
+        user_content.append({'type': 'text', 'text': prompt_imgs})
+
+    start = time.time()
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=ARCHITECT_MAX_TOKENS,
+        messages=[{'role': 'user', 'content': user_content}],
+    )
+    cost = (
+        Decimal(response.usage.input_tokens) / 1_000_000 * CLAUDE_INPUT_COST_PER_M
+        + Decimal(response.usage.output_tokens) / 1_000_000 * CLAUDE_OUTPUT_COST_PER_M
+    )
+    logger.info(
+        'Architecte: %d in / %d out / $%.6f / %.1fs',
+        response.usage.input_tokens, response.usage.output_tokens, cost, time.time() - start,
+    )
+
+    return _parse_architect(response.content[0].text)
+
+
+def _parse_architect(raw: str) -> dict:
+    """Parse la sortie de l'Architecte. Distingue le cas 'unreadable' du cas normal."""
+    data = _loads_json_resilient(raw)
+
+    # Cas garde-fou lecture : remonté tel quel pour que l'appelant le détecte.
+    if isinstance(data, dict) and data.get('error') == 'unreadable':
+        return {'error': 'unreadable',
+                'message': data.get('message', 'Document difficile à lire.')}
+
+    # Cas normal : valider la forme attendue.
+    required = ['unit_title', 'subject', 'direction', 'lessons']
+    missing = [k for k in required if k not in data]
+    if missing:
+        raise ValueError(f"Structure Architecte incomplète, clés manquantes: {missing}")
+    if not isinstance(data['lessons'], list) or not data['lessons']:
+        raise ValueError("Architecte: 'lessons' vide ou invalide")
+    if data.get('direction') not in ('ltr', 'rtl'):
+        data['direction'] = 'ltr'  # défensif
+    return data
