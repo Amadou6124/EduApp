@@ -12,6 +12,7 @@ import base64
 import io
 import json
 import logging
+import random
 import re
 import time
 import unicodedata
@@ -1476,3 +1477,215 @@ def _parse_histoire(raw: str) -> dict:
     if not isinstance(story.get('steps'), list) or not story['steps']:
         raise ValueError("Histoire B3: 'story.steps' vide ou invalide")
     return data
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Évaluation serveur des 13 types de quiz (A.5)
+# ───────────────────────────────────────────────────────────────────────────────
+# Additif, en parallèle de l'existant (l'ancien evaluate_answer v1 / 5 types n'est
+# PAS touché). Chaque règle suit §3 — Partie 2 « B. Évaluation serveur » au mot.
+# 100 % serveur, instantané, sans IA, défensif (toute donnée malformée → False ;
+# type inconnu → False).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import ast as _ast
+import operator as _op
+
+# Garde d'import : la voie symbolique (math_expression) s'active automatiquement si
+# sympy est présent ; sinon on retombe sur normalisation + accepted_equivalents.
+try:
+    import sympy as _sympy
+    _HAS_SYMPY = True
+except ImportError:  # pragma: no cover
+    _sympy = None
+    _HAS_SYMPY = False
+
+
+# ── Évaluateur arithmétique SÛR (jamais eval() Python) ─────────────────────────
+_ARITH_OPS = {
+    _ast.Add: _op.add, _ast.Sub: _op.sub, _ast.Mult: _op.mul,
+    _ast.Div: _op.truediv, _ast.Pow: _op.pow, _ast.Mod: _op.mod,
+    _ast.USub: _op.neg, _ast.UAdd: _op.pos,
+}
+
+
+def _safe_eval_arith(expr: str, values: dict):
+    """Évalue une expression arithmétique avec des variables, SANS eval() Python.
+
+    Seuls sont autorisés : constantes numériques, noms de variables (résolus depuis
+    `values`), et les opérateurs + - * / ** % et l'unaire ±. Tout le reste (appels
+    de fonction, attributs, noms inconnus) lève ValueError → sécurité."""
+    tree = _ast.parse(expr, mode='eval')
+
+    def ev(node):
+        if isinstance(node, _ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return node.value
+            raise ValueError(f"constante interdite : {node.value!r}")
+        if isinstance(node, _ast.Name):
+            if node.id in values:
+                return values[node.id]
+            raise ValueError(f"variable inconnue : {node.id}")
+        if isinstance(node, _ast.BinOp) and type(node.op) in _ARITH_OPS:
+            return _ARITH_OPS[type(node.op)](ev(node.left), ev(node.right))
+        if isinstance(node, _ast.UnaryOp) and type(node.op) in _ARITH_OPS:
+            return _ARITH_OPS[type(node.op)](ev(node.operand))
+        raise ValueError(f"noeud interdit : {type(node).__name__}")
+
+    return ev(tree.body)
+
+
+# ── Helpers par type non trivial ───────────────────────────────────────────────
+def _eval_matching(quiz: dict, student) -> bool:
+    """matching : student[i] = index right choisi pour left[i] (index dans pairs[]).
+    Correct ssi chaque left pointe son right d'origine, soit student == [0,1,…,n-1]."""
+    pairs = quiz.get('pairs', [])
+    return list(student) == list(range(len(pairs)))
+
+
+def _eval_parsons(quiz: dict, student) -> bool:
+    """parsons_puzzle : ordre ET indentation.
+    student = [{'id', 'indent'}, …] dans l'ordre soumis."""
+    seq = quiz.get('correct_sequence', [])
+    indent_by_id = {l['id']: l.get('correct_indent') for l in quiz.get('lines', [])}
+    if [x['id'] for x in student] != list(seq):
+        return False
+    return all(x.get('indent') == indent_by_id.get(x['id']) for x in student)
+
+
+def _eval_dynamic_formula(quiz: dict, student_answer, context) -> bool:
+    """dynamic_formula (anti-triche) : recalcule la réponse attendue serveur.
+
+    student_answer = UNIQUEMENT le nombre saisi par l'élève.
+    context = source serveur de confiance : {'variables': {nom: nombre}} — le tirage
+    stocké côté serveur quand la question a été servie (JAMAIS rempli depuis le client).
+    Sans context/variables, on ne peut pas évaluer en sécurité → False."""
+    if not isinstance(context, dict) or 'variables' not in context:
+        return False
+    expected = _safe_eval_arith(quiz['solution_formula'], context['variables'])
+    tol = quiz.get('tolerance', 0)
+    return abs(float(student_answer) - float(expected)) <= tol
+
+
+def _eval_math_expression(quiz: dict, student) -> bool:
+    """math_expression : symbolique si sympy dispo, sinon normalisation + équivalents."""
+    cands = {quiz.get('correct_expression', '')}
+    cands.update(quiz.get('accepted_equivalents', []))
+    student = str(student)
+
+    if _HAS_SYMPY:
+        try:
+            s = _sympy.sympify(student.replace('^', '**'))
+            for c in cands:
+                if _sympy.simplify(s - _sympy.sympify(c.replace('^', '**'))) == 0:
+                    return True
+        except Exception:
+            pass  # filet : on retombe sur la normalisation
+
+    def _norm(e: str) -> str:
+        return str(e).lower().replace('^', '**').replace(' ', '')
+
+    return _norm(student) in {_norm(c) for c in cands}
+
+
+def evaluate_answer_v2(quiz: dict, student_answer, context: dict = None) -> bool:
+    """Évalue la réponse de l'élève pour les 13 types v2 (§3 — Partie 2). Retourne bool.
+
+    student_answer : UNIQUEMENT ce que l'élève saisit/sélectionne. Formats par type :
+      - mcq_single / spot_the_bug / odd_one_out : int (un index)
+      - mcq_multiple : list[int]            - true_false : bool
+      - k_prime : list[bool] (1 par statement, même ordre)
+      - cloze_test : list[str] (1 par trou, même ordre)
+      - matching : list[int] (student[i] = index right choisi pour left[i])
+      - chrono_order : list[int]            - number_input : int|float
+      - dynamic_formula : int|float (le nombre saisi SEUL — les variables viennent de context)
+      - math_expression : str               - parsons_puzzle : list[{'id','indent'}]
+
+    context : source de vérité SERVEUR, optionnelle, JAMAIS remplie depuis le client.
+      Seul `dynamic_formula` l'utilise : context = {'variables': {…}} = le tirage stocké
+      côté serveur (produit par draw_dynamic_formula). Les 12 autres types l'ignorent.
+
+    Défensif : toute donnée malformée ou type inconnu → False. Ne touche pas à
+    l'ancien evaluate_answer (v1)."""
+    qtype = quiz.get('type')
+    try:
+        if qtype == 'mcq_single':
+            return int(student_answer) == quiz['answer_index']
+
+        if qtype == 'mcq_multiple':
+            return set(student_answer) == set(quiz['answer_indices'])
+
+        if qtype == 'true_false':
+            return bool(student_answer) == bool(quiz['answer'])
+
+        if qtype == 'k_prime':
+            statements = quiz['statements']
+            if len(student_answer) != len(statements):
+                return False
+            return all(bool(student_answer[i]) == bool(s['answer'])
+                       for i, s in enumerate(statements))
+
+        if qtype == 'cloze_test':
+            answers = quiz['answers']
+            if len(student_answer) != len(answers):
+                return False
+            return all(normalize_text(str(student_answer[i])) == normalize_text(str(answers[i]))
+                       for i in range(len(answers)))
+
+        if qtype == 'matching':
+            return _eval_matching(quiz, student_answer)
+
+        if qtype == 'chrono_order':
+            return list(student_answer) == list(quiz['correct_order'])
+
+        if qtype == 'number_input':
+            tol = quiz.get('tolerance', 0)
+            return abs(float(student_answer) - float(quiz['answer'])) <= tol
+
+        if qtype == 'dynamic_formula':
+            return _eval_dynamic_formula(quiz, student_answer, context)
+
+        if qtype == 'math_expression':
+            return _eval_math_expression(quiz, student_answer)
+
+        if qtype == 'spot_the_bug':
+            return int(student_answer) == quiz['buggy_line']
+
+        if qtype == 'parsons_puzzle':
+            return _eval_parsons(quiz, student_answer)
+
+        if qtype == 'odd_one_out':
+            return int(student_answer) == quiz['odd_index']
+
+    except (KeyError, TypeError, ValueError, IndexError, AttributeError):
+        return False
+
+    return False  # type inconnu → défensif
+
+
+def draw_dynamic_formula(quiz: dict) -> dict:
+    """Tirage par élève pour dynamic_formula (utilitaire — branché en Phase B).
+
+    Tire des valeurs aléatoires dans `variables` (ranges min/max/step), substitue dans
+    l'énoncé, recalcule la réponse attendue. Retourne :
+      { 'variables': {nom: nombre},   # À STOCKER côté serveur, reviendra via context
+        'statement' : <énoncé personnalisé>,
+        'correct_answer': <recalculé> }
+
+    Intégration runtime complète (hors A.5) : il faut persister `variables` quand la
+    question est servie (ex. état de session / ExamAttempt, Phase B) puis les
+    re-fournir à evaluate_answer_v2 via `context={'variables': …}` à la correction.
+    Les variables ne doivent JAMAIS transiter par le client (anti-triche)."""
+    variables = {}
+    for name, spec in quiz.get('variables', {}).items():
+        lo, hi = spec['min'], spec['max']
+        step = spec.get('step', 1)
+        n = int((hi - lo) / step)
+        variables[name] = lo + random.randint(0, n) * step
+
+    statement = quiz.get('instruction', '')
+    for name, val in variables.items():
+        statement = statement.replace('{' + name + '}', str(val))
+
+    correct_answer = _safe_eval_arith(quiz['solution_formula'], variables)
+    return {'variables': variables, 'statement': statement, 'correct_answer': correct_answer}
