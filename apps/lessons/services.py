@@ -1147,3 +1147,332 @@ def _validate_passes(concepts: list) -> None:
         vides = set(range(passes)) - seen
         if vides:
             raise ValueError(f"concept '{cid}': passe(s) vide(s) {sorted(vides)}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Temps 2 / Appels B2 « Lecture » + B3 « Histoire » (A.3)
+# ───────────────────────────────────────────────────────────────────────────────
+# Additif, en parallèle de l'existant et des codes A.1/A.2. B2 et B3 utilisent le
+# JSON DIRECT (pas de <reflexion> à extraire, contrairement à B1) : on parse en
+# résilient directement. LECTURE_PROMPT = PORTAL_V2_SPEC §4.9 ; HISTOIRE_PROMPT =
+# §4.10. B3 reçoit le guide et les concepts produits par B1.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Le reading peut être long : plusieurs sections × blocs variés (p+simple, def,
+# callout, key, example, reflect, warn, check) + glossaire. 12k couvre une lecture
+# riche sans la lourdeur de B1 (pas de quiz × concepts). Facturé sur le réel.
+LECTURE_MAX_TOKENS = 12_000
+
+LECTURE_PROMPT = """Tu es un concepteur pédagogique malien expert, spécialiste de la RÉDACTION
+pédagogique claire. Tu écris pour des élèves maliens qui lisent sur un téléphone :
+phrases nettes, ton chaleureux, exemples du quotidien malien (marché de Bamako,
+francs CFA, mangues, transport, famille, champs, boutique, mosquée).
+
+TA MISSION
+Tu reçois la source d'UNE seule leçon (son titre, son résumé, et la portion de
+document correspondante). Tu génères UNIQUEMENT le CONTENU DE LECTURE de cette
+leçon (le champ « reading ») : un texte structuré, clair et agréable à lire sur
+mobile.
+
+Tu ne génères PAS les quiz, ni l'histoire, ni l'examen : ils sont produits par
+d'autres appels. Concentre-toi sur la lecture.
+
+STRUCTURE À PRODUIRE
+- "title"     : le titre de la lecture.
+- "direction" : le sens de lecture, fourni ci-dessous ({direction}) — « ltr » ou « rtl ».
+- "terms"     : un glossaire { mot: définition }. Chaque mot devient cliquable dans
+                le texte ; définitions COURTES.
+- "sections"  : une liste de sections, chacune { "id", "title", "blocks" }.
+
+LES 8 TYPES DE BLOCS (champ "type" de chaque bloc)
+- "p"       : paragraphe — { "text", "simple"? }.  "simple" est OPTIONNEL : une
+              reformulation plus simple, à n'ajouter QUE si le paragraphe est difficile.
+- "def"     : définition — { "term", "text" }.
+- "callout" : encart — { "icon", "label", "text" } (ex. label « Le saviez-vous »).
+- "key"     : points clés — { "items": [ ... ] } (liste de phrases courtes).
+- "example" : exemple concret — { "text" }.
+- "reflect" : invite à réfléchir — { "prompt" } (une question ouverte, sans réponse).
+- "warn"    : mise en garde — { "text" } (piège fréquent, confusion à éviter).
+- "check"   : mini-quiz DANS la lecture — { "variant", "question", ..., "explanation" } :
+                • variant "tf"  : ajoute "answer" (booléen true/false) ;
+                • variant "qcm" : ajoute "options" (liste) et "answer" (index de la
+                  bonne option).
+              "explanation" justifie la bonne réponse.
+
+PRINCIPES DE RÉDACTION
+- Sois clair et progressif ; adapte le vocabulaire au niveau détecté dans la source.
+- ALTERNE les types de blocs pour rythmer la lecture — jamais 10 paragraphes
+  d'affilée. Entrelace définitions, exemples, points clés, encarts, vérifications.
+- Glossaire "terms" : inclus les mots techniques importants, avec des définitions
+  brèves et accessibles.
+- Version "simple" d'un "p" : seulement quand le paragraphe est DIFFICILE, pas
+  systématiquement.
+- Insère QUELQUES blocs "check" répartis dans la lecture, pour vérifier la
+  compréhension en cours de route.
+- Ancre les explications dans le quotidien malien quand c'est pertinent.
+
+FORMAT DE SORTIE (RÈGLE ABSOLUE)
+- Tu réponds UNIQUEMENT avec un objet JSON valide. Aucun texte avant, aucun texte
+  après, aucun bloc markdown. Le premier caractère est { et le dernier est }.
+- Forme exacte :
+{
+  "reading": {
+    "title": "La membrane plasmique",
+    "direction": "ltr",
+    "terms": {
+      "membrane plasmique": "La fine enveloppe qui entoure la cellule et contrôle ce qui entre et sort.",
+      "transport actif": "Le passage d'une molécule à travers la membrane qui consomme de l'énergie (ATP)."
+    },
+    "sections": [
+      {
+        "id": "s1",
+        "title": "La frontière de la cellule",
+        "blocks": [
+          { "type": "p", "text": "Chaque cellule est entourée d'une membrane plasmique…",
+            "simple": "Chaque cellule a une membrane autour d'elle." },
+          { "type": "def", "term": "membrane plasmique", "text": "la fine enveloppe qui entoure la cellule." },
+          { "type": "callout", "icon": "spark", "label": "Le saviez-vous",
+            "text": "La membrane est si fine qu'il en faudrait des milliers pour égaler une feuille de papier." },
+          { "type": "check", "variant": "tf",
+            "question": "La membrane laisse tout passer sans distinction.",
+            "answer": false, "explanation": "Elle est sélective : elle choisit ce qui passe." }
+        ]
+      },
+      {
+        "id": "s2",
+        "title": "Comment les choses entrent ?",
+        "blocks": [
+          { "type": "key", "items": ["L'eau passe par osmose.", "Le glucose passe par une protéine."] },
+          { "type": "example", "text": "Le glucose, trop gros, utilise une protéine de transport." },
+          { "type": "warn", "text": "Ne confonds pas osmose (sans énergie) et transport actif (avec énergie)." },
+          { "type": "reflect", "prompt": "Pourquoi une barrière sélective plutôt qu'un mur fermé ?" },
+          { "type": "check", "variant": "qcm",
+            "question": "Qu'est-ce qui fait passer le glucose ?",
+            "options": ["La bicouche seule", "Une protéine de transport", "Rien"],
+            "answer": 1, "explanation": "Le glucose est trop gros : il passe par une protéine." }
+        ]
+      }
+    ]
+  }
+}
+
+LEÇON À TRAITER
+Sens de lecture : {direction}
+Titre   : {lesson_title}
+Résumé  : {lesson_summary}
+Source  :
+{lesson_source}"""
+
+
+def call_lecture(lesson_title: str, lesson_summary: str, source, direction: str = 'ltr') -> dict:
+    """Appel B2 « Lecture » : une leçon → { reading: { title, direction, terms{}, sections[] } }.
+
+    source : str (texte) OU list de blocs image base64 (comme call_noyau).
+    Retourne la lecture validée. Lève ValueError si la forme est invalide.
+    NE TOUCHE PAS à l'existant."""
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    base = (LECTURE_PROMPT
+            .replace('{direction}', direction)
+            .replace('{lesson_title}', lesson_title)
+            .replace('{lesson_summary}', lesson_summary))
+
+    if isinstance(source, str):
+        user_content = [{'type': 'text', 'text': base.replace('{lesson_source}', source)}]
+    else:
+        user_content = [
+            {'type': 'image',
+             'source': {'type': 'base64', 'media_type': img['media_type'], 'data': img['data']}}
+            for img in source
+        ]
+        prompt_imgs = base.replace('{lesson_source}', 'lis les images fournies ci-dessus.')
+        user_content.append({'type': 'text', 'text': prompt_imgs})
+
+    start = time.time()
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=LECTURE_MAX_TOKENS,
+        messages=[{'role': 'user', 'content': user_content}],
+    )
+    cost = (
+        Decimal(response.usage.input_tokens) / 1_000_000 * CLAUDE_INPUT_COST_PER_M
+        + Decimal(response.usage.output_tokens) / 1_000_000 * CLAUDE_OUTPUT_COST_PER_M
+    )
+    logger.info(
+        'Lecture B2: %d in / %d out / $%.6f / %.1fs',
+        response.usage.input_tokens, response.usage.output_tokens, cost, time.time() - start,
+    )
+
+    return _parse_lecture(response.content[0].text)
+
+
+def _parse_lecture(raw: str) -> dict:
+    """JSON résilient direct (pas de <json> à extraire), valide { reading: { title, sections[] } }."""
+    data = _loads_json_resilient(raw)
+    reading = data.get('reading')
+    if not isinstance(reading, dict):
+        raise ValueError("Lecture B2: clé 'reading' manquante ou invalide")
+    if 'title' not in reading:
+        raise ValueError("Lecture B2: 'reading.title' manquant")
+    if not isinstance(reading.get('sections'), list) or not reading['sections']:
+        raise ValueError("Lecture B2: 'reading.sections' vide ou invalide")
+    return data
+
+
+# Une seule histoire : scene + 2-3 personnages + ~8-15 steps courts. Plus léger que
+# la lecture et que B1. 8k est largement suffisant pour un récit complet.
+HISTOIRE_MAX_TOKENS = 8_000
+
+HISTOIRE_PROMPT = """Tu es un concepteur pédagogique malien expert, spécialiste de la NARRATION
+pédagogique : tu RACONTES pour faire comprendre. Tu crées des personnages
+attachants et des situations du quotidien malien (marché de Bamako, francs CFA,
+mangues, transport, famille, champs, boutique, mosquée).
+
+TA MISSION
+Tu reçois la source d'UNE leçon, la LISTE DES CONCEPTS de cette leçon, et le nom
+du personnage GUIDE. Tu génères UNE histoire interactive (le champ « story ») qui
+fait VIVRE les notions de la leçon : l'élève comprend en agissant, pas en regardant.
+
+Tu ne génères PAS les quiz, ni le texte de lecture, ni l'examen : ils sont produits
+par d'autres appels. Concentre-toi sur l'histoire.
+
+COHÉRENCE AVEC LE RESTE DE LA LEÇON (important)
+- Réutilise le personnage GUIDE fourni ({guide}) comme personnage CENTRAL de
+  l'histoire (il fait partie de "characters").
+- L'histoire doit ILLUSTRER les concepts fournis ci-dessous. Sur les steps qui
+  testent ou mettent en scène une notion précise, ajoute un champ optionnel
+  "concept_ref" portant l'"id" du concept concerné (issu de la liste fournie).
+
+STRUCTURE À PRODUIRE
+- "scene"      : { "name", "c1", "c2" } — nom de la scène + 2 couleurs d'ambiance (hex).
+- "characters" : liste d'objets { "id", "name", "role", "color", "side" }
+                 ("side" vaut "left" ou "right" ; "color" en hex ; le GUIDE en fait partie).
+- "steps"      : la liste du déroulé, composée des 6 types ci-dessous.
+
+LES 6 TYPES DE STEP (champ "type")
+- "narration" : { "text" } — décor/atmosphère, SANS personnage.
+- "npc"       : { "who", "text" } — réplique d'un personnage ("who" = "id" d'un character).
+- "choice"    : { "prompt", "options": [ { "label", "correct", "reply" } ] } — choix
+                narratif. UNE option a "correct": true ; "reply" est la réponse du
+                personnage à chaque option.
+- "input"     : { "prompt", "answers": [ ... ], "hint", "ok" } — saisie libre.
+                "answers" = réponses acceptées (comparées en ignorant accents/casse) ;
+                "hint" = indice ; "ok" = message quand c'est juste.
+- "tokens"    : { "prompt", "tokens": [ ... ], "solution": [ ... ], "ok" } — remettre
+                des éléments dans l'ordre. "solution" = les "tokens" dans le bon ordre.
+- "blank"     : { "prompt", "parts": [ ... ], "options": [ ... ], "answer", "ok" } —
+                compléter une phrase à trou. "parts" encadre le trou (avant/après) ;
+                "answer" est la bonne option.
+Tout step peut porter, en plus, un "concept_ref" optionnel (id d'un concept).
+
+PRINCIPES NARRATIFS
+- Écris une VRAIE petite histoire avec un fil : début, péripétie, résolution — pas
+  une suite de questions déguisées.
+- 2 à 3 personnages maximum, dont le GUIDE.
+- ALTERNE narration / dialogue / interactions pour rythmer.
+- Les interactions testent la compréhension des concepts EN SITUATION.
+- Ancre l'histoire dans le quotidien malien (lieux, noms, objets).
+- Ton chaleureux, adapté au niveau détecté dans la source.
+
+FORMAT DE SORTIE (RÈGLE ABSOLUE)
+- Tu réponds UNIQUEMENT avec un objet JSON valide. Aucun texte avant, aucun texte
+  après, aucun bloc markdown. Le premier caractère est { et le dernier est }.
+- Forme exacte :
+{
+  "story": {
+    "scene": { "name": "Au marché de Bamako", "c1": "#F97316", "c2": "#BE123C" },
+    "characters": [
+      { "id": "awa",  "name": "Awa",   "role": "Guide",    "color": "#F97316", "side": "left" },
+      { "id": "moussa","name": "Moussa","role": "Vendeur",  "color": "#22D3EE", "side": "right" }
+    ],
+    "steps": [
+      { "type": "narration", "text": "Marché de Bamako, au lever du jour. Awa accompagne son petit frère faire les courses." },
+      { "type": "npc", "who": "awa", "text": "Bonjour Moussa ! Trois mangues, s'il te plaît." },
+      { "type": "npc", "who": "moussa", "text": "Chaque mangue coûte 150 francs. Voyons le total…" },
+      { "type": "input", "prompt": "Combien coûtent 3 mangues à 150 F l'unité ?",
+        "answers": ["450", "450 f", "450 francs"], "hint": "150 × 3.",
+        "ok": "450 francs, exact !", "concept_ref": "multiplication" },
+      { "type": "choice", "prompt": "Awa paie avec 500 F. Que doit rendre Moussa ?", "options": [
+          { "label": "50 francs", "correct": true,  "reply": "Oui : 500 − 450 = 50 F." },
+          { "label": "150 francs", "correct": false, "reply": "Non, ça c'est le prix d'une mangue." }
+        ], "concept_ref": "soustraction" },
+      { "type": "npc", "who": "moussa", "text": "Voilà tes 3 mangues et 50 francs. À bientôt !" }
+    ]
+  }
+}
+
+ENTRÉES
+Guide (personnage central) : {guide}
+Concepts à illustrer (id — name) :
+{concepts_list}
+Titre   : {lesson_title}
+Résumé  : {lesson_summary}
+Source  :
+{lesson_source}"""
+
+
+def call_histoire(lesson_title: str, lesson_summary: str, source,
+                  guide: str, concepts) -> dict:
+    """Appel B3 « Histoire » : une leçon (+ guide + concepts de B1) →
+    { story: { scene, characters[], steps[] } }.
+
+    concepts : la LISTE brute de concepts de B1 (ex. noyau['concepts']). La fonction
+    la formate elle-même en « id — name » par ligne (responsabilité de la fonction,
+    pas de l'appelant) avant injection à la place de {concepts_list}.
+    source : str (texte) OU list de blocs image base64.
+    NE TOUCHE PAS à l'existant."""
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    # Format interne « id — name » par ligne, défensif sur les clés manquantes.
+    concepts_list = "\n".join(
+        f"{c.get('id', '?')} — {c.get('name', '?')}" for c in (concepts or [])
+    )
+
+    base = (HISTOIRE_PROMPT
+            .replace('{guide}', guide)
+            .replace('{concepts_list}', concepts_list)
+            .replace('{lesson_title}', lesson_title)
+            .replace('{lesson_summary}', lesson_summary))
+
+    if isinstance(source, str):
+        user_content = [{'type': 'text', 'text': base.replace('{lesson_source}', source)}]
+    else:
+        user_content = [
+            {'type': 'image',
+             'source': {'type': 'base64', 'media_type': img['media_type'], 'data': img['data']}}
+            for img in source
+        ]
+        prompt_imgs = base.replace('{lesson_source}', 'lis les images fournies ci-dessus.')
+        user_content.append({'type': 'text', 'text': prompt_imgs})
+
+    start = time.time()
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=HISTOIRE_MAX_TOKENS,
+        messages=[{'role': 'user', 'content': user_content}],
+    )
+    cost = (
+        Decimal(response.usage.input_tokens) / 1_000_000 * CLAUDE_INPUT_COST_PER_M
+        + Decimal(response.usage.output_tokens) / 1_000_000 * CLAUDE_OUTPUT_COST_PER_M
+    )
+    logger.info(
+        'Histoire B3: %d in / %d out / $%.6f / %.1fs',
+        response.usage.input_tokens, response.usage.output_tokens, cost, time.time() - start,
+    )
+
+    return _parse_histoire(response.content[0].text)
+
+
+def _parse_histoire(raw: str) -> dict:
+    """JSON résilient direct, valide { story: { scene, characters[], steps[] } }."""
+    data = _loads_json_resilient(raw)
+    story = data.get('story')
+    if not isinstance(story, dict):
+        raise ValueError("Histoire B3: clé 'story' manquante ou invalide")
+    if not isinstance(story.get('scene'), dict):
+        raise ValueError("Histoire B3: 'story.scene' manquant")
+    if not isinstance(story.get('characters'), list) or not story['characters']:
+        raise ValueError("Histoire B3: 'story.characters' vide ou invalide")
+    if not isinstance(story.get('steps'), list) or not story['steps']:
+        raise ValueError("Histoire B3: 'story.steps' vide ou invalide")
+    return data
