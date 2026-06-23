@@ -1689,3 +1689,101 @@ def draw_dynamic_formula(quiz: dict) -> dict:
 
     correct_answer = _safe_eval_arith(quiz['solution_formula'], variables)
     return {'variables': variables, 'statement': statement, 'correct_answer': correct_answer}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Orchestration des 3 appels (A.4, §4.6)
+# ───────────────────────────────────────────────────────────────────────────────
+# Additif. Assemble call_noyau (B1) + call_lecture (B2) + call_histoire (B3) en
+# UNE leçon finale (§3.1). N'altère PAS le pipeline v1 (generate_lesson_with_ai).
+# Ordre §4.6 : B1 d'abord (ses concepts alimentent B3), puis B2 puis B3 (séquentiel
+# pour l'instant ; B2/B3 sont indépendants → parallélisables plus tard sans changer
+# la signature). Fallback par bloc : 1 rejeu isolé, blocs réussis jamais reperdus.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Pause avant l'unique rejeu d'un bloc : si l'échec est un 529/500 transitoire (API
+# surchargée), rejouer immédiatement retomberait sur la même surcharge. Une courte
+# pause laisse l'API respirer. Pas un backoff complexe — juste un souffle.
+BLOCK_RETRY_DELAY = 2  # secondes
+
+
+class LessonBlockError(Exception):
+    """Un bloc de génération (B1/B2/B3) a échoué malgré 1 rejeu.
+
+    .block   : 'B1' | 'B2' | 'B3' — pour que l'appelant sache QUOI régénérer.
+    .cause   : l'exception d'origine.
+    .partial : { 'noyau'?, 'lecture'?, 'histoire'? } — les blocs DÉJÀ réussis, pour
+               régénérer le seul bloc manquant sans tout refaire (utile en cas
+               d'outage API)."""
+
+    def __init__(self, block: str, cause: Exception, partial: dict = None):
+        self.block = block
+        self.cause = cause
+        self.partial = partial or {}
+        super().__init__(f"Bloc {block} a échoué après rejeu : {cause}")
+
+
+def _run_block(name: str, fn, partial: dict):
+    """Exécute un bloc de génération ; en cas d'échec, le REJOUE UNE FOIS (seul).
+
+    `partial` = les blocs déjà réussis (jamais retouchés). Une courte pause précède
+    le rejeu (cf. BLOCK_RETRY_DELAY) pour absorber un 529/500 transitoire. Si le
+    rejeu échoue aussi, lève LessonBlockError(name) en y attachant `partial`."""
+    try:
+        return fn()
+    except Exception as e1:
+        logger.warning('Génération bloc %s : échec, rejeu unique dans %ds… (%s)',
+                       name, BLOCK_RETRY_DELAY, e1)
+        time.sleep(BLOCK_RETRY_DELAY)  # laisse l'API respirer avant le rejeu
+        try:
+            return fn()
+        except Exception as e2:
+            raise LessonBlockError(name, e2, partial) from e2
+
+
+def _assemble_lesson(lesson_meta: dict, results: dict) -> dict:
+    """Fusionne les 3 sorties dans l'objet leçon final (§3.1), provenance §4.6 stricte."""
+    noyau, lecture, histoire = results['noyau'], results['lecture'], results['histoire']
+    return {
+        'id':        lesson_meta['id'],                    # serveur (slug Architecte)
+        'title':     lesson_meta['title'],                 # Architecte
+        'subject':   lesson_meta.get('subject'),           # Architecte
+        'direction': lesson_meta.get('direction', 'ltr'),  # Architecte
+        'color':     noyau['color'],                       # B1
+        'guide':     noyau['guide'],                       # B1
+        'concepts':  noyau['concepts'],                    # B1
+        'exam':      noyau['exam'],                        # B1
+        'reading':   lecture['reading'],                   # B2
+        'story':     histoire['story'],                    # B3
+    }
+
+
+def generate_lesson_v2(lesson_meta: dict, source) -> dict:
+    """Orchestre la génération complète d'UNE leçon v2 (§4.6).
+
+    lesson_meta : la leçon issue de l'Architecte — { id, title, summary, subject,
+                  direction } (subject/direction du niveau unité ; id/title/summary
+                  de la leçon).
+    source : la portion de document de la leçon (str OU list de blocs image base64).
+
+    Retourne l'objet leçon final (§3.1). Lève LessonBlockError si un bloc échoue 2×
+    (l'erreur porte le bloc fautif + les blocs déjà réussis dans .partial).
+    NE TOUCHE PAS au pipeline v1 (generate_lesson_with_ai)."""
+    title = lesson_meta['title']
+    summary = lesson_meta['summary']
+    direction = lesson_meta.get('direction', 'ltr')
+    results = {}  # accumule les blocs réussis → jamais reperdus
+
+    # 1. B1 d'abord (ses concepts alimentent B3).
+    results['noyau'] = _run_block('B1', lambda: call_noyau(title, summary, source), results)
+
+    # 2. B2 puis 3. B3 (séquentiel ; indépendants → parallélisables plus tard).
+    results['lecture'] = _run_block(
+        'B2', lambda: call_lecture(title, summary, source, direction), results)
+    results['histoire'] = _run_block(
+        'B3', lambda: call_histoire(title, summary, source,
+                                    guide=results['noyau']['guide'],
+                                    concepts=results['noyau']['concepts']), results)
+
+    # 4. Assemblage final (§3.1, provenance §4.6).
+    return _assemble_lesson(lesson_meta, results)
