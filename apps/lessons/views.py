@@ -103,7 +103,10 @@ def _generate_async(lesson_id):
 @teacher_required
 def lesson_list(request):
     school = get_school(request)
-    base_qs = Lesson.objects.filter(teacher=request.user, school=school)
+    # format_version=1 : « Mes leçons » ne montre QUE les leçons v1. Les shells v2
+    # (format_version=2) appartiennent à leur Unit (liste dédiée à venir avec le
+    # portail élève) — sinon elles fuitent ici et un clic ouvre le détail v1 cassé.
+    base_qs = Lesson.objects.filter(teacher=request.user, school=school, format_version=1)
     stats = {
         'total':      base_qs.count(),
         'ready':      base_qs.filter(status=LessonStatus.READY).count(),
