@@ -190,3 +190,108 @@ class PersistGeneratedUnitTest(TestCase):
             self.assertEqual(l.status, LessonStatus.ERROR)
             self.assertEqual(l.content_versions.count(), 0)
         self.assertEqual(unit.generation_cost_usd, Decimal('0'))
+
+
+def _gen_ok(cost=Decimal('0.001'), **overrides):
+    """Fabrique un side_effect de generate_lesson_v2 qui réussit (append coût + renvoie
+    un §3.1 factice, éventuellement modifié)."""
+    def fn(lesson_meta, source, cost_sink=None):
+        if cost_sink is not None:
+            cost_sink.append(cost)
+        g = dict(GENERATED)
+        g.update(overrides)
+        return g
+    return fn
+
+
+class ResumeUnitTest(TestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            phone_number='70000002', full_name='Prof Test', password='x')
+
+    def test_resume_completes_partial_idempotent(self):
+        # État PARTIAL : le-relief ready, le-climat error.
+        def gen_partial(meta, source, cost_sink=None):
+            if meta['id'] == 'le-relief':
+                if cost_sink is not None:
+                    cost_sink.append(Decimal('0.001'))
+                return GENERATED
+            raise services.LessonBlockError('B3', RuntimeError('529 simulé'))
+        with patch.object(services, 'generate_lesson_v2', side_effect=gen_partial):
+            unit = services.persist_generated_unit(ARCHITECT, 'doc', teacher=self.teacher)
+        self.assertEqual(unit.status, LessonStatus.PARTIAL)
+
+        # Reprise : tout réussit maintenant.
+        with patch.object(services, 'generate_lesson_v2',
+                          side_effect=_gen_ok(cost=Decimal('0.002'))) as m:
+            unit = services.resume_unit(unit, 'doc')
+
+        # SEULE la leçon error a été régénérée (le-relief ready → sautée).
+        self.assertEqual(m.call_count, 1)                      # idempotence
+        self.assertEqual(unit.status, LessonStatus.READY)
+        relief = unit.lessons.get(slug='le-relief')
+        climat = unit.lessons.get(slug='le-climat')
+        self.assertEqual(relief.content_versions.count(), 1)   # PAS de v2 parasite
+        self.assertEqual(climat.status, LessonStatus.READY)
+        self.assertEqual(climat.content_versions.count(), 1)   # v1 créée à la reprise
+        self.assertEqual(unit.generation_cost_usd, Decimal('0.003'))  # 0.001 + 0.002
+
+
+class RegenerateLessonTest(TestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            phone_number='70000003', full_name='Prof Test', password='x')
+        with patch.object(services, 'generate_lesson_v2', side_effect=_gen_ok()):
+            self.unit = services.persist_generated_unit(ARCHITECT, 'doc', teacher=self.teacher)
+        self.lesson = self.unit.lessons.get(slug='le-relief')
+        self.cv1 = self.lesson.active_content_version
+
+    def test_regenerate_creates_v2_keeps_v1(self):
+        with patch.object(services, 'generate_lesson_v2',
+                          side_effect=_gen_ok(cost=Decimal('0.0005'), guide='Awa')):
+            cv2 = services.regenerate_lesson(self.lesson, 'doc')
+
+        self.lesson.refresh_from_db()
+        self.assertEqual(cv2.version, 2)
+        self.assertEqual(self.lesson.active_content_version_id, cv2.id)   # bascule
+        self.assertEqual(self.lesson.content_versions.count(), 2)
+        self.assertEqual(cv2.guide, 'Awa')
+        # v1 toujours en base, contenu inchangé
+        self.cv1.refresh_from_db()
+        self.assertEqual(self.cv1.version, 1)
+        self.assertEqual(self.cv1.guide, 'Sory')
+
+    def test_regenerate_progression_survives(self):
+        """Une progression pointant v1 (PROTECT) survit à la régénération."""
+        from apps.schools.models import School, SchoolClass
+        from apps.students.models import Student
+        from apps.student_learning.models import ConceptProgress
+
+        school = School.objects.create(name='École Test', city='Bamako')
+        sclass = SchoolClass.objects.create(
+            school=school, name='6A', level='fondamental_2', annual_fee=0)
+        student = Student.objects.create(
+            school=school, school_class=sclass, full_name='Élève Test', tuition_fee=0)
+        cp = ConceptProgress.objects.create(
+            student=student, lesson=self.lesson, content_version=self.cv1,
+            concept_id='c1', passes_done=1)
+
+        with patch.object(services, 'generate_lesson_v2', side_effect=_gen_ok()):
+            services.regenerate_lesson(self.lesson, 'doc')
+
+        cp.refresh_from_db()
+        self.assertEqual(cp.content_version_id, self.cv1.id)   # toujours v1 (PROTECT a tenu)
+        self.assertTrue(LessonContentVersion.objects.filter(pk=self.cv1.pk).exists())
+
+    def test_regenerate_failure_keeps_ready(self):
+        """Échec de régénération → la leçon RESTE ready avec sa v1 active (non dégradée)."""
+        def gen_fail(meta, source, cost_sink=None):
+            raise services.LessonBlockError('B1', RuntimeError('529 simulé'))
+        with patch.object(services, 'generate_lesson_v2', side_effect=gen_fail):
+            with self.assertRaises(services.LessonBlockError):
+                services.regenerate_lesson(self.lesson, 'doc')
+
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.status, LessonStatus.READY)             # pas dégradée
+        self.assertEqual(self.lesson.active_content_version_id, self.cv1.id)  # v1 toujours active
+        self.assertEqual(self.lesson.content_versions.count(), 1)            # pas de v2 fantôme

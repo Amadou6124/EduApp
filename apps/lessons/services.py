@@ -1897,6 +1897,41 @@ def _finalize_unit_status(unit) -> None:
     unit.save(update_fields=['status', 'updated_at'])
 
 
+def _lesson_meta(lesson) -> dict:
+    """Reconstruit le lesson_meta pour generate_lesson_v2 depuis le shell + l'Unit
+    (subject/direction vivent au niveau document, sur l'Unit)."""
+    unit = lesson.unit
+    return {
+        'id':        lesson.slug,
+        'title':     lesson.title,
+        'summary':   lesson.summary,
+        'subject':   unit.subject if unit else None,
+        'direction': unit.direction if unit else 'ltr',
+    }
+
+
+def _generate_pending_lessons(unit, source) -> Decimal:
+    """Boucle de remplissage : génère + persiste les leçons NON-ready de l'unit.
+
+    Idempotent : les leçons ready sont SAUTÉES (jamais régénérées). La génération
+    (generate_lesson_v2) tourne HORS transaction ; seules les écritures sont en txn
+    courte. Une leçon qui échoue (LessonBlockError) → ERROR, les autres CONTINUENT.
+    Retourne le coût total (Decimal) des leçons RÉUSSIES, pour MAJ Unit.generation_cost_usd."""
+    total_cost = Decimal('0')
+    for shell in unit.lessons.exclude(status=LessonStatus.READY):
+        lesson_costs = []  # cost_sink frais PAR leçon
+        try:
+            generated = generate_lesson_v2(_lesson_meta(shell), source, cost_sink=lesson_costs)
+            lesson_cost = sum(lesson_costs)
+            _persist_lesson_version(shell, generated, lesson_cost)  # txn courte → ready
+            total_cost += lesson_cost
+        except LessonBlockError:
+            with transaction.atomic():
+                shell.status = LessonStatus.ERROR
+                shell.save(update_fields=['status', 'updated_at'])
+    return total_cost
+
+
 def persist_generated_unit(architect_structure: dict, source, *, teacher, school=None,
                            subject_type=SubjectType.OTHER,
                            level=EducationLevel.FONDAMENTAL_1, level_detail='',
@@ -1922,31 +1957,47 @@ def persist_generated_unit(architect_structure: dict, source, *, teacher, school
         source_file=source_file, source_type=source_type, language=language,
     )
 
-    total_cost = Decimal('0')
-    # Boucle de remplissage : seulement les shells non-ready (réutilisable en reprise).
-    for shell in unit.lessons.exclude(status=LessonStatus.READY):
-        lesson_meta = {
-            'id':        shell.slug,
-            'title':     shell.title,
-            'summary':   shell.summary,
-            'subject':   unit.subject,      # document-level (Unit)
-            'direction': unit.direction,    # document-level (Unit)
-        }
-        lesson_costs = []  # cost_sink frais PAR leçon
-        try:
-            # HORS transaction : appel(s) API lent(s).
-            generated = generate_lesson_v2(lesson_meta, source, cost_sink=lesson_costs)
-            lesson_cost = sum(lesson_costs)
-            _persist_lesson_version(shell, generated, lesson_cost)  # txn courte → ready
-            total_cost += lesson_cost
-        except LessonBlockError:
-            # Échec durable de cette leçon : on la marque ERROR et on CONTINUE.
-            with transaction.atomic():
-                shell.status = LessonStatus.ERROR
-                shell.save(update_fields=['status', 'updated_at'])
-
+    total_cost = _generate_pending_lessons(unit, source)
     _finalize_unit_status(unit)
     unit.generation_cost_usd = total_cost
     unit.save(update_fields=['generation_cost_usd', 'updated_at'])
     unit.refresh_from_db()
     return unit
+
+
+def resume_unit(unit, source) -> Unit:
+    """Reprise après échec partiel : ré-exécute la boucle de remplissage sur les leçons
+    NON-ready de l'unit. Les leçons ready sont SAUTÉES (idempotence gratuite : pas de
+    version parasite). Le coût des leçons régénérées s'AJOUTE à Unit.generation_cost_usd.
+    Retourne l'unit rafraîchie."""
+    added_cost = _generate_pending_lessons(unit, source)
+    _finalize_unit_status(unit)
+    if added_cost:
+        unit.generation_cost_usd = (unit.generation_cost_usd or Decimal('0')) + added_cost
+        unit.save(update_fields=['generation_cost_usd', 'updated_at'])
+    unit.refresh_from_db()
+    return unit
+
+
+def regenerate_lesson(lesson, source) -> LessonContentVersion:
+    """Régénération volontaire d'une leçon DÉJÀ ready → nouvelle version v(N+1) +
+    bascule du pointeur active_content_version. L'ancienne version ET sa progression
+    (PROTECT) restent INTACTES.
+
+    Sémantique différente de la reprise (qui remplit des leçons jamais réussies).
+    NON destructif sur échec : la génération tourne AVANT toute écriture, donc si elle
+    lève LessonBlockError, la leçon n'est PAS modifiée (l'ancienne version reste
+    active) — une leçon qui marchait n'est jamais dégradée. L'exception se propage à
+    l'appelant. Retourne la nouvelle version."""
+    lesson_costs = []
+    generated = generate_lesson_v2(_lesson_meta(lesson), source, cost_sink=lesson_costs)  # peut lever
+    lesson_cost = sum(lesson_costs)
+    cv = _persist_lesson_version(lesson, generated, lesson_cost)  # v(N+1) + bascule pointeur
+
+    unit = lesson.unit
+    if unit:
+        if lesson_cost:
+            unit.generation_cost_usd = (unit.generation_cost_usd or Decimal('0')) + lesson_cost
+            unit.save(update_fields=['generation_cost_usd', 'updated_at'])
+        _finalize_unit_status(unit)
+    return cv
