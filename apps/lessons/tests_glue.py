@@ -395,3 +395,102 @@ class LiveEndToEndTest(TestCase):
         for r in refs:
             self.assertIn(r, concept_ids, f"concept_ref '{r}' absent de concepts_data")
         print('[LIVE] OK — chaîne A↔B validée en réel, story persistée.')
+
+
+class GenerationLockTest(TestCase):
+    """Couche 2 : verrou atomique + worker + launcher. Déterministe, sans threads ni API."""
+
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            phone_number='70000004', full_name='Prof Test', password='x')
+        self.unit = services._create_unit_skeleton(ARCHITECT, teacher=self.teacher)
+        # Pose un NOM de source_file (pas de vrai fichier) pour que unit.source_file.path
+        # résolve dans le worker ; extract_content_from_file est mocké → contenu ignoré.
+        Unit.objects.filter(pk=self.unit.pk).update(
+            source_file='units/sources/test.txt', source_type='text')
+        self.unit.refresh_from_db()
+
+    # ── verrou ─────────────────────────────────────────────────────────────────
+    def test_acquire_release_takeover(self):
+        # libre → acquis
+        self.assertTrue(services._acquire_generation_lock(self.unit))
+        self.unit.refresh_from_db()
+        self.assertIsNotNone(self.unit.generation_lock_at)
+
+        # 2e acquire immédiat → refusé (verrou frais)
+        self.assertFalse(services._acquire_generation_lock(self.unit))
+
+        # verrou PÉRIMÉ (now - 7 min) → takeover autorisé
+        from django.utils import timezone
+        from datetime import timedelta
+        Unit.objects.filter(pk=self.unit.pk).update(
+            generation_lock_at=timezone.now() - timedelta(minutes=7))
+        self.assertTrue(services._acquire_generation_lock(self.unit))
+
+        # release → null
+        services._release_generation_lock(self.unit)
+        self.unit.refresh_from_db()
+        self.assertIsNone(self.unit.generation_lock_at)
+
+    def test_heartbeat_advances_timestamp(self):
+        services._acquire_generation_lock(self.unit)
+        self.unit.refresh_from_db()
+        from django.utils import timezone
+        from datetime import timedelta
+        old = timezone.now() - timedelta(minutes=5)
+        Unit.objects.filter(pk=self.unit.pk).update(generation_lock_at=old)
+        services._heartbeat_generation_lock(self.unit)
+        self.unit.refresh_from_db()
+        self.assertGreater(self.unit.generation_lock_at, old)  # re-tamponné
+
+    # ── callback heartbeat dans la boucle ──────────────────────────────────────
+    def test_on_lesson_done_called_per_lesson(self):
+        calls = {'n': 0}
+
+        def gen_mixed(meta, source, cost_sink=None):
+            # 1 succès, 1 échec → le callback doit être appelé pour LES DEUX
+            if meta['id'] == 'le-relief':
+                return GENERATED
+            raise services.LessonBlockError('B3', RuntimeError('x'))
+        with patch.object(services, 'generate_lesson_v2', side_effect=gen_mixed):
+            services._generate_pending_lessons(
+                self.unit, 'doc', on_lesson_done=lambda: calls.__setitem__('n', calls['n'] + 1))
+        self.assertEqual(calls['n'], 2)  # 2 leçons → 2 appels (succès ET échec)
+
+    # ── worker ─────────────────────────────────────────────────────────────────
+    def test_worker_releases_lock_on_success(self):
+        # close_old_connections neutralisé : en TestCase il fermerait la connexion de
+        # la transaction de test (en prod, dans un vrai thread, il est correct).
+        services._acquire_generation_lock(self.unit)
+        with patch.object(services, 'close_old_connections'), \
+             patch.object(services, 'extract_content_from_file', return_value='doc'), \
+             patch.object(services, 'resume_unit') as m_resume:
+            services._generate_unit_worker(self.unit.id)
+        m_resume.assert_called_once()
+        self.unit.refresh_from_db()
+        self.assertIsNone(self.unit.generation_lock_at)  # libéré
+
+    def test_worker_releases_lock_even_on_exception(self):
+        """TEST CRITIQUE : un échec ne doit JAMAIS laisser le verrou posé."""
+        services._acquire_generation_lock(self.unit)
+        with patch.object(services, 'close_old_connections'), \
+             patch.object(services, 'extract_content_from_file', return_value='doc'), \
+             patch.object(services, 'resume_unit', side_effect=RuntimeError('boom')):
+            services._generate_unit_worker(self.unit.id)   # ne doit PAS propager
+        self.unit.refresh_from_db()
+        self.assertIsNone(self.unit.generation_lock_at)  # libéré malgré l'exception
+
+    # ── launcher ───────────────────────────────────────────────────────────────
+    def test_launch_spawns_when_free(self):
+        with patch('apps.lessons.services.threading.Thread') as m_thread:
+            ok = services.launch_unit_generation(self.unit)
+        self.assertTrue(ok)
+        m_thread.assert_called_once()
+        m_thread.return_value.start.assert_called_once()
+
+    def test_launch_refuses_when_locked(self):
+        services._acquire_generation_lock(self.unit)  # verrou frais déjà posé
+        with patch('apps.lessons.services.threading.Thread') as m_thread:
+            ok = services.launch_unit_generation(self.unit)
+        self.assertFalse(ok)
+        m_thread.assert_not_called()  # aucun thread lancé

@@ -14,8 +14,10 @@ import json
 import logging
 import random
 import re
+import threading
 import time
 import unicodedata
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -24,7 +26,9 @@ import pdfplumber
 import pypdfium2 as pdfium
 from decouple import config
 
-from django.db import transaction
+from django.db import transaction, close_old_connections
+from django.db.models import Q
+from django.utils import timezone
 
 from .models import (Lesson, LessonStatus, AIProvider, SubjectType,
                      EducationLevel, Unit, LessonContentVersion)
@@ -1911,12 +1915,16 @@ def _lesson_meta(lesson) -> dict:
     }
 
 
-def _generate_pending_lessons(unit, source) -> Decimal:
+def _generate_pending_lessons(unit, source, on_lesson_done=None) -> Decimal:
     """Boucle de remplissage : génère + persiste les leçons NON-ready de l'unit.
 
     Idempotent : les leçons ready sont SAUTÉES (jamais régénérées). La génération
     (generate_lesson_v2) tourne HORS transaction ; seules les écritures sont en txn
     courte. Une leçon qui échoue (LessonBlockError) → ERROR, les autres CONTINUENT.
+
+    on_lesson_done : callable optionnel appelé APRÈS chaque leçon (succès OU échec).
+    Sert au heartbeat du verrou de génération (re-tampon après chaque leçon). Param
+    optionnel, défaut None → comportement inchangé (comme cost_sink).
     Retourne le coût total (Decimal) des leçons RÉUSSIES, pour MAJ Unit.generation_cost_usd."""
     total_cost = Decimal('0')
     for shell in unit.lessons.exclude(status=LessonStatus.READY):
@@ -1930,6 +1938,9 @@ def _generate_pending_lessons(unit, source) -> Decimal:
             with transaction.atomic():
                 shell.status = LessonStatus.ERROR
                 shell.save(update_fields=['status', 'updated_at'])
+        finally:
+            if on_lesson_done is not None:
+                on_lesson_done()  # heartbeat : re-tampon du verrou après chaque leçon
     return total_cost
 
 
@@ -1966,12 +1977,13 @@ def persist_generated_unit(architect_structure: dict, source, *, teacher, school
     return unit
 
 
-def resume_unit(unit, source) -> Unit:
+def resume_unit(unit, source, on_lesson_done=None) -> Unit:
     """Reprise après échec partiel : ré-exécute la boucle de remplissage sur les leçons
     NON-ready de l'unit. Les leçons ready sont SAUTÉES (idempotence gratuite : pas de
     version parasite). Le coût des leçons régénérées s'AJOUTE à Unit.generation_cost_usd.
+    on_lesson_done : callback optionnel (heartbeat) forwardé à _generate_pending_lessons.
     Retourne l'unit rafraîchie."""
-    added_cost = _generate_pending_lessons(unit, source)
+    added_cost = _generate_pending_lessons(unit, source, on_lesson_done=on_lesson_done)
     _finalize_unit_status(unit)
     if added_cost:
         unit.generation_cost_usd = (unit.generation_cost_usd or Decimal('0')) + added_cost
@@ -2002,3 +2014,71 @@ def regenerate_lesson(lesson, source) -> LessonContentVersion:
             unit.save(update_fields=['generation_cost_usd', 'updated_at'])
         _finalize_unit_status(unit)
     return cv
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Lancement de la génération en tâche de fond (vue v2, couche 2)
+# ───────────────────────────────────────────────────────────────────────────────
+# Génération longue (~13 min/unité) → thread daemon (pattern v1, pas de Celery).
+# Verrou anti-double-thread sur Unit.generation_lock_at : acquisition par UPDATE
+# atomique conditionnel (anti-TOCTOU), expiration par heartbeat (re-tampon après
+# chaque leçon) → robuste quelle que soit la taille de l'unité, et un thread mort
+# ne bloque jamais à jamais. Verrou ≠ statut (cf. §7.1).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+GENERATION_LOCK_TIMEOUT = timedelta(minutes=6)  # une leçon (~4 min) + marge ; heartbeat re-tamponne
+
+
+def _acquire_generation_lock(unit) -> bool:
+    """Acquiert le verrou de génération par UPDATE ATOMIQUE conditionnel (anti-TOCTOU).
+
+    Pose generation_lock_at=now ssi le verrou est libre (null) OU PÉRIMÉ (< now - timeout).
+    Retourne True si acquis, False si un verrou FRAIS existe (génération déjà en cours).
+    Le rowcount de l'UPDATE garantit qu'un seul concurrent l'obtient (pas de check-then-set)."""
+    stale_before = timezone.now() - GENERATION_LOCK_TIMEOUT
+    acquired = (Unit.objects
+                .filter(pk=unit.pk)
+                .filter(Q(generation_lock_at__isnull=True) | Q(generation_lock_at__lt=stale_before))
+                .update(generation_lock_at=timezone.now()))
+    return acquired == 1
+
+
+def _heartbeat_generation_lock(unit) -> None:
+    """Re-tamponne le verrou (appelé après chaque leçon) → un job vivant reste verrouillé
+    quelle que soit sa durée totale ; seul un thread mort laisse le verrou expirer."""
+    Unit.objects.filter(pk=unit.pk).update(generation_lock_at=timezone.now())
+
+
+def _release_generation_lock(unit) -> None:
+    """Libère le verrou (fin du thread, succès ou échec). L'expiration reste le filet
+    si le thread meurt sans passer ici."""
+    Unit.objects.filter(pk=unit.pk).update(generation_lock_at=None)
+
+
+def _generate_unit_worker(unit_id) -> None:
+    """Corps du thread de fond : remplit les leçons non-ready d'une unité.
+
+    Self-contained : re-extrait le contenu depuis unit.source_file (unifie 1ère
+    génération et reprise). close_old_connections() pour une connexion DB propre dans
+    le thread. Le verrou est TOUJOURS libéré (finally), même si la génération lève."""
+    close_old_connections()
+    unit = Unit.objects.get(pk=unit_id)
+    try:
+        content = extract_content_from_file(unit.source_file.path, unit.source_type)
+        resume_unit(unit, content,
+                    on_lesson_done=lambda: _heartbeat_generation_lock(unit))
+    except Exception as e:
+        logger.error('Génération unité %s échouée : %s', unit_id, e)
+    finally:
+        _release_generation_lock(unit)
+
+
+def launch_unit_generation(unit) -> bool:
+    """Lance la génération en fond pour une unité (1ère génération OU reprise).
+
+    Acquiert le verrou (atomique) ; si un verrou frais existe → return False (déjà
+    en cours, ne spawn pas). Sinon spawn un thread daemon et return True."""
+    if not _acquire_generation_lock(unit):
+        return False
+    threading.Thread(target=_generate_unit_worker, args=[unit.id], daemon=True).start()
+    return True
