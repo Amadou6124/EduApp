@@ -134,6 +134,18 @@ class QuizAttempt(models.Model):
     time_spent_seconds = models.PositiveSmallIntegerField(default=0)
     attempted_at = models.DateTimeField(auto_now_add=True)
 
+    # v2 (PORTAL_V2_SPEC) : rattachement au versioning. Null pour les rows v1.
+    # content_version PROTECT → étend le verrou anti-orphelinage au log de réponses.
+    content_version = models.ForeignKey(
+        LessonContentVersion, on_delete=models.PROTECT,
+        related_name='quiz_attempts',
+        null=True, blank=True,
+    )
+    # Snapshot des variables tirées (audit self-contained, §7.1) : rempli SEULEMENT
+    # pour les quiz dynamic_formula ; null pour tous les autres types. Permet de
+    # garder QuestionDraw purgeable (snapshot choisi plutôt que FK pointeur).
+    draw_variables = models.JSONField(null=True, blank=True)
+
     class Meta:
         indexes = [
             models.Index(fields=['student', 'lesson'], name='quiz_student_lesson_idx'),
