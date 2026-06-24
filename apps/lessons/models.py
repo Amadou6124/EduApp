@@ -20,6 +20,7 @@ class LessonStatus(models.TextChoices):
     DRAFT      = 'draft',      _('Brouillon')
     PROCESSING = 'processing', _('En cours de génération')
     READY      = 'ready',      _('Prête')
+    PARTIAL    = 'partial',    _('Partiel')
     ERROR      = 'error',      _('Erreur')
 
 
