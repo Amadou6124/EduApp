@@ -209,6 +209,14 @@ class Lesson(models.Model):
         _('version de format'), default=1,
         help_text=_('1 = format historique ; 2 = format v2 (unité/concepts/passes)'),
     )
+    # v2 : pointeur vers la version de contenu LIVE (immuable). SET_NULL — un
+    # pointeur "live" ne doit pas bloquer (≠ PROTECT) ; la leçon survit si on
+    # dé-active. related_name='+' (pas de reverse depuis la version).
+    active_content_version = models.ForeignKey(
+        'LessonContentVersion', on_delete=models.SET_NULL,
+        related_name='+', null=True, blank=True,
+        verbose_name=_('version de contenu active'),
+    )
 
     # Partage
     is_public = models.BooleanField(
@@ -286,3 +294,46 @@ class LessonDeployment(models.Model):
 
     def __str__(self):
         return f'{self.lesson.title} → {self.school_class}'
+
+
+class LessonContentVersion(models.Model):
+    """Version IMMUABLE du contenu pédagogique d'une leçon v2 (PORTAL_V2_SPEC).
+
+    Append-only : régénérer = NOUVELLE version, jamais d'écrasement. La progression
+    d'élève (QuizAttempt/ConceptProgress/ExamAttempt) pointe une version en PROTECT
+    → jamais d'orphelinage. Le « live » est le pointeur Lesson.active_content_version."""
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.PROTECT,
+        related_name='content_versions',
+        verbose_name=_('leçon'),
+    )
+    version = models.PositiveSmallIntegerField(_('version'))
+
+    # Contenu généré (B1/B2/B3), version-scopé. Null tant qu'un bloc n'est pas
+    # généré (assemblage progressif) ; la complétude est vérifiée à l'activation.
+    concepts_data = models.JSONField(_('concepts'), null=True, blank=True)
+    reading_data = models.JSONField(_('lecture'), null=True, blank=True)
+    exam_data = models.JSONField(_('examen'), null=True, blank=True)
+    # color/guide = contenu généré par B1 (version-scopé, pas identité de la leçon).
+    color = models.CharField(_('couleur'), max_length=9, blank=True)
+    guide = models.CharField(_('guide'), max_length=50, blank=True)
+
+    # Provenance
+    generated_at = models.DateTimeField(_('généré le'), auto_now_add=True)
+    ai_provider_used = models.CharField(
+        _('IA utilisée'), max_length=20,
+        choices=AIProvider.choices, blank=True,
+    )
+    generation_cost_usd = models.DecimalField(
+        _('coût génération USD'),
+        max_digits=8, decimal_places=6, default=0,
+    )
+
+    class Meta:
+        verbose_name = _('version de contenu')
+        verbose_name_plural = _('versions de contenu')
+        ordering = ['lesson', 'version']
+        unique_together = [('lesson', 'version')]
+
+    def __str__(self):
+        return f'{self.lesson.title} — v{self.version}'
