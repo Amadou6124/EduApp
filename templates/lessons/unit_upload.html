@@ -1,0 +1,18 @@
+{# v2 — upload d'unité (minimal ; style en couche 5) #}
+<h1>Importer un document (v2)</h1>
+
+{% if errors %}
+<ul class="errors">
+  {% for key, msg in errors.items %}<li>{{ key }} : {{ msg }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <input type="file" name="source_file" accept=".pdf,image/*">
+  <input type="text" name="selected_subject_name" placeholder="Matière">
+  <input type="text" name="selected_subject_type" value="other">
+  <input type="text" name="selected_level" placeholder="Niveau">
+  <input type="text" name="selected_level_detail" placeholder="Détail du niveau">
+  <button type="submit">Analyser le document</button>
+</form>

@@ -12,4 +12,10 @@ urlpatterns = [
     path('<int:lesson_id>/retry/',   views.lesson_retry,   name='retry'),
     path('<int:lesson_id>/preview/', views.lesson_preview, name='preview'),
     path('<int:lesson_id>/deploy/<int:class_id>/', views.lesson_deploy_toggle, name='deploy-toggle'),
+
+    # v2 — upload d'unité (parallèle au v1)
+    path('unit/upload/',                 views.unit_upload,   name='unit-upload'),
+    path('unit/<int:unit_id>/',          views.unit_detail,   name='unit-detail'),
+    path('unit/<int:unit_id>/generate/', views.unit_generate, name='unit-generate'),
+    path('unit/<int:unit_id>/status/',   views.unit_status,   name='unit-status'),
 ]

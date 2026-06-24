@@ -1828,14 +1828,20 @@ def generate_lesson_v2(lesson_meta: dict, source, cost_sink: list = None) -> dic
 def _create_unit_skeleton(architect_structure: dict, *, teacher, school=None,
                           subject_type=SubjectType.OTHER,
                           level=EducationLevel.FONDAMENTAL_1, level_detail='',
-                          source_file=None, source_type='pdf', language='fr') -> Unit:
-    """Crée l'Unit (processing) + N Lesson shells (processing) depuis la structure
-    Architecte, ATOMIQUEMENT (soit le squelette entier, soit rien).
+                          source_file=None, source_type='pdf', language='fr',
+                          initial_status=LessonStatus.PROCESSING) -> Unit:
+    """Crée l'Unit + N Lesson shells depuis la structure Architecte, ATOMIQUEMENT
+    (soit le squelette entier, soit rien).
 
     Les shells portent l'identité de chaque leçon (title/summary/slug=id) — tout ce
     qu'il faut pour régénérer en cas d'échec, sans re-stocker le JSON Architecte. Les
-    métadonnées document-level (subject/direction/source) vivent sur l'Unit. La
-    génération du contenu se fait ENSUITE, hors transaction. Retourne l'Unit."""
+    métadonnées document-level (subject/direction/source) vivent sur l'Unit.
+
+    initial_status : statut initial de l'Unit ET des shells. Défaut PROCESSING
+    (persist_generated_unit, génération immédiate). La vue d'upload v2 passe DRAFT
+    (« en attente » : confirmer-lite, la génération attend le bouton « Lancer »).
+    DRAFT comme PROCESSING sont non-ready → resume_unit les traite comme « à générer ».
+    Retourne l'Unit."""
     unit = Unit.objects.create(
         teacher=teacher, school=school,
         title=architect_structure['unit_title'],
@@ -1845,7 +1851,7 @@ def _create_unit_skeleton(architect_structure: dict, *, teacher, school=None,
         language=language,
         direction=architect_structure.get('direction', 'ltr'),
         source_file=source_file, source_type=source_type,
-        status=LessonStatus.PROCESSING,
+        status=initial_status,
     )
     for meta in architect_structure['lessons']:
         Lesson.objects.create(
@@ -1854,7 +1860,7 @@ def _create_unit_skeleton(architect_structure: dict, *, teacher, school=None,
             summary=meta.get('summary', ''),
             slug=meta.get('id', ''),
             format_version=2,
-            status=LessonStatus.PROCESSING,
+            status=initial_status,
         )
     return unit
 
@@ -2053,6 +2059,14 @@ def _release_generation_lock(unit) -> None:
     """Libère le verrou (fin du thread, succès ou échec). L'expiration reste le filet
     si le thread meurt sans passer ici."""
     Unit.objects.filter(pk=unit.pk).update(generation_lock_at=None)
+
+
+def is_generation_active(unit) -> bool:
+    """True si un thread de génération est (vraisemblablement) actif : verrou posé ET
+    non périmé. Sert au suivi UI (afficher « en cours » vs le bouton Lancer/Reprendre)."""
+    if unit.generation_lock_at is None:
+        return False
+    return unit.generation_lock_at >= timezone.now() - GENERATION_LOCK_TIMEOUT
 
 
 def _generate_unit_worker(unit_id) -> None:

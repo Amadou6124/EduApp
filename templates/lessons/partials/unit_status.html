@@ -1,0 +1,17 @@
+{# v2 — checklist de statut des leçons d'une unité (partial polling ; style couche 5) #}
+<p class="unit-status-summary">
+  {{ ready_count }}/{{ total_count }} prête{{ ready_count|pluralize }} — {{ unit.get_status_display }}
+  {% if generation_active %}· génération en cours…{% endif %}
+</p>
+<ul class="unit-lessons">
+  {% for l in lessons %}
+  <li data-status="{{ l.status }}">
+    {{ l.title }} —
+    {% if l.status == 'ready' %}✓ prête
+    {% elif l.status == 'error' %}✗ échec
+    {% elif generation_active %}⏳ en cours
+    {% else %}• en attente
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>

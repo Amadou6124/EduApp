@@ -1,0 +1,18 @@
+{# v2 — détail d'une unité (minimal ; style + intégration base en couche 5) #}
+<h1>{{ unit.title }}</h1>
+<p>{{ unit.subject }} — {{ unit.get_level_display }}</p>
+
+<div id="unit-status"
+     {% if generation_active %}hx-get="{% url 'lessons:unit-status' unit.id %}"
+     hx-trigger="every 3s" hx-swap="innerHTML"{% endif %}>
+  {% include 'lessons/partials/unit_status.html' %}
+</div>
+
+{% if not generation_active %}
+<form method="post" action="{% url 'lessons:unit-generate' unit.id %}">
+  {% csrf_token %}
+  <button type="submit">
+    {% if has_error %}Reprendre la génération{% else %}Lancer la génération{% endif %}
+  </button>
+</form>
+{% endif %}

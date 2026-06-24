@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import tempfile
 import threading
 from types import SimpleNamespace
 
@@ -11,8 +13,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.core.mixins import teacher_required, get_school
-from apps.lessons.models import Lesson, LessonStatus, LessonDeployment
-from apps.lessons.services import generate_lesson_with_ai, validate_lesson_file
+from apps.lessons.models import Lesson, LessonStatus, LessonDeployment, Unit
+from apps.lessons.services import (
+    generate_lesson_with_ai, validate_lesson_file,
+    call_architect, extract_content_from_file, _create_unit_skeleton,
+    launch_unit_generation, is_generation_active,
+)
 from apps.schools.models import SchoolClass, ClassSubject, EducationLevel
 
 logger = logging.getLogger(__name__)
@@ -329,3 +335,141 @@ def lesson_retry(request, lesson_id):
     resp['HX-Trigger'] = '{"showToast": {"message": "Génération relancée...", "type": "info"}}'
     resp['HX-Redirect'] = reverse('lessons:detail', args=[lesson.id])
     return resp
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VUES v2 (PORTAL_V2_SPEC) — upload d'unité (parallèle au v1, sans le toucher).
+# Architecte + skeleton SYNCHRONES (structure visible vite) ; génération longue en
+# FOND (thread daemon + verrou, cf. services). Confirmer-lite : l'upload crée le
+# skeleton en DRAFT, la génération attend le bouton « Lancer ».
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _unit_status_context(unit) -> dict:
+    """Contexte partagé par unit_detail et unit_status (checklist des shells)."""
+    lessons = list(unit.lessons.all().order_by('id'))
+    ready = sum(1 for l in lessons if l.status == LessonStatus.READY)
+    return {
+        'unit':              unit,
+        'lessons':           lessons,
+        'ready_count':       ready,
+        'total_count':       len(lessons),
+        'generation_active': is_generation_active(unit),
+        'has_error':         any(l.status == LessonStatus.ERROR for l in lessons),
+    }
+
+
+@teacher_required
+def unit_upload(request):
+    """Upload v2 : extrait → Architecte (sync) → skeleton DRAFT → redirect détail.
+    NE lance PAS la génération (confirmer-lite : bouton « Lancer » ensuite)."""
+    school = get_school(request)
+    if request.method == 'GET':
+        return render(request, 'lessons/unit_upload.html', {'school': school})
+
+    # POST
+    errors = {}
+    source_file = request.FILES.get('source_file')
+    source_type = None
+    if not source_file:
+        errors['source_file'] = 'Fichier requis.'
+    else:
+        try:
+            source_type = validate_lesson_file(source_file)
+        except ValueError as e:
+            errors['source_file'] = str(e)
+
+    subject_name  = request.POST.get('selected_subject_name', '').strip()
+    subject_type  = request.POST.get('selected_subject_type', 'other')
+    level         = request.POST.get('selected_level', '').strip() or EducationLevel.FONDAMENTAL_1
+    level_detail  = request.POST.get('selected_level_detail', '').strip()
+    if not subject_name:
+        errors['subject'] = 'Matière requise.'
+
+    if errors:
+        return render(request, 'lessons/unit_upload.html',
+                      {'school': school, 'errors': errors}, status=422)
+
+    # Extraction synchrone via fichier temporaire (extract attend un CHEMIN ; le
+    # fichier uploadé est en mémoire). Le worker re-extraira depuis source_file.path.
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            for chunk in source_file.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+        content = extract_content_from_file(tmp_path, source_type)
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+    source_file.seek(0)  # rembobiner pour la sauvegarde sur l'Unit
+
+    # Temps 1 — Architecte (synchrone, ~10s)
+    try:
+        structure = call_architect(content)
+    except Exception as e:
+        logger.error('Architecte upload échoué: %s', e)
+        return render(request, 'lessons/unit_upload.html',
+                      {'school': school,
+                       'errors': {'architecte': "L'analyse du document a échoué. Réessayez."}},
+                      status=502)
+
+    if structure.get('error') == 'unreadable':
+        return render(request, 'lessons/unit_upload.html',
+                      {'school': school,
+                       'errors': {'architecte': structure.get('message', 'Document illisible.')}},
+                      status=422)
+
+    unit = _create_unit_skeleton(
+        structure,
+        teacher=request.user, school=school,
+        subject_type=subject_type, level=level, level_detail=level_detail,
+        source_file=source_file, source_type=source_type,
+        initial_status=LessonStatus.DRAFT,
+    )
+    return redirect('lessons:unit-detail', unit_id=unit.id)
+
+
+@teacher_required
+def unit_detail(request, unit_id):
+    school = get_school(request)
+    unit = get_object_or_404(Unit, pk=unit_id, teacher=request.user, school=school)
+    return render(request, 'lessons/unit_detail.html', _unit_status_context(unit))
+
+
+@teacher_required
+@require_POST
+def unit_generate(request, unit_id):
+    """Lancer (1ère fois) OU Reprendre (après partiel/bloqué) la génération en fond."""
+    school = get_school(request)
+    unit = get_object_or_404(Unit, pk=unit_id, teacher=request.user, school=school)
+
+    launched = launch_unit_generation(unit)
+    msg = 'Génération lancée…' if launched else 'Génération déjà en cours.'
+    typ = 'info' if launched else 'warning'
+    resp = HttpResponse(status=200)
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': msg, 'type': typ}})
+    resp['HX-Redirect'] = reverse('lessons:unit-detail', args=[unit.id])
+    return resp
+
+
+@teacher_required
+def unit_status(request, unit_id):
+    """Polling HTMX (every ~3s tant qu'une génération est active) : checklist des shells.
+    Quand la génération est terminée (verrou libéré) → 204 + HX-Refresh."""
+    school = get_school(request)
+    unit = get_object_or_404(Unit, pk=unit_id, teacher=request.user, school=school)
+
+    if request.headers.get('HX-Request'):
+        if not is_generation_active(unit):
+            resp = HttpResponse(status=204)
+            resp['HX-Refresh'] = 'true'
+            return resp
+        return render(request, 'lessons/partials/unit_status.html', _unit_status_context(unit))
+
+    ctx = _unit_status_context(unit)
+    return JsonResponse({
+        'status': unit.status,
+        'ready': ctx['ready_count'],
+        'total': ctx['total_count'],
+        'generation_active': ctx['generation_active'],
+    })
