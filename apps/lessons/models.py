@@ -108,6 +108,13 @@ class Lesson(models.Model):
     )
     generation_attempts = models.PositiveSmallIntegerField(_('tentatives'), default=0)
 
+    # Versioning de format (v1 = pipeline historique ; v2 = PORTAL_V2_SPEC :
+    # unité → leçon → concepts/passes, contenu versionné). Additif, cohabitation v1/v2.
+    format_version = models.PositiveSmallIntegerField(
+        _('version de format'), default=1,
+        help_text=_('1 = format historique ; 2 = format v2 (unité/concepts/passes)'),
+    )
+
     # Partage
     is_public = models.BooleanField(
         _('partagée'), default=False,
