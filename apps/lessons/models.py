@@ -320,6 +320,7 @@ class LessonContentVersion(models.Model):
     concepts_data = models.JSONField(_('concepts'), null=True, blank=True)
     reading_data = models.JSONField(_('lecture'), null=True, blank=True)
     exam_data = models.JSONField(_('examen'), null=True, blank=True)
+    story_data = models.JSONField(_('histoire'), null=True, blank=True)
     # color/guide = contenu généré par B1 (version-scopé, pas identité de la leçon).
     color = models.CharField(_('couleur'), max_length=9, blank=True)
     guide = models.CharField(_('guide'), max_length=50, blank=True)

@@ -1870,6 +1870,7 @@ def _persist_lesson_version(lesson, generated: dict, lesson_cost) -> LessonConte
         concepts_data=generated['concepts'],   # remap concepts → concepts_data
         reading_data=generated['reading'],     # remap reading  → reading_data
         exam_data=generated['exam'],           # remap exam     → exam_data
+        story_data=generated['story'],         # remap story    → story_data
         color=generated.get('color', ''),
         guide=generated.get('guide', ''),
         ai_provider_used=AIProvider.CLAUDE,

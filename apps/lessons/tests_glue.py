@@ -34,7 +34,14 @@ GENERATED = {
     'concepts': [{'id': 'c1', 'name': "Vue d'ensemble", 'passes': 1, 'quiz': []}],
     'exam': {'pass_mark': 0.6, 'questions': [{'id': 'e1', 'concept_id': 'c1', 'type': 'mcq_single'}]},
     'reading': {'title': 'Le relief', 'sections': [{'id': 's1', 'blocks': []}]},
-    'story': {'scene': {'name': 'Voyage'}, 'characters': [], 'steps': []},
+    'story': {
+        'scene': {'name': 'Au marché', 'c1': '#F97316', 'c2': '#BE123C'},
+        'characters': [{'id': 'sory', 'name': 'Sory', 'role': 'Guide', 'side': 'left'}],
+        'steps': [
+            {'type': 'narration', 'text': 'Sory observe les plateaux.'},
+            {'type': 'npc', 'who': 'sory', 'text': 'Le relief du Mali est varié.', 'concept_ref': 'c1'},
+        ],
+    },
 }
 
 
@@ -87,6 +94,8 @@ class GlueHelpersTest(TestCase):
         self.assertEqual(cv1.concepts_data, GENERATED['concepts'])
         self.assertEqual(cv1.reading_data, GENERATED['reading'])
         self.assertEqual(cv1.exam_data, GENERATED['exam'])
+        self.assertEqual(cv1.story_data, GENERATED['story'])   # story bien persistée
+        self.assertTrue(cv1.story_data['steps'])               # non vide
         self.assertEqual(cv1.color, '#D97706')
         self.assertEqual(cv1.guide, 'Sory')
         self.assertEqual(cv1.generation_cost_usd, Decimal('0.0012'))
