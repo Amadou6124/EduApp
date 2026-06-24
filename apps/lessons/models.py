@@ -104,6 +104,12 @@ class Unit(models.Model):
     )
     generation_attempts = models.PositiveSmallIntegerField(_('tentatives'), default=0)
 
+    # Verrou de génération (anti-double-thread) : null = aucun thread actif ;
+    # une date = thread démarré / dernier heartbeat (re-tamponné après chaque leçon).
+    # Expiration via GENERATION_LOCK_TIMEOUT → un thread mort ne bloque pas à jamais.
+    # Acquisition par UPDATE atomique conditionnel (cf. services._acquire_generation_lock).
+    generation_lock_at = models.DateTimeField(_('verrou génération'), null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
