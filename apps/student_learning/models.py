@@ -3,7 +3,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
 from apps.students.models import Student
-from apps.lessons.models import Lesson
+from apps.lessons.models import Lesson, LessonContentVersion
 
 
 class StudentSubscription(models.Model):
@@ -217,4 +217,79 @@ class DailyChallenge(models.Model):
         unique_together = [('student', 'date')]
         indexes = [
             models.Index(fields=['student', 'date', 'is_completed'], name='challenge_student_date_idx'),
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# v2 (PORTAL_V2_SPEC) — Progression & examen, ancrés sur LessonContentVersion.
+# content_version en PROTECT = verrou anti-orphelinage (la progression d'élève
+# pointe une version immuable ; on ne supprime jamais une version porteuse).
+# Additif, parallèle aux modèles v1 (QuizAttempt/LessonProgress restent intacts).
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ExamAttempt(models.Model):
+    """Tentative d'examen v2 (§3.7). REJOUABLE : pas d'unique(student, version) —
+    un élève qui échoue doit pouvoir repasser ; attempt_number croissant (serveur
+    = count+1). Verdict GELÉ : pass_mark snapshoté, score, passed.
+
+    answers = liste JSON ; chaque entrée porte PAR CONVENTION (pas de colonne
+    structurelle, c'est du JSON) :
+      { quiz_id, concept_id (snapshot → bilan par concept calculé à la volée),
+        student_answer, is_correct, variables? (tirage dynamic_formula → audit
+        self-contained) }.
+    Le bilan par concept et la "meilleure/dernière" tentative sont des REQUÊTES,
+    pas des champs dénormalisés."""
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE,
+        related_name='exam_attempts',
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE,
+        related_name='exam_attempts',
+    )
+    content_version = models.ForeignKey(
+        LessonContentVersion, on_delete=models.PROTECT,
+        related_name='exam_attempts',
+    )
+    attempt_number = models.PositiveSmallIntegerField(default=1)
+    pass_mark = models.FloatField(help_text=_('Seuil de réussite, gelé au moment de la tentative'))
+    score = models.FloatField(default=0, help_text=_('Fraction 0..1, dérivée de answers'))
+    passed = models.BooleanField(default=False)
+    answers = models.JSONField(default=list)
+    started_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['student', 'lesson'], name='exam_student_lesson_idx'),
+            models.Index(fields=['student', 'content_version'], name='exam_student_version_idx'),
+        ]
+
+
+class ConceptProgress(models.Model):
+    """Progression par concept/passe (v2). PROJECTION DÉNORMALISÉE : la source de
+    vérité reste QuizAttempt ; la règle d'incrémentation de passes_done est de la
+    logique de vue (Phase C), pas du modèle. PAS de passes_total (c'est du contenu,
+    dans le JSON de la version — le dénormaliser le figerait)."""
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE,
+        related_name='concept_progresses',
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE,
+        related_name='concept_progresses',
+    )
+    content_version = models.ForeignKey(
+        LessonContentVersion, on_delete=models.PROTECT,
+        related_name='concept_progresses',
+    )
+    concept_id = models.CharField(max_length=50)
+    passes_done = models.PositiveSmallIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [('student', 'content_version', 'concept_id')]
+        indexes = [
+            models.Index(fields=['student', 'lesson'], name='cprog_student_lesson_idx'),
         ]
