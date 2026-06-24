@@ -1734,16 +1734,51 @@ Chaque étape a un **critère de validation testable**.
 
 ---
 
-### PHASE B — MODÈLES & MIGRATIONS (synthétique)
+### PHASE B — MODÈLES & MIGRATIONS
 
-> Esquisse — **à détailler le moment venu** (réflexion propre avant de coder).
+> **✅ PHASE B TERMINÉE** (modèles, migrations ET glue génération↔persistance —
+> implémentée, testée, poussée sur origin). Additif/parallèle : le système v1 reste
+> intact. Tout le contenu vit sous l'en-tête « v2 » de `apps/lessons/services.py`
+> et dans les modèles `apps/lessons` + `apps/student_learning`.
 
-- **Champs leçon** nouveaux : `reading_data`, `exam_data`, `color`, `guide`, `direction`.
-- **Nouveau modèle UNITÉ** au-dessus de la leçon (**1 document = 1 unité** ; porte ouverte au multi-document plus tard, cf. §2.1).
-- **Nouveau modèle `ExamAttempt`** (sur le modèle de `StoryAttempt`).
-- **Progression des passes** : champs pour `pass_index` / `passesDone`.
-- **Migrations additives** + **régénération du seed**.
-- **Dépendance** : a besoin du **format A** pour produire des données de test réalistes.
+**Livré :**
+- **Hiérarchie `Unit → Lesson`** : nouveau modèle `Unit` (métadonnées document-level :
+  `subject`, `direction` ltr/rtl, `source_file`…) ; `Lesson.unit` (FK PROTECT, null) ;
+  `Lesson.format_version` (discriminateur v1/v2) ; `Lesson.summary` + `slug`.
+- **Versioning immuable du contenu** : `LessonContentVersion` (append-only) portant
+  `concepts_data`, `reading_data`, `exam_data`, **`story_data`**, `color`, `guide` ;
+  `Lesson.active_content_version` (FK SET_NULL) = pointeur « live ».
+  `unique_together(lesson, version)`. FK circulaire géré (table puis back-pointer).
+- **Verrou anti-orphelinage** : `content_version` **PROTECT** sur **toute** la
+  progression (`ConceptProgress`, `ExamAttempt`, `QuizAttempt`) → la progression
+  d'élève ne peut jamais être orpheline ni écrasée par une régénération.
+- **Progression v2** : `ConceptProgress` (`passes_done` par concept, projection ;
+  source = `QuizAttempt`) ; `ExamAttempt` (rejouable, `attempt_number`, verdict gelé
+  `pass_mark`/`score`/`passed`, `answers` JSON self-describing).
+- **Anti-triche `dynamic_formula`** : `QuestionDraw` (tirage serve-time, `variables`
+  JSON = context A.5) + **contrainte unique PARTIELLE examen-only** (`uniq_exam_draw`,
+  `WHERE exam_attempt IS NOT NULL`) → pas de re-roll en examen, libre en practice.
+  `QuizAttempt.draw_variables` = snapshot d'audit (garde `QuestionDraw` purgeable).
+- **`LessonStatus.PARTIAL`** : distingue « partiellement réussi, reprise possible »
+  de `error` (tout échoué).
+- **Glue (`services.py`)** : `persist_generated_unit` (création : skeleton + boucle de
+  remplissage), `resume_unit` (reprise après échec partiel, idempotente), 
+  `regenerate_lesson` (nouvelle version v(N+1), non destructive). Génération **hors
+  transaction** ; écritures **courtes atomiques**. Coût réel remonté via `cost_sink`.
+- **Tests** : cycle migrations E2E (rollback complet ↔ re-forward, FK circulaire
+  inclus) ; **13 tests glue** (`tests_glue.py`, base temporaire) ; **1 test live**
+  bout-à-bout (gated `RUN_LIVE`) prouvant la chaîne réelle (doc → unité persistée,
+  les 4 contenus + coût + cohérence B1↔B3).
+
+> **Bug corrigé en cours de route** : la `story` (B3) n'avait initialement **aucune
+> colonne** où atterrir → silencieusement perdue à la persistance. Trouvé par
+> inspection (audit des 10 clés §3.1) avant le test live ; corrigé par
+> `LessonContentVersion.story_data` (migration 0007) + remap. Cf. §7.1.
+
+**Reste hors Phase B** (vers le produit utilisable) : câbler la **vue d'upload**
+(`call_architect` → validation → `persist_generated_unit`) — point d'entrée
+enseignant — puis la Phase C (frontend). La génération étant **lente** (~200 s/leçon),
+elle devra tourner en **tâche de fond**, pas dans une requête HTTP (cf. §7.2).
 
 ---
 
@@ -1807,6 +1842,14 @@ Chaque étape a un **critère de validation testable**.
 | Ordre d'exécution **A → B → C contraint** par dépendances | Format débloque modèles, modèles débloquent frontend | §6 |
 | Interface de validation enseignant = **Phase C** (frontend), pas Phase A | Phase A purement backend, testable sans écran | §6 |
 | Anti-triche dynamic_formula via **context serveur** | les variables tirées viennent d'une source serveur de confiance (`context`), jamais du client ; sans context → réponse rejetée. `draw_dynamic_formula` (tirage) se branchera en Phase B (stockage du tirage par élève) | §3 P2, A.5 |
+| **Phase B — réutiliser `Lesson`** + champs nullable (pas de modèle `LessonV2` séparé) | éviter de dupliquer le tronc commun (teacher/school/déploiement) ; `LessonDeployment` reste valide → « créée une fois, déployée dans N classes » préservé | Phase B |
+| **Phase B — contenu en JSON, progression relationnelle** | contenu écrit 1× par l'IA, lu en masse, jamais édité champ-par-champ → JSONB = 1 fetch, pas de JOIN ; **immuable = clé de cache parfaite**. Le requêtable (stats) vit dans `QuizAttempt` (relationnel) | Phase B |
+| **Phase B — versioning IMMUABLE comme verrou anti-orphelinage** | un `content_version` entier **écrasé** ne suffit pas : il détruit l'ancien contenu (faux historique). Seul un contenu **append-only** + progression en FK PROTECT vers la version garantit « jamais d'orphelinage » | Phase B |
+| **Phase B — snapshot `draw_variables` plutôt que FK pointeur** | copier les variables dans `QuizAttempt`/`ExamAttempt.answers` rend l'audit self-contained ET garde `QuestionDraw` **purgeable** (un FK PROTECT l'aurait figé à vie) | Phase B |
+| **Phase B — 3 fonctions de persistance distinctes** | création / reprise / régénération ont des invariants différents (skeleton vs leçons non-ready vs leçon ready→v+1) ; helpers partagés, pas de fonction sur-paramétrée | Phase B |
+| **Phase B — pas de duplication Lesson↔Unit** | les métadonnées document-level (`subject`/`direction`/source) vivent sur `Unit` ; le `lesson_meta` v2 les lit via `unit` | Phase B |
+| **Phase B — génération HORS transaction, écritures courtes atomiques** | ne jamais tenir une transaction DB ouverte pendant des appels API lents (~200 s/leçon) : pool/locks/timeouts. Une leçon réussie est persistée dès sa génération | Phase B |
+| **Phase B — `story_data` ajouté (bug story B3)** | la story (B3) n'avait pas de colonne → perdue silencieusement ; corrigé (migration 0007 + remap). Audit des 10 clés §3.1 : un seul gap, comblé | Phase B |
 
 ### 7.2 Décisions en attente (à trancher plus tard)
 
@@ -1818,6 +1861,10 @@ Chaque étape a un **critère de validation testable**.
 | Types reportés **Vague 3** (image/audio) | déblocage commun : upload média · banque d'images · TTS | §5.2 |
 | Déploiement | hébergeur, domaine, stockage média, email — **non décidés** (hors périmètre spec, à planifier) | — |
 | `dynamic_formula` : résultats non entiers | le tirage peut donner des réponses non rondes (ex. 2.625) ; pédagogiquement moins bon. Options : B1 conçoit des variables qui tombent juste · `draw_dynamic_formula` re-tire si non entier · tolérance par défaut | §3 P2, A.5 |
+| **Découpage de la source par leçon** | aujourd'hui le **document entier** est passé à chaque leçon (l'Architecte n'émet pas d'offset). Optimisation future : l'Architecte renvoie un **span de source par leçon** → moins de tokens-input sur gros docs. Non construit (tradeoff coût assumé) | Phase B, §4.6 |
+| **Parallélisation de B2/B3** | B2 et B3 sont indépendants (§4.6) → parallélisables. Le `cost_sink` est déjà **GIL-safe** pour ça (accumulateur explicite, pas de ContextVar perdu en threads). Non activé pour l'instant (séquentiel) | Phase B, A.4 |
+| **Génération en tâche de fond** | ~200 s/leçon → ~13 min pour une unité de 4 leçons : la génération **ne peut PAS vivre dans une requête HTTP**. Il faudra une file de tâches (Celery/RQ/thread) + statut `processing` suivi côté UI. À cadrer au câblage de la vue | Phase B/C |
+| **NETTOYAGE V1 (après Phase C)** | supprimer `SYSTEM_PROMPT`, `generate_lesson_with_ai`, `evaluate_answer` v1, templates `learn/` v1, champs JSON v1 (`structured_content`/`quiz_data`/`story_data`/`flashcards_data`) — **SEULEMENT** quand le v2 est complet bout-en-bout (frontend compris) et prouvé en prod. Le v1 reste **filet de sécurité** jusque-là | §6 |
 
 ---
 
