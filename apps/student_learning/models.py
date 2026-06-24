@@ -293,3 +293,47 @@ class ConceptProgress(models.Model):
         indexes = [
             models.Index(fields=['student', 'lesson'], name='cprog_student_lesson_idx'),
         ]
+
+
+class QuestionDraw(models.Model):
+    """Tirage serve-time d'un dynamic_formula (v2). État ÉPHÉMÈRE/PRUNABLE : créé au
+    serve, lu au submit ; les variables sont ensuite snapshotées dans l'enregistrement
+    permanent (ExamAttempt.answers / QuizAttempt.draw_variables), donc cette table
+    reste purgeable (pas de FK pointeur entrant — on a choisi le snapshot pour ça).
+
+    variables = le context anti-triche A.5 (source serveur de confiance, JAMAIS du
+    client). Réponse attendue NON stockée → recalcul via _safe_eval_arith au submit.
+
+    Contrainte partielle uniq_exam_draw : en EXAMEN, un seul tirage par
+    (exam_attempt, quiz_id) → immuable, anti-reroll (un refresh ne re-tire pas).
+    En practice (exam_attempt=null), AUCUNE contrainte → re-tirage libre."""
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE,
+        related_name='question_draws',
+    )
+    content_version = models.ForeignKey(
+        LessonContentVersion, on_delete=models.PROTECT,
+        related_name='question_draws',
+    )
+    quiz_id = models.CharField(max_length=20)
+    exam_attempt = models.ForeignKey(
+        ExamAttempt, on_delete=models.CASCADE,
+        related_name='question_draws',
+        null=True, blank=True,
+    )
+    variables = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['exam_attempt', 'quiz_id'],
+                condition=models.Q(exam_attempt__isnull=False),
+                name='uniq_exam_draw',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['student', 'content_version', 'quiz_id'],
+                         name='draw_practice_lookup_idx'),
+            models.Index(fields=['exam_attempt'], name='draw_exam_attempt_idx'),
+        ]
