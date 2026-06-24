@@ -136,6 +136,11 @@ class Lesson(models.Model):
         null=True, blank=True,
     )
     title = models.CharField(_('titre'), max_length=200)
+    # v2 : résumé de la leçon (Architecte) + slug stable pour URLs Phase C.
+    # Nullable → cohabitation v1. Pas de contrainte d'unicité base sur slug
+    # pour l'instant (la PK reste l'identité ; unique_together(unit, slug) plus tard).
+    summary = models.TextField(_('résumé'), null=True, blank=True)
+    slug = models.SlugField(_('slug'), max_length=100, null=True, blank=True)
     subject = models.CharField(
         _('matière'), max_length=100,
         help_text=_('Ex: Mathématiques, SVT, Français'),
