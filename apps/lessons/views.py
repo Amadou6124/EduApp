@@ -55,6 +55,38 @@ def get_subject_type(name: str) -> str:
     return 'other'
 
 
+def _build_classes_data(teacher):
+    """Classes + matières assignées à l'enseignant, pour l'assistant d'upload (v1 ET v2).
+
+    Chaque classe porte son niveau (level/level_label) ; chaque matière son type déduit
+    (heuristique get_subject_type) + ses couleurs. Source de la « déduction » : le prof
+    choisit une classe+matière, tout le reste (niveau, type) en découle."""
+    class_subjects = (
+        ClassSubject.objects
+        .filter(teacher=teacher)
+        .select_related('school_class', 'subject')
+        .order_by('school_class__name', 'subject__name')
+    )
+    classes: dict = {}
+    for cs in class_subjects:
+        cls = cs.school_class
+        if cls.id not in classes:
+            classes[cls.id] = {
+                'id':          cls.id,
+                'name':        cls.name,
+                'level':       cls.level,
+                'level_label': cls.get_level_display(),
+                'subjects':    [],
+            }
+        stype = get_subject_type(cs.subject.name)
+        icon, bg, text = SUBJECT_META.get(stype, SUBJECT_META['other'])
+        classes[cls.id]['subjects'].append({
+            'name': cs.subject.name, 'type': stype,
+            'icon': icon, 'bg': bg, 'text': text,
+        })
+    return list(classes.values())
+
+
 def _generate_async(lesson_id):
     """Génération IA en thread d'arrière-plan (pas de Celery)."""
     close_old_connections()
@@ -94,39 +126,10 @@ def lesson_list(request):
 def lesson_upload(request):
     school = get_school(request)
 
-    def _build_classes_data():
-        class_subjects = (
-            ClassSubject.objects
-            .filter(teacher=request.user)
-            .select_related('school_class', 'subject')
-            .order_by('school_class__name', 'subject__name')
-        )
-        classes: dict = {}
-        for cs in class_subjects:
-            cls = cs.school_class
-            if cls.id not in classes:
-                classes[cls.id] = {
-                    'id':          cls.id,
-                    'name':        cls.name,
-                    'level':       cls.level,
-                    'level_label': cls.get_level_display(),
-                    'subjects':    [],
-                }
-            stype = get_subject_type(cs.subject.name)
-            icon, bg, text = SUBJECT_META.get(stype, SUBJECT_META['other'])
-            classes[cls.id]['subjects'].append({
-                'name': cs.subject.name,
-                'type': stype,
-                'icon': icon,
-                'bg':   bg,
-                'text': text,
-            })
-        return list(classes.values())
-
     if request.method == 'GET':
         return render(request, 'lessons/upload.html', {
             'school':       school,
-            'classes_data': _build_classes_data(),
+            'classes_data': _build_classes_data(request.user),
         })
 
     # POST ──────────────────────────────────────────────────────────────────────
@@ -160,7 +163,7 @@ def lesson_upload(request):
     if errors:
         return render(request, 'lessons/upload.html', {
             'school':       school,
-            'classes_data': _build_classes_data(),
+            'classes_data': _build_classes_data(request.user),
             'errors':       errors,
         }, status=422)
 
@@ -348,11 +351,14 @@ def _unit_status_context(unit) -> dict:
     """Contexte partagé par unit_detail et unit_status (checklist des shells)."""
     lessons = list(unit.lessons.all().order_by('id'))
     ready = sum(1 for l in lessons if l.status == LessonStatus.READY)
+    total = len(lessons)
     return {
         'unit':              unit,
         'lessons':           lessons,
         'ready_count':       ready,
-        'total_count':       len(lessons),
+        'total_count':       total,
+        'progress_pct':      int(ready / total * 100) if total else 0,
+        'all_ready':         total > 0 and ready == total,
         'generation_active': is_generation_active(unit),
         'has_error':         any(l.status == LessonStatus.ERROR for l in lessons),
     }
@@ -364,9 +370,13 @@ def unit_upload(request):
     NE lance PAS la génération (confirmer-lite : bouton « Lancer » ensuite)."""
     school = get_school(request)
     if request.method == 'GET':
-        return render(request, 'lessons/unit_upload.html', {'school': school})
+        return render(request, 'lessons/unit_upload.html', {
+            'school': school,
+            'classes_data': _build_classes_data(request.user),
+        })
 
-    # POST
+    # POST — les champs sont DÉDUITS par l'assistant (classe+matière choisies),
+    # pas saisis : mêmes noms que le v1.
     errors = {}
     source_file = request.FILES.get('source_file')
     source_type = None
@@ -378,16 +388,20 @@ def unit_upload(request):
         except ValueError as e:
             errors['source_file'] = str(e)
 
+    selected_class_id = request.POST.get('selected_class_id', '').strip()
     subject_name  = request.POST.get('selected_subject_name', '').strip()
     subject_type  = request.POST.get('selected_subject_type', 'other')
     level         = request.POST.get('selected_level', '').strip() or EducationLevel.FONDAMENTAL_1
     level_detail  = request.POST.get('selected_level_detail', '').strip()
+    if not selected_class_id:
+        errors['class'] = 'Classe requise.'
     if not subject_name:
         errors['subject'] = 'Matière requise.'
 
     if errors:
         return render(request, 'lessons/unit_upload.html',
-                      {'school': school, 'errors': errors}, status=422)
+                      {'school': school, 'classes_data': _build_classes_data(request.user),
+                       'errors': errors}, status=422)
 
     # Extraction synchrone via fichier temporaire (extract attend un CHEMIN ; le
     # fichier uploadé est en mémoire). Le worker re-extraira depuis source_file.path.
@@ -409,19 +423,20 @@ def unit_upload(request):
     except Exception as e:
         logger.error('Architecte upload échoué: %s', e)
         return render(request, 'lessons/unit_upload.html',
-                      {'school': school,
+                      {'school': school, 'classes_data': _build_classes_data(request.user),
                        'errors': {'architecte': "L'analyse du document a échoué. Réessayez."}},
                       status=502)
 
     if structure.get('error') == 'unreadable':
         return render(request, 'lessons/unit_upload.html',
-                      {'school': school,
+                      {'school': school, 'classes_data': _build_classes_data(request.user),
                        'errors': {'architecte': structure.get('message', 'Document illisible.')}},
                       status=422)
 
     unit = _create_unit_skeleton(
         structure,
         teacher=request.user, school=school,
+        subject=subject_name,          # matière du prof = vérité terrain (surcharge l'IA)
         subject_type=subject_type, level=level, level_detail=level_detail,
         source_file=source_file, source_type=source_type,
         initial_status=LessonStatus.DRAFT,

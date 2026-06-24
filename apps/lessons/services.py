@@ -1826,6 +1826,7 @@ def generate_lesson_v2(lesson_meta: dict, source, cost_sink: list = None) -> dic
 
 @transaction.atomic
 def _create_unit_skeleton(architect_structure: dict, *, teacher, school=None,
+                          subject=None,
                           subject_type=SubjectType.OTHER,
                           level=EducationLevel.FONDAMENTAL_1, level_detail='',
                           source_file=None, source_type='pdf', language='fr',
@@ -1837,6 +1838,11 @@ def _create_unit_skeleton(architect_structure: dict, *, teacher, school=None,
     qu'il faut pour régénérer en cas d'échec, sans re-stocker le JSON Architecte. Les
     métadonnées document-level (subject/direction/source) vivent sur l'Unit.
 
+    subject : matière du document. Si fourni (vue d'upload : matière CHOISIE par le
+    prof = vérité terrain), il FAIT FOI ; sinon on retombe sur la détection Architecte.
+    Principe : l'IA détecte la STRUCTURE (titre/direction/leçons), le prof possède le
+    CONTEXTE (matière/classe/niveau).
+
     initial_status : statut initial de l'Unit ET des shells. Défaut PROCESSING
     (persist_generated_unit, génération immédiate). La vue d'upload v2 passe DRAFT
     (« en attente » : confirmer-lite, la génération attend le bouton « Lancer »).
@@ -1845,7 +1851,7 @@ def _create_unit_skeleton(architect_structure: dict, *, teacher, school=None,
     unit = Unit.objects.create(
         teacher=teacher, school=school,
         title=architect_structure['unit_title'],
-        subject=architect_structure.get('subject', ''),
+        subject=subject if subject else architect_structure.get('subject', ''),
         subject_type=subject_type,
         level=level, level_detail=level_detail,
         language=language,

@@ -53,13 +53,18 @@ class UnitViewsV2Test(TestCase):
              patch('apps.lessons.views.launch_unit_generation') as m_launch:
             resp = self.client.post(reverse('lessons:unit-upload'), {
                 'source_file': f,
-                'selected_subject_name': 'Géographie',
+                'selected_class_id': '1',                   # déduit (assistant)
+                'selected_subject_name': 'Géographie',      # matière CHOISIE par le prof
                 'selected_subject_type': 'geography',
                 'selected_level': 'fondamental_2',
+                'selected_level_detail': '6ème A',
             })
         self.assertEqual(resp.status_code, 302)            # redirect détail
         unit = Unit.objects.get()
         self.assertEqual(unit.status, LessonStatus.DRAFT)  # confirmer-lite
+        # Unit.subject = la matière du PROF, pas la devinette Architecte
+        self.assertEqual(unit.subject, 'Géographie')
+        self.assertNotEqual(unit.subject, ARCH['subject'])  # ARCH['subject'] = 'Histoire-Géographie'
         self.assertEqual(unit.lessons.count(), 2)
         for l in unit.lessons.all():
             self.assertEqual(l.status, LessonStatus.DRAFT)  # initial_status=DRAFT
@@ -72,7 +77,7 @@ class UnitViewsV2Test(TestCase):
              patch('apps.lessons.views.call_architect',
                    return_value={'error': 'unreadable', 'message': 'Document flou'}):
             resp = self.client.post(reverse('lessons:unit-upload'), {
-                'source_file': f, 'selected_subject_name': 'Géographie',
+                'source_file': f, 'selected_class_id': '1', 'selected_subject_name': 'Géographie',
             })
         self.assertEqual(resp.status_code, 422)
         self.assertEqual(Unit.objects.count(), 0)          # aucun skeleton créé
@@ -80,9 +85,27 @@ class UnitViewsV2Test(TestCase):
 
     def test_upload_no_file(self):
         resp = self.client.post(reverse('lessons:unit-upload'),
-                                {'selected_subject_name': 'Géographie'})
+                                {'selected_class_id': '1', 'selected_subject_name': 'Géographie'})
         self.assertEqual(resp.status_code, 422)
         self.assertEqual(Unit.objects.count(), 0)
+
+    # ── unit_upload GET (assistant peuplé depuis les ClassSubject du prof) ────────
+    def test_upload_get_lists_teacher_classes(self):
+        from apps.schools.models import SchoolClass, Subject, ClassSubject
+        sclass = SchoolClass.objects.create(
+            school=self.school, name='6ème A', level='fondamental_2', annual_fee=0)
+        subj = Subject.objects.create(school=self.school, name='Histoire-Géographie')
+        ClassSubject.objects.create(school_class=sclass, subject=subj, teacher=self.teacher)
+
+        resp = self.client.get(reverse('lessons:unit-upload'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '6ème A')                 # carte-classe
+        self.assertContains(resp, 'Histoire-Géographie')    # carte-matière (déduite)
+
+    def test_upload_get_empty_state(self):
+        resp = self.client.get(reverse('lessons:unit-upload'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Aucune classe assignée')  # prof sans ClassSubject
 
     # ── unit_generate ───────────────────────────────────────────────────────────
     def test_generate_launches(self):
