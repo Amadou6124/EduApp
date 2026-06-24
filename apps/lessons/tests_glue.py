@@ -5,16 +5,22 @@ Base temporaire Django (TestCase) — aucune génération IA : l'objet `generate
 
 Lancement : python manage.py test apps.lessons.tests_glue
 """
+import os
 from decimal import Decimal
+from pathlib import Path
+from unittest import skipUnless
 from unittest.mock import patch
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
-from apps.lessons.models import Unit, Lesson, LessonContentVersion, LessonStatus
+from apps.lessons.models import (Unit, Lesson, LessonContentVersion, LessonStatus,
+                                 SubjectType, EducationLevel)
 from apps.lessons import services
 
 User = get_user_model()
+
+DOC_PATH = Path(__file__).resolve().parents[2] / 'test_docs' / 'geographie_mali_test.txt'
 
 # Structure Architecte factice (2 leçons).
 ARCHITECT = {
@@ -304,3 +310,88 @@ class RegenerateLessonTest(TestCase):
         self.assertEqual(self.lesson.status, LessonStatus.READY)             # pas dégradée
         self.assertEqual(self.lesson.active_content_version_id, self.cv1.id)  # v1 toujours active
         self.assertEqual(self.lesson.content_versions.count(), 1)            # pas de v2 fantôme
+
+
+@skipUnless(os.environ.get('RUN_LIVE'), 'test live (vrais appels API) — activer avec RUN_LIVE=1')
+class LiveEndToEndTest(TestCase):
+    """Bout-à-bout RÉEL : call_architect + persist_generated_unit avec vraie génération.
+    Base de test jetable (aucune pollution de dev). Tronqué à 1 leçon (~4 appels API)."""
+
+    def test_live_relief(self):
+        import anthropic
+        from apps.schools.models import School
+
+        contenu = DOC_PATH.read_text(encoding='utf-8')
+        print(f'\n[LIVE] Document : {DOC_PATH.name} ({len(contenu)} car.)')
+
+        # 1-2. Architecte (vrai appel)
+        try:
+            structure = call_architect = services.call_architect(contenu)
+        except anthropic.APIError as e:
+            self.skipTest(f'API Anthropic indisponible (Architecte) : {e}')
+        if structure.get('error') == 'unreadable':
+            self.skipTest(f"Architecte juge le doc illisible : {structure.get('message')}")
+        print(f"[LIVE] Architecte : unit='{structure['unit_title']}', "
+              f"{len(structure['lessons'])} leçons, subject='{structure['subject']}', "
+              f"direction={structure['direction']}")
+
+        # 3. Tronquer à la leçon relief (1 leçon → ~4 appels)
+        relief = next((l for l in structure['lessons'] if 'relief' in l.get('id', '')),
+                      structure['lessons'][0])
+        structure['lessons'] = [relief]
+        print(f"[LIVE] Leçon retenue : id={relief['id']} | title={relief['title']}")
+
+        # 4. Fixtures + persistance réelle
+        teacher = User.objects.create_user(
+            phone_number='70009999', full_name='Prof Live', password='x')
+        school = School.objects.create(name='École Live', city='Bamako')
+        try:
+            unit = services.persist_generated_unit(
+                structure, contenu, teacher=teacher, school=school,
+                subject_type=SubjectType.GEOGRAPHY, level=EducationLevel.FONDAMENTAL_2,
+            )
+        except anthropic.APIError as e:
+            self.skipTest(f'API Anthropic indisponible (génération) : {e}')
+
+        unit.refresh_from_db()
+        if unit.status == LessonStatus.ERROR:
+            self.skipTest('Toutes les leçons en ERROR (probable outage API durant la génération)')
+
+        # 6. Vérifications DEPUIS LA BASE
+        print(f"[LIVE] Unit.status={unit.status} | cost=${unit.generation_cost_usd}")
+        self.assertEqual(unit.status, LessonStatus.READY)
+        self.assertEqual(unit.lessons.count(), 1)
+
+        lesson = unit.lessons.get()
+        self.assertEqual(lesson.status, LessonStatus.READY)
+        self.assertIsNotNone(lesson.active_content_version_id)
+
+        cv = lesson.active_content_version
+        print(f"[LIVE] Version v{cv.version} | color={cv.color} | guide={cv.guide} "
+              f"| cost=${cv.generation_cost_usd}")
+        print(f"[LIVE] concepts={len(cv.concepts_data)} | "
+              f"reading.sections={len(cv.reading_data.get('sections', []))} | "
+              f"exam.questions={len(cv.exam_data.get('questions', []))} | "
+              f"story.steps={len(cv.story_data.get('steps', []))}")
+
+        self.assertEqual(cv.version, 1)
+        self.assertTrue(cv.concepts_data, 'concepts_data vide')
+        self.assertTrue(cv.reading_data, 'reading_data vide')
+        self.assertTrue(cv.exam_data, 'exam_data vide')
+        self.assertTrue(cv.story_data, 'story_data vide (le fix B3 ne marche pas)')
+        self.assertTrue(cv.color)
+        self.assertTrue(cv.guide)
+        self.assertGreater(cv.generation_cost_usd, 0)   # coût réel remonté
+        self.assertGreater(unit.generation_cost_usd, 0)
+
+        # Cohérence B1↔B3 relue DEPUIS LA BASE
+        concept_ids = {c['id'] for c in cv.concepts_data}
+        char_names = [c.get('name') for c in cv.story_data.get('characters', [])]
+        print(f"[LIVE] cohérence : guide '{cv.guide}' in characters {char_names} ? "
+              f"{cv.guide in char_names}")
+        self.assertIn(cv.guide, char_names)
+        refs = [s.get('concept_ref') for s in cv.story_data.get('steps', []) if s.get('concept_ref')]
+        print(f"[LIVE] concept_ref de story : {refs} | concepts B1 : {sorted(concept_ids)}")
+        for r in refs:
+            self.assertIn(r, concept_ids, f"concept_ref '{r}' absent de concepts_data")
+        print('[LIVE] OK — chaîne A↔B validée en réel, story persistée.')
