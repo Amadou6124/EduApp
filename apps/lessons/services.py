@@ -24,7 +24,10 @@ import pdfplumber
 import pypdfium2 as pdfium
 from decouple import config
 
-from .models import Lesson, LessonStatus, AIProvider
+from django.db import transaction
+
+from .models import (Lesson, LessonStatus, AIProvider, SubjectType,
+                     EducationLevel, Unit, LessonContentVersion)
 
 logger = logging.getLogger(__name__)
 
@@ -1805,3 +1808,90 @@ def generate_lesson_v2(lesson_meta: dict, source, cost_sink: list = None) -> dic
 
     # 4. Assemblage final (§3.1, provenance §4.6).
     return _assemble_lesson(lesson_meta, results)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Glue génération↔persistance : helpers internes
+# ───────────────────────────────────────────────────────────────────────────────
+# Additif. Écritures DB COURTES et atomiques (la génération IA, lente et faillible,
+# reste HORS transaction — décidé : pas de transaction ouverte pendant des appels
+# réseau). Remap des clés générées (concepts→concepts_data, etc.) à la création de
+# la version immuable. Ces helpers seront orchestrés par persist_generated_unit /
+# resume_unit / regenerate_lesson (étapes suivantes).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@transaction.atomic
+def _create_unit_skeleton(architect_structure: dict, *, teacher, school=None,
+                          subject_type=SubjectType.OTHER,
+                          level=EducationLevel.FONDAMENTAL_1, level_detail='',
+                          source_file=None, source_type='pdf', language='fr') -> Unit:
+    """Crée l'Unit (processing) + N Lesson shells (processing) depuis la structure
+    Architecte, ATOMIQUEMENT (soit le squelette entier, soit rien).
+
+    Les shells portent l'identité de chaque leçon (title/summary/slug=id) — tout ce
+    qu'il faut pour régénérer en cas d'échec, sans re-stocker le JSON Architecte. Les
+    métadonnées document-level (subject/direction/source) vivent sur l'Unit. La
+    génération du contenu se fait ENSUITE, hors transaction. Retourne l'Unit."""
+    unit = Unit.objects.create(
+        teacher=teacher, school=school,
+        title=architect_structure['unit_title'],
+        subject=architect_structure.get('subject', ''),
+        subject_type=subject_type,
+        level=level, level_detail=level_detail,
+        language=language,
+        direction=architect_structure.get('direction', 'ltr'),
+        source_file=source_file, source_type=source_type,
+        status=LessonStatus.PROCESSING,
+    )
+    for meta in architect_structure['lessons']:
+        Lesson.objects.create(
+            teacher=teacher, school=school, unit=unit,
+            title=meta['title'],
+            summary=meta.get('summary', ''),
+            slug=meta.get('id', ''),
+            format_version=2,
+            status=LessonStatus.PROCESSING,
+        )
+    return unit
+
+
+@transaction.atomic
+def _persist_lesson_version(lesson, generated: dict, lesson_cost) -> LessonContentVersion:
+    """Write unifié v1 / v(N+1) : crée une LessonContentVersion IMMUABLE depuis l'objet
+    généré (§3.1), avec REMAP des clés, pose le pointeur live et passe la leçon ready.
+
+    Réutilisé en première création (count 0 → v1) ET en régénération (count N →
+    v(N+1) + bascule du pointeur ; l'ancienne version + sa progression restent
+    intactes). Retourne la version créée."""
+    version = lesson.content_versions.count() + 1
+    cv = LessonContentVersion.objects.create(
+        lesson=lesson,
+        version=version,
+        concepts_data=generated['concepts'],   # remap concepts → concepts_data
+        reading_data=generated['reading'],     # remap reading  → reading_data
+        exam_data=generated['exam'],           # remap exam     → exam_data
+        color=generated.get('color', ''),
+        guide=generated.get('guide', ''),
+        ai_provider_used=AIProvider.CLAUDE,
+        generation_cost_usd=lesson_cost,
+    )
+    lesson.active_content_version = cv
+    lesson.status = LessonStatus.READY
+    lesson.save(update_fields=['active_content_version', 'status', 'updated_at'])
+    return cv
+
+
+@transaction.atomic
+def _finalize_unit_status(unit) -> None:
+    """Statut final de l'Unit selon ses leçons : toutes ready → READY ; ≥1 ready ET
+    ≥1 non-ready → PARTIAL ; aucune ready → ERROR."""
+    statuses = list(unit.lessons.values_list('status', flat=True))
+    ready = sum(1 for s in statuses if s == LessonStatus.READY)
+    total = len(statuses)
+    if total and ready == total:
+        unit.status = LessonStatus.READY
+    elif ready:
+        unit.status = LessonStatus.PARTIAL
+    else:
+        unit.status = LessonStatus.ERROR
+    unit.save(update_fields=['status', 'updated_at'])
