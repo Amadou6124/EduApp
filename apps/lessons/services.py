@@ -1895,3 +1895,58 @@ def _finalize_unit_status(unit) -> None:
     else:
         unit.status = LessonStatus.ERROR
     unit.save(update_fields=['status', 'updated_at'])
+
+
+def persist_generated_unit(architect_structure: dict, source, *, teacher, school=None,
+                           subject_type=SubjectType.OTHER,
+                           level=EducationLevel.FONDAMENTAL_1, level_detail='',
+                           source_file=None, source_type='pdf', language='fr') -> Unit:
+    """Création v2 complète : skeleton (Unit + shells) puis remplissage par génération.
+
+    architect_structure : sortie de call_architect (DÉJÀ produite par l'appelant).
+    source : le document ENTIER (str OU blocs image base64), passé à chaque leçon.
+    Inputs teacher/serveur (subject_type/level/… sans source IA) en keyword-only.
+
+    La génération (generate_lesson_v2) tourne HORS transaction (lente) ; seules les
+    écritures (skeleton, version, marquage error, statut final) sont en txn courte
+    (via les helpers). Une leçon qui échoue (LessonBlockError) est marquée ERROR
+    SANS faire échouer les autres.
+
+    Coût Architecte HORS scope ici (architect_structure est déjà produit) →
+    Unit.generation_cost_usd = somme des coûts des LEÇONS réussies. On pourra
+    ajouter le coût Architecte en paramètre plus tard si besoin.
+    Retourne l'Unit rafraîchie."""
+    unit = _create_unit_skeleton(
+        architect_structure, teacher=teacher, school=school,
+        subject_type=subject_type, level=level, level_detail=level_detail,
+        source_file=source_file, source_type=source_type, language=language,
+    )
+
+    total_cost = Decimal('0')
+    # Boucle de remplissage : seulement les shells non-ready (réutilisable en reprise).
+    for shell in unit.lessons.exclude(status=LessonStatus.READY):
+        lesson_meta = {
+            'id':        shell.slug,
+            'title':     shell.title,
+            'summary':   shell.summary,
+            'subject':   unit.subject,      # document-level (Unit)
+            'direction': unit.direction,    # document-level (Unit)
+        }
+        lesson_costs = []  # cost_sink frais PAR leçon
+        try:
+            # HORS transaction : appel(s) API lent(s).
+            generated = generate_lesson_v2(lesson_meta, source, cost_sink=lesson_costs)
+            lesson_cost = sum(lesson_costs)
+            _persist_lesson_version(shell, generated, lesson_cost)  # txn courte → ready
+            total_cost += lesson_cost
+        except LessonBlockError:
+            # Échec durable de cette leçon : on la marque ERROR et on CONTINUE.
+            with transaction.atomic():
+                shell.status = LessonStatus.ERROR
+                shell.save(update_fields=['status', 'updated_at'])
+
+    _finalize_unit_status(unit)
+    unit.generation_cost_usd = total_cost
+    unit.save(update_fields=['generation_cost_usd', 'updated_at'])
+    unit.refresh_from_db()
+    return unit

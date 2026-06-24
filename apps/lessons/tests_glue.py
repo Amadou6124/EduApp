@@ -6,6 +6,7 @@ Base temporaire Django (TestCase) — aucune génération IA : l'objet `generate
 Lancement : python manage.py test apps.lessons.tests_glue
 """
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -127,3 +128,65 @@ class GlueHelpersTest(TestCase):
         services._finalize_unit_status(unit)
         unit.refresh_from_db()
         self.assertEqual(unit.status, LessonStatus.ERROR)
+
+
+class PersistGeneratedUnitTest(TestCase):
+    """Orchestration de création : generate_lesson_v2 est MOCKÉ (aucune API)."""
+
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            phone_number='70000001', full_name='Prof Test', password='x')
+
+    def test_all_success(self):
+        def fake_gen(lesson_meta, source, cost_sink=None):
+            if cost_sink is not None:
+                cost_sink.append(Decimal('0.001'))
+            return GENERATED
+        with patch.object(services, 'generate_lesson_v2', side_effect=fake_gen) as m:
+            unit = services.persist_generated_unit(ARCHITECT, 'doc source', teacher=self.teacher)
+
+        self.assertEqual(unit.status, LessonStatus.READY)
+        self.assertEqual(m.call_count, 2)                  # 2 leçons générées
+        for l in unit.lessons.all():
+            self.assertEqual(l.status, LessonStatus.READY)
+            self.assertIsNotNone(l.active_content_version_id)
+            self.assertEqual(l.content_versions.count(), 1)   # v1 par leçon
+        self.assertEqual(unit.generation_cost_usd, Decimal('0.002'))  # 2 × 0.001
+
+    def test_partial_failure(self):
+        """Leçon 'le-relief' réussit, 'le-climat' lève → l'une ready, l'autre error,
+        Unit PARTIAL. La leçon réussie n'est PAS affectée par l'échec de l'autre."""
+        def fake_gen(lesson_meta, source, cost_sink=None):
+            if lesson_meta['id'] == 'le-relief':
+                if cost_sink is not None:
+                    cost_sink.append(Decimal('0.001'))
+                return GENERATED
+            raise services.LessonBlockError('B3', RuntimeError('529 simulé'))
+        with patch.object(services, 'generate_lesson_v2', side_effect=fake_gen):
+            unit = services.persist_generated_unit(ARCHITECT, 'doc', teacher=self.teacher)
+
+        self.assertEqual(unit.status, LessonStatus.PARTIAL)
+
+        relief = unit.lessons.get(slug='le-relief')
+        self.assertEqual(relief.status, LessonStatus.READY)
+        self.assertIsNotNone(relief.active_content_version_id)
+        self.assertEqual(relief.content_versions.count(), 1)   # v1 intacte
+
+        climat = unit.lessons.get(slug='le-climat')
+        self.assertEqual(climat.status, LessonStatus.ERROR)
+        self.assertIsNone(climat.active_content_version_id)
+        self.assertEqual(climat.content_versions.count(), 0)   # pas de version
+
+        self.assertEqual(unit.generation_cost_usd, Decimal('0.001'))  # seule la réussie
+
+    def test_all_failure(self):
+        def fake_gen(lesson_meta, source, cost_sink=None):
+            raise services.LessonBlockError('B1', RuntimeError('529 simulé'))
+        with patch.object(services, 'generate_lesson_v2', side_effect=fake_gen):
+            unit = services.persist_generated_unit(ARCHITECT, 'doc', teacher=self.teacher)
+
+        self.assertEqual(unit.status, LessonStatus.ERROR)
+        for l in unit.lessons.all():
+            self.assertEqual(l.status, LessonStatus.ERROR)
+            self.assertEqual(l.content_versions.count(), 0)
+        self.assertEqual(unit.generation_cost_usd, Decimal('0'))
