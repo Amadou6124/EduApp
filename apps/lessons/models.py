@@ -28,6 +28,93 @@ class AIProvider(models.TextChoices):
     GEMINI = 'gemini', _('Gemini (Google)')
 
 
+class TextDirection(models.TextChoices):
+    LTR = 'ltr', _('Gauche → droite')
+    RTL = 'rtl', _('Droite → gauche (arabe)')
+
+
+class Unit(models.Model):
+    """Unité v2 (PORTAL_V2_SPEC) : un document source = une unité contenant
+    plusieurs leçons. Porte les métadonnées document-level (source, matière,
+    sens de lecture) produites par le Prompt Architecte. Additif, parallèle au v1."""
+    teacher = models.ForeignKey(
+        User, on_delete=models.PROTECT,
+        related_name='units',
+        verbose_name=_('enseignant'),
+    )
+    school = models.ForeignKey(
+        School, on_delete=models.CASCADE,
+        related_name='units',
+        verbose_name=_('école'),
+        null=True, blank=True,
+    )
+    title = models.CharField(_('titre'), max_length=200)
+    subject = models.CharField(
+        _('matière'), max_length=100,
+        help_text=_('Ex: Mathématiques, SVT, Français'),
+    )
+    subject_type = models.CharField(
+        _('type de matière'), max_length=20,
+        choices=SubjectType.choices,
+        default=SubjectType.OTHER,
+    )
+    level = models.CharField(
+        _('niveau'), max_length=30,
+        choices=EducationLevel.choices,
+        default=EducationLevel.FONDAMENTAL_1,
+    )
+    level_detail = models.CharField(
+        _('détail niveau'), max_length=50, blank=True,
+        help_text=_('Ex: 6ème Année, Terminale A'),
+    )
+    language = models.CharField(_('langue'), max_length=5, default='fr')
+    direction = models.CharField(
+        _('sens de lecture'), max_length=3,
+        choices=TextDirection.choices,
+        default=TextDirection.LTR,
+    )
+
+    # Fichier source uploadé (le document vit au niveau unité en v2)
+    source_file = models.FileField(
+        _('fichier source'),
+        upload_to='units/sources/%Y/%m/',
+        null=True, blank=True,
+    )
+    source_type = models.CharField(
+        _('type source'), max_length=10,
+        choices=[('pdf', 'PDF'), ('image', 'Image'), ('text', 'Texte')],
+        default='pdf',
+    )
+
+    # Statut et métadonnées IA (génération de la structure par l'Architecte)
+    status = models.CharField(
+        _('statut'), max_length=20,
+        choices=LessonStatus.choices,
+        default=LessonStatus.DRAFT,
+    )
+    processing_error = models.TextField(_('erreur'), blank=True)
+    ai_provider_used = models.CharField(
+        _('IA utilisée'), max_length=20,
+        choices=AIProvider.choices, blank=True,
+    )
+    generation_cost_usd = models.DecimalField(
+        _('coût génération USD'),
+        max_digits=8, decimal_places=6, default=0,
+    )
+    generation_attempts = models.PositiveSmallIntegerField(_('tentatives'), default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('unité')
+        verbose_name_plural = _('unités')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.title} — {self.subject} ({self.level})'
+
+
 class Lesson(models.Model):
     teacher = models.ForeignKey(
         User, on_delete=models.PROTECT,
@@ -38,6 +125,14 @@ class Lesson(models.Model):
         School, on_delete=models.CASCADE,
         related_name='lessons',
         verbose_name=_('école'),
+        null=True, blank=True,
+    )
+    # v2 (PORTAL_V2_SPEC) : rattachement à l'unité (document). Nullable →
+    # cohabitation v1 (unit=null). PROTECT : verrou anti-orphelinage uniforme.
+    unit = models.ForeignKey(
+        Unit, on_delete=models.PROTECT,
+        related_name='lessons',
+        verbose_name=_('unité'),
         null=True, blank=True,
     )
     title = models.CharField(_('titre'), max_length=200)
