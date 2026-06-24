@@ -689,7 +689,7 @@ def _loads_json_resilient(raw: str) -> dict:
                 raise ValueError(f'JSON invalide: {e}\nDébut de la réponse: {raw[:200]}')
 
 
-def call_architect(content) -> dict:
+def call_architect(content, cost_sink: list = None) -> dict:
     """Temps 1 (A.1) : document → structure { unit_title, subject, direction, lessons[] }.
 
     `content` = str (texte extrait) OU list de blocs image base64 (sortie de
@@ -729,6 +729,9 @@ def call_architect(content) -> dict:
         'Architecte: %d in / %d out / $%.6f / %.1fs',
         response.usage.input_tokens, response.usage.output_tokens, cost, time.time() - start,
     )
+
+    if cost_sink is not None:
+        cost_sink.append(cost)
 
     return _parse_architect(response.content[0].text)
 
@@ -1060,7 +1063,7 @@ Source  :
 {lesson_source}"""
 
 
-def call_noyau(lesson_title: str, lesson_summary: str, source) -> dict:
+def call_noyau(lesson_title: str, lesson_summary: str, source, cost_sink: list = None) -> dict:
     """Appel B1 « Noyau » : une leçon → { color, guide, concepts[], exam }.
 
     lesson_title / lesson_summary : issus de l'Architecte (texte).
@@ -1100,6 +1103,9 @@ def call_noyau(lesson_title: str, lesson_summary: str, source) -> dict:
         'Noyau B1: %d in / %d out / $%.6f / %.1fs',
         response.usage.input_tokens, response.usage.output_tokens, cost, time.time() - start,
     )
+
+    if cost_sink is not None:
+        cost_sink.append(cost)
 
     return _parse_noyau(response.content[0].text)
 
@@ -1265,7 +1271,8 @@ Source  :
 {lesson_source}"""
 
 
-def call_lecture(lesson_title: str, lesson_summary: str, source, direction: str = 'ltr') -> dict:
+def call_lecture(lesson_title: str, lesson_summary: str, source, direction: str = 'ltr',
+                 cost_sink: list = None) -> dict:
     """Appel B2 « Lecture » : une leçon → { reading: { title, direction, terms{}, sections[] } }.
 
     source : str (texte) OU list de blocs image base64 (comme call_noyau).
@@ -1303,6 +1310,9 @@ def call_lecture(lesson_title: str, lesson_summary: str, source, direction: str 
         'Lecture B2: %d in / %d out / $%.6f / %.1fs',
         response.usage.input_tokens, response.usage.output_tokens, cost, time.time() - start,
     )
+
+    if cost_sink is not None:
+        cost_sink.append(cost)
 
     return _parse_lecture(response.content[0].text)
 
@@ -1413,7 +1423,7 @@ Source  :
 
 
 def call_histoire(lesson_title: str, lesson_summary: str, source,
-                  guide: str, concepts) -> dict:
+                  guide: str, concepts, cost_sink: list = None) -> dict:
     """Appel B3 « Histoire » : une leçon (+ guide + concepts de B1) →
     { story: { scene, characters[], steps[] } }.
 
@@ -1460,6 +1470,9 @@ def call_histoire(lesson_title: str, lesson_summary: str, source,
         'Histoire B3: %d in / %d out / $%.6f / %.1fs',
         response.usage.input_tokens, response.usage.output_tokens, cost, time.time() - start,
     )
+
+    if cost_sink is not None:
+        cost_sink.append(cost)
 
     return _parse_histoire(response.content[0].text)
 
@@ -1758,13 +1771,16 @@ def _assemble_lesson(lesson_meta: dict, results: dict) -> dict:
     }
 
 
-def generate_lesson_v2(lesson_meta: dict, source) -> dict:
+def generate_lesson_v2(lesson_meta: dict, source, cost_sink: list = None) -> dict:
     """Orchestre la génération complète d'UNE leçon v2 (§4.6).
 
     lesson_meta : la leçon issue de l'Architecte — { id, title, summary, subject,
                   direction } (subject/direction du niveau unité ; id/title/summary
                   de la leçon).
     source : la portion de document de la leçon (str OU list de blocs image base64).
+    cost_sink : liste optionnelle où B1/B2/B3 ajoutent leur coût (Decimal). Forwardé
+                tel quel ; None → aucun coût collecté. Le RETOUR ne change pas (objet
+                §3.1 pur) : le coût remonte par cost_sink, pas par la valeur de retour.
 
     Retourne l'objet leçon final (§3.1). Lève LessonBlockError si un bloc échoue 2×
     (l'erreur porte le bloc fautif + les blocs déjà réussis dans .partial).
@@ -1775,15 +1791,17 @@ def generate_lesson_v2(lesson_meta: dict, source) -> dict:
     results = {}  # accumule les blocs réussis → jamais reperdus
 
     # 1. B1 d'abord (ses concepts alimentent B3).
-    results['noyau'] = _run_block('B1', lambda: call_noyau(title, summary, source), results)
+    results['noyau'] = _run_block(
+        'B1', lambda: call_noyau(title, summary, source, cost_sink=cost_sink), results)
 
     # 2. B2 puis 3. B3 (séquentiel ; indépendants → parallélisables plus tard).
     results['lecture'] = _run_block(
-        'B2', lambda: call_lecture(title, summary, source, direction), results)
+        'B2', lambda: call_lecture(title, summary, source, direction, cost_sink=cost_sink), results)
     results['histoire'] = _run_block(
         'B3', lambda: call_histoire(title, summary, source,
                                     guide=results['noyau']['guide'],
-                                    concepts=results['noyau']['concepts']), results)
+                                    concepts=results['noyau']['concepts'],
+                                    cost_sink=cost_sink), results)
 
     # 4. Assemblage final (§3.1, provenance §4.6).
     return _assemble_lesson(lesson_meta, results)
