@@ -1208,3 +1208,74 @@ def quiz_choisir_v2_demo(request):
         'questions': d['questions'],
         'n_questions': len(d['questions']),
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Portail élève, QUIZ famille NOMBRE (Phase C, DÉMO).
+# 2 types : number_input + dynamic_formula.
+# Éval client-side miroir de evaluate_answer_v2 (services.py:1661-1666).
+# Pour dynamic_formula : le tirage est SIMULÉ côté client (démo uniquement).
+# ⚠  En production, draw_dynamic_formula() est appelé SERVER-SIDE ; les variables
+#    et la réponse attendue ne transitent JAMAIS par le client (anti-triche).
+# Route v2 séparée /learn/v2/quiz-nombre/ ; v1 + autres écrans v2 intacts.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_QUIZ_NOMBRE_DEMO = {
+    'lesson': {'title': "Maths & Sciences · Nombres", 'subject': "Mixte — démo", 'color': "#A78BFA"},
+    'questions': [
+        # 1. number_input — réponse entière exacte (géographie)
+        {
+            'type': 'number_input',
+            'instruction': "Combien de régions administratives le Mali compte-t-il depuis la réforme de 2023 ?",
+            'answer': 19,
+            'tolerance': 0,
+            'unit': 'régions',
+            'explanation': "Le Mali est divisé en 19 régions depuis la réforme administrative de 2023.",
+        },
+        # 2. number_input — réponse décimale avec tolérance (maths)
+        {
+            'type': 'number_input',
+            'instruction': "Quelle est la valeur de π (pi), arrondie à 2 décimales ?",
+            'answer': 3.14,
+            'tolerance': 0.005,
+            'unit': '',
+            'explanation': "π ≈ 3.14159… — 3.14 et 3.142 sont tous les deux acceptés (tolérance ±0.005).",
+        },
+        # 3. dynamic_formula — aire rectangle (résultat entier, tolérance 0)
+        {
+            'type': 'dynamic_formula',
+            'instruction': "Calcule l'aire d'un rectangle de {l} m de long et {w} m de large.",
+            'variables': {
+                'l': {'min': 3, 'max': 12, 'step': 1},
+                'w': {'min': 2, 'max': 9,  'step': 1},
+            },
+            'solution_formula': "l * w",
+            'tolerance': 0,
+            'unit': 'm²',
+            'explanation': "Aire = longueur × largeur.",
+        },
+        # 4. dynamic_formula — distance (résultat entier, tolérance 0)
+        {
+            'type': 'dynamic_formula',
+            'instruction': "Un train roule à {v} km/h pendant {t} h. Quelle distance parcourt-il ?",
+            'variables': {
+                'v': {'min': 60, 'max': 160, 'step': 10},
+                't': {'min': 2,  'max': 5,   'step': 1},
+            },
+            'solution_formula': "v * t",
+            'tolerance': 0,
+            'unit': 'km',
+            'explanation': "Distance = Vitesse × Temps.",
+        },
+    ],
+}
+
+
+def quiz_nombre_v2_demo(request):
+    """Quiz famille NOMBRE v2 (DÉMO, 2 types). Ungated. Branchement réel ensuite."""
+    d = _QUIZ_NOMBRE_DEMO
+    return render(request, 'student_learning/quiz_nombre_v2.html', {
+        'lesson': d['lesson'],
+        'questions': d['questions'],
+        'n_questions': len(d['questions']),
+    })
