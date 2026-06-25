@@ -1468,3 +1468,88 @@ def story_v2_demo(request):
         'characters': d['characters'],
         'steps':      d['steps'],
     })
+
+
+# ─────────────────────────────────────────────────────────────────
+# EXAM SOBRE v2 — démo 4 phases (intro / épreuve / confirmation / bilan)
+# ─────────────────────────────────────────────────────────────────
+_EXAM_DEMO = {
+    'lesson': {
+        'title': 'Biologie · La Cellule',
+        'subject': 'SVT — Terminale',
+    },
+    'meta': {
+        'title': 'Examen — Membrane & Transports',
+        'duration_s': 600,
+        'pass_mark': 0.6,
+    },
+    'questions': [
+        {
+            'type': 'choisir', 'id': 'q0',
+            'concept_id': 'membrane', 'concept_name': 'Membrane & échanges',
+            'prompt': 'Quelle structure cellulaire contrôle les échanges entre la cellule et son milieu ?',
+            'options': ['La membrane plasmique', 'Le noyau', 'La mitochondrie', 'Le ribosome'],
+            'correct_idx': 0,
+            'explanation': 'La membrane plasmique est la frontière sélective de la cellule — elle choisit ce qui entre et sort.',
+        },
+        {
+            'type': 'choisir', 'id': 'q1',
+            'concept_id': 'membrane', 'concept_name': 'Membrane & échanges',
+            'prompt': 'De quoi est principalement composée la membrane plasmique ?',
+            'options': ['Protéines uniquement', 'Bicouche de phospholipides + protéines', 'Glucides + lipides', 'ADN + protéines'],
+            'correct_idx': 1,
+            'explanation': 'La membrane est une bicouche de phospholipides dans laquelle sont insérées des protéines membranaires.',
+        },
+        {
+            'type': 'input', 'id': 'q2',
+            'concept_id': 'transport', 'concept_name': 'Transport membranaire',
+            'prompt': 'Quelle molécule énergétique est indispensable au transport actif ? (sigle, 3 lettres)',
+            'answers': ['atp'],
+            'explanation': "Le transport actif consomme de l'ATP, la monnaie énergétique universelle de la cellule.",
+        },
+        {
+            'type': 'ordonner', 'id': 'q3',
+            'concept_id': 'transport', 'concept_name': 'Transport membranaire',
+            'prompt': 'Remets les étapes du transport actif dans l\'ordre chronologique :',
+            'items': ['La protéine change de conformation', 'La molécule se lie à la protéine', "L'ATP est hydrolysé", 'La molécule est libérée dans la cellule'],
+            'solution': ['La molécule se lie à la protéine', "L'ATP est hydrolysé", 'La protéine change de conformation', 'La molécule est libérée dans la cellule'],
+            'explanation': "La liaison précède l'hydrolyse d'ATP, qui déclenche le changement de conformation, puis la libération.",
+        },
+        {
+            'type': 'blank', 'id': 'q4',
+            'concept_id': 'transport', 'concept_name': 'Transport membranaire',
+            'prompt': 'Complète la phrase :',
+            'parts': ["Le passage spontané de l'eau à travers la membrane selon le gradient de concentration s'appelle l'", '.'],
+            'answer': 'osmose',
+            'options': ['osmose', 'exocytose', 'électrolyse', 'diffusion'],
+            'explanation': "L'osmose est le passage de l'eau à travers une membrane semi-perméable, sans consommation d'énergie.",
+        },
+        {
+            'type': 'choisir', 'id': 'q5',
+            'concept_id': 'energie', 'concept_name': 'Énergie cellulaire',
+            'prompt': "Quel organite est le principal producteur d'ATP dans la cellule ?",
+            'options': ['Le noyau', 'Le ribosome', 'La mitochondrie', "L'appareil de Golgi"],
+            'correct_idx': 2,
+            'explanation': "La mitochondrie est le siège de la respiration cellulaire et produit la grande majorité de l'ATP.",
+        },
+        {
+            'type': 'associer', 'id': 'q6',
+            'concept_id': 'energie', 'concept_name': 'Énergie cellulaire',
+            'prompt': 'Associe chaque type de transport à sa caractéristique :',
+            'left': ['Osmose', 'Transport actif', 'Diffusion facilitée'],
+            'right': ["Eau, sans énergie", "Consomme de l'ATP", 'Protéine, sans énergie'],
+            'pairs': {'0': 0, '1': 1, '2': 2},
+            'explanation': "L'osmose déplace l'eau sans énergie ; le transport actif consomme de l'ATP ; la diffusion facilitée utilise une protéine mais pas d'énergie.",
+        },
+    ],
+}
+
+
+def exam_v2_demo(request):
+    """Examen sobre v2 — 4 phases (DÉMO). Ungated."""
+    d = _EXAM_DEMO
+    return render(request, 'student_learning/exam_v2.html', {
+        'lesson':    d['lesson'],
+        'meta':      d['meta'],
+        'questions': d['questions'],
+    })
