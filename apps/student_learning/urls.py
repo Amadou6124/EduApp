@@ -39,4 +39,5 @@ urlpatterns = [
     path('v2/quiz-nombre/',   views.quiz_nombre_v2_demo,   name='quiz-nombre-v2-demo'),
     path('v2/quiz-ordonner/',  views.quiz_ordonner_v2_demo,  name='quiz-ordonner-v2-demo'),
     path('v2/quiz-associer/',  views.quiz_associer_v2_demo,  name='quiz-associer-v2-demo'),
+    path('v2/story/',          views.story_v2_demo,          name='story-v2-demo'),
 ]

@@ -1,0 +1,996 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" class="theme-dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <title>{{ scene.name }} — Histoire</title>
+  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <script defer src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
+  <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
+
+  {{ characters|json_script:"s-chars-json" }}
+  {{ steps|json_script:"s-steps-json" }}
+  {{ scene|json_script:"s-scene-json" }}
+
+  <style>
+    /* ── variables dark ── */
+    .theme-dark {
+      --bg:        #07060f;
+      --solid-bg:  #0b0b1a;
+      --text:      #ffffff;
+      --text-dim:  rgba(255,255,255,.58);
+      --text-mute: rgba(255,255,255,.38);
+      --surface:   rgba(255,255,255,.06);
+      --surface-2: rgba(255,255,255,.10);
+      --border:    rgba(255,255,255,.09);
+      --track:     rgba(255,255,255,.14);
+      --accent:    #10B981;
+    }
+    *, *::before, *::after { box-sizing: border-box }
+    html, body { margin: 0; height: 100%; overflow: hidden }
+    ::-webkit-scrollbar { width: 0 }
+    body {
+      font-family: 'Manrope', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+    }
+    [x-cloak] { display: none !important }
+
+    /* ───────────── KEYFRAMES ───────────── */
+    @keyframes orb-drift-a {
+      0%,100% { transform: translate(0,0) scale(1); }
+      33%     { transform: translate(18px,-22px) scale(1.07); }
+      66%     { transform: translate(-12px,16px) scale(.95); }
+    }
+    @keyframes orb-drift-b {
+      0%,100% { transform: translate(0,0) scale(1); }
+      40%     { transform: translate(-20px,18px) scale(1.09); }
+      70%     { transform: translate(14px,-10px) scale(.93); }
+    }
+    @keyframes particle-rise {
+      0%   { transform: translateY(0) scale(1);    opacity: .45; }
+      100% { transform: translateY(-105vh) scale(0); opacity: 0; }
+    }
+    @keyframes msg-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blink-dot {
+      0%,60%,100% { opacity:.2; transform:translateY(0); }
+      30%         { opacity:1;  transform:translateY(-3px); }
+    }
+    @keyframes confetti-fall {
+      0%   { transform: translateY(-60px) rotate(0deg);   opacity: 1; }
+      100% { transform: translateY(110vh) rotate(900deg); opacity: 0; }
+    }
+    @keyframes star-pop {
+      0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+      60%  { transform: scale(1.35) rotate(5deg); }
+      100% { transform: scale(1)   rotate(0);    opacity: 1; }
+    }
+    @keyframes end-in {
+      from { opacity: 0; transform: scale(.93) translateY(28px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes trophy-pulse {
+      0%,100% { box-shadow: 0 0 28px var(--accent), 0 14px 36px rgba(0,0,0,.55); }
+      50%     { box-shadow: 0 0 52px var(--accent), 0 14px 36px rgba(0,0,0,.55); }
+    }
+    @keyframes interact-up {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes strip-glow {
+      0%,100% { box-shadow: 0 0 0 2px var(--accent); }
+      50%     { box-shadow: 0 0 0 3px var(--accent), 0 0 14px var(--accent); }
+    }
+
+    /* ───────────── ROOT LAYOUT ───────────── */
+    /* Flex column — header | strip | feed | panel */
+    .s-root {
+      position: fixed; inset: 0; z-index: 70;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    /* ───────────── FOND ───────────── */
+    .s-bg {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, #0d0820 0%, #07060f 65%);
+      pointer-events: none; overflow: hidden; z-index: 0;
+    }
+    .s-orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(70px); will-change: transform;
+    }
+    .s-orb-a { width: 55vw; height: 55vw; top: -12%; left: -10%;
+      animation: orb-drift-a 18s ease-in-out infinite; }
+    .s-orb-b { width: 45vw; height: 45vw; bottom: 10%; right: -8%;
+      animation: orb-drift-b 22s ease-in-out infinite -6s; }
+    .s-orb-c { width: 32vw; height: 32vw; top: 32%; left: 38%; opacity: .5;
+      animation: orb-drift-a 28s ease-in-out infinite -13s; }
+    .s-particles { position: absolute; inset: 0; }
+    .s-particle {
+      position: absolute; bottom: -4%;
+      width: 3px; height: 3px; border-radius: 50%;
+      background: rgba(255,255,255,.2);
+      animation: particle-rise var(--p-dur,9s) ease-in var(--p-delay,0s) infinite;
+    }
+
+    /* ───────────── HEADER ───────────── */
+    .s-header {
+      position: relative; z-index: 10; flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 14px 12px;
+      background: rgba(7,6,15,.65);
+      backdrop-filter: blur(22px);
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .s-back-btn {
+      width: 40px; height: 40px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); display: flex; align-items: center;
+      justify-content: center; cursor: pointer; flex-shrink: 0;
+      transition: transform .15s, background .15s; text-decoration: none;
+    }
+    .s-back-btn:active { transform: scale(.93); }
+    .s-scene-info { flex: 1; min-width: 0; }
+    .s-scene-name {
+      display: flex; align-items: center; gap: 7px;
+      font-weight: 800; font-size: 15px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .s-pulse-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .s-scene-sub { font-size: 11px; color: var(--text-mute); margin-top: 1px; }
+    .s-tts-btn {
+      width: 40px; height: 40px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); display: flex; align-items: center;
+      justify-content: center; cursor: pointer; flex-shrink: 0;
+      transition: border-color .2s, color .2s;
+    }
+    .s-progress-track {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 2px; background: var(--track);
+    }
+    .s-progress-fill {
+      height: 100%; border-radius: 0 2px 2px 0;
+      transition: width .5s ease;
+      box-shadow: 0 0 8px var(--accent), 0 0 18px var(--accent);
+    }
+
+    /* ───────────── CHARACTER STRIP ───────────── */
+    .s-char-strip {
+      position: relative; z-index: 5; flex-shrink: 0;
+      display: flex; justify-content: center; gap: 22px;
+      padding: 10px 16px 10px;
+      background: rgba(7,6,15,.42);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+    .s-strip-char {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      transition: opacity .35s ease, transform .35s ease;
+    }
+    .s-strip-char.s-active  { opacity: 1;   transform: scale(1.10); }
+    .s-strip-char.s-inactive{ opacity: .28; transform: scale(.88);  }
+    .s-strip-char.s-neutral { opacity: .7;  transform: scale(.96);  }
+    .s-strip-avatar {
+      width: 40px; height: 40px; border-radius: 13px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 800; color: #fff;
+      transition: box-shadow .35s ease;
+    }
+    .s-strip-avatar.glow { animation: strip-glow 2.2s ease-in-out infinite; }
+    .s-strip-name { font-size: 10px; font-weight: 700; letter-spacing: .4px; }
+
+    /* ───────────── CHAT FEED ───────────── */
+    .s-chat-feed {
+      position: relative; z-index: 1; flex: 1;
+      overflow-y: auto; overflow-x: hidden;
+      padding: 16px 14px 8px;
+      /* Laisse la place pour le panneau d'interaction via le flex layout */
+    }
+    /* Ligne de narration (didascalie) */
+    .s-narration-pill {
+      display: block; max-width: 88%; margin: 4px auto 10px;
+      text-align: center; font-size: 13px; font-style: italic;
+      color: rgba(255,255,255,.48);
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 12px; padding: 8px 16px;
+      animation: msg-in .3s ease;
+    }
+    /* Rangée de message */
+    .s-chat-row {
+      display: flex; gap: 8px; margin-bottom: 10px;
+      animation: msg-in .3s cubic-bezier(.2,.9,.3,1);
+    }
+    .s-chat-row.s-right { justify-content: flex-end; }
+    /* Petit avatar dans le fil */
+    .s-chat-avatar {
+      width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; color: #fff;
+      align-self: flex-end;
+    }
+    /* Bulle de dialogue */
+    .s-bubble {
+      max-width: 78%; border-radius: 18px;
+      font-size: 15px; line-height: 1.5; position: relative;
+    }
+    .s-bubble-npc {
+      padding: 11px 36px 11px 14px;
+      background: rgba(255,255,255,.08);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.1);
+      border-bottom-left-radius: 4px;
+      color: var(--text);
+    }
+    .s-bubble-user {
+      padding: 11px 14px;
+      border-bottom-right-radius: 4px;
+      color: #fff; font-weight: 600;
+    }
+    .s-bubble-speaker {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .5px;
+      margin-bottom: 3px; opacity: .8; display: block;
+    }
+    /* Bouton TTS dans la bulle */
+    .s-speak-btn {
+      position: absolute; bottom: 6px; right: 7px;
+      width: 22px; height: 22px; border-radius: 7px;
+      border: none; background: rgba(255,255,255,.1);
+      color: rgba(255,255,255,.45); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .15s;
+    }
+    .s-speak-btn:hover { color: rgba(255,255,255,.9); }
+    /* Typing dots */
+    .s-dots { display: inline-flex; gap: 4px; padding: 4px 2px; }
+    .s-dots i {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-dim);
+      animation: blink-dot 1.2s infinite;
+    }
+    .s-dots i:nth-child(2) { animation-delay: .2s; }
+    .s-dots i:nth-child(3) { animation-delay: .4s; }
+
+    /* ───────────── PANNEAU D'INTERACTION ───────────── */
+    .s-interact-wrap {
+      position: relative; z-index: 10; flex-shrink: 0;
+    }
+    .s-interact {
+      padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+      background: rgba(8,6,22,.94);
+      backdrop-filter: blur(26px);
+      border-top: 1px solid rgba(255,255,255,.1);
+      animation: interact-up .28s cubic-bezier(.2,.9,.3,1);
+    }
+    .s-prompt {
+      font-size: 13px; font-weight: 700;
+      color: var(--text-dim); margin: 0 0 11px;
+    }
+    /* Boutons de choix */
+    .s-choice-grid { display: flex; flex-direction: column; gap: 8px; }
+    .s-choice-btn {
+      display: flex; align-items: center; gap: 12px;
+      width: 100%; padding: 13px 15px; border-radius: 15px;
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text); font-size: 14px; font-weight: 600;
+      cursor: pointer; text-align: left;
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+    .s-choice-btn:active { transform: scale(.98); }
+    .s-choice-letter {
+      width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800;
+      transition: background .2s, color .2s;
+    }
+    /* Input */
+    .s-input-row { display: flex; gap: 8px; }
+    .s-text-input {
+      flex: 1; padding: 12px 14px; border-radius: 13px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      color: var(--text); font-size: 15px; font-family: inherit; outline: none;
+      transition: border-color .2s;
+    }
+    .s-text-input::placeholder { color: var(--text-mute); }
+    .s-text-input:focus { border-color: var(--accent); }
+    .s-text-input.err { border-color: #EF4444; }
+    .s-send-btn {
+      width: 50px; border: none; border-radius: 13px;
+      color: #fff; display: flex; align-items: center;
+      justify-content: center; cursor: pointer; flex-shrink: 0;
+      transition: filter .15s, transform .12s;
+    }
+    .s-send-btn:active { transform: scale(.94); }
+    /* Tokens */
+    .s-tokens-order {
+      display: flex; flex-wrap: wrap; gap: 7px;
+      min-height: 48px; align-items: center;
+      padding: 9px; border-radius: 13px;
+      border: 1.5px dashed var(--border); margin-bottom: 8px;
+      transition: border-color .2s;
+    }
+    .s-tokens-order.err { border-color: #EF4444; }
+    .s-token-ph { color: var(--text-mute); font-size: 12.5px; }
+    .s-token-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 12px; font-weight: 600;
+      padding: 7px 11px; border-radius: 10px;
+      border: 1.5px solid; color: var(--text); cursor: pointer;
+      transition: transform .1s;
+    }
+    .s-token-chip:active { transform: scale(.95); }
+    .s-token-bank { display: flex; flex-wrap: wrap; gap: 7px; }
+    .s-token-num { opacity: .5; }
+    /* Blank */
+    .s-blank-sentence {
+      font-size: 15.5px; font-weight: 600; line-height: 1.7; margin-bottom: 11px;
+    }
+    .s-blank-slot {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 68px; padding: 2px 11px; border-radius: 9px;
+      border: 2px solid var(--accent); font-weight: 800; margin: 0 3px;
+      color: var(--accent); transition: all .2s;
+    }
+    .s-blank-slot.wrong { border-color: #EF4444; color: #EF4444; }
+    .s-blank-opts { display: flex; flex-wrap: wrap; gap: 7px; }
+    /* Communs */
+    .s-hint {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--text-dim); margin-bottom: 8px;
+    }
+    .s-hint i { width: 14px; height: 14px; flex-shrink: 0; }
+    .s-verify-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; margin-top: 9px; border: none; border-radius: 13px;
+      padding: 12px; font-weight: 800; font-size: 15px; color: #fff;
+      cursor: pointer; transition: filter .15s, transform .12s, opacity .2s;
+    }
+    .s-verify-btn:active { transform: scale(.98); }
+    .s-verify-btn:disabled { opacity: .36; pointer-events: none; }
+    .s-reveal-btn {
+      width: 100%; margin-top: 8px; border: none; border-radius: 12px;
+      padding: 10px; background: var(--surface-2); color: var(--text-dim);
+      font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+
+    /* ───────────── ÉCRAN DE FIN ───────────── */
+    .s-end-overlay {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(7,6,15,.96); backdrop-filter: blur(12px);
+      overflow: hidden; padding: 28px 20px;
+    }
+    .s-confetti-piece {
+      position: absolute; top: -20px;
+      width: 9px; height: 14px; border-radius: 2px;
+      animation: confetti-fall linear forwards;
+    }
+    .s-end-card {
+      position: relative; z-index: 2; text-align: center;
+      width: 100%; max-width: 380px;
+      animation: end-in .5s cubic-bezier(.2,.9,.3,1);
+    }
+    .s-end-trophy {
+      width: 88px; height: 88px; border-radius: 28px;
+      margin: 0 auto 18px; display: flex; align-items: center; justify-content: center;
+      animation: trophy-pulse 2.6s ease-in-out infinite;
+    }
+    .s-end-trophy i { width: 42px; height: 42px; color: #fff; }
+    .s-end-stars { display: flex; justify-content: center; gap: 8px; margin-bottom: 14px; }
+    .s-end-stars i { width: 32px; height: 32px; }
+    .s-end-title { font-size: 25px; font-weight: 800; margin-bottom: 4px; }
+    .s-end-score { font-size: 50px; font-weight: 800; line-height: 1; margin-bottom: 5px; }
+    .s-end-sub { font-size: 14px; color: var(--text-dim); margin-bottom: 24px; line-height: 1.5; }
+    .s-end-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .s-ghost-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      border: none; border-radius: 14px; padding: 12px 20px;
+      font-weight: 800; font-size: 14px; cursor: pointer;
+      background: var(--surface-2); color: var(--text);
+      transition: transform .12s;
+    }
+    .s-ghost-btn:active { transform: scale(.96); }
+    .s-solid-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      border: none; border-radius: 14px; padding: 12px 20px;
+      font-weight: 800; font-size: 14px; cursor: pointer; color: #fff;
+      text-decoration: none; transition: filter .15s, transform .12s;
+    }
+    .s-solid-btn:hover { filter: brightness(1.08); }
+    .s-solid-btn:active { transform: scale(.96); }
+
+    /* ───────────── REDUCED MOTION ───────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *,*::before,*::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .05ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="s-root" id="sRoot" x-data="storyPlayer()" x-cloak
+  :style="'--accent:' + accentColor">
+
+  <!-- ── FOND MULTI-COUCHES ─────────────────── -->
+  <div class="s-bg" aria-hidden="true">
+    <div class="s-orb s-orb-a"
+      :style="'background:radial-gradient(circle,'+sceneData.c1+'48 0%,transparent 68%)'"></div>
+    <div class="s-orb s-orb-b"
+      :style="'background:radial-gradient(circle,'+sceneData.c2+'3c 0%,transparent 65%)'"></div>
+    <div class="s-orb s-orb-c"
+      :style="'background:radial-gradient(circle,'+sceneData.c1+'26 0%,transparent 60%)'"></div>
+    <div class="s-particles">
+      <template x-for="p in particles" :key="p.id">
+        <div class="s-particle"
+          :style="'left:'+p.l+'%;--p-dur:'+p.dur+'s;--p-delay:'+p.delay+'s'"></div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── HEADER ─────────────────────────────── -->
+  <header class="s-header">
+    <a href="/learn/v2/parcours/" class="s-back-btn" aria-label="Retour">
+      <i data-lucide="arrow-left" style="width:18px;height:18px"></i>
+    </a>
+    <div class="s-scene-info">
+      <div class="s-scene-name">
+        <span class="s-pulse-dot"
+          :style="'background:'+accentColor+';box-shadow:0 0 8px '+accentColor"></span>
+        <span x-text="sceneData.name"></span>
+      </div>
+      <div class="s-scene-sub">Histoire · {{ lesson.subject }}</div>
+    </div>
+    <button class="s-tts-btn" @click="toggleTts()"
+      :style="ttsOn ? 'border-color:'+accentColor+';color:'+accentColor : ''"
+      :title="ttsOn ? 'Couper la voix' : 'Activer la voix'">
+      <template x-if="ttsOn">
+        <i data-lucide="volume-2" style="width:18px;height:18px"></i>
+      </template>
+      <template x-if="!ttsOn">
+        <i data-lucide="volume-x" style="width:18px;height:18px"></i>
+      </template>
+    </button>
+    <div class="s-progress-track">
+      <div class="s-progress-fill"
+        :style="'width:'+progress100+'%;background:'+accentColor"
+        style="width:0%"></div>
+    </div>
+  </header>
+
+  <!-- ── BANDE PERSONNAGES (présence compacte) ── -->
+  <div class="s-char-strip">
+    <template x-for="char in chars" :key="char.id">
+      <div class="s-strip-char"
+        :class="{
+          's-active':  activeCharId === char.id,
+          's-inactive': activeCharId !== null && activeCharId !== char.id,
+          's-neutral':  activeCharId === null
+        }">
+        <div class="s-strip-avatar"
+          :class="activeCharId === char.id ? 'glow' : ''"
+          :style="'background:linear-gradient(150deg,'+char.color+','+shade(char.color)+');'
+            + (activeCharId===char.id ? '--accent:'+char.color+';box-shadow:0 0 0 2px '+char.color : '')"
+          x-text="char.name[0]">
+        </div>
+        <div class="s-strip-name" :style="'color:'+char.color" x-text="char.name"></div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ── FIL DE CHAT ────────────────────────── -->
+  <div class="s-chat-feed" x-ref="chatFeed">
+
+    <template x-for="(msg, i) in history" :key="i">
+      <div>
+        <!-- Narration = didascalie centrée -->
+        <template x-if="msg.kind === 'narration'">
+          <span class="s-narration-pill" x-text="msg.text"></span>
+        </template>
+
+        <!-- Réplique d'un personnage = bulle gauche -->
+        <template x-if="msg.kind === 'char'">
+          <div class="s-chat-row">
+            <div class="s-chat-avatar"
+              :style="'background:linear-gradient(150deg,'+findChar(msg.who).color+','+shade(findChar(msg.who).color)+')'">
+              <span x-text="msg.who[0].toUpperCase()"></span>
+            </div>
+            <div style="min-width:0;flex:1">
+              <span class="s-bubble-speaker" :style="'color:'+findChar(msg.who).color"
+                x-text="findChar(msg.who).name"></span>
+              <div class="s-bubble s-bubble-npc">
+                <span x-text="msg.text"></span>
+                <button class="s-speak-btn" @click.stop="speak(msg.text)" title="Lire">
+                  <i data-lucide="volume-2" style="width:12px;height:12px"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Réponse de l'élève = bulle droite -->
+        <template x-if="msg.kind === 'user'">
+          <div class="s-chat-row s-right">
+            <div class="s-bubble s-bubble-user"
+              :style="'background:linear-gradient(150deg,'+accentColor+',#0891b2)'"
+              x-text="msg.text">
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- Typing indicator = bulle avec "..." -->
+    <template x-if="typing !== null">
+      <div class="s-chat-row">
+        <div class="s-chat-avatar"
+          :style="'background:linear-gradient(150deg,'+findChar(typing).color+','+shade(findChar(typing).color)+')'">
+          <span x-text="typing ? typing[0].toUpperCase() : ''"></span>
+        </div>
+        <div>
+          <span class="s-bubble-speaker" :style="'color:'+findChar(typing).color"
+            x-text="findChar(typing).name"></span>
+          <div class="s-bubble s-bubble-npc" style="padding:11px 14px">
+            <span class="s-dots"><i></i><i></i><i></i></span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Ancre de scroll automatique -->
+    <div x-ref="chatBottom" style="height:1px"></div>
+  </div>
+
+  <!-- ── PANNEAU D'INTERACTION ─────────────── -->
+  <div class="s-interact-wrap" x-show="waiting !== null">
+    <div class="s-interact">
+
+      <!-- CHOICE ─────────────────── -->
+      <template x-if="waiting && waiting.type === 'choice'">
+        <div>
+          <p class="s-prompt" x-text="waiting.prompt"></p>
+          <div class="s-choice-grid">
+            <template x-for="(opt, i) in waiting.options" :key="i">
+              <button class="s-choice-btn" @click="resolveChoice(opt)">
+                <span class="s-choice-letter"
+                  :style="'background:'+accentColor+'28;color:'+accentColor"
+                  x-text="String.fromCharCode(65+i)">
+                </span>
+                <span x-text="opt.label"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- INPUT ───────────────────── -->
+      <template x-if="waiting && waiting.type === 'input'">
+        <div>
+          <p class="s-prompt" x-text="waiting.prompt"></p>
+          <div x-show="inputErr" class="s-hint">
+            <i data-lucide="alert-circle"></i>
+            <span x-text="inputTries >= 1 ? waiting.hint : 'Pas tout à fait, réessaie.'"></span>
+          </div>
+          <div class="s-input-row">
+            <input class="s-text-input" :class="inputErr ? 'err' : ''"
+              x-model="inputVal"
+              @keydown.enter="submitInput()"
+              @input="inputErr = false"
+              placeholder="Ta réponse…"
+              autocomplete="off" autocorrect="off" spellcheck="false">
+            <button class="s-send-btn"
+              :style="'background:linear-gradient(150deg,'+accentColor+',#0891b2)'"
+              @click="submitInput()">
+              <i data-lucide="send" style="width:18px;height:18px"></i>
+            </button>
+          </div>
+          <button x-show="inputTries >= 2" class="s-reveal-btn" @click="revealInput()">
+            Voir la réponse et continuer
+          </button>
+        </div>
+      </template>
+
+      <!-- TOKENS ─────────────────── -->
+      <template x-if="waiting && waiting.type === 'tokens'">
+        <div>
+          <p class="s-prompt" x-text="waiting.prompt"></p>
+          <div class="s-tokens-order" :class="tokensErr ? 'err' : ''">
+            <span class="s-token-ph" x-show="tokensOrder.length === 0">
+              Touche les éléments dans l'ordre…
+            </span>
+            <template x-for="(t, i) in tokensOrder" :key="t">
+              <button class="s-token-chip"
+                :style="'background:'+accentColor+'22;border-color:'+accentColor"
+                @click="removeToken(t)">
+                <span class="s-token-num" x-text="(i+1)+'.'"></span>
+                <span x-text="t"></span>
+                <i data-lucide="x" style="width:11px;height:11px;opacity:.5"></i>
+              </button>
+            </template>
+          </div>
+          <div x-show="tokensErr" class="s-hint">
+            <i data-lucide="rotate-ccw"></i>
+            Pas le bon ordre — touche pour retirer.
+          </div>
+          <div class="s-token-bank">
+            <template x-for="t in tokensBank" :key="t">
+              <button class="s-token-chip"
+                style="background:var(--surface);border-color:var(--border)"
+                @click="addToken(t)">
+                <span x-text="t"></span>
+              </button>
+            </template>
+          </div>
+          <button class="s-verify-btn"
+            :disabled="tokensOrder.length < waiting.tokens.length"
+            :style="'background:linear-gradient(150deg,'+accentColor+',#0891b2)'"
+            @click="checkTokens()">
+            Vérifier
+            <i data-lucide="check" style="width:16px;height:16px"></i>
+          </button>
+          <button x-show="tokensTries >= 2" class="s-reveal-btn" @click="revealTokens()">
+            Montrer la solution
+          </button>
+        </div>
+      </template>
+
+      <!-- BLANK ──────────────────── -->
+      <template x-if="waiting && waiting.type === 'blank'">
+        <div>
+          <p class="s-prompt" x-text="waiting.prompt"></p>
+          <div class="s-blank-sentence">
+            <span x-text="waiting.parts[0]"></span>
+            <span class="s-blank-slot" :class="blankErr ? 'wrong' : ''"
+              :style="blankErr ? '' : 'border-color:'+accentColor+';color:'+accentColor"
+              x-text="blankPick || '?'">
+            </span>
+            <span x-text="waiting.parts[1]"></span>
+          </div>
+          <div x-show="blankErr" class="s-hint">
+            <i data-lucide="x"></i> Réessaie.
+          </div>
+          <div class="s-blank-opts">
+            <template x-for="opt in waiting.options" :key="opt">
+              <button class="s-token-chip"
+                :style="blankPick === opt
+                  ? 'background:'+accentColor+'22;border-color:'+accentColor
+                  : 'background:var(--surface);border-color:var(--border)'"
+                @click="submitBlank(opt)">
+                <span x-text="opt"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+      </template>
+
+    </div>
+  </div>
+
+  <!-- ── ÉCRAN DE FIN ───────────────────────── -->
+  <div class="s-end-overlay" x-show="done" x-cloak>
+    <template x-for="c in confetti" :key="c.id">
+      <div class="s-confetti-piece"
+        :style="'left:'+c.l+'%;background:'+c.color
+          +';animation-duration:'+c.dur+'s;animation-delay:'+c.delay+'s'">
+      </div>
+    </template>
+    <div class="s-end-card">
+      <div class="s-end-trophy"
+        :style="'background:linear-gradient(150deg,'+accentColor+',#0891b2);--accent:'+accentColor">
+        <i data-lucide="trophy"></i>
+      </div>
+      <div class="s-end-stars">
+        <template x-for="n in [1,2,3]" :key="n">
+          <i data-lucide="star"
+            :style="n <= stars
+              ? 'color:#FBBF24;fill:#FBBF24;width:32px;height:32px;animation:star-pop .4s '+((n-1)*.15)+'s cubic-bezier(.2,.9,.3,1) both'
+              : 'color:var(--track);width:32px;height:32px'">
+          </i>
+        </template>
+      </div>
+      <div class="s-end-title">Histoire terminée !</div>
+      <div class="s-end-score" :style="'color:'+accentColor" x-text="score + '%'"></div>
+      <div class="s-end-sub">Tu as compris en agissant, pas en regardant.</div>
+      <div class="s-end-actions">
+        <button class="s-ghost-btn" @click="restart()">
+          <i data-lucide="rotate-ccw" style="width:15px;height:15px"></i>
+          Rejouer
+        </button>
+        <a class="s-solid-btn" href="/learn/v2/parcours/"
+          :style="'background:linear-gradient(150deg,'+accentColor+',#0891b2)'">
+          Parcours
+          <i data-lucide="arrow-right" style="width:15px;height:15px"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /s-root -->
+
+<script>
+{% verbatim %}
+const _SD_CHARS = JSON.parse(document.getElementById('s-chars-json').textContent);
+const _SD_STEPS = JSON.parse(document.getElementById('s-steps-json').textContent);
+const _SD_SCENE = JSON.parse(document.getElementById('s-scene-json').textContent);
+
+function _norm(s) {
+  return s.toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function _shade(hex) {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.slice(0,2), 16);
+  const g = parseInt(c.slice(2,4), 16);
+  const b = parseInt(c.slice(4,6), 16);
+  const m = v => Math.max(0, Math.round(v * 0.58));
+  return 'rgb(' + m(r) + ',' + m(g) + ',' + m(b) + ')';
+}
+
+document.addEventListener('alpine:init', () => {
+  Alpine.data('storyPlayer', () => ({
+
+    /* ── données ── */
+    chars:     _SD_CHARS,
+    steps:     _SD_STEPS,
+    sceneData: _SD_SCENE,
+
+    /* ── état ── */
+    step:    0,
+    history: [],
+    typing:  null,     /* charId en train de taper */
+    waiting: null,     /* step interactif courant */
+    done:    false,
+    correct: 0,
+
+    /* ── TTS ── */
+    ttsOn: false,
+
+    /* ── sous-états interactions ── */
+    inputVal: '', inputErr: false, inputTries: 0,
+    tokensOrder: [], tokensBank: [], tokensErr: false, tokensTries: 0,
+    blankPick: null, blankErr: false,
+
+    /* ── effets décoratifs ── */
+    particles: [],
+    confetti:  [],
+
+    /* ── dérivés ── */
+    get accentColor() { return this.chars[0] ? this.chars[0].color : '#10B981'; },
+    get interactions() {
+      return this.steps.filter(s =>
+        ['choice','input','tokens','blank'].includes(s.type)).length;
+    },
+    get score() {
+      return this.interactions
+        ? Math.round(this.correct / this.interactions * 100) : 100;
+    },
+    get stars() { return this.score >= 80 ? 3 : this.score >= 50 ? 2 : 1; },
+    get progress100() {
+      return this.steps.length
+        ? (this.step / this.steps.length * 100).toFixed(1) : 0;
+    },
+    /* Dernier perso à avoir parlé (ou en train de taper) */
+    get activeCharId() {
+      if (this.typing) return this.typing;
+      for (let i = this.history.length - 1; i >= 0; i--) {
+        if (this.history[i].kind === 'char') return this.history[i].who;
+      }
+      return null;
+    },
+
+    /* ── helpers ── */
+    findChar(id) { return this.chars.find(c => c.id === id) || this.chars[0]; },
+    shade(hex)   { return _shade(hex); },
+
+    scrollBottom() {
+      this.$nextTick(() => {
+        const el = this.$refs.chatBottom;
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    },
+
+    /* ── init ── */
+    init() {
+      /* Particules de fond */
+      const pc = [this.sceneData.c1, this.sceneData.c2, '#ffffff'];
+      this.particles = Array.from({ length: 18 }, (_, i) => ({
+        id:    i,
+        l:     Math.round(5 + Math.random() * 90),
+        dur:   (6 + Math.random() * 10).toFixed(1),
+        delay: (Math.random() * -12).toFixed(1),
+      }));
+
+      /* Observe `done` pour générer les confettis */
+      this.$watch('done', v => {
+        if (!v) return;
+        const cols = ['#FB7185','#22D3EE','#FBBF24','#A855F7','#34D399', this.accentColor];
+        this.confetti = Array.from({ length: 34 }, (_, i) => ({
+          id:    i,
+          l:     Math.round(Math.random() * 100),
+          color: cols[i % cols.length],
+          dur:   (1.8 + Math.random() * 1.5).toFixed(2),
+          delay: (Math.random() * 1.3).toFixed(2),
+        }));
+        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+      });
+
+      this.$nextTick(() => {
+        if (window.lucide) lucide.createIcons();
+        this.advance();
+      });
+    },
+
+    /* ── machine d'avancement (auto, comme le designer) ── */
+    advance() {
+      if (this.step >= this.steps.length) { this.done = true; return; }
+      const s = this.steps[this.step];
+
+      if (s.type === 'narration') {
+        setTimeout(() => {
+          this.history = [...this.history, { kind: 'narration', text: s.text }];
+          this.step++;
+          this.scrollBottom();
+          this.$nextTick(() => this.advance());
+        }, 700);
+
+      } else if (s.type === 'npc') {
+        this.typing = s.who;
+        const delay = Math.min(500 + s.text.length * 14, 1900);
+        setTimeout(() => {
+          this.typing = null;
+          this.history = [...this.history, { kind: 'char', who: s.who, text: s.text }];
+          this.speak(s.text);
+          this.step++;
+          this.scrollBottom();
+          this.$nextTick(() => {
+            if (window.lucide) lucide.createIcons();
+            this.advance();
+          });
+        }, delay);
+
+      } else {
+        /* interaction — attend l'élève */
+        this.waiting = s;
+        if (s.type === 'input') {
+          this.inputVal = ''; this.inputErr = false; this.inputTries = 0;
+        } else if (s.type === 'tokens') {
+          this.tokensBank  = [...s.tokens];
+          this.tokensOrder = [];
+          this.tokensErr   = false;
+          this.tokensTries = 0;
+        } else if (s.type === 'blank') {
+          this.blankPick = null; this.blankErr = false;
+        }
+        this.scrollBottom();
+        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+      }
+    },
+
+    /* ── résolution (interaction → réponse auto + avancement) ── */
+    resolve(userText, reply, replyWho, ok) {
+      this.waiting = null;
+      this.history = [...this.history, { kind: 'user', text: userText }];
+      if (ok) this.correct++;
+      this.step++;
+      this.scrollBottom();
+
+      if (reply) {
+        const who = replyWho || (this.chars[0] ? this.chars[0].id : null);
+        this.typing = who;
+        const delay = Math.min(380 + reply.length * 12, 1600);
+        setTimeout(() => {
+          this.typing = null;
+          this.history = [...this.history, { kind: 'char', who, text: reply }];
+          this.speak(reply);
+          this.scrollBottom();
+          this.$nextTick(() => {
+            if (window.lucide) lucide.createIcons();
+            this.advance();
+          });
+        }, delay);
+      } else {
+        this.$nextTick(() => this.advance());
+      }
+    },
+
+    /* ── CHOICE ── */
+    resolveChoice(opt) {
+      const who = this.chars[0] ? this.chars[0].id : null;
+      this.resolve(opt.label, opt.reply || null, who, !!opt.correct);
+    },
+
+    /* ── INPUT ── */
+    submitInput() {
+      if (!this.inputVal.trim()) return;
+      const ok = this.waiting.answers.some(a => _norm(a) === _norm(this.inputVal));
+      if (ok) {
+        this.resolve(this.inputVal, this.waiting.ok, this.chars[0].id, true);
+      } else {
+        this.inputErr = true;
+        this.inputTries++;
+      }
+    },
+    revealInput() {
+      const ans = this.waiting.answers[0].toUpperCase();
+      this.resolve(ans, 'La réponse était : ' + ans + '.', this.chars[0].id, false);
+    },
+
+    /* ── TOKENS ── */
+    addToken(t) {
+      this.tokensBank  = this.tokensBank.filter(x => x !== t);
+      this.tokensOrder = [...this.tokensOrder, t];
+      this.tokensErr   = false;
+    },
+    removeToken(t) {
+      this.tokensOrder = this.tokensOrder.filter(x => x !== t);
+      this.tokensBank  = [...this.tokensBank, t];
+      this.tokensErr   = false;
+    },
+    checkTokens() {
+      if (this.tokensOrder.length < this.waiting.tokens.length) return;
+      const eq = JSON.stringify(this.tokensOrder) === JSON.stringify(this.waiting.solution);
+      if (eq) {
+        this.resolve(this.tokensOrder.join(' → '), this.waiting.ok, this.chars[0].id, true);
+      } else {
+        this.tokensErr = true;
+        this.tokensTries++;
+      }
+    },
+    revealTokens() {
+      const sol = this.waiting.solution;
+      this.resolve(sol.join(' → '), 'Ordre correct : ' + sol.join(', ') + '.', this.chars[0].id, false);
+    },
+
+    /* ── BLANK ── */
+    submitBlank(opt) {
+      this.blankPick = opt;
+      const ok = _norm(opt) === _norm(this.waiting.answer);
+      if (ok) {
+        const full = this.waiting.parts[0] + opt + this.waiting.parts[1];
+        setTimeout(() => {
+          this.resolve(full, this.waiting.ok || 'Bonne réponse !', this.chars[0].id, true);
+        }, 280);
+      } else {
+        this.blankErr = true;
+      }
+    },
+
+    /* ── TTS ── */
+    speak(text) {
+      if (!this.ttsOn || typeof window === 'undefined' || !window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'fr-FR'; u.rate = 0.97;
+      window.speechSynthesis.speak(u);
+    },
+    toggleTts() {
+      this.ttsOn = !this.ttsOn;
+      if (!this.ttsOn && window.speechSynthesis) window.speechSynthesis.cancel();
+    },
+
+    /* ── RESTART ── */
+    restart() {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      this.step = 0; this.history = []; this.typing = null; this.waiting = null;
+      this.done = false; this.correct = 0; this.confetti = [];
+      this.$nextTick(() => {
+        if (window.lucide) lucide.createIcons();
+        this.advance();
+      });
+    },
+
+  })); /* Alpine.data */
+}); /* alpine:init */
+{% endverbatim %}
+</script>
+</body>
+</html>

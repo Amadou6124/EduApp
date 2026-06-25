@@ -1425,3 +1425,46 @@ def quiz_associer_v2_demo(request):
         'questions': d['questions'],
         'n_questions': len(d['questions']),
     })
+
+
+# ─────────────────────────────────────────────────────────────────
+# STORY IMMERSIVE v2 — démo cinématographique
+# ─────────────────────────────────────────────────────────────────
+_STORY_DEMO = {
+    'lesson': {
+        'title': 'Biologie · La Cellule',
+        'subject': 'SVT — Terminale',
+        'color': '#10B981',
+    },
+    'scene': {'name': 'À l\'intérieur de la cellule', 'c1': '#10B981', 'c2': '#0EA5E9'},
+    'characters': [
+        {'id': 'cyto', 'name': 'Cyto', 'role': 'Guide cellulaire', 'color': '#10B981'},
+        {'id': 'nano', 'name': 'Nano', 'role': 'Molécule de glucose', 'color': '#F59E0B'},
+    ],
+    'steps': [
+        {'type': 'narration', 'text': 'Marché cellulaire, à midi. Une petite molécule de sucre cherche à entrer…'},
+        {'type': 'npc', 'who': 'cyto', 'text': 'Salut ! Je suis Cyto, ton guide. Voici Nano, une molécule de glucose qui veut entrer dans la cellule.'},
+        {'type': 'npc', 'who': 'nano', 'text': 'La porte est immense et je suis tout petit… comment je passe ?'},
+        {'type': 'choice', 'prompt': 'Aide Nano : par où franchir la membrane ?', 'options': [
+            {'label': 'Par une protéine de transport', 'correct': True, 'reply': 'Exact ! On passe par une protéine, jamais en force.'},
+            {'label': 'À travers la bicouche, en force', 'reply': 'Impossible : la membrane bloque les grosses molécules.'},
+        ]},
+        {'type': 'npc', 'who': 'cyto', 'text': 'Mais cette entrée coûte de l\'énergie. Quelle molécule la fournit ?'},
+        {'type': 'input', 'prompt': 'La molécule d\'énergie (3 lettres)', 'answers': ['atp'], 'hint': 'A_P, la « monnaie » de la cellule.', 'ok': 'ATP, parfait. Tu connais bien ta biochimie.'},
+        {'type': 'npc', 'who': 'nano', 'text': 'Ça y est, je sens que je bouge ! Mais dans quel ordre ça se passe ?'},
+        {'type': 'tokens', 'prompt': 'Remets le transport dans l\'ordre :', 'tokens': ['Le glucose entre dans la cellule', 'Le glucose se lie à la protéine', 'La protéine change de forme'], 'solution': ['Le glucose se lie à la protéine', 'La protéine change de forme', 'Le glucose entre dans la cellule'], 'ok': 'Transport actif maîtrisé !'},
+        {'type': 'blank', 'prompt': 'Complète la phrase :', 'parts': ['Le transport actif nécessite de l\'énergie sous forme d\'', '.'], 'answer': 'ATP', 'options': ['ATP', 'ADP', 'ARN', 'ADN'], 'ok': 'Exactement — l\'ATP est la monnaie énergétique de la cellule.'},
+        {'type': 'npc', 'who': 'cyto', 'text': 'Bravo. Tu as fait entrer Nano dans la cellule, étape par étape. Tu maîtrises le transport membranaire !'},
+    ],
+}
+
+
+def story_v2_demo(request):
+    """Story cinématographique immersive v2 (DÉMO). Ungated."""
+    d = _STORY_DEMO
+    return render(request, 'student_learning/story_v2.html', {
+        'lesson':     d['lesson'],
+        'scene':      d['scene'],
+        'characters': d['characters'],
+        'steps':      d['steps'],
+    })
