@@ -1,0 +1,34 @@
+{# Bloc "check" (RCheck) — mini-quiz inline tf/qcm. Contexte : b (bloc) + correct (index). #}
+<div x-data="{sel:null, correct:{{ correct }}}" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin:0 0 18px">
+  <div class="flex items-center" style="gap:7px;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text-dim);margin-bottom:10px">VÉRIFIE TA COMPRÉHENSION</div>
+  <div style="font-size:15.5px;font-weight:600;line-height:1.5;margin-bottom:12px">{{ b.q }}</div>
+
+  <div style="display:{% if b.variant == 'tf' %}grid{% else %}flex{% endif %};grid-template-columns:1fr 1fr;flex-direction:column;gap:8px">
+    {% if b.variant == 'tf' %}
+      {% for opt in "01" %}
+      <button class="rck" style="justify-content:center"
+              @click="if(sel===null){sel={{ forloop.counter0 }}; $nextTick(()=>window.lucide&&lucide.createIcons())}"
+              :style="sel===null ? '' : ({{ forloop.counter0 }}===correct ? 'border-color:var(--accent);background:var(--accent);color:#fff' : ({{ forloop.counter0 }}===sel ? 'text-decoration:line-through;opacity:.5' : 'opacity:.5'))">
+        <i data-lucide="check" x-show="sel!==null && {{ forloop.counter0 }}===correct" x-cloak style="width:17px;height:17px"></i>
+        {% if forloop.counter0 == 0 %}Vrai{% else %}Faux{% endif %}
+      </button>
+      {% endfor %}
+    {% else %}
+      {% for o in b.options %}
+      <button class="rck" style="justify-content:flex-start"
+              @click="if(sel===null){sel={{ forloop.counter0 }}; $nextTick(()=>window.lucide&&lucide.createIcons())}"
+              :style="sel===null ? '' : ({{ forloop.counter0 }}===correct ? 'border-color:var(--accent);background:var(--accent);color:#fff' : ({{ forloop.counter0 }}===sel ? 'text-decoration:line-through;opacity:.5' : 'opacity:.5'))">
+        <i data-lucide="check" x-show="sel!==null && {{ forloop.counter0 }}===correct" x-cloak style="width:17px;height:17px"></i>
+        {{ o }}
+      </button>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div x-show="sel!==null" x-cloak
+       :style="`margin-top:12px;padding:11px 14px;border-radius:12px;font-size:14px;font-weight:500;display:flex;gap:9px;align-items:flex-start;${sel===correct ? 'background:var(--accent);color:#fff;border:none' : 'background:var(--solid-bg);color:var(--text);border:1px solid var(--border)'}`">
+    <i data-lucide="check" x-show="sel===correct" x-cloak style="width:18px;height:18px;flex-shrink:0;margin-top:1px"></i>
+    <i data-lucide="x" x-show="sel!==correct" x-cloak style="width:18px;height:18px;flex-shrink:0;margin-top:1px;color:var(--accent)"></i>
+    <span><span x-text="sel===correct ? 'Bonne réponse ! ' : 'Relis cette partie. '"></span>{{ b.explain }}</span>
+  </div>
+</div>

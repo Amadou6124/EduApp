@@ -980,3 +980,110 @@ def parcours_v2_demo(request):
         'progress_ratio': round(done / len(nodes), 4) if nodes else 0,
     }
     return render(request, 'student_learning/parcours_v2.html', ctx)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Portail élève, écran LIRE / Lecteur (Phase C).
+# DÉMO : reading en dur (mock READING.bio du design). Branchement reading_data après.
+# ═══════════════════════════════════════════════════════════════════════════════
+import re as _re
+from html import escape as _esc
+
+_READING_DEMO = {
+    'lesson': {'title': "Biologie · La Cellule", 'subject': "SVT — Terminale", 'color': "#10B981"},
+    'title': "La membrane plasmique", 'date': "Lundi 5 mai 2025",
+    'terms': {
+        "membrane plasmique": "La fine enveloppe qui entoure la cellule et contrôle ce qui entre et sort.",
+        "bicouche lipidique": "Une double couche de molécules de gras qui forme la membrane.",
+        "protéine de transport": "Une protéine insérée dans la membrane qui fait passer certaines molécules.",
+        "osmose": "Le déplacement de l'eau à travers la membrane, selon les concentrations.",
+        "transport actif": "Le passage d'une molécule à travers la membrane qui consomme de l'énergie (ATP).",
+    },
+    'sections': [
+        {'id': "s1", 'title': "La frontière de la cellule", 'blocks': [
+            {'type': "p", 'text': "Chaque cellule est entourée d'une membrane plasmique. C'est une frontière vivante : elle sépare l'intérieur de la cellule du monde extérieur, mais ce n'est pas un simple mur."},
+            {'type': "def", 'term': "membrane plasmique", 'text': "la fine enveloppe qui entoure la cellule et contrôle ce qui entre et sort."},
+            {'type': "callout", 'icon': "spark", 'label': "Le saviez-vous", 'text': "La membrane est si fine qu'il en faudrait des milliers empilées pour atteindre l'épaisseur d'une feuille de papier."},
+            {'type': "check", 'variant': "tf", 'q': "La membrane laisse passer absolument tout, sans distinction.", 'answer': False, 'explain': "Elle est sélective : elle choisit ce qui passe."},
+        ]},
+        {'id': "s2", 'title': "De quoi est-elle faite ?", 'blocks': [
+            {'type': "p", 'text': "La membrane est formée d'une bicouche lipidique : deux couches de molécules de gras placées dos à dos. Des protéines y sont insérées pour gérer les passages."},
+            {'type': "key", 'items': ["La membrane est une bicouche lipidique.", "Une protéine de transport fait passer les grosses molécules.", "L'eau, elle, passe presque librement."]},
+            {'type': "example", 'text': "Le glucose, trop gros pour traverser seul, utilise une protéine de transport comme une porte sur mesure."},
+            {'type': "reflect", 'id': "br1", 'prompt': "À ton avis, pourquoi la cellule a-t-elle besoin d'une barrière sélective plutôt qu'un mur fermé ? Note ton idée."},
+        ]},
+        {'id': "s3", 'title': "Comment les choses entrent ?", 'blocks': [
+            {'type': "p", 'text': "L'eau traverse la membrane librement par osmose. D'autres molécules, elles, ont besoin d'énergie : c'est le transport actif, qui consomme de l'ATP, la « monnaie » énergétique de la cellule."},
+            {'type': "def", 'term': "transport actif", 'text': "le passage d'une molécule à travers la membrane qui consomme de l'énergie (ATP)."},
+            {'type': "warn", 'text': "Ne confonds pas osmose (passage de l'eau, sans énergie) et transport actif (passage avec énergie)."},
+            {'type': "check", 'variant': "qcm", 'q': "Qu'est-ce qui fait passer le glucose à travers la membrane ?", 'options': ["La bicouche toute seule", "Une protéine de transport", "Rien, il passe partout"], 'answer': 1, 'explain': "Le glucose est trop gros : il passe par une protéine de transport."},
+        ]},
+        {'id': "s4", 'title': "L'essentiel à retenir", 'blocks': [
+            {'type': "key", 'items': ["La membrane entoure et protège la cellule.", "Elle est sélective : une bicouche + des protéines.", "L'eau passe par osmose, certaines molécules par transport actif."]},
+        ]},
+    ],
+}
+
+
+def _reader_rich(text, term_keys):
+    """Port de rich() : enveloppe les termes du glossaire dans des boutons cliquables
+    (@click Alpine openTerm). Le reste du texte est échappé (sûr)."""
+    if not term_keys:
+        return _esc(text)
+    pattern = _re.compile('(' + '|'.join(_re.escape(k) for k in term_keys) + ')', _re.IGNORECASE)
+    lower = {k.lower() for k in term_keys}
+    out = []
+    for part in pattern.split(text):
+        if part and part.lower() in lower:
+            arg = part.replace('\\', '\\\\').replace("'", "\\'")
+            out.append(f'<button type="button" class="rterm" @click="openTerm(\'{arg}\')">{_esc(part)}</button>')
+        else:
+            out.append(_esc(part))
+    return ''.join(out)
+
+
+def _reader_txt_of(b):
+    """Port de txtOf() : texte lu à voix haute (TTS) selon le type de bloc."""
+    if b['type'] == 'p':
+        return b['text']
+    if b['type'] == 'def':
+        return b['term'] + ". " + b['text']
+    if b['type'] == 'example':
+        return b['text']
+    if b['type'] == 'key':
+        return ". ".join(b['items'])
+    return None
+
+
+def lecteur_v2_demo(request):
+    """Écran LIRE v2 (DÉMO, reading en dur). Ungated. Branchement reading_data ensuite."""
+    d = _READING_DEMO
+    term_keys = list(d['terms'].keys())
+    # Pré-calcul : rich_html pour les paragraphes ; tts par section.
+    sections = []
+    tts = []
+    for si, s in enumerate(d['sections']):
+        blocks = []
+        sec_tts = []
+        for bi, b in enumerate(s['blocks']):
+            nb = dict(b, si=si, bi=bi)
+            if b['type'] == 'p':
+                nb['rich_html'] = _reader_rich(b['text'], term_keys)
+            blocks.append(nb)
+            t = _reader_txt_of(b)
+            if t:
+                sec_tts.append({'bi': bi, 'text': t})
+        sections.append({'id': s['id'], 'title': s['title'], 'blocks': blocks})
+        tts.append(sec_tts)
+
+    ctx = {
+        'lesson': d['lesson'],
+        'subject_short': d['lesson']['subject'].split('—')[0].strip(),
+        'reading_title': d['title'],
+        'sections': sections,
+        'section_titles': [s['title'] for s in d['sections']],
+        'terms': d['terms'],
+        'tts': tts,
+        'n_sections': len(sections),
+    }
+    return render(request, 'student_learning/lecteur_v2.html', ctx)

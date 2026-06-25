@@ -31,6 +31,7 @@ urlpatterns = [
     path('grades/bulletin/<int:bulletin_id>/pdf/', views.learn_bulletin_pdf, name='bulletin-pdf'),
     path('profile/', views.learn_profile, name='profile'),
 
-    # v2 (Phase C) — portail élève redesign. Démo parcours (données en dur).
+    # v2 (Phase C) — portail élève redesign. Démos (données en dur).
     path('v2/parcours/', views.parcours_v2_demo, name='parcours-v2-demo'),
+    path('v2/lecteur/',  views.lecteur_v2_demo,  name='lecteur-v2-demo'),
 ]
