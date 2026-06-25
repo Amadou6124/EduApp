@@ -1,0 +1,893 @@
+{% load static l10n %}{% localize off %}
+<!DOCTYPE html>
+<html lang="fr" class="theme-dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <title>{{ lesson.title }} — Quiz</title>
+  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <!-- Prism.js — coloration spot_the_bug (CDN, pas encore en vendor) -->
+  <!-- Chargé sans defer : synchrone, disponible quand Alpine monte les blocs -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script defer src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
+  <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
+
+  {{ questions|json_script:"cq-data" }}
+
+  <style>
+    /* ── variables partagées avec les écrans v2 ── */
+    .theme-dark {
+      --bg: radial-gradient(120% 90% at 20% -10%, #1a1340 0%, #0b0b1a 55%, #07060f 100%);
+      --solid-bg: #0b0b1a;
+      --text: #ffffff;
+      --text-dim: rgba(255,255,255,.58);
+      --text-mute: rgba(255,255,255,.38);
+      --surface: rgba(255,255,255,.05);
+      --surface-2: rgba(255,255,255,.09);
+      --border: rgba(255,255,255,.09);
+      --track: rgba(255,255,255,.14);
+    }
+    *, *::before, *::after { box-sizing: border-box }
+    html, body { margin: 0; height: 100%; }
+    ::-webkit-scrollbar { width: 0 }
+    body {
+      font-family: 'Manrope', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    [x-cloak] { display: none !important }
+
+    /* ── animations ── */
+    @keyframes quizPop {
+      from { opacity: 0; transform: translateX(22px) scale(.97) }
+      to   { opacity: 1; transform: translateX(0)    scale(1)   }
+    }
+    @keyframes feedbackIn {
+      from { opacity: 0; transform: translateY(16px) scale(.97) }
+      to   { opacity: 1; transform: translateY(0)    scale(1)   }
+    }
+    @keyframes confettiFall {
+      0%   { transform: translateY(-80px) rotate(0deg);   opacity: 1 }
+      100% { transform: translateY(105vh) rotate(720deg); opacity: 0 }
+    }
+    @keyframes starPop {
+      0%   { transform: scale(0) }
+      60%  { transform: scale(1.3) }
+      100% { transform: scale(1) }
+    }
+
+    /* ── layout principal ── */
+    .quizPanel {
+      position: fixed; inset: 0; z-index: 70;
+      display: flex; flex-direction: column;
+      background: var(--bg); color: var(--text);
+      max-width: 560px; margin: 0 auto;
+    }
+    .quiz-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 18px 18px 0; flex-shrink: 0;
+    }
+    .iconBtn {
+      width: 40px; height: 40px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); display: flex; align-items: center;
+      justify-content: center; cursor: pointer; flex-shrink: 0;
+      transition: background .15s;
+    }
+    .iconBtn:hover { background: var(--surface-2) }
+    .iconBtn:active { transform: scale(.92) }
+
+    /* ── corps du bloc (scroll) ── */
+    .quiz-body {
+      flex: 1; overflow-y: auto; min-height: 0;
+      padding: 20px 18px 4px;
+      display: flex; flex-direction: column;
+      animation: quizPop .3s cubic-bezier(.2,.9,.3,1);
+    }
+    .q-badge {
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .q-instruction {
+      font-size: 21px; font-weight: 800; line-height: 1.38;
+      margin: 0 0 22px;
+    }
+
+    /* ── options génériques (mcq_single, mcq_multiple, odd_one_out) ── */
+    .options { display: flex; flex-direction: column; gap: 9px; }
+    .opt {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 15px; border-radius: 14px;
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text); font-size: 15px; font-weight: 600;
+      cursor: pointer; text-align: left; width: 100%;
+      transition: border-color .13s, background .13s, transform .1s, opacity .15s;
+    }
+    .opt:hover:not(:disabled):not(.correct):not(.wrong):not(.missed) {
+      background: var(--surface-2); border-color: rgba(255,255,255,.18);
+    }
+    .opt:active:not(:disabled) { transform: scale(.985) }
+    .opt.selected  { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent) }
+    .opt.correct   { border-color: #22C55E; background: rgba(34,197,94,.13); color: #22C55E }
+    .opt.wrong     { border-color: #EF4444; background: rgba(239,68,68,.13); color: #EF4444 }
+    .opt.missed    { border-color: #F59E0B; background: rgba(245,158,11,.13); color: #F59E0B }
+    .opt.dimmed    { opacity: .38 }
+    .opt-check {
+      width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+      border: 2px solid rgba(255,255,255,.2); background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .13s, background .13s;
+    }
+    .opt.selected .opt-check { border-color: var(--accent); background: var(--accent) }
+    .opt.correct  .opt-check { border-color: #22C55E;       background: #22C55E }
+    .opt.wrong    .opt-check { border-color: #EF4444;        background: #EF4444 }
+    .opt.missed   .opt-check { border-color: #F59E0B;        background: #F59E0B }
+
+    /* ── true_false (2 grandes cartes) ── */
+    .tf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tf-card {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 36px 16px; border-radius: 20px;
+      gap: 14px; border: 2px solid var(--border); background: var(--surface);
+      cursor: pointer; transition: border-color .15s, background .15s, transform .12s;
+      font-size: 19px; font-weight: 800; color: var(--text);
+    }
+    .tf-card:hover { background: var(--surface-2) }
+    .tf-card:active { transform: scale(.94) }
+    .tf-card.sel-true  { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent) }
+    .tf-card.sel-false { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent) }
+    .tf-card.correct   { border-color: #22C55E; background: rgba(34,197,94,.15); color: #22C55E }
+    .tf-card.wrong     { border-color: #EF4444; background: rgba(239,68,68,.15); color: #EF4444 }
+    .tf-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tf-true-icon  { background: rgba(34,197,94,.2) }
+    .tf-false-icon { background: rgba(239,68,68,.2) }
+
+    /* ── k_prime (grille affirmations V/F) ── */
+    .kp-list { display: flex; flex-direction: column; gap: 0; }
+    .kp-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 13px 0; border-bottom: 1px solid var(--border);
+    }
+    .kp-row:last-child { border-bottom: none }
+    .kp-indicator { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; transition: background .2s; }
+    .kp-text { flex: 1; font-size: 14px; line-height: 1.5; color: var(--text) }
+    .kp-toggles { display: flex; gap: 6px; flex-shrink: 0 }
+    .kp-btn {
+      padding: 7px 13px; border-radius: 10px; font-size: 13px; font-weight: 700;
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text-dim); cursor: pointer;
+      transition: border-color .12s, background .12s, color .12s;
+    }
+    .kp-btn:hover:not(:disabled) { background: var(--surface-2) }
+    .kp-btn:active:not(:disabled) { transform: scale(.93) }
+    .kp-btn.kp-on-v  { border-color: #22C55E; background: rgba(34,197,94,.15); color: #22C55E }
+    .kp-btn.kp-on-f  { border-color: #EF4444; background: rgba(239,68,68,.15); color: #EF4444 }
+    .kp-btn.kp-good  { border-color: #22C55E; background: rgba(34,197,94,.2);  color: #22C55E }
+    .kp-btn.kp-bad   { border-color: #EF4444; background: rgba(239,68,68,.2);  color: #EF4444 }
+
+    /* ── spot_the_bug ── */
+    .code-block {
+      background: #1e1e2e; border-radius: 14px;
+      border: 1px solid var(--border); overflow: hidden; user-select: none;
+    }
+    .code-line {
+      display: flex; align-items: stretch; cursor: pointer;
+      transition: background .1s; border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .code-line:last-child { border-bottom: none }
+    .code-line:hover:not(.checked) { background: rgba(255,255,255,.06) }
+    .code-line.ln-sel     { background: color-mix(in srgb, var(--accent) 20%, transparent) }
+    .code-line.ln-correct { background: rgba(34,197,94,.22) !important }
+    .code-line.ln-wrong   { background: rgba(239,68,68,.22) !important }
+    .line-num {
+      padding: 10px 10px 10px 14px; font-size: 12px; color: #555;
+      min-width: 40px; text-align: right; user-select: none;
+      border-right: 1px solid rgba(255,255,255,.05);
+      font-family: 'Courier New', monospace; flex-shrink: 0;
+    }
+    .line-code {
+      padding: 10px 14px; font-family: 'Courier New', Courier, monospace;
+      font-size: 13px; line-height: 1.55; white-space: pre; overflow-x: auto;
+    }
+    /* Prism : on veut juste la colorisation, pas la mise en forme de bloc */
+    code[class*="language-"] { background: transparent !important; padding: 0 !important }
+    .fix-hint {
+      display: flex; align-items: center; gap: 8px; margin-top: 10px;
+      padding: 10px 14px; border-radius: 10px;
+      background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.28);
+      font-family: 'Courier New', monospace; font-size: 13px; color: #22C55E;
+    }
+
+    /* ── feedback Duolingo ── */
+    .fb-panel {
+      border-radius: 16px; padding: 14px 16px; margin-top: 14px;
+      animation: feedbackIn .22s cubic-bezier(.2,.9,.3,1);
+    }
+    .fb-ok { background: rgba(34,197,94,.12);  border: 1px solid rgba(34,197,94,.3) }
+    .fb-ko { background: rgba(239,68,68,.12);  border: 1px solid rgba(239,68,68,.3) }
+    .fb-title {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 15px; font-weight: 800; margin: 0 0 5px;
+    }
+    .fb-ok .fb-title { color: #22C55E }
+    .fb-ko .fb-title { color: #EF4444 }
+    .fb-expl { font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.55 }
+
+    /* ── footer actions ── */
+    .quiz-footer {
+      padding: 10px 18px calc(14px + env(safe-area-inset-bottom));
+      flex-shrink: 0; min-height: 72px;
+      display: flex; align-items: flex-end;
+    }
+    .ctaBtn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; border: none; border-radius: 14px; color: #fff;
+      font-family: 'Manrope', system-ui, sans-serif;
+      font-weight: 800; font-size: 16px; padding: 15px 20px;
+      cursor: pointer; transition: transform .12s, filter .12s;
+    }
+    .ctaBtn:active  { transform: scale(.97) }
+    .ctaBtn:disabled { cursor: default; opacity: .38 }
+    .cta-verify      { background: var(--accent) }
+    .cta-continue-ok { background: linear-gradient(135deg, #22C55E, #16A34A) }
+    .cta-continue-ko { background: var(--surface-2); border: 1px solid var(--border) }
+    .cta-ghost       { background: transparent }
+
+    /* ── grille 2 colonnes (odd_one_out) ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .grid-2 .opt { justify-content: center; text-align: center; }
+
+    /* ── écran final ── */
+    .final-wrap {
+      position: fixed; inset: 0; z-index: 80; overflow-y: auto;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; background: var(--bg);
+      padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
+      animation: quizPop .4s cubic-bezier(.2,.9,.3,1);
+    }
+    .trophy-ring {
+      width: 110px; height: 110px; border-radius: 50%;
+      background: linear-gradient(150deg, var(--accent), #6d28d9);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 16px 40px color-mix(in srgb, var(--accent) 50%, transparent);
+      margin-bottom: 22px;
+    }
+    .star-item { display: inline-flex; transition: transform .35s cubic-bezier(.34,1.56,.64,1); }
+    .star-item.lit { animation: starPop .4s cubic-bezier(.34,1.56,.64,1) both }
+    .miniCard {
+      display: flex; flex-direction: column; align-items: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 16px 22px; min-width: 108px;
+    }
+    .confetti-piece {
+      position: fixed; pointer-events: none; z-index: 90;
+      animation: confettiFall var(--dur,1.5s) ease-in var(--delay,0s) forwards;
+    }
+  </style>
+</head>
+<body>
+
+<div x-data="quizShell()" x-cloak @quiz:answered.window="advance($event.detail)">
+
+  <!-- ══════════════════════════════════════════════════════
+       PHASE : quiz
+  ══════════════════════════════════════════════════════ -->
+  <template x-if="phase === 'quiz'">
+    <div class="quizPanel" style="--accent:{{ lesson.color }}">
+
+      <!-- HEADER : fermer + segments de progression -->
+      <div class="quiz-header">
+        <button class="iconBtn" @click="history.back()">
+          <i data-lucide="x" style="width:18px;height:18px"></i>
+        </button>
+        <div style="display:flex;gap:5px;flex:1;align-items:center">
+          <template x-for="i in questions.length" :key="i">
+            <div style="flex:1;height:7px;border-radius:7px;transition:background .35s"
+              :style="`background:${ (i-1)<idx ? 'var(--accent)' : (i-1)===idx ? 'color-mix(in srgb, var(--accent) 55%, transparent)' : 'var(--track)' }`">
+            </div>
+          </template>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-mute);white-space:nowrap;min-width:30px;text-align:right">
+          <span x-text="idx+1"></span>/<span x-text="questions.length"></span>
+        </div>
+      </div>
+
+      <!-- scroll wrapper + footer : tout est géré par chaque bloc -->
+
+      <!-- ─────────────────────── mcq_single ─────────────────────── -->
+      <template x-if="q.type === 'mcq_single'">
+        <div x-data="blockMcqSingle(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">QCM · Question <span x-text="$root.idx+1"></span> / {{ n_questions }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="options">
+              <template x-for="(opt, i) in quiz.options" :key="i">
+                <button class="opt" :class="optClass(i)"
+                  @click="!checked && (selected = i)"
+                  :disabled="checked">
+                  <span class="opt-check" aria-hidden="true">
+                    <i data-lucide="check" style="width:13px;height:13px;color:#fff"
+                      x-show="selected===i || optClass(i)==='correct'" x-cloak></i>
+                    <i data-lucide="x" style="width:13px;height:13px;color:#fff"
+                      x-show="optClass(i)==='wrong'" x-cloak></i>
+                  </span>
+                  <span x-text="opt"></span>
+                </button>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title">
+                <i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Bravo !' : 'Bonne réponse : ' + quiz.options[quiz.answer_index]"></span>
+              </p>
+              <p class="fb-expl" x-text="quiz.explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify"
+              :disabled="selected === null" @click="check()" x-cloak>
+              Vérifier
+            </button>
+            <button x-show="checked" class="ctaBtn" x-cloak
+              :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'"
+              @click="go()">
+              Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ─────────────────────── mcq_multiple ─────────────────────── -->
+      <template x-if="q.type === 'mcq_multiple'">
+        <div x-data="blockMcqMultiple(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">QCM Multiple · Question <span x-text="$root.idx+1"></span> / {{ n_questions }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <p style="font-size:12px;color:var(--text-mute);margin:-14px 0 16px;font-weight:600">
+              Coche toutes les bonnes réponses
+            </p>
+            <div class="options">
+              <template x-for="(opt, i) in quiz.options" :key="i">
+                <button class="opt" :class="optClass(i)"
+                  @click="!checked && toggle(i)"
+                  :disabled="checked">
+                  <span class="opt-check" aria-hidden="true">
+                    <i data-lucide="check" style="width:13px;height:13px;color:#fff"
+                      x-show="isSelected(i) || optClass(i)==='correct'" x-cloak></i>
+                    <i data-lucide="x" style="width:13px;height:13px;color:#fff"
+                      x-show="optClass(i)==='wrong'" x-cloak></i>
+                    <i data-lucide="alert-circle" style="width:13px;height:13px;color:#fff"
+                      x-show="optClass(i)==='missed'" x-cloak></i>
+                  </span>
+                  <span x-text="opt"></span>
+                  <span x-show="checked && optClass(i)==='missed'" x-cloak
+                    style="margin-left:auto;font-size:11px;font-weight:700;color:#F59E0B;flex-shrink:0">oubliée</span>
+                </button>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title">
+                <i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Parfait ! Toutes les cases cochées.' : 'Pas tout à fait…'"></span>
+              </p>
+              <p class="fb-expl" x-text="quiz.explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" x-cloak
+              :disabled="selected.length === 0" @click="check()">
+              Vérifier
+            </button>
+            <button x-show="checked" class="ctaBtn" x-cloak
+              :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'"
+              @click="go()">
+              Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ─────────────────────── true_false ─────────────────────── -->
+      <template x-if="q.type === 'true_false'">
+        <div x-data="blockTrueFalse(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Vrai / Faux · Question <span x-text="$root.idx+1"></span> / {{ n_questions }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="tf-grid">
+              <button class="tf-card" :class="tfClass(true)"  @click="choose(true)"  :disabled="checked">
+                <div class="tf-icon tf-true-icon">
+                  <i data-lucide="check" style="width:28px;height:28px;color:#22C55E"></i>
+                </div>
+                <span>Vrai</span>
+              </button>
+              <button class="tf-card" :class="tfClass(false)" @click="choose(false)" :disabled="checked">
+                <div class="tf-icon tf-false-icon">
+                  <i data-lucide="x" style="width:28px;height:28px;color:#EF4444"></i>
+                </div>
+                <span>Faux</span>
+              </button>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title">
+                <i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Bravo !' : 'La bonne réponse était : ' + (quiz.answer ? 'Vrai' : 'Faux')"></span>
+              </p>
+              <p class="fb-expl" x-text="quiz.explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <!-- true_false : tap direct = vérification immédiate, pas de bouton Vérifier -->
+            <button x-show="checked" class="ctaBtn" x-cloak
+              :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'"
+              @click="go()">
+              Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ─────────────────────── k_prime ─────────────────────── -->
+      <template x-if="q.type === 'k_prime'">
+        <div x-data="blockKPrime(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Vrai/Faux multiple · Question <span x-text="$root.idx+1"></span> / {{ n_questions }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="kp-list">
+              <template x-for="(s, i) in quiz.statements" :key="i">
+                <div class="kp-row">
+                  <div class="kp-indicator" x-show="checked" x-cloak
+                    :style="`background:${rowState(i)==='correct' ? '#22C55E' : '#EF4444'}`"></div>
+                  <p class="kp-text" x-text="s.text"></p>
+                  <div class="kp-toggles">
+                    <button class="kp-btn" :class="kpBtnCls(i, true)"
+                      @click="toggle(i, true)" :disabled="checked">V</button>
+                    <button class="kp-btn" :class="kpBtnCls(i, false)"
+                      @click="toggle(i, false)" :disabled="checked">F</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title">
+                <i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Parfait, toutes les lignes sont justes !' : 'Pas tout à fait…'"></span>
+              </p>
+              <p class="fb-expl" x-text="quiz.explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" x-cloak
+              :disabled="!allSet" @click="check()">
+              Vérifier
+            </button>
+            <button x-show="checked" class="ctaBtn" x-cloak
+              :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'"
+              @click="go()">
+              Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ─────────────────────── odd_one_out ─────────────────────── -->
+      <template x-if="q.type === 'odd_one_out'">
+        <div x-data="blockOddOneOut(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">L'intrus · Question <span x-text="$root.idx+1"></span> / {{ n_questions }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="grid-2">
+              <template x-for="(item, i) in quiz.items" :key="i">
+                <button class="opt" :class="oddClass(i)"
+                  @click="!checked && (selected = i)"
+                  :disabled="checked">
+                  <span x-text="item"></span>
+                </button>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title">
+                <i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Bien trouvé !' : 'L\'intrus était : « ' + quiz.items[quiz.odd_index] + ' »'"></span>
+              </p>
+              <p class="fb-expl" x-text="quiz.explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" x-cloak
+              :disabled="selected === null" @click="check()">
+              Vérifier
+            </button>
+            <button x-show="checked" class="ctaBtn" x-cloak
+              :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'"
+              @click="go()">
+              Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ─────────────────────── spot_the_bug ─────────────────────── -->
+      <template x-if="q.type === 'spot_the_bug'">
+        <div x-data="blockSpotTheBug(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Trouver le bug · Question <span x-text="$root.idx+1"></span> / {{ n_questions }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <p style="font-size:12px;color:var(--text-mute);margin:-14px 0 14px;font-weight:600">
+              Tape sur la ligne fautive
+            </p>
+            <div class="code-block">
+              <template x-for="(line, i) in quiz.code" :key="i">
+                <div class="code-line" :class="lineClass(i)" @click="!checked && (selected = i)">
+                  <span class="line-num" x-text="i+1"></span>
+                  <code class="line-code language-python" x-html="hline(line)"></code>
+                </div>
+              </template>
+            </div>
+            <div x-show="checked && !isRight" x-cloak class="fix-hint">
+              <i data-lucide="wrench" style="width:14px;height:14px;flex-shrink:0"></i>
+              <span>Correction : <strong x-text="quiz.correct_fix"></strong></span>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title">
+                <i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Bug repéré !' : 'Le bug était à la ligne ' + (quiz.buggy_line + 1)"></span>
+              </p>
+              <p class="fb-expl" x-text="quiz.explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" x-cloak
+              :disabled="selected === null" @click="check()">
+              Vérifier
+            </button>
+            <button x-show="checked" class="ctaBtn" x-cloak
+              :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'"
+              @click="go()">
+              Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+            </button>
+          </div>
+        </div>
+      </template>
+
+    </div><!-- /quizPanel -->
+  </template>
+
+  <!-- ══════════════════════════════════════════════════════
+       PHASE : done (écran final)
+  ══════════════════════════════════════════════════════ -->
+  <template x-if="phase === 'done'">
+    <div class="final-wrap" style="--accent:{{ lesson.color }}"
+      x-init="$nextTick(()=>{ if(window.lucide) lucide.createIcons(); spawnConfetti(); })">
+      <div class="trophy-ring">
+        <i data-lucide="trophy" style="width:52px;height:52px;color:#fff"></i>
+      </div>
+      <h2 style="font-size:26px;font-weight:800;margin:0 0 4px;text-align:center">
+        <span x-text="endTitle"></span>
+      </h2>
+      <p style="color:var(--text-dim);margin:0 0 6px;text-align:center;font-size:14px">
+        {{ lesson.title }}
+      </p>
+      <!-- étoiles -->
+      <div style="display:flex;gap:6px;margin:14px 0 22px">
+        <template x-for="i in 3" :key="i">
+          <i data-lucide="star"
+            :style="`width:36px;height:36px;color:#FBBF24;
+              ${ (i-1)<stars ? 'fill:#FBBF24;animation:starPop .4s cubic-bezier(.34,1.56,.64,1) '+((i-1)*.12)+'s both' : 'opacity:.25' }`">
+          </i>
+        </template>
+      </div>
+      <!-- stats -->
+      <div style="display:flex;gap:10px;margin-bottom:32px">
+        <div class="miniCard">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <i data-lucide="check-circle" style="width:20px;height:20px;color:#22C55E"></i>
+            <span style="font-size:28px;font-weight:800" x-text="score + '/' + questions.length"></span>
+          </div>
+          <div style="font-size:12px;color:var(--text-dim)">bonnes réponses</div>
+        </div>
+        <div class="miniCard">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <i data-lucide="gem" style="width:20px;height:20px;color:var(--accent)"></i>
+            <span style="font-size:28px;font-weight:800" x-text="'+'+xp"></span>
+          </div>
+          <div style="font-size:12px;color:var(--text-dim)">XP gagnés</div>
+        </div>
+      </div>
+      <button class="ctaBtn" @click="history.back()"
+        style="width:min(360px,90%);background:linear-gradient(150deg, var(--accent), #6d28d9)">
+        Terminer <i data-lucide="check" style="width:18px;height:18px"></i>
+      </button>
+    </div>
+  </template>
+
+</div><!-- /quizShell -->
+
+<script>
+{% verbatim %}
+const _CQ = JSON.parse(document.getElementById('cq-data').textContent);
+
+document.addEventListener('alpine:init', () => {
+
+  // ══════════════════════════════════════════════════════
+  // Shell : gère la séquence, écoute quiz:answered
+  // ══════════════════════════════════════════════════════
+  Alpine.data('quizShell', () => ({
+    idx: 0,
+    results: [],
+    phase: 'quiz',
+    questions: _CQ,
+    get q()       { return this.questions[this.idx]; },
+    get score()   { return this.results.filter(Boolean).length; },
+    get stars()   { const r = this.score / this.questions.length; return r >= .85 ? 3 : r >= .6 ? 2 : r > 0 ? 1 : 0; },
+    get xp()      { return this.score * 10; },
+    get endTitle(){ return this.stars === 3 ? 'Parfait !' : this.stars === 2 ? 'Bien joué !' : this.stars === 1 ? 'Courage !' : 'À retravailler'; },
+    advance(detail) {
+      this.results.push(detail.correct);
+      setTimeout(() => {
+        if (this.idx + 1 >= this.questions.length) {
+          this.phase = 'done';
+        } else {
+          this.idx++;
+          this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+        }
+      }, 170);
+    },
+    spawnConfetti() {
+      if (this.stars === 0) return;
+      const colors = ['#22D3EE','#F59E0B','#22C55E','#EF4444','#A78BFA','#FB7185','#FBBF24'];
+      for (let k = 0; k < 44; k++) {
+        const el = document.createElement('div');
+        el.className = 'confetti-piece';
+        const sz = 5 + Math.random() * 9;
+        el.style.cssText = `left:${Math.random()*100}vw;top:0;width:${sz}px;height:${sz}px;
+          background:${colors[k % colors.length]};
+          --dur:${1.1 + Math.random() * 1.3}s;--delay:${Math.random() * .9}s;
+          border-radius:${Math.random() > .45 ? '50%' : '2px'};`;
+        document.body.appendChild(el);
+        el.addEventListener('animationend', () => el.remove(), { once: true });
+      }
+    },
+  }));
+
+  // ══════════════════════════════════════════════════════
+  // BLOC 1 — mcq_single
+  // Règle : selected === quiz.answer_index
+  // ══════════════════════════════════════════════════════
+  Alpine.data('blockMcqSingle', (quiz) => ({
+    quiz,
+    selected: null,
+    checked: false,
+    isRight: false,
+    init() { this.$nextTick(() => { if (window.lucide) lucide.createIcons(); }); },
+    optClass(i) {
+      if (!this.checked) return this.selected === i ? 'selected' : '';
+      if (i === this.quiz.answer_index) return 'correct';
+      if (i === this.selected)          return 'wrong';
+      return 'dimmed';
+    },
+    check() {
+      if (this.selected === null) return;
+      this.isRight = (this.selected === this.quiz.answer_index);
+      this.checked = true;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+    go() {
+      this.$el.style.transition = 'opacity 150ms ease, transform 150ms ease';
+      this.$el.style.opacity    = '0';
+      this.$el.style.transform  = 'translateX(-18px) scale(.97)';
+      setTimeout(() => { this.$dispatch('quiz:answered', { correct: this.isRight }); }, 155);
+    },
+  }));
+
+  // ══════════════════════════════════════════════════════
+  // BLOC 2 — mcq_multiple
+  // Règle : set(selected) === set(answer_indices) (exact)
+  // ══════════════════════════════════════════════════════
+  Alpine.data('blockMcqMultiple', (quiz) => ({
+    quiz,
+    selected: [],
+    checked: false,
+    isRight: false,
+    init() { this.$nextTick(() => { if (window.lucide) lucide.createIcons(); }); },
+    toggle(i) {
+      const p = this.selected.indexOf(i);
+      if (p === -1) this.selected.push(i);
+      else          this.selected.splice(p, 1);
+    },
+    isSelected(i) { return this.selected.includes(i); },
+    optClass(i) {
+      if (!this.checked) return this.selected.includes(i) ? 'selected' : '';
+      const ans = new Set(this.quiz.answer_indices);
+      const sel = new Set(this.selected);
+      if (ans.has(i) && sel.has(i))  return 'correct';
+      if (ans.has(i) && !sel.has(i)) return 'missed';
+      if (!ans.has(i) && sel.has(i)) return 'wrong';
+      return 'dimmed';
+    },
+    check() {
+      if (this.selected.length === 0) return;
+      const s = new Set(this.selected), a = new Set(this.quiz.answer_indices);
+      this.isRight = s.size === a.size && [...s].every(v => a.has(v));
+      this.checked = true;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+    go() {
+      this.$el.style.transition = 'opacity 150ms ease, transform 150ms ease';
+      this.$el.style.opacity    = '0';
+      this.$el.style.transform  = 'translateX(-18px) scale(.97)';
+      setTimeout(() => { this.$dispatch('quiz:answered', { correct: this.isRight }); }, 155);
+    },
+  }));
+
+  // ══════════════════════════════════════════════════════
+  // BLOC 3 — true_false
+  // Règle : selected === quiz.answer  (bool strict)
+  // Tap direct sur la carte = vérification immédiate (Duolingo)
+  // ══════════════════════════════════════════════════════
+  Alpine.data('blockTrueFalse', (quiz) => ({
+    quiz,
+    selected: null,
+    checked: false,
+    isRight: false,
+    init() { this.$nextTick(() => { if (window.lucide) lucide.createIcons(); }); },
+    tfClass(val) {
+      if (!this.checked) return this.selected === val ? (val ? 'sel-true' : 'sel-false') : '';
+      if (val === this.quiz.answer) return 'correct';
+      if (val === this.selected)    return 'wrong';
+      return '';
+    },
+    choose(val) {
+      if (this.checked) return;
+      this.selected = val;
+      this.isRight  = (val === this.quiz.answer);
+      this.checked  = true;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+    go() {
+      this.$el.style.transition = 'opacity 150ms ease, transform 150ms ease';
+      this.$el.style.opacity    = '0';
+      this.$el.style.transform  = 'translateX(-18px) scale(.97)';
+      setTimeout(() => { this.$dispatch('quiz:answered', { correct: this.isRight }); }, 155);
+    },
+  }));
+
+  // ══════════════════════════════════════════════════════
+  // BLOC 4 — k_prime
+  // Règle : chaque ligne answers[i] === statements[i].answer — tout ou rien
+  // ══════════════════════════════════════════════════════
+  Alpine.data('blockKPrime', (quiz) => ({
+    quiz,
+    answers: quiz.statements.map(() => null),
+    checked: false,
+    isRight: false,
+    init() { this.$nextTick(() => { if (window.lucide) lucide.createIcons(); }); },
+    get allSet() { return this.answers.every(a => a !== null); },
+    toggle(i, val) {
+      if (this.checked) return;
+      this.answers[i] = val;
+      this.answers = [...this.answers];
+    },
+    rowState(i) {
+      if (!this.checked) return 'idle';
+      return this.answers[i] === this.quiz.statements[i].answer ? 'correct' : 'wrong';
+    },
+    kpBtnCls(i, val) {
+      if (!this.checked) {
+        if (this.answers[i] === val) return val ? 'kp-on-v' : 'kp-on-f';
+        return '';
+      }
+      const correct = this.quiz.statements[i].answer;
+      if (val === correct)                        return 'kp-good';
+      if (val !== correct && this.answers[i]===val) return 'kp-bad';
+      return '';
+    },
+    check() {
+      if (!this.allSet) return;
+      this.isRight = this.quiz.statements.every((s, i) => this.answers[i] === s.answer);
+      this.checked = true;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+    go() {
+      this.$el.style.transition = 'opacity 150ms ease, transform 150ms ease';
+      this.$el.style.opacity    = '0';
+      this.$el.style.transform  = 'translateX(-18px) scale(.97)';
+      setTimeout(() => { this.$dispatch('quiz:answered', { correct: this.isRight }); }, 155);
+    },
+  }));
+
+  // ══════════════════════════════════════════════════════
+  // BLOC 5 — odd_one_out
+  // Règle : selected === quiz.odd_index  (int 0-based)
+  // ══════════════════════════════════════════════════════
+  Alpine.data('blockOddOneOut', (quiz) => ({
+    quiz,
+    selected: null,
+    checked: false,
+    isRight: false,
+    init() { this.$nextTick(() => { if (window.lucide) lucide.createIcons(); }); },
+    oddClass(i) {
+      if (!this.checked) return this.selected === i ? 'selected' : '';
+      if (i === this.quiz.odd_index) return 'correct';
+      if (i === this.selected)       return 'wrong';
+      return 'dimmed';
+    },
+    check() {
+      if (this.selected === null) return;
+      this.isRight = (this.selected === this.quiz.odd_index);
+      this.checked = true;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+    go() {
+      this.$el.style.transition = 'opacity 150ms ease, transform 150ms ease';
+      this.$el.style.opacity    = '0';
+      this.$el.style.transform  = 'translateX(-18px) scale(.97)';
+      setTimeout(() => { this.$dispatch('quiz:answered', { correct: this.isRight }); }, 155);
+    },
+  }));
+
+  // ══════════════════════════════════════════════════════
+  // BLOC 6 — spot_the_bug
+  // Règle : selected === quiz.buggy_line  (int 0-based)
+  // Prism.js chargé synchrone en <head> — toujours disponible ici
+  // ══════════════════════════════════════════════════════
+  Alpine.data('blockSpotTheBug', (quiz) => ({
+    quiz,
+    selected: null,
+    checked: false,
+    isRight: false,
+    init() {
+      this.$nextTick(() => {
+        if (window.lucide) lucide.createIcons();
+        // Prism re-colorise les code.line-code après montée du bloc
+        if (window.Prism) Prism.highlightAll();
+      });
+    },
+    hline(line) {
+      if (!window.Prism || !Prism.languages[this.quiz.language]) {
+        return (line || ' ')
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+      return Prism.highlight(
+        line || ' ',
+        Prism.languages[this.quiz.language],
+        this.quiz.language,
+      );
+    },
+    lineClass(i) {
+      if (!this.checked) return this.selected === i ? 'ln-sel' : '';
+      if (i === this.quiz.buggy_line)                              return 'ln-correct';
+      if (i === this.selected && i !== this.quiz.buggy_line)      return 'ln-wrong';
+      return '';
+    },
+    check() {
+      if (this.selected === null) return;
+      this.isRight = (this.selected === this.quiz.buggy_line);
+      this.checked = true;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+    go() {
+      this.$el.style.transition = 'opacity 150ms ease, transform 150ms ease';
+      this.$el.style.opacity    = '0';
+      this.$el.style.transform  = 'translateX(-18px) scale(.97)';
+      setTimeout(() => { this.$dispatch('quiz:answered', { correct: this.isRight }); }, 155);
+    },
+  }));
+
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.lucide) lucide.createIcons();
+});
+{% endverbatim %}
+</script>
+</body>
+</html>
+{% endlocalize %}

@@ -34,5 +34,6 @@ urlpatterns = [
     # v2 (Phase C) — portail élève redesign. Démos (données en dur).
     path('v2/parcours/', views.parcours_v2_demo, name='parcours-v2-demo'),
     path('v2/lecteur/',  views.lecteur_v2_demo,  name='lecteur-v2-demo'),
-    path('v2/quiz-math/', views.quiz_math_v2_demo, name='quiz-math-v2-demo'),
+    path('v2/quiz-math/',    views.quiz_math_v2_demo,    name='quiz-math-v2-demo'),
+    path('v2/quiz-choisir/', views.quiz_choisir_v2_demo, name='quiz-choisir-v2-demo'),
 ]

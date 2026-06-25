@@ -1130,3 +1130,81 @@ def quiz_math_v2_demo(request):
         'questions': d['questions'],
         'n_questions': len(d['questions']),
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Portail élève, QUIZ famille CHOISIR (Phase C, DÉMO).
+# 6 types : mcq_single, mcq_multiple, true_false, k_prime, odd_one_out,
+# spot_the_bug. Un bloc Alpine autonome par type ; shell coordinateur commun.
+# Éval client-side miroir exact de evaluate_answer_v2. Données en dur.
+# Route v2 séparée /learn/v2/quiz-choisir/ ; v1 + autres écrans v2 intacts.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_QUIZ_CHOISIR_DEMO = {
+    'lesson': {'title': "Révisions · Mix de matières", 'subject': "Divers — démo", 'color': "#22D3EE"},
+    'questions': [
+        {
+            'type': 'mcq_single',
+            'instruction': "Qui a fondé l'Empire du Mali au XIIIe siècle ?",
+            'options': ["Soundiata Keïta", "Mansa Moussa", "Samory Touré", "Askia Mohamed"],
+            'answer_index': 0,
+            'explanation': "Soundiata Keïta a fondé l'Empire du Mali après la bataille de Kirina en 1235.",
+        },
+        {
+            'type': 'mcq_multiple',
+            'instruction': "Lesquels de ces éléments sont des organites de la cellule eucaryote ?",
+            'options': ["Mitochondrie", "Ribosome", "Chloroplaste", "Noyau", "ATP"],
+            'answer_indices': [0, 1, 2, 3],
+            'explanation': "L'ATP est une molécule énergétique, pas un organite. Les 4 autres sont bien des organites.",
+        },
+        {
+            'type': 'true_false',
+            'instruction': "L'Océan Pacifique est plus grand que l'Océan Atlantique.",
+            'answer': True,
+            'explanation': "Le Pacifique couvre ~165 M km², l'Atlantique ~106 M km². Le Pacifique est le plus grand.",
+        },
+        {
+            'type': 'k_prime',
+            'instruction': "Pour chaque affirmation sur l'électricité, indique Vrai ou Faux.",
+            'statements': [
+                {'text': "Le courant électrique est un déplacement de charges.", 'answer': True},
+                {'text': "La tension s'exprime en Ampères.", 'answer': False},
+                {'text': "Un conducteur laisse passer le courant.", 'answer': True},
+                {'text': "Une pile produit un courant alternatif.", 'answer': False},
+            ],
+            'explanation': "La tension (V) et l'intensité (A) sont distinctes. Une pile produit du courant continu.",
+        },
+        {
+            'type': 'odd_one_out',
+            'instruction': "Quel mot est l'intrus parmi ces figures de style ?",
+            'items': ["Métaphore", "Allitération", "Oxymore", "Synapse", "Anaphore"],
+            'odd_index': 3,
+            'explanation': "\"Synapse\" est un terme de neurologie (jonction entre neurones), pas une figure de style.",
+        },
+        {
+            'type': 'spot_the_bug',
+            'instruction': "Quelle ligne contient le bug ? La fonction doit calculer la moyenne.",
+            'language': 'python',
+            'code': [
+                "def moyenne(notes):",
+                "    total = 0",
+                "    for note in notes:",
+                "        total = note",
+                "    return total / len(notes)",
+            ],
+            'buggy_line': 3,
+            'correct_fix': "total += note",
+            'explanation': "La ligne 4 écrase total à chaque tour au lieu d'accumuler. Il faut écrire total += note.",
+        },
+    ],
+}
+
+
+def quiz_choisir_v2_demo(request):
+    """Quiz famille CHOISIR v2 (DÉMO, 6 types). Ungated. Branchement réel ensuite."""
+    d = _QUIZ_CHOISIR_DEMO
+    return render(request, 'student_learning/quiz_choisir_v2.html', {
+        'lesson': d['lesson'],
+        'questions': d['questions'],
+        'n_questions': len(d['questions']),
+    })
