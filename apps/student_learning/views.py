@@ -1087,3 +1087,46 @@ def lecteur_v2_demo(request):
         'n_sections': len(sections),
     }
     return render(request, 'student_learning/lecteur_v2.html', ctx)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Portail élève, QUIZ math_expression (Phase C, DÉMO).
+# MathQuill (saisie maths visuelle) + pont LaTeX→format serveur (norm ^/espaces/casse).
+# Données en dur. Les `equivalents` incluent la forme CANONIQUE produite par le
+# convertisseur (frac→(a)/(b), sqrt(), ^) — au branchement réel, B1 devra émettre
+# ces équivalents canoniques (ou on ajoutera sympy côté serveur).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_QUIZ_MATH_DEMO = {
+    'lesson': {'title': "Maths · Calcul littéral", 'subject': "Mathématiques — 3ème", 'color': "#22D3EE"},
+    'questions': [
+        {
+            'instruction': "Développe (x + 1)².",
+            'correct': "x^2+2x+1",
+            'equivalents': ["x^2 + 2*x + 1", "1+2x+x^2", "1 + 2*x + x^2"],
+            'explanation': "(x + 1)² = x² + 2x + 1.",
+        },
+        {
+            'instruction': "Simplifie la fraction 6/9.",
+            'correct': "2/3",
+            'equivalents': ["(2)/(3)"],   # forme produite par le convertisseur \frac{2}{3}
+            'explanation': "6/9 = 2/3 (on divise haut et bas par 3).",
+        },
+        {
+            'instruction': "Écris « la racine carrée de x ».",
+            'correct': "sqrt(x)",
+            'equivalents': [],            # le convertisseur \sqrt{x} → sqrt(x)
+            'explanation': "√x s'écrit sqrt(x).",
+        },
+    ],
+}
+
+
+def quiz_math_v2_demo(request):
+    """Quiz math_expression v2 (DÉMO, MathQuill). Ungated. Branchement réel ensuite."""
+    d = _QUIZ_MATH_DEMO
+    return render(request, 'student_learning/quiz_math_v2.html', {
+        'lesson': d['lesson'],
+        'questions': d['questions'],
+        'n_questions': len(d['questions']),
+    })
