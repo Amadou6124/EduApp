@@ -1362,3 +1362,66 @@ def quiz_ordonner_v2_demo(request):
         'questions': d['questions'],
         'n_questions': len(d['questions']),
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Portail élève, QUIZ famille ASSOCIER (Phase C, DÉMO).
+# 1 type : matching (13e et dernier type du moteur).
+# Éval miroir de _eval_matching (services.py:1559) :
+#   student[i] = origIdx du right choisi pour left[i] ; correct ssi == [0..n-1].
+# Le mélange de la colonne droite se fait CÔTÉ CLIENT (démo).
+# Route v2 séparée /learn/v2/quiz-associer/ ; v1 + autres écrans v2 intacts.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_QUIZ_ASSOCIER_DEMO = {
+    'lesson': {'title': "Sciences & Géo · Associer", 'subject': "Mixte — démo", 'color': "#22D3EE"},
+    'questions': [
+        # 1. matching — organes et fonctions
+        {
+            'type': 'matching',
+            'instruction': "Associe chaque organe à sa fonction principale.",
+            'pairs': [
+                {'left': 'Cœur',    'right': 'Pompe le sang'},
+                {'left': 'Poumon',  'right': 'Échange l\'oxygène'},
+                {'left': 'Cerveau', 'right': 'Coordonne le corps'},
+                {'left': 'Rein',    'right': 'Filtre le sang'},
+            ],
+            'explanation': "Cœur → pompe le sang. Poumon → échange O₂/CO₂. Cerveau → coordonne. Rein → filtre.",
+        },
+        # 2. matching — pays d'Afrique de l'Ouest et capitales
+        {
+            'type': 'matching',
+            'instruction': "Associe chaque pays à sa capitale.",
+            'pairs': [
+                {'left': 'Mali',         'right': 'Bamako'},
+                {'left': 'Sénégal',      'right': 'Dakar'},
+                {'left': 'Côte d\'Ivoire','right': 'Yamoussoukro'},
+                {'left': 'Niger',        'right': 'Niamey'},
+                {'left': 'Burkina Faso', 'right': 'Ouagadougou'},
+            ],
+            'explanation': "Mali→Bamako, Sénégal→Dakar, C. d'Ivoire→Yamoussoukro, Niger→Niamey, Burkina→Ouagadougou.",
+        },
+        # 3. matching — opérateurs Python
+        {
+            'type': 'matching',
+            'instruction': "Associe chaque opérateur Python à son rôle.",
+            'pairs': [
+                {'left': '%',  'right': 'Reste de division'},
+                {'left': '**', 'right': 'Puissance'},
+                {'left': '//', 'right': 'Division entière'},
+                {'left': '!=', 'right': 'Différent de'},
+            ],
+            'explanation': "% = modulo, ** = puissance, // = division entière, != = différent de.",
+        },
+    ],
+}
+
+
+def quiz_associer_v2_demo(request):
+    """Quiz famille ASSOCIER v2 (DÉMO, matching). Ungated. Branchement réel ensuite."""
+    d = _QUIZ_ASSOCIER_DEMO
+    return render(request, 'student_learning/quiz_associer_v2.html', {
+        'lesson': d['lesson'],
+        'questions': d['questions'],
+        'n_questions': len(d['questions']),
+    })

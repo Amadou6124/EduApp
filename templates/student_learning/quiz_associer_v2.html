@@ -1,0 +1,683 @@
+{% load static l10n %}{% localize off %}
+<!DOCTYPE html>
+<html lang="fr" class="theme-dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <title>{{ lesson.title }} — Quiz</title>
+  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <script defer src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
+  <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
+
+  {{ questions|json_script:"qa-data" }}
+
+  <style>
+    /* ── variables dark partagées avec écrans v2 ── */
+    .theme-dark {
+      --bg:       radial-gradient(120% 90% at 20% -10%, #1a1340 0%, #0b0b1a 55%, #07060f 100%);
+      --solid-bg: #0b0b1a;
+      --text:     #ffffff;
+      --text-dim: rgba(255,255,255,.58);
+      --text-mute:rgba(255,255,255,.38);
+      --surface:  rgba(255,255,255,.05);
+      --surface-2:rgba(255,255,255,.09);
+      --border:   rgba(255,255,255,.09);
+      --track:    rgba(255,255,255,.14);
+    }
+    *, *::before, *::after { box-sizing: border-box }
+    html, body { margin: 0; height: 100%; }
+    ::-webkit-scrollbar { width: 0 }
+    body {
+      font-family: 'Manrope', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      overflow: hidden; -webkit-font-smoothing: antialiased;
+    }
+    [x-cloak] { display: none !important }
+
+    /* ── keyframes ── */
+    @keyframes quizPop {
+      from { opacity: 0; transform: translateX(22px) scale(.97) }
+      to   { opacity: 1; transform: translateX(0)    scale(1)   }
+    }
+    @keyframes feedbackIn {
+      from { opacity: 0; transform: translateY(14px) scale(.97) }
+      to   { opacity: 1; transform: translateY(0)    scale(1)   }
+    }
+    @keyframes pairSnap {
+      0%   { transform: scale(1) }
+      40%  { transform: scale(1.06) }
+      100% { transform: scale(1) }
+    }
+    @keyframes confettiFall {
+      0%   { transform: translateY(-80px) rotate(0deg);   opacity: 1 }
+      100% { transform: translateY(105vh) rotate(720deg); opacity: 0 }
+    }
+    @keyframes starPop {
+      0%   { transform: scale(0) }
+      60%  { transform: scale(1.3) }
+      100% { transform: scale(1) }
+    }
+
+    /* ── layout principal ── */
+    .quizPanel {
+      position: fixed; inset: 0; z-index: 70;
+      display: flex; flex-direction: column;
+      background: var(--bg); color: var(--text);
+      max-width: 560px; margin: 0 auto;
+    }
+    .quiz-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 18px 18px 0; flex-shrink: 0;
+    }
+    .iconBtn {
+      width: 40px; height: 40px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); display: flex; align-items: center;
+      justify-content: center; cursor: pointer; flex-shrink: 0;
+    }
+    .iconBtn:active { transform: scale(.92) }
+    .quiz-body {
+      flex: 1; overflow-y: auto; min-height: 0;
+      padding: 20px 18px 4px;
+      display: flex; flex-direction: column;
+      animation: quizPop .3s cubic-bezier(.2,.9,.3,1);
+    }
+    .q-badge {
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+    }
+    .q-instruction {
+      font-size: 19px; font-weight: 800; line-height: 1.4; margin: 0 0 18px;
+    }
+
+    /* ══════════════════════════════════════════
+       GRILLE D'ASSOCIATION — deux colonnes
+    ══════════════════════════════════════════ */
+
+    .match-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      align-items: start;
+    }
+    .match-col { display: flex; flex-direction: column; gap: 6px; }
+
+    /* Carte de base */
+    .match-card {
+      display: flex; align-items: center; gap: 6px;
+      width: 100%; padding: 11px 10px;
+      background: var(--surface); border: 2px solid var(--border);
+      border-radius: 13px;
+      font-family: 'Manrope', system-ui, sans-serif;
+      font-size: 13px; font-weight: 600; color: var(--text);
+      cursor: pointer; line-height: 1.35; min-height: 52px;
+      text-align: left;
+      transition: border-color .14s, background .14s, box-shadow .14s, transform .1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .match-card:active:not(:disabled) { transform: scale(.95) }
+    .match-card:disabled { cursor: default; }
+
+    /* État : sélectionné (left en attente d'un right) */
+    .match-card.is-selected {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 13%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+
+    /* État : relié à une paire — couleur de paire via CSS var */
+    .match-card.is-linked {
+      border-color: var(--pair-c);
+      background: color-mix(in srgb, var(--pair-c) 13%, transparent);
+      animation: pairSnap .22s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    /* État post-vérification */
+    .match-card.is-correct {
+      border-color: #22C55E;
+      background: rgba(34,197,94,.15);
+    }
+    .match-card.is-wrong {
+      border-color: #EF4444;
+      background: rgba(239,68,68,.15);
+    }
+
+    /* Badge numéro de paire (cercle coloré) */
+    .pair-badge {
+      flex-shrink: 0;
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 900; color: #000;
+      /* fond = var(--pair-c) défini inline */
+      background: var(--pair-c);
+    }
+
+    /* ── colonne gauche : badge à droite de chaque carte ── */
+    .match-card-left  { flex-direction: row; justify-content: space-between; }
+    /* ── colonne droite : badge à gauche de chaque carte ── */
+    .match-card-right { flex-direction: row; }
+    .match-card-right .pair-badge { order: -1; }
+
+    /* Hint "tap pour sélectionner" (visible tant qu'aucune carte liée) */
+    .match-hint {
+      font-size: 12px; color: var(--text-mute); text-align: center;
+      margin: 6px 0 0;
+    }
+
+    /* ── bloc "Bonnes associations" (feedback faux) ── */
+    .assoc-list { margin: 10px 0 6px; }
+    .assoc-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06);
+      font-size: 13px; line-height: 1.35;
+    }
+    .assoc-row:last-child { border-bottom: none }
+    .assoc-left  { font-weight: 700; flex: 0 0 auto; max-width: 42%; }
+    .assoc-arr   { color: var(--text-mute); flex-shrink: 0; }
+    .assoc-right { flex: 1; color: var(--text-dim); }
+    .assoc-ok    { color: #22C55E; }
+    .assoc-ok .assoc-right { color: #22C55E; }
+    .assoc-ko    { color: #EF4444; }
+    .assoc-ko .assoc-right { color: #EF4444; }
+
+    /* ── feedback Duolingo ── */
+    .fb-panel {
+      border-radius: 16px; padding: 14px 16px; margin-top: 12px;
+      animation: feedbackIn .22s cubic-bezier(.2,.9,.3,1);
+    }
+    .fb-ok { background: rgba(34,197,94,.12);  border: 1px solid rgba(34,197,94,.3) }
+    .fb-ko { background: rgba(239,68,68,.12);  border: 1px solid rgba(239,68,68,.3) }
+    .fb-title {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 15px; font-weight: 800; margin: 0 0 6px;
+    }
+    .fb-ok .fb-title { color: #22C55E }
+    .fb-ko .fb-title { color: #EF4444 }
+    .fb-expl { font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.55 }
+
+    /* ── footer ── */
+    .quiz-footer {
+      padding: 10px 18px calc(14px + env(safe-area-inset-bottom));
+      flex-shrink: 0; min-height: 72px;
+      display: flex; align-items: flex-end;
+    }
+    .ctaBtn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; border: none; border-radius: 14px; color: #fff;
+      font-family: 'Manrope', system-ui, sans-serif;
+      font-weight: 800; font-size: 16px; padding: 15px 20px;
+      cursor: pointer; transition: transform .12s;
+    }
+    .ctaBtn:active { transform: scale(.97) }
+    .ctaBtn:disabled { opacity: .35; cursor: default; }
+    .cta-verify      { background: var(--accent) }
+    .cta-continue-ok { background: linear-gradient(135deg,#22C55E,#16A34A) }
+    .cta-continue-ko { background: var(--surface-2); border: 1px solid var(--border) }
+
+    /* ── écran final ── */
+    .final-wrap {
+      position: fixed; inset: 0; z-index: 80; overflow-y: auto;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; background: var(--bg);
+      padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
+      animation: quizPop .4s cubic-bezier(.2,.9,.3,1);
+    }
+    .trophy-ring {
+      width: 110px; height: 110px; border-radius: 50%;
+      background: linear-gradient(150deg, var(--accent), #0891b2);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 16px 40px color-mix(in srgb, var(--accent) 50%, transparent);
+      margin-bottom: 22px;
+    }
+    .miniCard {
+      display: flex; flex-direction: column; align-items: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 16px 22px; min-width: 108px;
+    }
+    .confetti-piece {
+      position: fixed; pointer-events: none; z-index: 90;
+      animation: confettiFall var(--dur,1.5s) ease-in var(--delay,0s) forwards;
+    }
+  </style>
+</head>
+<body>
+
+<div x-data="quizShell()" x-cloak @quiz:answered.window="advance($event.detail)">
+
+  <!-- ══════════════════════════════════════════════════════
+       PHASE : quiz
+  ══════════════════════════════════════════════════════ -->
+  <template x-if="phase === 'quiz'">
+    <div class="quizPanel" style="--accent:{{ lesson.color }}">
+
+      <!-- HEADER : fermer + progression -->
+      <div class="quiz-header">
+        <button class="iconBtn" @click="history.back()">
+          <i data-lucide="x" style="width:18px;height:18px"></i>
+        </button>
+        <div style="display:flex;gap:5px;flex:1;align-items:center">
+          <template x-for="i in questions.length" :key="i">
+            <div style="flex:1;height:7px;border-radius:7px;transition:background .35s"
+              :style="`background:${
+                (i-1)<idx
+                  ? 'var(--accent)'
+                  : (i-1)===idx
+                    ? 'color-mix(in srgb, var(--accent) 55%, transparent)'
+                    : 'var(--track)'
+              }`">
+            </div>
+          </template>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-mute);min-width:32px;text-align:right">
+          <span x-text="idx+1"></span>/<span x-text="questions.length"></span>
+        </div>
+      </div>
+
+      <!-- Fix remontage quand 2 questions même type (matching→matching) -->
+      <template x-for="_ in [idx]" :key="idx">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+
+          <!-- ════════════════════ matching ════════════════════ -->
+          <template x-if="q.type === 'matching'">
+            <div x-data="blockMatching(q)"
+              style="flex:1;display:flex;flex-direction:column;min-height:0">
+
+              <div class="quiz-body">
+                <div class="q-badge">Associer · Q<span x-text="$root.idx+1"></span>/{{ n_questions }}</div>
+                <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+
+                <!-- Grille tap-tap (masquée après vérification) -->
+                <div x-show="!checked">
+                  <div class="match-grid">
+
+                    <!-- Colonne gauche : left fixes dans l'ordre de pairs[] -->
+                    <div class="match-col">
+                      <template x-for="(pair, i) in quiz.pairs" :key="i">
+                        <button
+                          class="match-card match-card-left"
+                          :class="{
+                            'is-selected': selectedLeft === i && links[i] === null,
+                            'is-linked':   links[i] !== null && !checked,
+                          }"
+                          :style="links[i] !== null
+                            ? `--pair-c:${PAIR_COLORS[i % PAIR_COLORS.length]}`
+                            : selectedLeft === i
+                              ? ''
+                              : ''"
+                          @click="tapLeft(i)"
+                          :aria-label="`Sélectionner ${pair.left}`">
+
+                          <span style="flex:1" x-text="pair.left"></span>
+
+                          <!-- Badge numéro de paire (visible si relié) -->
+                          <span x-show="links[i] !== null"
+                            class="pair-badge"
+                            :style="`--pair-c:${PAIR_COLORS[i % PAIR_COLORS.length]}`"
+                            x-text="i+1">
+                          </span>
+
+                          <!-- Indicateur "sélectionné" (si aucun lien) -->
+                          <i x-show="selectedLeft === i && links[i] === null"
+                            data-lucide="chevron-right"
+                            style="width:15px;height:15px;color:var(--accent);flex-shrink:0">
+                          </i>
+                        </button>
+                      </template>
+                    </div>
+
+                    <!-- Colonne droite : right mélangés (shuffledRights[j]) -->
+                    <div class="match-col">
+                      <template x-for="(sr, j) in shuffledRights" :key="sr.origIdx">
+                        <button
+                          class="match-card match-card-right"
+                          :class="{
+                            'is-linked': reverseLinks[j] !== null && !checked,
+                          }"
+                          :style="reverseLinks[j] !== null
+                            ? `--pair-c:${PAIR_COLORS[reverseLinks[j] % PAIR_COLORS.length]}`
+                            : ''"
+                          @click="tapRight(j)"
+                          :aria-label="`Choisir ${sr.text}`">
+
+                          <!-- Badge numéro de paire (visible si relié) -->
+                          <span x-show="reverseLinks[j] !== null"
+                            class="pair-badge"
+                            :style="`--pair-c:${PAIR_COLORS[reverseLinks[j] % PAIR_COLORS.length]}`"
+                            x-text="reverseLinks[j]+1">
+                          </span>
+
+                          <span style="flex:1" x-text="sr.text"></span>
+                        </button>
+                      </template>
+                    </div>
+                  </div><!-- /match-grid -->
+
+                  <!-- Hint tap-tap (disparaît quand au moins une carte est sélectionnée) -->
+                  <p class="match-hint" x-show="selectedLeft === null && links.every(v => v === null)">
+                    Touche un élément à gauche, puis son correspondant à droite
+                  </p>
+                </div><!-- /x-show !checked -->
+
+                <!-- ── Après vérification : grille figée avec états correct/faux ── -->
+                <div x-show="checked" x-cloak>
+                  <div class="match-grid">
+                    <!-- Left column (résultat) -->
+                    <div class="match-col">
+                      <template x-for="(pair, i) in quiz.pairs" :key="i">
+                        <div
+                          class="match-card match-card-left"
+                          :class="isLinkedCorrectly(i) ? 'is-correct' : 'is-wrong'"
+                          :style="`--pair-c:${PAIR_COLORS[i % PAIR_COLORS.length]}`">
+                          <span style="flex:1" x-text="pair.left"></span>
+                          <i :data-lucide="isLinkedCorrectly(i) ? 'check' : 'x'"
+                            style="width:14px;height:14px;flex-shrink:0"></i>
+                        </div>
+                      </template>
+                    </div>
+                    <!-- Right column (résultat — ce que l'élève a relié) -->
+                    <div class="match-col">
+                      <template x-for="(pair, i) in quiz.pairs" :key="i">
+                        <div
+                          class="match-card match-card-right"
+                          :class="isLinkedCorrectly(i) ? 'is-correct' : 'is-wrong'">
+                          <!--
+                            Affiche ce que l'élève a choisi pour left[i].
+                            Si non relié → affiche "—".
+                          -->
+                          <span style="flex:1"
+                            x-text="links[i] !== null
+                              ? shuffledRights[links[i]].text
+                              : '—'">
+                          </span>
+                        </div>
+                      </template>
+                    </div>
+                  </div><!-- /match-grid result -->
+
+                  <!-- Bonnes associations (si faux) -->
+                  <template x-if="!isRight">
+                    <div class="assoc-list">
+                      <div style="font-size:10px;font-weight:800;text-transform:uppercase;
+                        letter-spacing:1px;color:#22C55E;margin:12px 0 6px">
+                        Bonnes associations :
+                      </div>
+                      <template x-for="(pair, i) in quiz.pairs" :key="i">
+                        <div class="assoc-row"
+                          :class="isLinkedCorrectly(i) ? 'assoc-ok' : 'assoc-ko'">
+                          <span class="assoc-left" x-text="pair.left"></span>
+                          <span class="assoc-arr">→</span>
+                          <span class="assoc-right" x-text="pair.right"></span>
+                          <i :data-lucide="isLinkedCorrectly(i) ? 'check-circle' : 'x-circle'"
+                            style="width:14px;height:14px;flex-shrink:0;margin-left:auto"></i>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div><!-- /x-show checked -->
+
+                <!-- Feedback Duolingo -->
+                <div x-show="checked" x-cloak
+                  class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+                  <p class="fb-title">
+                    <i :data-lucide="isRight ? 'check-circle' : 'x-circle'"
+                      style="width:17px;height:17px"></i>
+                    <span x-text="isRight
+                      ? 'Parfait — toutes les associations sont correctes !'
+                      : 'Pas tout à fait — voici les bonnes associations :'">
+                    </span>
+                  </p>
+                  <p class="fb-expl" x-text="quiz.explanation"></p>
+                </div>
+
+              </div><!-- /quiz-body -->
+
+              <div class="quiz-footer">
+                <button x-show="!checked" class="ctaBtn cta-verify" x-cloak
+                  :disabled="!allLinked"
+                  @click="check()">
+                  Vérifier
+                </button>
+                <button x-show="checked" class="ctaBtn" x-cloak
+                  :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'"
+                  @click="go()">
+                  Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+                </button>
+              </div>
+            </div>
+          </template><!-- /matching -->
+
+        </div><!-- /x-for inner wrapper -->
+      </template><!-- /x-for [idx] -->
+
+    </div><!-- /quizPanel -->
+  </template>
+
+  <!-- ══════════════════════════════════════════════════════
+       PHASE : done
+  ══════════════════════════════════════════════════════ -->
+  <template x-if="phase === 'done'">
+    <div class="final-wrap" style="--accent:{{ lesson.color }}"
+      x-init="$nextTick(()=>{ if(window.lucide) lucide.createIcons(); spawnConfetti(); })">
+      <div class="trophy-ring">
+        <i data-lucide="trophy" style="width:52px;height:52px;color:#fff"></i>
+      </div>
+      <h2 style="font-size:26px;font-weight:800;margin:0 0 4px;text-align:center"
+        x-text="endTitle"></h2>
+      <p style="color:var(--text-dim);margin:0 0 6px;text-align:center;font-size:14px">
+        {{ lesson.title }}
+      </p>
+      <div style="display:flex;gap:6px;margin:14px 0 22px">
+        <template x-for="i in 3" :key="i">
+          <i data-lucide="star"
+            :style="`width:36px;height:36px;color:#FBBF24;${
+              (i-1)<stars
+                ? 'fill:#FBBF24;animation:starPop .4s cubic-bezier(.34,1.56,.64,1) '+((i-1)*.12)+'s both'
+                : 'opacity:.25'
+            }`">
+          </i>
+        </template>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:32px">
+        <div class="miniCard">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <i data-lucide="check-circle" style="width:20px;height:20px;color:#22C55E"></i>
+            <span style="font-size:28px;font-weight:800"
+              x-text="score+'/'+questions.length"></span>
+          </div>
+          <div style="font-size:12px;color:var(--text-dim)">bonnes réponses</div>
+        </div>
+        <div class="miniCard">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <i data-lucide="gem" style="width:20px;height:20px;color:var(--accent)"></i>
+            <span style="font-size:28px;font-weight:800" x-text="'+'+xp"></span>
+          </div>
+          <div style="font-size:12px;color:var(--text-dim)">XP gagnés</div>
+        </div>
+      </div>
+      <button class="ctaBtn" @click="history.back()"
+        style="width:min(360px,90%);background:linear-gradient(150deg, var(--accent), #0891b2)">
+        Terminer <i data-lucide="check" style="width:18px;height:18px"></i>
+      </button>
+    </div>
+  </template>
+
+</div><!-- /quizShell -->
+
+<script>
+{% verbatim %}
+const _QA = JSON.parse(document.getElementById('qa-data').textContent);
+
+// Palette de couleurs pour les paires (max 5 paires selon le schéma)
+// Chaque paire i reçoit PAIR_COLORS[i % 5] — teintes distinctes sur fond sombre.
+const PAIR_COLORS = ['#F59E0B', '#22C55E', '#A78BFA', '#FB7185', '#38BDF8'];
+
+document.addEventListener('alpine:init', () => {
+
+  // ── Shell séquenceur ────────────────────────────────────────────────────────
+  Alpine.data('quizShell', () => ({
+    idx: 0, results: [], phase: 'quiz',
+    questions: _QA,
+    get q()        { return this.questions[this.idx]; },
+    get score()    { return this.results.filter(Boolean).length; },
+    get stars()    { const r=this.score/this.questions.length; return r>=.85?3:r>=.6?2:r>0?1:0; },
+    get xp()       { return this.score * 10; },
+    get endTitle() { return this.stars===3?'Parfait !':this.stars===2?'Bien joué !':this.stars===1?'Courage !':'À retravailler'; },
+    advance(detail) {
+      this.results.push(detail.correct);
+      setTimeout(() => {
+        if (this.idx + 1 >= this.questions.length) {
+          this.phase = 'done';
+        } else {
+          this.idx++;
+          this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+        }
+      }, 170);
+    },
+    spawnConfetti() {
+      if (this.stars === 0) return;
+      const colors = ['#22D3EE','#22C55E','#F59E0B','#A78BFA','#FB7185','#FBBF24','#38BDF8'];
+      for (let k = 0; k < 44; k++) {
+        const el = document.createElement('div');
+        el.className = 'confetti-piece';
+        const sz = 5 + Math.random() * 9;
+        el.style.cssText = `left:${Math.random()*100}vw;top:0;width:${sz}px;height:${sz}px;
+          background:${colors[k%colors.length]};
+          --dur:${1.1+Math.random()*1.3}s;--delay:${Math.random()*.9}s;
+          border-radius:${Math.random()>.45?'50%':'2px'};`;
+        document.body.appendChild(el);
+        el.addEventListener('animationend', () => el.remove(), { once: true });
+      }
+    },
+  }));
+
+  // ── BLOC : matching ──────────────────────────────────────────────────────────
+  // Règle (_eval_matching, services.py:1559) :
+  //   student[i] = origIdx du right choisi pour left[i].
+  //   Correct ssi student == [0, 1, ..., n-1].
+  //
+  // État interne :
+  //   shuffledRights[j] = { text, origIdx } — mélangés une fois à l'init, stables.
+  //   links[i] = j  (index dans shuffledRights) ou null — ce que left[i] pointe.
+  //   reverseLinks[j] = i ou null — quel left pointe ce right.
+  //   selectedLeft = i ou null — quel left est actuellement sélectionné.
+  //
+  // Comportement tap-tap :
+  //   tap left[i] sans sélection    → sélectionner i
+  //   tap left[i] déjà sélectionné  → désélectionner
+  //   tap left[k] quand i sélectionné → changer sélection vers k
+  //   tap right[j] avec left[i] sélectionné → lier i↔j (remplace les liens existants)
+  //   tap right[j] sans sélection   → si déjà lié, délier
+  Alpine.data('blockMatching', (quiz) => ({
+    quiz,
+    shuffledRights: [],   // { text, origIdx }[] — ordre fixe après init
+    links:          [],   // links[i] = j | null
+    reverseLinks:   [],   // reverseLinks[j] = i | null
+    selectedLeft:   null,
+    checked:        false,
+    isRight:        false,
+    PAIR_COLORS,          // référence locale pour les x-html bindings (accès direct)
+
+    init() {
+      const n = this.quiz.pairs.length;
+      // Fisher-Yates sur les indices originaux
+      const idxs = [...Array(n).keys()];
+      for (let i = n - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
+      }
+      this.shuffledRights = idxs.map(origIdx => ({
+        text: this.quiz.pairs[origIdx].right,
+        origIdx,
+      }));
+      this.links        = Array(n).fill(null);
+      this.reverseLinks = Array(n).fill(null);
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+
+    get allLinked() {
+      return this.links.every(v => v !== null);
+    },
+
+    // ── tap sur left[i] ──
+    tapLeft(i) {
+      if (this.checked) return;
+      this.selectedLeft = (this.selectedLeft === i) ? null : i;
+    },
+
+    // ── tap sur right[j] ──
+    tapRight(j) {
+      if (this.checked) return;
+      const i = this.selectedLeft;
+
+      if (i === null) {
+        // Pas de left sélectionné → délier ce right s'il est déjà lié
+        const li = this.reverseLinks[j];
+        if (li !== null) {
+          const lk = [...this.links];
+          const rl = [...this.reverseLinks];
+          lk[li] = null;
+          rl[j]  = null;
+          this.links = lk; this.reverseLinks = rl;
+        }
+        return;
+      }
+
+      // Left i sélectionné
+      const lk = [...this.links];
+      const rl = [...this.reverseLinks];
+
+      // Retirer l'ancien lien de left[i] s'il en avait un
+      const oldJ = lk[i];
+      if (oldJ !== null) rl[oldJ] = null;
+
+      // Retirer l'ancien lien vers right[j] s'il en avait un
+      const oldI = rl[j];
+      if (oldI !== null) lk[oldI] = null;
+
+      // Créer le lien i ↔ j
+      lk[i] = j;
+      rl[j] = i;
+
+      this.links        = lk;
+      this.reverseLinks = rl;
+      this.selectedLeft = null;
+
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+
+    // ── helpers ──
+    // left[i] est-il relié à son right d'origine (pairs[i]) ?
+    isLinkedCorrectly(i) {
+      if (this.links[i] === null) return false;
+      return this.shuffledRights[this.links[i]].origIdx === i;
+    },
+
+    // ── éval miroir de _eval_matching (services.py:1559) ──
+    // student[i] = origIdx du right choisi pour left[i]
+    // correct ssi student == [0, 1, ..., n-1]
+    check() {
+      const student  = this.links.map(j => j !== null ? this.shuffledRights[j].origIdx : -1);
+      const expected = [...Array(this.quiz.pairs.length).keys()];
+      this.isRight   = JSON.stringify(student) === JSON.stringify(expected);
+      this.checked   = true;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+
+    go() {
+      this.$el.style.transition = 'opacity 150ms ease, transform 150ms ease';
+      this.$el.style.opacity    = '0';
+      this.$el.style.transform  = 'translateX(-18px) scale(.97)';
+      setTimeout(() => { this.$dispatch('quiz:answered', { correct: this.isRight }); }, 155);
+    },
+  }));
+
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.lucide) lucide.createIcons();
+});
+{% endverbatim %}
+</script>
+</body>
+</html>
+{% endlocalize %}

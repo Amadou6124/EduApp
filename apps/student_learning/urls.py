@@ -37,5 +37,6 @@ urlpatterns = [
     path('v2/quiz-math/',    views.quiz_math_v2_demo,    name='quiz-math-v2-demo'),
     path('v2/quiz-choisir/', views.quiz_choisir_v2_demo, name='quiz-choisir-v2-demo'),
     path('v2/quiz-nombre/',   views.quiz_nombre_v2_demo,   name='quiz-nombre-v2-demo'),
-    path('v2/quiz-ordonner/', views.quiz_ordonner_v2_demo, name='quiz-ordonner-v2-demo'),
+    path('v2/quiz-ordonner/',  views.quiz_ordonner_v2_demo,  name='quiz-ordonner-v2-demo'),
+    path('v2/quiz-associer/',  views.quiz_associer_v2_demo,  name='quiz-associer-v2-demo'),
 ]
