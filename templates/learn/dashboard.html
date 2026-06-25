@@ -41,7 +41,7 @@
       {# Séparateur leçon — cible IntersectionObserver pour titre dans le header #}
       <div class="flex items-center gap-3 px-4 mb-4 {% if not forloop.first %}mt-10{% else %}mt-4{% endif %}"
            data-lesson-title="{{ item.lesson.title }}"
-           data-lesson-url="{% url 'learn:lesson' item.lesson.id %}">
+           data-lesson-url="{{ item.lesson_url }}">
         <div class="flex-1 h-px bg-gray-200"></div>
         <span class="text-xs font-semibold text-gray-400 whitespace-nowrap">
           {{ item.lesson.title|truncatechars:30 }}
@@ -62,7 +62,7 @@
                   data-lucide-icon="{{ concept.lucide_icon }}"
                   data-done="{{ concept.done_count }}"
                   data-total="{{ concept.total_count }}"
-                  data-lesson-url="{% url 'learn:lesson' item.lesson.id %}"
+                  data-lesson-url="{{ item.lesson_url }}"
                   data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
                   @click="openNode = { ...$el.dataset }">
             <i data-lucide="{% if concept.state == 'new' %}play{% else %}check{% endif %}"
@@ -83,7 +83,7 @@
                 data-lucide-icon="{% if item.node_state == 'completed' %}check{% elif item.node_state == 'in_progress' %}chevrons-right{% else %}play{% endif %}"
                 data-done="0"
                 data-total="0"
-                data-lesson-url="{% url 'learn:lesson' item.lesson.id %}"
+                data-lesson-url="{{ item.lesson_url }}"
                 data-quiz-url="{% url 'learn:quiz' item.lesson.id %}"
                 @click="openNode = { ...$el.dataset }">
           <i data-lucide="{% if item.node_state == 'completed' %}check{% elif item.node_state == 'in_progress' %}chevrons-right{% else %}play{% endif %}"

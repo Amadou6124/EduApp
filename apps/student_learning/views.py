@@ -17,12 +17,15 @@ from apps.core.student_auth import (
     authenticate_student, login_student, logout_student, student_required,
 )
 from apps.core.constants import MASTERY_THRESHOLD, MASTERY_WEAK_THRESHOLD
-from apps.lessons.models import Lesson, LessonDeployment, LessonStatus
+from apps.lessons.models import Lesson, LessonContentVersion, LessonDeployment, LessonStatus
 from apps.lessons.services import (
     evaluate_answer, calculate_lesson_mastery, sm2_update,
 )
 from apps.student_learning.services import award_xp, student_stats, BADGES_CATALOG, level_info, xp_for_next_level, XP_PER_LEVEL
-from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard, StoryAttempt
+from apps.student_learning.models import (
+    LessonProgress, QuizAttempt, Flashcard, StoryAttempt,
+    ConceptProgress, ExamAttempt,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -224,8 +227,14 @@ def learn_dashboard(request):
             else:
                 node_state, progress_pct = 'not_started', 0
 
+            if dep.lesson.format_version == 2:
+                lesson_url = reverse('learn:parcours-v2', kwargs={'lesson_id': dep.lesson.id})
+            else:
+                lesson_url = reverse('learn:lesson', kwargs={'lesson_id': dep.lesson.id})
+
             lessons_data.append({
                 'lesson':       dep.lesson,
+                'lesson_url':   lesson_url,
                 'node_state':   node_state,
                 'progress_pct': progress_pct,
                 'mastery':      mastery,
@@ -922,6 +931,126 @@ def _pcrs_ring_dash(seg, seg_done):
     return track, " ".join(parts), "butt"
 
 
+def assemble_nodes(cv, student):
+    """
+    Assemble la liste plate des nœuds du parcours (spec §3.4).
+
+    Contrat d'entrée :
+        cv      — LessonContentVersion (avec concepts_data list, story_data, exam_data)
+        student — instance Student (utilisée pour lire ConceptProgress)
+
+    Contrat de sortie : liste de dicts prêts pour parcours_v2.html (json_script).
+    Chaque dict a les clés :
+        i, type, title, desc, status, xp, passes, passes_done,
+        x, y, show_ring, ring, url_lecteur
+        + les clés de _PCRS_TYPE (label, cta, g0, g1, dark, glow, icon)
+
+    Statuts (séquentiels) :
+        done    — passes_done >= passes (quiz) ou flag explicite (story/exam)
+        current — premier nœud non-done
+        locked  — tout ce qui suit le premier nœud non-done
+    """
+    concepts = cv.concepts_data if isinstance(cv.concepts_data, list) else []
+    has_story = bool(cv.story_data)
+    has_exam = bool(cv.exam_data)
+    url_lecteur = reverse('learn:lecteur-v2', kwargs={'lesson_id': cv.lesson_id})
+
+    # Progression depuis la base (lecture seule — aucune écriture ici)
+    cprog = {
+        cp.concept_id: cp.passes_done
+        for cp in ConceptProgress.objects.filter(student=student, content_version=cv)
+    }
+    story_done = StoryAttempt.objects.filter(student=student, lesson_id=cv.lesson_id).exists()
+    exam_passed = ExamAttempt.objects.filter(
+        student=student, content_version=cv, passed=True
+    ).exists()
+
+    # 1. Nœuds quiz (un par concept)
+    raw = []
+    for c in concepts:
+        cid = str(c.get('id', ''))
+        passes = max(1, int(c.get('passes', 1)))
+        passes_done = min(int(cprog.get(cid, 0)), passes)
+        raw.append({
+            'type': 'quiz',
+            'title': f"Quiz · {c.get('name', cid)}",
+            'desc': c.get('name', cid),
+            'passes': passes,
+            'passes_done': passes_done,
+            'is_done': passes_done >= passes,
+            'xp': 20,
+            'url_lecteur': url_lecteur,
+        })
+
+    # 2. Nœud story — intercalé juste avant l'exam (spec §3.4)
+    if has_story:
+        scene_name = 'Histoire interactive'
+        if isinstance(cv.story_data, dict):
+            scene_name = (cv.story_data.get('scene') or {}).get('name') or scene_name
+        raw.append({
+            'type': 'story',
+            'title': scene_name,
+            'desc': "Plonge dans l'histoire interactive",
+            'passes': 1,
+            'passes_done': 1 if story_done else 0,
+            'is_done': story_done,
+            'xp': 25,
+            'url_lecteur': None,
+        })
+
+    # 3. Nœud checkpoint (exam) — toujours en dernier
+    if has_exam:
+        raw.append({
+            'type': 'checkpoint',
+            'title': 'Examen final',
+            'desc': "Évalue toutes tes connaissances",
+            'passes': 1,
+            'passes_done': 1 if exam_passed else 0,
+            'is_done': exam_passed,
+            'xp': 90,
+            'url_lecteur': None,
+        })
+
+    # 4. Calcul des statuts séquentiels
+    first_non_done = next((i for i, r in enumerate(raw) if not r['is_done']), len(raw))
+
+    nodes = []
+    for i, r in enumerate(raw):
+        if r['is_done']:
+            status = 'done'
+        elif i == first_non_done:
+            status = 'current'
+        else:
+            status = 'locked'
+
+        t = _PCRS_TYPE[r['type']]
+        passes, passes_done = r['passes'], r['passes_done']
+        show_ring = (status == 'current' and r['type'] == 'quiz' and passes >= 2)
+        ring = None
+        if show_ring:
+            track, fill, cap = _pcrs_ring_dash(passes, passes_done)
+            ring = {'track': track, 'fill': fill, 'cap': cap, 'accent': t['g0']}
+
+        nodes.append({
+            'i': i,
+            'type': r['type'],
+            'title': r['title'],
+            'desc': r['desc'],
+            'status': status,
+            'xp': r['xp'],
+            'passes': passes,
+            'passes_done': passes_done,
+            'x': _pcrs_px(i),
+            'y': _pcrs_py(i),
+            'show_ring': show_ring,
+            'ring': ring,
+            'url_lecteur': r['url_lecteur'],
+            **t,
+        })
+
+    return nodes
+
+
 # Mock du design (sous-ensemble couvrant tous les états : done/current/locked,
 # anneaux 2/3 passes, quiz/story/checkpoint).
 _PCRS_DEMO = {
@@ -1552,4 +1681,108 @@ def exam_v2_demo(request):
         'lesson':    d['lesson'],
         'meta':      d['meta'],
         'questions': d['questions'],
+    })
+
+
+# ─── Vues RÉELLES v2 (données de production, élève authentifié) ───────────────
+
+@student_required
+def learn_parcours_v2(request, lesson_id):
+    """Parcours v2 sur vraies données. Gated : élève authentifié + leçon déployée dans sa classe."""
+    student = request.student
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson, school_class=student.school_class, is_active=True)
+
+    cv = lesson.active_content_version
+    if not cv:
+        cv = (LessonContentVersion.objects
+              .filter(lesson=lesson).order_by('-version').first())
+    if not cv:
+        from django.http import Http404
+        raise Http404('Aucun contenu disponible.')
+
+    nodes = assemble_nodes(cv, student)
+    done_count = sum(1 for n in nodes if n['status'] == 'done')
+    progress_ratio = round(done_count / len(nodes), 4) if nodes else 0
+
+    segments = []
+    for i in range(len(nodes) - 1):
+        p, q = nodes[i], nodes[i + 1]
+        my = (p['y'] + q['y']) / 2
+        segments.append({
+            'd': f"M {p['x']} {p['y']} C {p['x']} {my}, {q['x']} {my}, {q['x']} {q['y']}",
+            'lit': p['status'] == 'done',
+        })
+
+    return render(request, 'student_learning/parcours_v2.html', {
+        'lesson': {
+            'title':  lesson.title,
+            'subject': lesson.subject or '',
+            'color':  cv.color or '#818CF8',
+            'guide':  cv.guide or '',
+        },
+        'nodes':          nodes,
+        'segments':       segments,
+        'canvas_h':       len(nodes) * _PCRS_ROW_H + 60,
+        'col_w':          _PCRS_COL_W,
+        'node_size':      _PCRS_NODE,
+        'progress_ratio': progress_ratio,
+    })
+
+
+@student_required
+def learn_lecteur_v2(request, lesson_id):
+    """Lecteur v2 sur vraies données (reading_data). Gated : élève authentifié + leçon déployée."""
+    student = request.student
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson, school_class=student.school_class, is_active=True)
+
+    cv = lesson.active_content_version
+    if not cv:
+        cv = (LessonContentVersion.objects
+              .filter(lesson=lesson).order_by('-version').first())
+    if not cv or not cv.reading_data:
+        from django.http import Http404
+        raise Http404('Aucun contenu de lecture disponible.')
+
+    rd = cv.reading_data
+    term_keys = list((rd.get('terms') or {}).keys())
+
+    sections = []
+    tts = []
+    for si, s in enumerate(rd.get('sections', [])):
+        blocks = []
+        sec_tts = []
+        for bi, b in enumerate(s.get('blocks', [])):
+            nb = dict(b, si=si, bi=bi)
+            if b.get('type') == 'p':
+                nb['rich_html'] = _reader_rich(b.get('text', ''), term_keys)
+            blocks.append(nb)
+            t = _reader_txt_of(b)
+            if t:
+                sec_tts.append({'bi': bi, 'text': t})
+        sections.append({'id': s.get('id', f's{si}'), 'title': s.get('title', ''), 'blocks': blocks})
+        tts.append(sec_tts)
+
+    subject = lesson.subject or ''
+    return render(request, 'student_learning/lecteur_v2.html', {
+        'lesson': {
+            'title':   lesson.title,
+            'subject': subject,
+            'color':   cv.color or '#818CF8',
+        },
+        'subject_short':   subject.split('—')[0].strip() if '—' in subject else subject,
+        'reading_title':   rd.get('title', lesson.title),
+        'sections':        sections,
+        'section_titles':  [s.get('title', '') for s in rd.get('sections', [])],
+        'terms':           rd.get('terms') or {},
+        'tts':             tts,
+        'n_sections':      len(sections),
+        'back_url':        reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
     })

@@ -59,7 +59,7 @@
   <!-- ════ HEADER ════ -->
   <header style="position:relative;z-index:2;flex-shrink:0;background:var(--header-bg);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)">
     <div class="flex items-center" style="gap:6px;padding:12px 10px 8px">
-      <button class="rhbtn" @click="stopTTS(); history.back()"><i data-lucide="arrow-left"></i></button>
+      <button class="rhbtn" @click="stopTTS(); {% if back_url %}window.location.href='{{ back_url }}'{% else %}history.back(){% endif %}"><i data-lucide="arrow-left"></i></button>
       <div style="flex:1;min-width:0;position:relative;height:24px">
         <div class="rfade" :key="active" style="font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="sectionTitles[active]"></div>
       </div>

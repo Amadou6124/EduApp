@@ -31,6 +31,10 @@ urlpatterns = [
     path('grades/bulletin/<int:bulletin_id>/pdf/', views.learn_bulletin_pdf, name='bulletin-pdf'),
     path('profile/', views.learn_profile, name='profile'),
 
+    # v2 (Phase C) — vues RÉELLES (données de production, élève authentifié).
+    path('v2/lesson/<int:lesson_id>/parcours/', views.learn_parcours_v2, name='parcours-v2'),
+    path('v2/lesson/<int:lesson_id>/lecteur/',  views.learn_lecteur_v2,  name='lecteur-v2'),
+
     # v2 (Phase C) — portail élève redesign. Démos (données en dur).
     path('v2/parcours/', views.parcours_v2_demo, name='parcours-v2-demo'),
     path('v2/lecteur/',  views.lecteur_v2_demo,  name='lecteur-v2-demo'),

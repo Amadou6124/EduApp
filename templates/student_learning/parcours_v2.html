@@ -262,6 +262,14 @@
               <i :data-lucide="sheet.type==='story' ? 'play' : 'arrow-right'" style="width:18px;height:18px"></i>
               <span x-text="sheet.cta"></span>
             </button>
+            <template x-if="sheet.url_lecteur">
+              <a :href="sheet.url_lecteur"
+                 class="ctaBtn"
+                 style="margin-top:10px;background:rgba(255,255,255,.06);color:#e2e2ef;text-decoration:none;border:1px solid rgba(255,255,255,.12)">
+                <i data-lucide="book-open" style="width:17px;height:17px"></i>
+                Lire la leçon
+              </a>
+            </template>
           </div>
         </template>
       </div>
