@@ -1,0 +1,315 @@
+{% load static l10n %}<!DOCTYPE html>
+<html lang="fr" class="theme-dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <title>{{ lesson.title }} — Parcours</title>
+  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <script src="{% static 'vendor/lucide/lucide.min.js' %}" defer></script>
+  <script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
+
+  {{ nodes|json_script:"pcrs-nodes" }}
+
+  <style>
+    /* ── Thème sombre (THEMES.dark du design) ───────────────────────────────── */
+    .theme-dark{
+      --bg:radial-gradient(120% 90% at 20% -10%, #1a1340 0%, #0b0b1a 55%, #07060f 100%);
+      --solid-bg:#0b0b1a;
+      --text:#ffffff; --text-dim:rgba(255,255,255,.58); --text-mute:rgba(255,255,255,.42);
+      --surface:rgba(255,255,255,.05); --surface-2:rgba(255,255,255,.08); --border:rgba(255,255,255,.09);
+      --track:rgba(255,255,255,.16); --hover:rgba(255,255,255,.06); --path-dim:rgba(148,163,184,.16);
+      --header-bg:rgba(12,11,26,.72); --nav-bg:rgba(12,11,26,.82); --panel-bg:rgba(20,18,40,.96);
+      --sheet-bg:rgba(18,16,36,.98); --node-lock:linear-gradient(150deg,#3a3a52,#262638);
+      --node-lock-shadow:0 6px 0 0 #1b1b2a; --badge-border:#0b0b1a;
+    }
+    *{box-sizing:border-box} html,body{margin:0;height:100%} ::-webkit-scrollbar{width:0}
+    body{font-family:'Manrope',system-ui,sans-serif;background:var(--bg);color:var(--text);
+         overflow:hidden;-webkit-font-smoothing:antialiased}
+    .app{display:flex;flex-direction:column;height:100dvh;max-width:480px;margin:0 auto;position:relative}
+
+    /* ── Header ──────────────────────────────────────────────────────────────── */
+    header.appHeader{position:relative;z-index:30;flex-shrink:0;background:var(--header-bg);
+      backdrop-filter:blur(18px);border-bottom:1px solid var(--border)}
+    .hdrBar{position:absolute;top:0;left:0;height:3px;border-radius:0 3px 3px 0;transition:width .3s}
+    .hdrRow{display:flex;align-items:center;padding:12px 14px;gap:8px}
+    .iconBtn{width:44px;height:44px;border-radius:14px;border:1px solid var(--border);background:var(--surface);
+      color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+      transition:transform .15s,background .15s}
+    .iconBtn:hover{transform:translateY(-2px);background:var(--surface-2)} .iconBtn:active{transform:scale(.94)}
+    .hdrTitle{font-size:17px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* ── Main / parcours ───────────────────────────────────────────────────────── */
+    main.appMain{flex:1;overflow-y:auto;position:relative;z-index:10}
+    .canvas{position:relative;margin:30px auto 0}
+    .ppath{position:absolute;inset:0;overflow:visible}
+    .pnode{position:absolute;transform:translate(-50%,-50%)}
+    .pring{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0}
+    .nodeBtn{position:relative;z-index:1;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:transform .13s cubic-bezier(.34,1.56,.64,1)}
+    .nodeBtn.live:hover{transform:translateY(-3px) scale(1.05)}
+    .nodeBtn.live:active{transform:translateY(6px) scale(.97)}
+    .nodeBtn.cur{animation:curGlow 2.2s ease-in-out infinite}
+    @keyframes curGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.13)}}
+    .nodeBtn.shake{animation:shakeX .46s cubic-bezier(.36,.07,.19,.97)}
+    @keyframes shakeX{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(3px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
+    .doneBadge{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:50%;
+      background:#22C55E;border:3px solid var(--badge-border);display:flex;align-items:center;justify-content:center;z-index:2}
+    .startLabel{position:absolute;left:50%;bottom:100%;margin-bottom:20px;transform:translateX(-50%);background:#fff;
+      color:#111;font-weight:800;font-size:12px;letter-spacing:.5px;padding:6px 12px;border-radius:10px;white-space:nowrap;
+      box-shadow:0 6px 18px rgba(0,0,0,.4);animation:bob 1.4s ease-in-out infinite;z-index:5}
+    .startArrow{position:absolute;left:50%;top:100%;transform:translateX(-50%);width:0;height:0;
+      border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #fff}
+    @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
+    .endNote{text-align:center;padding:24px 0 8px;color:var(--text-mute);font-size:13px;font-weight:600}
+
+    /* ── bottomNav ─────────────────────────────────────────────────────────────── */
+    .bottomNav{position:relative;z-index:40;flex-shrink:0;display:flex;justify-content:space-around;align-items:center;
+      padding:8px 6px calc(8px + env(safe-area-inset-bottom));background:var(--nav-bg);backdrop-filter:blur(20px);
+      border-top:1px solid var(--border)}
+    .navItem{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;
+      padding:4px 10px;flex:1;transition:transform .12s} .navItem:active{transform:scale(.9)}
+    .navIco{width:46px;height:36px;border-radius:13px;display:flex;align-items:center;justify-content:center;transition:background .2s,box-shadow .2s}
+    .navLbl{font-size:11px;font-weight:700}
+
+    /* ── jumpBtn ───────────────────────────────────────────────────────────────── */
+    .jumpBtn{position:absolute;right:16px;bottom:84px;z-index:35;width:52px;height:52px;border-radius:16px;border:none;
+      color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.4);
+      transition:transform .14s,filter .15s;animation:jumpIn .2s ease}
+    @keyframes jumpIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+    .jumpBtn:hover{transform:translateY(-2px);filter:brightness(1.1)} .jumpBtn:active{transform:scale(.92)}
+
+    /* ── Sheet ─────────────────────────────────────────────────────────────────── */
+    .backdrop{position:fixed;inset:0;background:rgba(5,4,12,.5);backdrop-filter:blur(4px);z-index:50;animation:fade .25s ease}
+    @keyframes fade{from{opacity:0}to{opacity:1}}
+    .sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--sheet-bg);backdrop-filter:blur(20px);
+      border-top:1px solid var(--border);border-radius:26px 26px 0 0;padding:14px 22px 30px;max-width:480px;margin:0 auto;
+      color:var(--text);animation:sheetUp .32s cubic-bezier(.2,.9,.3,1)}
+    @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .sheetHandle{width:42px;height:5px;border-radius:5px;background:var(--track);margin:0 auto 18px}
+    .chip{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:8px}
+    .rewardPill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:7px 12px;border-radius:11px;background:var(--surface);border:1px solid var(--border)}
+    .ctaBtn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:14px;color:#fff;font-weight:800;font-size:16px;
+      padding:12px 20px;cursor:pointer;width:100%;justify-content:center;transition:transform .15s,filter .15s}
+    .ctaBtn:hover{transform:translateY(-2px);filter:brightness(1.08)} .ctaBtn:active{transform:scale(.97)}
+    @keyframes titleIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    .titleAnim{animation:titleIn .4s cubic-bezier(.2,.9,.3,1)}
+    .placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;
+      color:var(--text-mute);gap:10px;font-weight:600}
+    [x-cloak]{display:none!important}
+  </style>
+</head>
+<body>
+{% localize off %}
+<div class="app" x-data="parcours()">
+
+  <!-- ════ HEADER ════ -->
+  <header class="appHeader">
+    <div class="hdrBar" :style="`width:${(tab==='parcours'?progress:0)*100}%;background:linear-gradient(90deg, {{ lesson.color }}, var(--text))`"></div>
+    <div class="hdrRow">
+      <button class="iconBtn" title="Mes leçons" @click="toast('Changer de leçon — bientôt')"><i data-lucide="library"></i></button>
+      <div style="display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;flex:1;padding:0 10px;min-height:44px">
+        <div class="hdrTitle titleAnim" :key="tab" x-text="tab==='parcours' ? '{{ lesson.title|escapejs }}' : tabLabel"></div>
+      </div>
+      <button class="iconBtn" title="Lire la leçon" @click="toast('Lecture — bientôt')"
+              style="background:linear-gradient(150deg, {{ lesson.color }}, #6d28d9);border-color:transparent;color:#fff">
+        <i data-lucide="book-open"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ════ MAIN ════ -->
+  <main class="appMain" x-ref="main" @scroll="onScroll">
+    <div style="position:relative;padding-bottom:96px">
+
+      <!-- PARCOURS -->
+      <section x-show="tab==='parcours'">
+        <div class="canvas" style="width:{{ col_w }}px;height:{{ canvas_h }}px">
+          <!-- chemin ondulé -->
+          <svg class="ppath" width="{{ col_w }}" height="{{ canvas_h }}">
+            {% for s in segments %}
+            <path d="{{ s.d }}" fill="none" stroke-linecap="round"
+                  stroke="{% if s.lit %}{{ lesson.color }}{% else %}var(--path-dim){% endif %}"
+                  stroke-opacity="{% if s.lit %}.5{% else %}1{% endif %}"
+                  stroke-width="{% if s.lit %}7{% else %}6{% endif %}"
+                  stroke-dasharray="{% if s.lit %}0{% else %}3 14{% endif %}" />
+            {% endfor %}
+          </svg>
+
+          <!-- nœuds -->
+          {% for n in nodes %}
+          <div class="pnode" style="left:{{ n.x }}px;top:{{ n.y }}px;width:{{ node_size }}px;height:{{ node_size }}px"
+               {% if n.status == 'current' %}x-ref="current"{% endif %}>
+
+            {% if n.show_ring %}
+            <svg class="pring" width="128" height="128" viewBox="0 0 128 128">
+              <path d="M 64 12 H 88 A 28 28 0 0 1 116 40 V 88 A 28 28 0 0 1 88 116 H 40 A 28 28 0 0 1 12 88 V 40 A 28 28 0 0 1 40 12 H 64 Z"
+                    pathLength="100" fill="none" stroke="var(--track)" stroke-width="6"
+                    stroke-linecap="{{ n.ring.cap }}" stroke-dasharray="{{ n.ring.track }}" />
+              <path d="M 64 12 H 88 A 28 28 0 0 1 116 40 V 88 A 28 28 0 0 1 88 116 H 40 A 28 28 0 0 1 12 88 V 40 A 28 28 0 0 1 40 12 H 64 Z"
+                    pathLength="100" fill="none" stroke="{{ n.ring.accent }}" stroke-width="6"
+                    stroke-linecap="{{ n.ring.cap }}" stroke-dasharray="{{ n.ring.fill }}"
+                    style="filter:drop-shadow(0 0 5px {{ n.ring.accent }})" />
+            </svg>
+            {% endif %}
+
+            {% if n.status == 'current' %}
+            <div class="startLabel">DÉMARRER<span class="startArrow"></span></div>
+            {% endif %}
+
+            <button class="nodeBtn {% if n.status != 'locked' %}live{% endif %} {% if n.status == 'current' %}cur{% endif %}"
+                    style="width:{{ node_size }}px;height:{{ node_size }}px;border-radius:24px;
+                      {% if n.status == 'locked' %}background:var(--node-lock);box-shadow:var(--node-lock-shadow);
+                      {% else %}background:linear-gradient(150deg, {{ n.g0 }}, {{ n.g1 }});
+                        box-shadow:0 8px 0 0 {{ n.dark }}, {% if n.status == 'current' %}0 16px 30px{% else %}0 9px 16px{% endif %} {{ n.glow }};{% endif %}"
+                    {% if n.status == 'locked' %}x-data="{shk:false}" :class="shk && 'shake'"
+                      @click="shk=true;setTimeout(()=>shk=false,460);openSheet({{ n.i }})"
+                    {% else %}@click="openSheet({{ n.i }})"{% endif %}>
+              <i data-lucide="{{ n.icon }}" style="width:30px;height:30px;color:{% if n.status == 'locked' %}var(--text-mute){% else %}#fff{% endif %}" stroke-width="2.4"></i>
+            </button>
+
+            {% if n.status == 'done' %}
+            <span class="doneBadge"><i data-lucide="check" style="width:15px;height:15px;color:#fff" stroke-width="4"></i></span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div class="endNote">
+          <i data-lucide="sparkles" style="width:16px;height:16px;display:inline;vertical-align:-3px;margin-right:6px"></i>
+          Fin de la leçon — choisis-en une autre pour continuer
+        </div>
+      </section>
+
+      <!-- AUTRES ONGLETS (placeholder) -->
+      <section x-show="tab!=='parcours'" x-cloak style="height:60vh">
+        <div class="placeholder">
+          <i data-lucide="hammer" style="width:34px;height:34px"></i>
+          <span x-text="tabLabel + ' — bientôt'"></span>
+        </div>
+      </section>
+    </div>
+
+    <!-- jump to current -->
+    <button class="jumpBtn" x-show="jumpDir" x-cloak @click="scrollToCurrent()"
+            :title="'Aller à l\'étape en cours'"
+            style="background:linear-gradient(150deg, {{ lesson.color }}, #6d28d9)">
+      <i data-lucide="arrow-up" x-show="jumpDir==='up'" style="width:23px;height:23px;color:#fff" stroke-width="2.7"></i>
+      <i data-lucide="arrow-down" x-show="jumpDir==='down'" style="width:23px;height:23px;color:#fff" stroke-width="2.7"></i>
+    </button>
+  </main>
+
+  <!-- ════ BOTTOM NAV ════ -->
+  <nav class="bottomNav">
+    <template x-for="t in tabs" :key="t.id">
+      <button class="navItem" @click="changeTab(t.id)">
+        <div class="navIco" :style="tab===t.id ? `background:linear-gradient(150deg, {{ lesson.color }}, #6d28d9);box-shadow:0 6px 16px {{ lesson.color }}66` : ''">
+          <i :data-lucide="t.icon" :style="`width:22px;height:22px;color:${tab===t.id ? '#fff' : 'var(--text-mute)'}`"></i>
+        </div>
+        <span class="navLbl" :style="`color:${tab===t.id ? 'var(--text)' : 'var(--text-mute)'}`" x-text="t.label"></span>
+      </button>
+    </template>
+  </nav>
+
+  <!-- ════ SHEET ════ -->
+  <template x-if="sheet">
+    <div>
+      <div class="backdrop" @click="sheet=null"></div>
+      <div class="sheet">
+        <div class="sheetHandle"></div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div :style="`width:60px;height:60px;border-radius:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+                ${sheet.status==='locked' ? 'background:var(--node-lock)' : `background:linear-gradient(150deg, ${sheet.g0}, ${sheet.g1});box-shadow:0 10px 24px ${sheet.glow}`}`">
+            <i x-show="sheet.status==='locked'" data-lucide="lock" style="width:26px;height:26px;color:var(--text-mute)"></i>
+            <i x-show="sheet.status!=='locked'" :data-lucide="sheet.icon" style="width:28px;height:28px;color:#fff" stroke-width="2.4"></i>
+          </div>
+          <div style="flex:1">
+            <span class="chip" :style="`background:${sheet.g0}22;color:${sheet.g0};border:1px solid ${sheet.g0}44`" x-text="sheet.label"></span>
+            <div style="font-weight:800;font-size:18px;margin-top:6px" x-text="sheet.title"></div>
+          </div>
+        </div>
+        <p style="color:var(--text-dim);font-size:14px;line-height:1.5;margin:16px 0 18px" x-text="sheet.desc"></p>
+
+        <!-- passes (quiz >= 2) -->
+        <div x-show="sheet.type==='quiz' && sheet.passes>=2" style="display:flex;align-items:center;gap:11px;margin-bottom:18px">
+          <div style="display:flex;gap:4px">
+            <template x-for="k in sheet.passes" :key="k">
+              <span :style="`width:22px;height:6px;border-radius:6px;background:${k<=sheet.passes_done ? sheet.g0 : 'var(--track)'}`"></span>
+            </template>
+          </div>
+          <span style="font-size:13px;font-weight:700;color:var(--text-dim)" x-text="sheet.passes_done+'/'+sheet.passes+' passes'"></span>
+        </div>
+
+        <!-- locked -->
+        <template x-if="sheet.status==='locked'">
+          <div>
+            <div style="display:flex;gap:11px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:13px 15px;margin-bottom:16px">
+              <i data-lucide="lock" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;color:var(--text-mute)"></i>
+              <div style="font-size:13.5px;line-height:1.5"><b>Étape verrouillée.</b> Termine l'étape précédente pour la débloquer.</div>
+            </div>
+            <button class="ctaBtn" @click="sheet=null" style="background:var(--surface-2);color:var(--text-dim);font-size:15px">
+              <i data-lucide="lock" style="width:16px;height:16px"></i> Encore verrouillé
+            </button>
+          </div>
+        </template>
+
+        <!-- unlocked -->
+        <template x-if="sheet.status!=='locked'">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+              <div class="rewardPill"><i data-lucide="gem" style="width:15px;height:15px;color:#22D3EE"></i> +<span x-text="sheet.xp"></span> XP</div>
+            </div>
+            <button class="ctaBtn" @click="toast(sheet.cta + ' — bientôt'); sheet=null"
+                    :style="`background:linear-gradient(150deg, ${sheet.g0}, ${sheet.g1});box-shadow:0 8px 22px ${sheet.glow}`">
+              <i :data-lucide="sheet.type==='story' ? 'play' : 'arrow-right'" style="width:18px;height:18px"></i>
+              <span x-text="sheet.cta"></span>
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- toast -->
+  <div x-show="toastMsg" x-transition x-cloak
+       style="position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:80;background:rgba(28,25,50,.97);
+       border:1px solid rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:600;padding:12px 18px;border-radius:14px;
+       box-shadow:0 12px 30px rgba(0,0,0,.5)" x-text="toastMsg"></div>
+</div>
+
+<script>
+  function parcours(){
+    return {
+      nodes: JSON.parse(document.getElementById('pcrs-nodes').textContent),
+      progress: {{ progress_ratio }},
+      tab: 'parcours',
+      tabs: [
+        {id:'parcours', label:'Parcours', icon:'route'},
+        {id:'pratique', label:'Pratique', icon:'dumbbell'},
+        {id:'revision', label:'Révision', icon:'layers'},
+        {id:'profil',   label:'Profil',   icon:'user'},
+      ],
+      sheet: null,
+      jumpDir: null,
+      toastMsg: '',
+      _toastT: null,
+      get tabLabel(){ return (this.tabs.find(t=>t.id===this.tab)||{}).label || ''; },
+      init(){ this.$nextTick(()=>{ this.refreshIcons(); this.scrollToCurrent(); }); },
+      refreshIcons(){ if(window.lucide) lucide.createIcons(); },
+      openSheet(i){ this.sheet = this.nodes[i]; this.$nextTick(()=>this.refreshIcons()); },
+      changeTab(id){ this.tab = id; this.$nextTick(()=>this.refreshIcons()); },
+      toast(m){ this.toastMsg=m; clearTimeout(this._toastT); this._toastT=setTimeout(()=>this.toastMsg='',1800); },
+      scrollToCurrent(){ const el=this.$refs.current; if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); },
+      onScroll(){
+        const el=this.$refs.current, main=this.$refs.main;
+        if(!el){ this.jumpDir=null; return; }
+        const r=el.getBoundingClientRect(), m=main.getBoundingClientRect();
+        if(r.top < m.top+40) this.jumpDir='up';
+        else if(r.bottom > m.bottom-40) this.jumpDir='down';
+        else this.jumpDir=null;
+      },
+    };
+  }
+  document.addEventListener('DOMContentLoaded', ()=>{ if(window.lucide) lucide.createIcons(); });
+</script>
+{% endlocalize %}
+</body>
+</html>

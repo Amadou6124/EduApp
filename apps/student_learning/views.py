@@ -877,3 +877,106 @@ def learn_bulletin_pdf(request, bulletin_id):
     resp = HttpResponse(pdf_bytes, content_type='application/pdf')
     resp['Content-Disposition'] = f'inline; filename="bulletin_{name}_{period}.pdf"'
     return resp
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Portail élève, écran PARCOURS (Phase C).
+# DÉMO : données en dur (mock du design code.jsx). Branchement v2 réel plus tard.
+# Port Python fidèle des constantes/maths du design (px/py, anneau, chemin).
+# Standalone, parallèle au v1 (/learn/ inchangé). Route : /learn/v2/parcours/.
+# ═══════════════════════════════════════════════════════════════════════════════
+import math as _math
+
+_PCRS_TYPE = {
+    'story':      {'label': "Histoire", 'cta': "Jouer l'histoire",  'g0': "#FB7185", 'g1': "#F59E0B",
+                   'dark': "#BE123C", 'glow': "rgba(251,113,133,.45)", 'icon': "drama"},
+    'quiz':       {'label': "Quiz",     'cta': "Commencer le quiz", 'g0': "#22D3EE", 'g1': "#3B82F6",
+                   'dark': "#1D4ED8", 'glow': "rgba(34,211,238,.45)", 'icon': "target"},
+    'checkpoint': {'label': "Examen",   'cta': "Passer l'examen",   'g0': "#FBBF24", 'g1': "#F59E0B",
+                   'dark': "#B45309", 'glow': "rgba(251,191,36,.5)",  'icon': "crown"},
+}
+_PCRS_COL_W, _PCRS_NODE, _PCRS_ROW_H, _PCRS_AMP, _PCRS_CX = 300, 74, 132, 82, 150
+
+
+def _pcrs_px(i):
+    return round(_PCRS_CX + _PCRS_AMP * _math.sin(i * 0.9), 2)
+
+
+def _pcrs_py(i):
+    return i * _PCRS_ROW_H + 80
+
+
+def _pcrs_ring_dash(seg, seg_done):
+    """Port du calcul d'anneau segmenté (ProgressRing). Retourne (track, fill, cap)."""
+    gap = 6
+    unit = 100 / seg
+    s_len = unit - gap
+    track = f"{s_len:.2f} {gap}"
+    parts = []
+    for i in range(seg_done):
+        parts.append(f"{s_len:.2f}")
+        if i < seg_done - 1:
+            parts.append(str(gap))
+    used = seg_done * s_len + max(0, seg_done - 1) * gap
+    parts.append(f"{100 - used:.2f}")
+    return track, " ".join(parts), "butt"
+
+
+# Mock du design (sous-ensemble couvrant tous les états : done/current/locked,
+# anneaux 2/3 passes, quiz/story/checkpoint).
+_PCRS_DEMO = {
+    'title': "Biologie · La Cellule", 'subject': "SVT — Terminale",
+    'color': "#10B981", 'guide': "Cyto",
+    'raw': [
+        ('quiz',       "Quiz : les bases du vivant",  "Valide les fondations de la cellule.",       'done',    20, 1, 1),
+        ('story',      "Le voyage de Cyto",           "Explore une cellule de l'intérieur.",        'done',    25, 1, 0),
+        ('quiz',       "Quiz : structure cellulaire", "Les grands organites et leur rôle.",         'done',    20, 2, 2),
+        ('quiz',       "Quiz : le transport",         "Diffusion, osmose et transport actif.",      'current', 20, 3, 1),
+        ('quiz',       "Quiz : récap transport",      "Consolide avant le grand saut.",             'locked',  20, 2, 0),
+        ('checkpoint', "Mini-examen : la membrane",   "Mets-toi en condition d'examen.",            'locked',  50, 1, 0),
+        ('story',      "Le code secret",              "Décrypte l'ADN dans une aventure.",          'locked',  25, 1, 0),
+        ('checkpoint', "Examen final du module",      "Valide tout le module Biologie.",            'locked',  90, 1, 0),
+    ],
+}
+
+
+def parcours_v2_demo(request):
+    """Écran PARCOURS v2 (DÉMO, données en dur). Ungated (aucune donnée réelle).
+    À gater/brancher sur les vraies données v2 ultérieurement."""
+    d = _PCRS_DEMO
+    nodes = []
+    for i, (typ, title, desc, status, xp, passes, passes_done) in enumerate(d['raw']):
+        t = _PCRS_TYPE[typ]
+        show_ring = (status == 'current' and typ == 'quiz' and passes >= 2)
+        ring = None
+        if show_ring:
+            track, fill, cap = _pcrs_ring_dash(passes, passes_done)
+            ring = {'track': track, 'fill': fill, 'cap': cap, 'accent': t['g0']}
+        nodes.append({
+            'i': i, 'type': typ, 'title': title, 'desc': desc, 'status': status,
+            'xp': xp, 'passes': passes, 'passes_done': passes_done,
+            'x': _pcrs_px(i), 'y': _pcrs_py(i), 'show_ring': show_ring, 'ring': ring,
+            **t,
+        })
+
+    # Segments du chemin ondulé (courbe de Bézier entre nœuds consécutifs).
+    segments = []
+    for i in range(len(nodes) - 1):
+        p, q = nodes[i], nodes[i + 1]
+        my = (p['y'] + q['y']) / 2
+        segments.append({
+            'd': f"M {p['x']} {p['y']} C {p['x']} {my}, {q['x']} {my}, {q['x']} {q['y']}",
+            'lit': nodes[i]['status'] == 'done',
+        })
+
+    done = sum(1 for n in nodes if n['status'] == 'done')
+    ctx = {
+        'lesson': {'title': d['title'], 'subject': d['subject'], 'color': d['color'], 'guide': d['guide']},
+        'nodes': nodes,
+        'segments': segments,
+        'canvas_h': len(nodes) * _PCRS_ROW_H + 60,
+        'col_w': _PCRS_COL_W,
+        'node_size': _PCRS_NODE,
+        'progress_ratio': round(done / len(nodes), 4) if nodes else 0,
+    }
+    return render(request, 'student_learning/parcours_v2.html', ctx)
