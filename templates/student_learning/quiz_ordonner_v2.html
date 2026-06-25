@@ -1,0 +1,842 @@
+{% load static l10n %}{% localize off %}
+<!DOCTYPE html>
+<html lang="fr" class="theme-dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <title>{{ lesson.title }} — Quiz</title>
+
+  <!-- Prism SYNCHRONE (avant Alpine) — nécessaire pour parsons_puzzle.
+       data-manual : désactive le highlightAll() auto sur DOMContentLoaded,
+       on utilise Prism.highlight() synchrone via x-html. -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <script>window.Prism = window.Prism || {}; Prism.manual = true;</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <script defer src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
+  <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
+
+  {{ questions|json_script:"qo-data" }}
+
+  <style>
+    /* ── variables dark partagées avec écrans v2 ── */
+    .theme-dark {
+      --bg:       radial-gradient(120% 90% at 20% -10%, #1a1340 0%, #0b0b1a 55%, #07060f 100%);
+      --solid-bg: #0b0b1a;
+      --text:     #ffffff;
+      --text-dim: rgba(255,255,255,.58);
+      --text-mute:rgba(255,255,255,.38);
+      --surface:  rgba(255,255,255,.05);
+      --surface-2:rgba(255,255,255,.09);
+      --border:   rgba(255,255,255,.09);
+      --track:    rgba(255,255,255,.14);
+    }
+    *, *::before, *::after { box-sizing: border-box }
+    html, body { margin: 0; height: 100%; }
+    ::-webkit-scrollbar { width: 0 }
+    body {
+      font-family: 'Manrope', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      overflow: hidden; -webkit-font-smoothing: antialiased;
+    }
+    [x-cloak] { display: none !important }
+
+    /* ── keyframes ── */
+    @keyframes quizPop {
+      from { opacity:0; transform:translateX(22px) scale(.97) }
+      to   { opacity:1; transform:translateX(0)    scale(1)   }
+    }
+    @keyframes feedbackIn {
+      from { opacity:0; transform:translateY(14px) scale(.97) }
+      to   { opacity:1; transform:translateY(0)    scale(1)   }
+    }
+    @keyframes confettiFall {
+      0%   { transform:translateY(-80px) rotate(0deg);   opacity:1 }
+      100% { transform:translateY(105vh) rotate(720deg); opacity:0 }
+    }
+    @keyframes starPop {
+      0%   { transform:scale(0) }
+      60%  { transform:scale(1.3) }
+      100% { transform:scale(1) }
+    }
+    @keyframes itemLift {
+      from { transform:scale(1) }
+      50%  { transform:scale(1.03) }
+      to   { transform:scale(1) }
+    }
+
+    /* ── layout principal ── */
+    .quizPanel {
+      position:fixed; inset:0; z-index:70;
+      display:flex; flex-direction:column;
+      background:var(--bg); color:var(--text);
+      max-width:560px; margin:0 auto;
+    }
+    .quiz-header {
+      display:flex; align-items:center; gap:12px;
+      padding:18px 18px 0; flex-shrink:0;
+    }
+    .iconBtn {
+      width:40px; height:40px; border-radius:12px;
+      border:1px solid var(--border); background:var(--surface);
+      color:var(--text); display:flex; align-items:center;
+      justify-content:center; cursor:pointer; flex-shrink:0;
+      transition:background .15s;
+    }
+    .iconBtn:active { transform:scale(.92) }
+    .quiz-body {
+      flex:1; overflow-y:auto; min-height:0;
+      padding:20px 18px 4px;
+      display:flex; flex-direction:column;
+      animation:quizPop .3s cubic-bezier(.2,.9,.3,1);
+    }
+    .q-badge {
+      font-size:11px; font-weight:700; letter-spacing:1px;
+      text-transform:uppercase; color:var(--accent); margin-bottom:10px;
+    }
+    .q-instruction {
+      font-size:19px; font-weight:800; line-height:1.4; margin:0 0 16px;
+    }
+
+    /* ══════════════════════════════════════
+       CHRONO ORDER — items réordonnables
+    ══════════════════════════════════════ */
+
+    /* bouton flèche principal (grande cible tactile) */
+    .arr-btn {
+      width:42px; height:42px; border-radius:11px;
+      border:1px solid var(--border); background:var(--surface-2);
+      color:var(--text); font-size:15px; font-weight:800;
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      transition:background .1s, transform .12s;
+      -webkit-tap-highlight-color:transparent;
+      touch-action:manipulation;
+    }
+    .arr-btn:not(:disabled):hover  { background:rgba(255,255,255,.14) }
+    .arr-btn:not(:disabled):active { transform:scale(.87) }
+    .arr-btn:disabled { opacity:.22; cursor:default; }
+
+    /* poignée de glissement */
+    .grip-btn {
+      width:42px; height:42px; border-radius:11px;
+      border:1px solid var(--border); background:var(--surface-2);
+      color:var(--text-mute); font-size:18px; cursor:grab;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; touch-action:none;
+      transition:background .1s, color .12s, box-shadow .15s;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .grip-btn.is-grab {
+      cursor:grabbing;
+      background:color-mix(in srgb, var(--accent) 18%, transparent);
+      color:var(--accent);
+      box-shadow:0 0 0 2px var(--accent);
+    }
+
+    .sort-item {
+      display:flex; align-items:center; gap:9px;
+      padding:11px 12px 11px 10px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:16px; margin-bottom:8px;
+      transition: box-shadow  .2s cubic-bezier(.2,.9,.3,1),
+                  transform   .2s cubic-bezier(.2,.9,.3,1),
+                  background  .2s;
+      user-select:none; -webkit-user-select:none;
+    }
+    .sort-item.is-drag {
+      box-shadow: 0 12px 36px rgba(0,0,0,.6),
+                  0 0 0 2px var(--accent);
+      transform:scale(1.028) rotate(.35deg);
+      background:var(--surface-2);
+      position:relative; z-index:10;
+    }
+    .sort-num {
+      font-size:12px; font-weight:900; color:var(--accent);
+      width:20px; text-align:center; flex-shrink:0;
+    }
+    .sort-arrows {
+      display:flex; flex-direction:column; gap:4px; flex-shrink:0;
+    }
+    .sort-text {
+      flex:1; font-size:14px; font-weight:600; line-height:1.4;
+      pointer-events:none;
+    }
+
+    /* liste correct-order dans feedback */
+    .correct-list { margin:8px 0 6px; }
+    .correct-item {
+      display:flex; align-items:flex-start; gap:8px;
+      padding:6px 0;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:13px; line-height:1.45;
+    }
+    .correct-item:last-child { border-bottom:none }
+    .correct-item-num { font-size:11px; font-weight:900; color:#22C55E; width:18px; flex-shrink:0; margin-top:1px; }
+
+    /* ══════════════════════════════════════
+       PARSONS PUZZLE — lignes de code
+    ══════════════════════════════════════ */
+
+    .p-row {
+      display:flex; align-items:center; gap:5px;
+      padding:5px 8px 5px 4px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; margin-bottom:5px;
+      transition: box-shadow .18s cubic-bezier(.2,.9,.3,1),
+                  transform  .18s cubic-bezier(.2,.9,.3,1),
+                  background .18s;
+      user-select:none; -webkit-user-select:none;
+    }
+    .p-row.is-drag {
+      box-shadow:0 8px 28px rgba(0,0,0,.55), 0 0 0 2px var(--accent);
+      transform:scale(1.016);
+      background:var(--surface-2);
+      position:relative; z-index:10;
+    }
+    .p-order-col {
+      display:flex; flex-direction:column; gap:2px;
+      align-items:center; flex-shrink:0;
+    }
+    /* petits boutons ordre (parsons) */
+    .arr-sm {
+      width:32px; height:28px; border-radius:7px;
+      border:1px solid var(--border); background:var(--surface-2);
+      color:var(--text); font-size:11px; font-weight:800;
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      -webkit-tap-highlight-color:transparent;
+      touch-action:manipulation;
+      transition:background .1s, transform .12s;
+    }
+    .arr-sm:not(:disabled):active { transform:scale(.86) }
+    .arr-sm:disabled { opacity:.2; cursor:default; }
+    .grip-sm {
+      color:var(--text-mute); font-size:15px; cursor:grab; height:30px;
+      touch-action:none;
+    }
+    .grip-sm.is-grab {
+      cursor:grabbing;
+      background:color-mix(in srgb, var(--accent) 18%, transparent);
+      color:var(--accent);
+    }
+    /* zone de code (parsons) */
+    .p-code-wrap {
+      flex:1; overflow:hidden; min-width:0;
+      transition:padding-left .22s cubic-bezier(.2,.9,.3,1);
+    }
+    .p-pre {
+      margin:0; background:transparent !important;
+      padding:3px 0; font-size:12.5px; line-height:1.6;
+      white-space:pre; overflow:visible;
+    }
+    .p-pre code { background:transparent !important; font-size:inherit; padding:0; }
+    /* boutons indentation */
+    .p-indent-col { display:flex; align-items:center; gap:3px; flex-shrink:0; }
+    .indent-lv {
+      font-size:10px; font-weight:800; color:var(--accent);
+      width:14px; text-align:center;
+    }
+    /* bloc solution parsons */
+    .p-solution {
+      margin-top:8px; padding:10px 12px;
+      background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.22);
+      border-radius:12px;
+    }
+    .p-sol-label {
+      font-size:10px; font-weight:800; text-transform:uppercase;
+      letter-spacing:1px; color:#EF4444; margin-bottom:6px;
+    }
+    .p-sol-row { padding:1px 0; }
+
+    /* Prism : force fond transparent dans les cartes sombres */
+    code[class*="language-"], pre[class*="language-"] {
+      background:transparent !important; box-shadow:none !important;
+    }
+
+    /* ══════════════════════════════════════
+       FEEDBACK DUOLINGO (commun)
+    ══════════════════════════════════════ */
+    .fb-panel {
+      border-radius:16px; padding:14px 16px; margin-top:14px;
+      animation:feedbackIn .22s cubic-bezier(.2,.9,.3,1);
+    }
+    .fb-ok { background:rgba(34,197,94,.12);  border:1px solid rgba(34,197,94,.3) }
+    .fb-ko { background:rgba(239,68,68,.12);  border:1px solid rgba(239,68,68,.3) }
+    .fb-title {
+      display:flex; align-items:center; gap:7px;
+      font-size:15px; font-weight:800; margin:0 0 6px;
+    }
+    .fb-ok .fb-title { color:#22C55E }
+    .fb-ko .fb-title { color:#EF4444 }
+    .fb-expl { font-size:13px; color:var(--text-dim); margin:0; line-height:1.55 }
+
+    /* ── footer ── */
+    .quiz-footer {
+      padding:10px 18px calc(14px + env(safe-area-inset-bottom));
+      flex-shrink:0; min-height:72px;
+      display:flex; align-items:flex-end;
+    }
+    .ctaBtn {
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      width:100%; border:none; border-radius:14px; color:#fff;
+      font-family:'Manrope', system-ui, sans-serif;
+      font-weight:800; font-size:16px; padding:15px 20px;
+      cursor:pointer; transition:transform .12s;
+    }
+    .ctaBtn:active { transform:scale(.97) }
+    .cta-verify       { background:var(--accent) }
+    .cta-continue-ok  { background:linear-gradient(135deg,#22C55E,#16A34A) }
+    .cta-continue-ko  { background:var(--surface-2); border:1px solid var(--border) }
+
+    /* ── écran final ── */
+    .final-wrap {
+      position:fixed; inset:0; z-index:80; overflow-y:auto;
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; background:var(--bg);
+      padding:32px 24px calc(32px + env(safe-area-inset-bottom));
+      animation:quizPop .4s cubic-bezier(.2,.9,.3,1);
+    }
+    .trophy-ring {
+      width:110px; height:110px; border-radius:50%;
+      background:linear-gradient(150deg, var(--accent), #b45309);
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 16px 40px color-mix(in srgb, var(--accent) 50%, transparent);
+      margin-bottom:22px;
+    }
+    .miniCard {
+      display:flex; flex-direction:column; align-items:center;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:18px; padding:16px 22px; min-width:108px;
+    }
+    .confetti-piece {
+      position:fixed; pointer-events:none; z-index:90;
+      animation:confettiFall var(--dur,1.5s) ease-in var(--delay,0s) forwards;
+    }
+  </style>
+</head>
+<body>
+
+<div x-data="quizShell()" x-cloak @quiz:answered.window="advance($event.detail)">
+
+  <!-- ══════════════════════════════════════════════════════
+       PHASE : quiz
+  ══════════════════════════════════════════════════════ -->
+  <template x-if="phase === 'quiz'">
+    <div class="quizPanel" style="--accent:{{ lesson.color }}">
+
+      <!-- HEADER : fermer + barre de progression -->
+      <div class="quiz-header">
+        <button class="iconBtn" @click="history.back()">
+          <i data-lucide="x" style="width:18px;height:18px"></i>
+        </button>
+        <div style="display:flex;gap:5px;flex:1;align-items:center">
+          <template x-for="i in questions.length" :key="i">
+            <div style="flex:1;height:7px;border-radius:7px;transition:background .35s"
+              :style="`background:${
+                (i-1)<idx
+                  ? 'var(--accent)'
+                  : (i-1)===idx
+                    ? 'color-mix(in srgb, var(--accent) 55%, transparent)'
+                    : 'var(--track)'
+              }`">
+            </div>
+          </template>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-mute);white-space:nowrap;min-width:32px;text-align:right">
+          <span x-text="idx+1"></span>/<span x-text="questions.length"></span>
+        </div>
+      </div>
+
+      <!-- ── Fix remontage quand 2 questions même type se suivent (x-for :key=idx) ── -->
+      <template x-for="_ in [idx]" :key="idx">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+
+          <!-- ════════════════════ chrono_order ════════════════════ -->
+          <template x-if="q.type === 'chrono_order'">
+            <div x-data="blockChronoOrder(q)"
+              style="flex:1;display:flex;flex-direction:column;min-height:0"
+              @pointermove.window="onDragMove($event)"
+              @pointerup.window="endDrag()"
+              @pointercancel.window="endDrag()">
+
+              <div class="quiz-body">
+                <div class="q-badge">Ordre chronologique · Q<span x-text="$root.idx+1"></span>/{{ n_questions }}</div>
+                <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+
+                <!-- Liste réordonnable (masquée après vérification) -->
+                <div x-show="!checked">
+                  <template x-for="(oi, i) in order" :key="oi">
+                    <div class="sort-item" :class="dragIdx===i ? 'is-drag' : ''">
+
+                      <!-- Numéro de position (se renuméroté automatiquement) -->
+                      <span class="sort-num" x-text="i+1"></span>
+
+                      <!-- Flèches ▲▼ — chemin principal, grandes cibles -->
+                      <div class="sort-arrows">
+                        <button class="arr-btn"
+                          @click="moveUp(i)"
+                          :disabled="i===0 || dragIdx!==null"
+                          aria-label="Monter">▲</button>
+                        <button class="arr-btn"
+                          @click="moveDown(i)"
+                          :disabled="i===order.length-1 || dragIdx!==null"
+                          aria-label="Descendre">▼</button>
+                      </div>
+
+                      <!-- Poignée de glissement — bonus tactile -->
+                      <button class="grip-btn"
+                        :class="dragIdx===i ? 'is-grab' : ''"
+                        :style="checked ? 'pointer-events:none;opacity:.4' : ''"
+                        @pointerdown.prevent="startDrag(i,$event)"
+                        aria-label="Déplacer par glissement">⠿</button>
+
+                      <!-- Texte de l'élément -->
+                      <div class="sort-text" x-text="quiz.items[oi]"></div>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- Feedback Duolingo -->
+                <div x-show="checked" x-cloak
+                  class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+                  <p class="fb-title">
+                    <i :data-lucide="isRight ? 'check-circle' : 'x-circle'"
+                      style="width:17px;height:17px"></i>
+                    <span x-text="isRight ? 'Bravo ! Bon ordre !' : 'Voici le bon ordre :'"></span>
+                  </p>
+                  <!-- Bon ordre affiché si réponse fausse -->
+                  <template x-if="!isRight">
+                    <div class="correct-list">
+                      <template x-for="(item, ci) in correctItems" :key="ci">
+                        <div class="correct-item">
+                          <span class="correct-item-num" x-text="(ci+1)+'.'"></span>
+                          <span x-text="item"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                  <p class="fb-expl" x-text="quiz.explanation"></p>
+                </div>
+              </div><!-- /quiz-body -->
+
+              <div class="quiz-footer">
+                <button x-show="!checked" class="ctaBtn cta-verify" x-cloak @click="check()">
+                  Vérifier
+                </button>
+                <button x-show="checked" class="ctaBtn" x-cloak
+                  :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'"
+                  @click="go()">
+                  Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+                </button>
+              </div>
+            </div>
+          </template><!-- /chrono_order -->
+
+          <!-- ════════════════════ parsons_puzzle ════════════════════ -->
+          <template x-if="q.type === 'parsons_puzzle'">
+            <div x-data="blockParsonsP(q)"
+              style="flex:1;display:flex;flex-direction:column;min-height:0"
+              @pointermove.window="onDragMove($event)"
+              @pointerup.window="endDrag()"
+              @pointercancel.window="endDrag()">
+
+              <div class="quiz-body">
+                <div class="q-badge">Code à ordonner · Q<span x-text="$root.idx+1"></span>/{{ n_questions }}</div>
+                <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+
+                <!-- Légende compacte -->
+                <div style="display:flex;gap:14px;margin-bottom:12px">
+                  <span style="font-size:11px;color:var(--text-mute)">▲▼ ordre</span>
+                  <span style="font-size:11px;color:var(--text-mute)">◄► indentation</span>
+                  <span style="font-size:11px;color:var(--text-mute)">⠿ glissement</span>
+                </div>
+
+                <!-- Lignes réordonnables + indentables (masquées après vérification) -->
+                <div x-show="!checked">
+                  <template x-for="(row, i) in rows" :key="row.id">
+                    <div class="p-row" :class="dragIdx===i ? 'is-drag' : ''">
+
+                      <!-- Contrôles d'ordre (colonne gauche) -->
+                      <div class="p-order-col">
+                        <button class="arr-sm" @click="moveUp(i)"
+                          :disabled="i===0" aria-label="Monter">▲</button>
+                        <button class="arr-sm grip-sm"
+                          :class="dragIdx===i ? 'is-grab' : ''"
+                          :style="checked ? 'pointer-events:none;opacity:.4' : ''"
+                          @pointerdown.prevent="startDrag(i,$event)"
+                          aria-label="Déplacer">⠿</button>
+                        <button class="arr-sm" @click="moveDown(i)"
+                          :disabled="i===rows.length-1" aria-label="Descendre">▼</button>
+                      </div>
+
+                      <!-- Code + indentation visuelle (padding-left animé) -->
+                      <div class="p-code-wrap" :style="`padding-left:${row.indent*20}px`">
+                        <!--
+                          x-html + Prism.highlight() synchrone.
+                          row.text provient des données serveur (JSON) — pas d'entrée utilisateur.
+                        -->
+                        <pre class="p-pre"><code
+                          :class="`language-${quiz.language}`"
+                          x-html="highlight(row.text)"
+                        ></code></pre>
+                      </div>
+
+                      <!-- Contrôles d'indentation (colonne droite) -->
+                      <div class="p-indent-col">
+                        <button class="arr-sm" @click="indentLess(i)"
+                          :disabled="row.indent===0" aria-label="Désindenter">◄</button>
+                        <span class="indent-lv" x-text="row.indent"
+                          :title="`Niveau ${row.indent}`"></span>
+                        <button class="arr-sm" @click="indentMore(i)"
+                          :disabled="row.indent>=4" aria-label="Indenter">►</button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- Solution affichée si réponse fausse -->
+                <template x-if="checked && !isRight">
+                  <div class="p-solution">
+                    <div class="p-sol-label">Solution :</div>
+                    <template x-for="id in quiz.correct_sequence" :key="id">
+                      <div class="p-sol-row" :style="`padding-left:${getCorrectIndent(id)*20}px`">
+                        <pre class="p-pre"><code
+                          :class="`language-${quiz.language}`"
+                          x-html="highlight(getLineText(id))"
+                        ></code></pre>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Feedback Duolingo -->
+                <div x-show="checked" x-cloak
+                  class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+                  <p class="fb-title">
+                    <i :data-lucide="isRight ? 'check-circle' : 'x-circle'"
+                      style="width:17px;height:17px"></i>
+                    <span x-text="isRight
+                      ? 'Parfait — ordre et indentation corrects !'
+                      : 'Pas tout à fait — voici la solution :'">
+                    </span>
+                  </p>
+                  <p class="fb-expl" x-text="quiz.explanation"></p>
+                </div>
+              </div><!-- /quiz-body -->
+
+              <div class="quiz-footer">
+                <button x-show="!checked" class="ctaBtn cta-verify" x-cloak @click="check()">
+                  Vérifier
+                </button>
+                <button x-show="checked" class="ctaBtn" x-cloak
+                  :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'"
+                  @click="go()">
+                  Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+                </button>
+              </div>
+            </div>
+          </template><!-- /parsons_puzzle -->
+
+        </div><!-- /x-for inner wrapper -->
+      </template><!-- /x-for [idx] — remontage forcé -->
+
+    </div><!-- /quizPanel -->
+  </template>
+
+  <!-- ══════════════════════════════════════════════════════
+       PHASE : done
+  ══════════════════════════════════════════════════════ -->
+  <template x-if="phase === 'done'">
+    <div class="final-wrap" style="--accent:{{ lesson.color }}"
+      x-init="$nextTick(()=>{ if(window.lucide) lucide.createIcons(); spawnConfetti(); })">
+      <div class="trophy-ring">
+        <i data-lucide="trophy" style="width:52px;height:52px;color:#fff"></i>
+      </div>
+      <h2 style="font-size:26px;font-weight:800;margin:0 0 4px;text-align:center"
+        x-text="endTitle"></h2>
+      <p style="color:var(--text-dim);margin:0 0 6px;text-align:center;font-size:14px">
+        {{ lesson.title }}
+      </p>
+      <div style="display:flex;gap:6px;margin:14px 0 22px">
+        <template x-for="i in 3" :key="i">
+          <i data-lucide="star"
+            :style="`width:36px;height:36px;color:#FBBF24;${
+              (i-1)<stars
+                ? 'fill:#FBBF24;animation:starPop .4s cubic-bezier(.34,1.56,.64,1) '+((i-1)*.12)+'s both'
+                : 'opacity:.25'
+            }`">
+          </i>
+        </template>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:32px">
+        <div class="miniCard">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <i data-lucide="check-circle" style="width:20px;height:20px;color:#22C55E"></i>
+            <span style="font-size:28px;font-weight:800"
+              x-text="score+'/'+questions.length"></span>
+          </div>
+          <div style="font-size:12px;color:var(--text-dim)">bonnes réponses</div>
+        </div>
+        <div class="miniCard">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <i data-lucide="gem" style="width:20px;height:20px;color:var(--accent)"></i>
+            <span style="font-size:28px;font-weight:800" x-text="'+'+xp"></span>
+          </div>
+          <div style="font-size:12px;color:var(--text-dim)">XP gagnés</div>
+        </div>
+      </div>
+      <button class="ctaBtn" @click="history.back()"
+        style="width:min(360px,90%);background:linear-gradient(150deg, var(--accent), #b45309)">
+        Terminer <i data-lucide="check" style="width:18px;height:18px"></i>
+      </button>
+    </div>
+  </template>
+
+</div><!-- /quizShell -->
+
+<script>
+{% verbatim %}
+const _QO = JSON.parse(document.getElementById('qo-data').textContent);
+
+document.addEventListener('alpine:init', () => {
+
+  // ── Shell séquenceur ────────────────────────────────────────────────────────
+  Alpine.data('quizShell', () => ({
+    idx: 0, results: [], phase: 'quiz',
+    questions: _QO,
+    get q()        { return this.questions[this.idx]; },
+    get score()    { return this.results.filter(Boolean).length; },
+    get stars()    { const r=this.score/this.questions.length; return r>=.85?3:r>=.6?2:r>0?1:0; },
+    get xp()       { return this.score * 10; },
+    get endTitle() { return this.stars===3?'Parfait !':this.stars===2?'Bien joué !':this.stars===1?'Courage !':'À retravailler'; },
+    advance(detail) {
+      this.results.push(detail.correct);
+      setTimeout(() => {
+        if (this.idx + 1 >= this.questions.length) {
+          this.phase = 'done';
+        } else {
+          this.idx++;
+          this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+        }
+      }, 170);
+    },
+    spawnConfetti() {
+      if (this.stars === 0) return;
+      const colors = ['#F59E0B','#22C55E','#A78BFA','#EF4444','#22D3EE','#FB7185','#FBBF24'];
+      for (let k = 0; k < 44; k++) {
+        const el = document.createElement('div');
+        el.className = 'confetti-piece';
+        const sz = 5 + Math.random() * 9;
+        el.style.cssText = `left:${Math.random()*100}vw;top:0;width:${sz}px;height:${sz}px;
+          background:${colors[k%colors.length]};
+          --dur:${1.1+Math.random()*1.3}s;--delay:${Math.random()*.9}s;
+          border-radius:${Math.random()>.45?'50%':'2px'};`;
+        document.body.appendChild(el);
+        el.addEventListener('animationend', () => el.remove(), { once: true });
+      }
+    },
+  }));
+
+  // ── BLOC 1 : chrono_order ────────────────────────────────────────────────────
+  // Règle (services.py:1658) : list(student_answer) == list(quiz['correct_order'])
+  // this.order[i] = index original de l'item affiché à la position i.
+  // Soumission : this.order IS student_answer.
+  Alpine.data('blockChronoOrder', (quiz) => ({
+    quiz,
+    order:      [],     // permutation courante des indices originaux
+    checked:    false,
+    isRight:    false,
+    dragIdx:    null,   // position i en cours de glissement (null = pas de drag)
+    dragStartY: 0,
+
+    init() {
+      // Fisher-Yates shuffle de [0 … n-1]
+      const arr = [...Array(this.quiz.items.length).keys()];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      this.order = arr;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+
+    moveUp(i) {
+      if (i === 0) return;
+      const a = [...this.order];
+      [a[i-1], a[i]] = [a[i], a[i-1]];
+      this.order = a;
+    },
+    moveDown(i) {
+      if (i >= this.order.length - 1) return;
+      const a = [...this.order];
+      [a[i], a[i+1]] = [a[i+1], a[i]];
+      this.order = a;
+    },
+
+    // Glissement vertical via poignée ⠿
+    // Seuil 38 px : confortable au doigt, assez précis pour ne pas déraper.
+    startDrag(i, event) {
+      this.dragIdx    = i;
+      this.dragStartY = event.clientY;
+    },
+    onDragMove(event) {
+      if (this.dragIdx === null || this.checked) return;
+      const dy = event.clientY - this.dragStartY;
+      if (dy > 38 && this.dragIdx < this.order.length - 1) {
+        this.moveDown(this.dragIdx);
+        this.dragIdx++;
+        this.dragStartY = event.clientY;
+      } else if (dy < -38 && this.dragIdx > 0) {
+        this.moveUp(this.dragIdx);
+        this.dragIdx--;
+        this.dragStartY = event.clientY;
+      }
+    },
+    endDrag() { this.dragIdx = null; },
+
+    // Éval miroir : ordre courant == correct_order ?
+    check() {
+      this.isRight = JSON.stringify(this.order) === JSON.stringify(this.quiz.correct_order);
+      this.checked = true;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+
+    // Items dans le bon ordre (pour l'affichage feedback)
+    get correctItems() {
+      return this.quiz.correct_order.map(idx => this.quiz.items[idx]);
+    },
+
+    go() {
+      this.$el.style.transition = 'opacity 150ms ease, transform 150ms ease';
+      this.$el.style.opacity    = '0';
+      this.$el.style.transform  = 'translateX(-18px) scale(.97)';
+      setTimeout(() => { this.$dispatch('quiz:answered', { correct: this.isRight }); }, 155);
+    },
+  }));
+
+  // ── BLOC 2 : parsons_puzzle ─────────────────────────────────────────────────
+  // Règle (_eval_parsons, services.py:1566) :
+  //   1. [x.id for x in student] == list(correct_sequence)
+  //   2. all(x.indent == indent_by_id[x.id] for x in student)
+  // this.rows[i] = { id, text, indent } dans l'ordre courant.
+  Alpine.data('blockParsonsP', (quiz) => ({
+    quiz,
+    rows:       [],   // { id, text, indent } dans l'ordre affiché
+    checked:    false,
+    isRight:    false,
+    dragIdx:    null,
+    dragStartY: 0,
+
+    init() {
+      // Fisher-Yates shuffle + indentation départ à 0
+      const lines = [...this.quiz.lines];
+      for (let i = lines.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [lines[i], lines[j]] = [lines[j], lines[i]];
+      }
+      this.rows = lines.map(l => ({ id: l.id, text: l.text, indent: 0 }));
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+
+    moveUp(i) {
+      if (i === 0) return;
+      const r = [...this.rows];
+      [r[i-1], r[i]] = [r[i], r[i-1]];
+      this.rows = r;
+    },
+    moveDown(i) {
+      if (i >= this.rows.length - 1) return;
+      const r = [...this.rows];
+      [r[i], r[i+1]] = [r[i+1], r[i]];
+      this.rows = r;
+    },
+    indentLess(i) {
+      if (this.rows[i].indent <= 0) return;
+      const r = [...this.rows];
+      r[i] = { ...r[i], indent: r[i].indent - 1 };
+      this.rows = r;
+    },
+    indentMore(i) {
+      if (this.rows[i].indent >= 4) return;
+      const r = [...this.rows];
+      r[i] = { ...r[i], indent: r[i].indent + 1 };
+      this.rows = r;
+    },
+
+    startDrag(i, event) {
+      this.dragIdx    = i;
+      this.dragStartY = event.clientY;
+    },
+    onDragMove(event) {
+      if (this.dragIdx === null || this.checked) return;
+      const dy = event.clientY - this.dragStartY;
+      if (dy > 34 && this.dragIdx < this.rows.length - 1) {
+        this.moveDown(this.dragIdx);
+        this.dragIdx++;
+        this.dragStartY = event.clientY;
+      } else if (dy < -34 && this.dragIdx > 0) {
+        this.moveUp(this.dragIdx);
+        this.dragIdx--;
+        this.dragStartY = event.clientY;
+      }
+    },
+    endDrag() { this.dragIdx = null; },
+
+    // Prism.highlight() synchrone — pas d'eval(), Prism.manual=true empêche
+    // double-traitement auto. row.text = données serveur, pas entrée utilisateur.
+    highlight(text) {
+      if (window.Prism && Prism.languages[this.quiz.language]) {
+        return Prism.highlight(
+          text,
+          Prism.languages[this.quiz.language],
+          this.quiz.language
+        );
+      }
+      // Fallback sûr : échappement HTML
+      return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    },
+
+    getCorrectIndent(id) {
+      const l = this.quiz.lines.find(l => l.id === id);
+      return l ? l.correct_indent : 0;
+    },
+    getLineText(id) {
+      const l = this.quiz.lines.find(l => l.id === id);
+      return l ? l.text : '';
+    },
+
+    // Éval miroir de _eval_parsons (services.py:1566)
+    check() {
+      const studentIds    = this.rows.map(r => r.id);
+      const seqOk         = JSON.stringify(studentIds) ===
+                            JSON.stringify(this.quiz.correct_sequence);
+      const indentByLineId = Object.fromEntries(
+        this.quiz.lines.map(l => [l.id, l.correct_indent])
+      );
+      const indentOk = this.rows.every(
+        r => r.indent === (indentByLineId[r.id] ?? 0)
+      );
+      this.isRight = seqOk && indentOk;
+      this.checked = true;
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+
+    go() {
+      this.$el.style.transition = 'opacity 150ms ease, transform 150ms ease';
+      this.$el.style.opacity    = '0';
+      this.$el.style.transform  = 'translateX(-18px) scale(.97)';
+      setTimeout(() => { this.$dispatch('quiz:answered', { correct: this.isRight }); }, 155);
+    },
+  }));
+
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.lucide) lucide.createIcons();
+});
+{% endverbatim %}
+</script>
+</body>
+</html>
+{% endlocalize %}

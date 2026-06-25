@@ -1279,3 +1279,86 @@ def quiz_nombre_v2_demo(request):
         'questions': d['questions'],
         'n_questions': len(d['questions']),
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Portail élève, QUIZ famille ORDONNER (Phase C, DÉMO).
+# 2 types : chrono_order + parsons_puzzle.
+# Éval miroir de evaluate_answer_v2 (services.py:1658 / _eval_parsons:1566).
+# Route v2 séparée /learn/v2/quiz-ordonner/ ; v1 + autres écrans v2 intacts.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_QUIZ_ORDONNER_DEMO = {
+    'lesson': {'title': "Histoire & Code · Ordonner", 'subject': "Mixte — démo", 'color': "#F59E0B"},
+    'questions': [
+        # 1. chrono_order — grandes inventions de la communication
+        # items[0]="Imprimerie Gutenberg", [1]="Écriture cunéiforme",
+        # [2]="Internet grand public",      [3]="Télégraphe électrique"
+        # Ordre correct : écriture→imprimerie→télégraphe→internet = [1,0,3,2]
+        {
+            'type': 'chrono_order',
+            'instruction': "Remets ces inventions dans l'ordre chronologique, de la plus ancienne à la plus récente.",
+            'items': [
+                "L'imprimerie de Gutenberg (XVe siècle)",
+                "L'écriture cunéiforme (IVe millénaire av. J.-C.)",
+                "L'internet grand public (années 1990)",
+                "Le télégraphe électrique (XIXe siècle)",
+            ],
+            'correct_order': [1, 0, 3, 2],
+            'explanation': "Écriture cunéiforme (~3300 av. J.-C.) → Imprimerie (~1450) → Télégraphe (~1837) → Internet (~1990).",
+        },
+        # 2. chrono_order — étapes de résolution d'une équation
+        # items[0]="Diviser/2", [1]="Vérifier", [2]="Soustraire 6"
+        # Ordre correct : soustraire→diviser→vérifier = [2,0,1]
+        {
+            'type': 'chrono_order',
+            'instruction': "Remets les étapes de résolution de 2x + 6 = 14 dans l'ordre.",
+            'items': [
+                "Diviser les deux membres par 2 → x = 4",
+                "Vérifier : 2 × 4 + 6 = 14 ✓",
+                "Soustraire 6 des deux membres → 2x = 8",
+            ],
+            'correct_order': [2, 0, 1],
+            'explanation': "1. Soustraire 6 → 2x = 8.  2. Diviser par 2 → x = 4.  3. Vérifier le résultat.",
+        },
+        # 3. parsons_puzzle — fonction max_value (Python)
+        {
+            'type': 'parsons_puzzle',
+            'instruction': "Remets les lignes de cette fonction Python dans l'ordre et corrige l'indentation.",
+            'language': 'python',
+            'lines': [
+                {'id': 'a', 'text': 'def max_value(a, b):',  'correct_indent': 0},
+                {'id': 'b', 'text': 'if a > b:',             'correct_indent': 1},
+                {'id': 'c', 'text': 'return a',              'correct_indent': 2},
+                {'id': 'd', 'text': 'else:',                  'correct_indent': 1},
+                {'id': 'e', 'text': 'return b',              'correct_indent': 2},
+            ],
+            'correct_sequence': ['a', 'b', 'c', 'd', 'e'],
+            'explanation': "La fonction teste a > b dans le if ; sinon (else) elle retourne b. Les return sont indentés de 2 niveaux.",
+        },
+        # 4. parsons_puzzle — boucle for avec accumulateur (Python)
+        {
+            'type': 'parsons_puzzle',
+            'instruction': "Remets ce programme Python dans l'ordre et corrige l'indentation. Il calcule la somme de 1 à 5.",
+            'language': 'python',
+            'lines': [
+                {'id': 'a', 'text': 'total = 0',            'correct_indent': 0},
+                {'id': 'b', 'text': 'for i in range(1, 6):', 'correct_indent': 0},
+                {'id': 'c', 'text': 'total += i',           'correct_indent': 1},
+                {'id': 'd', 'text': 'print(total)',         'correct_indent': 0},
+            ],
+            'correct_sequence': ['a', 'b', 'c', 'd'],
+            'explanation': "On initialise total=0, on boucle de 1 à 5 en accumulant chaque i, puis on affiche 15.",
+        },
+    ],
+}
+
+
+def quiz_ordonner_v2_demo(request):
+    """Quiz famille ORDONNER v2 (DÉMO, 2 types). Ungated. Branchement réel ensuite."""
+    d = _QUIZ_ORDONNER_DEMO
+    return render(request, 'student_learning/quiz_ordonner_v2.html', {
+        'lesson': d['lesson'],
+        'questions': d['questions'],
+        'n_questions': len(d['questions']),
+    })
