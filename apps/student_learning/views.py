@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 import datetime
 
 from django.db.models import Count, F
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
@@ -979,7 +979,10 @@ def assemble_nodes(cv, student):
             'passes_done': passes_done,
             'is_done': passes_done >= passes,
             'xp': 20,
+            'concept_id': cid,
             'url_lecteur': url_lecteur,
+            'url_quiz': reverse('learn:quiz-v2',
+                                kwargs={'lesson_id': cv.lesson_id, 'concept_id': cid}),
         })
 
     # 2. Nœud story — intercalé juste avant l'exam (spec §3.4)
@@ -995,7 +998,9 @@ def assemble_nodes(cv, student):
             'passes_done': 1 if story_done else 0,
             'is_done': story_done,
             'xp': 25,
+            'concept_id': None,
             'url_lecteur': None,
+            'url_quiz': None,
         })
 
     # 3. Nœud checkpoint (exam) — toujours en dernier
@@ -1008,7 +1013,9 @@ def assemble_nodes(cv, student):
             'passes_done': 1 if exam_passed else 0,
             'is_done': exam_passed,
             'xp': 90,
+            'concept_id': None,
             'url_lecteur': None,
+            'url_quiz': None,
         })
 
     # 4. Calcul des statuts séquentiels
@@ -1044,7 +1051,9 @@ def assemble_nodes(cv, student):
             'y': _pcrs_py(i),
             'show_ring': show_ring,
             'ring': ring,
+            'concept_id': r['concept_id'],
             'url_lecteur': r['url_lecteur'],
+            'url_quiz': r['url_quiz'],
             **t,
         })
 
@@ -1785,4 +1794,173 @@ def learn_lecteur_v2(request, lesson_id):
         'tts':             tts,
         'n_sections':      len(sections),
         'back_url':        reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUIZ v2 RÉEL (étape 3) — affichage des vrais quiz d'un concept + VALIDATION
+# SERVEUR (evaluate_answer_v2) + persistance (QuizAttempt → ConceptProgress).
+# ADDITIF : les démos /v2/quiz-* (éval client) restent intactes.
+# Principe sécurité (§A.5) : la réponse correcte ne transite JAMAIS vers le client
+# avant soumission ; le verdict vient du serveur. Prépare le terrain dynamic_formula.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Champs-réponse à NE JAMAIS exposer au client tant que la réponse n'est pas soumise.
+_QUIZ_ANSWER_FIELDS = (
+    'answer_index', 'answer_indices', 'answer', 'odd_index', 'answers',
+    'correct_order', 'buggy_line', 'correct_fix', 'pairs', 'solution_formula',
+    'tolerance', 'variables',
+)
+
+
+def _quiz_to_client(quiz):
+    """Copie d'un quiz SANS les champs-réponse — sûre à envoyer au client.
+
+    Tout le reste (instruction, options, items, text…) est conservé pour le rendu.
+    Cas spécial k_prime : les statements gardent `text`, perdent `answer`.
+    Réutilisable pour tous les concepts ; le serveur garde le quiz complet."""
+    out = {k: v for k, v in quiz.items() if k not in _QUIZ_ANSWER_FIELDS}
+    if quiz.get('type') == 'k_prime':
+        out['statements'] = [{'text': s.get('text', '')} for s in quiz.get('statements', [])]
+    return out
+
+
+def _quiz_solution(quiz):
+    """Réponse correcte minimale, renvoyée APRÈS validation pour rendre le feedback
+    (surlignage bonne réponse). Jamais exposée avant soumission."""
+    t = quiz.get('type')
+    if t == 'mcq_single':   return {'answer_index': quiz.get('answer_index')}
+    if t == 'mcq_multiple': return {'answer_indices': quiz.get('answer_indices', [])}
+    if t == 'true_false':   return {'answer': bool(quiz.get('answer'))}
+    if t == 'odd_one_out':  return {'odd_index': quiz.get('odd_index')}
+    if t == 'k_prime':      return {'answers': [bool(s.get('answer')) for s in quiz.get('statements', [])]}
+    if t == 'cloze_test':   return {'answers': quiz.get('answers', [])}
+    return {}
+
+
+def _concept_passes(concept):
+    """Nombre de passes déclarés du concept (1..4), borné défensivement."""
+    return max(1, int(concept.get('passes', 1)))
+
+
+def _recompute_concept_progress(student, cv, concept):
+    """Recalcule passes_done depuis les QuizAttempt (SOURCE DE VÉRITÉ, §3.4).
+
+    Règle : un pass est *maîtrisé* quand CHAQUE quiz de ce pass a ≥1 QuizAttempt
+    correct de l'élève (formatif, basé maîtrise). passes_done = nombre de passes
+    consécutifs maîtrisés depuis le pass 0 (déblocage séquentiel). Idempotent."""
+    quizzes = concept.get('quiz', [])
+    passes = _concept_passes(concept)
+
+    correct_ids = set(
+        QuizAttempt.objects
+        .filter(student=student, content_version=cv, is_correct=True,
+                quiz_id__in=[str(q.get('id')) for q in quizzes])
+        .values_list('quiz_id', flat=True)
+    )
+
+    passes_done = 0
+    for p in range(passes):
+        pass_quizzes = [q for q in quizzes if int(q.get('pass_index', 0)) == p]
+        if pass_quizzes and all(str(q.get('id')) in correct_ids for q in pass_quizzes):
+            passes_done += 1
+        else:
+            break  # séquentiel : on s'arrête au premier pass non maîtrisé
+
+    ConceptProgress.objects.update_or_create(
+        student=student, content_version=cv, concept_id=str(concept.get('id', '')),
+        defaults={'lesson_id': cv.lesson_id, 'passes_done': passes_done},
+    )
+    return passes_done
+
+
+def _v2_concept_or_404(student, lesson_id, concept_id):
+    """Charge (lesson, cv, concept) pour un élève AUTORISÉ (leçon v2 déployée dans
+    sa classe). 404 sinon. Brique commune affichage + validation."""
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv:
+        raise Http404('Aucun contenu disponible.')
+    concepts = cv.concepts_data if isinstance(cv.concepts_data, list) else []
+    concept = next((c for c in concepts if str(c.get('id', '')) == str(concept_id)), None)
+    if concept is None:
+        raise Http404('Concept introuvable.')
+    return lesson, cv, concept
+
+
+@student_required
+def learn_quiz_v2(request, lesson_id, concept_id):
+    """Affiche les quiz du PASS COURANT d'un concept (vraies données, gated).
+
+    Le pass joué = le pass courant (= passes_done) ; si le concept est terminé,
+    on rejoue le dernier pass (révision, sans incrément possible)."""
+    student = request.student
+    lesson, cv, concept = _v2_concept_or_404(student, lesson_id, concept_id)
+
+    passes = _concept_passes(concept)
+    done = (ConceptProgress.objects
+            .filter(student=student, content_version=cv, concept_id=str(concept_id))
+            .values_list('passes_done', flat=True).first()) or 0
+    pass_to_play = done if done < passes else passes - 1
+
+    quizzes = [q for q in concept.get('quiz', [])
+               if int(q.get('pass_index', 0)) == pass_to_play]
+    client_quizzes = [_quiz_to_client(q) for q in quizzes]
+
+    return render(request, 'student_learning/quiz_runner_v2.html', {
+        'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
+                   'color': cv.color or '#818CF8'},
+        'concept': {'id': str(concept_id), 'name': concept.get('name', '')},
+        'pass_index':   pass_to_play,
+        'passes':       passes,
+        'questions':    client_quizzes,
+        'n_questions':  len(client_quizzes),
+        'answer_url':   reverse('learn:quiz-v2-answer',
+                                kwargs={'lesson_id': lesson_id, 'concept_id': concept_id}),
+        'parcours_url': reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def quiz_v2_answer(request, lesson_id, concept_id):
+    """Valide UNE réponse côté serveur (evaluate_answer_v2), enregistre la
+    QuizAttempt, recalcule ConceptProgress. Renvoie verdict + explication +
+    solution (la solution n'est exposée qu'APRÈS soumission)."""
+    from apps.lessons.services import evaluate_answer_v2
+    student = request.student
+    lesson, cv, concept = _v2_concept_or_404(student, lesson_id, concept_id)
+
+    try:
+        data = json.loads(request.body)
+        quiz_id = str(data.get('quiz_id', ''))
+        student_answer = data.get('answer')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    quiz = next((q for q in concept.get('quiz', []) if str(q.get('id')) == quiz_id), None)
+    if quiz is None:
+        return JsonResponse({'error': 'Quiz introuvable'}, status=404)
+
+    is_correct = bool(evaluate_answer_v2(quiz, student_answer))
+
+    QuizAttempt.objects.create(
+        student=student, lesson=lesson, content_version=cv,
+        quiz_id=quiz_id, question_type=quiz.get('type', ''),
+        student_answer=student_answer, is_correct=is_correct,
+    )
+    passes_done = _recompute_concept_progress(student, cv, concept)
+
+    return JsonResponse({
+        'correct':     is_correct,
+        'explanation': quiz.get('explanation', ''),
+        'solution':    _quiz_solution(quiz),
+        'passes_done': passes_done,
+        'passes':      _concept_passes(concept),
     })
