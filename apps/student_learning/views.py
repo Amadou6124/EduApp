@@ -1810,6 +1810,9 @@ _QUIZ_ANSWER_FIELDS = (
     'answer_index', 'answer_indices', 'answer', 'odd_index', 'answers',
     'correct_order', 'buggy_line', 'correct_fix', 'pairs', 'solution_formula',
     'tolerance', 'variables',
+    # explanation peut révéler la réponse → jamais côté client ; le feedback la
+    # reçoit du serveur (réponse JSON de quiz_v2_answer).
+    'explanation',
 )
 
 
@@ -1817,11 +1820,24 @@ def _quiz_to_client(quiz):
     """Copie d'un quiz SANS les champs-réponse — sûre à envoyer au client.
 
     Tout le reste (instruction, options, items, text…) est conservé pour le rendu.
-    Cas spécial k_prime : les statements gardent `text`, perdent `answer`.
+    Cas spéciaux :
+      - k_prime  : les statements gardent `text`, perdent `answer`.
+      - matching : `pairs` (l'adjacence left↔right EST la réponse) est strippé ; on
+        envoie les `lefts` dans l'ordre et les `rights` MÉLANGÉS, chacun gardant son
+        index d'origine `oi`, pour que le client reconstruise la réponse
+        (réponse[i] = oi du right choisi pour left[i] — cf. _eval_matching).
     Réutilisable pour tous les concepts ; le serveur garde le quiz complet."""
     out = {k: v for k, v in quiz.items() if k not in _QUIZ_ANSWER_FIELDS}
-    if quiz.get('type') == 'k_prime':
+    t = quiz.get('type')
+    if t == 'k_prime':
         out['statements'] = [{'text': s.get('text', '')} for s in quiz.get('statements', [])]
+    elif t == 'matching':
+        import random as _random
+        pairs = quiz.get('pairs', [])
+        out['lefts'] = [p.get('left', '') for p in pairs]
+        rights = [{'text': p.get('right', ''), 'oi': i} for i, p in enumerate(pairs)]
+        _random.shuffle(rights)
+        out['rights'] = rights
     return out
 
 
@@ -1835,6 +1851,9 @@ def _quiz_solution(quiz):
     if t == 'odd_one_out':  return {'odd_index': quiz.get('odd_index')}
     if t == 'k_prime':      return {'answers': [bool(s.get('answer')) for s in quiz.get('statements', [])]}
     if t == 'cloze_test':   return {'answers': quiz.get('answers', [])}
+    # matching : la bonne association left[i] → right d'origine i (paires ordonnées,
+    # pour afficher "left → right correct" dans le feedback APRÈS soumission).
+    if t == 'matching':     return {'pairs': quiz.get('pairs', [])}
     return {}
 
 

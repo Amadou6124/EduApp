@@ -104,6 +104,33 @@
     .cloze-input.wrong { border-color:#EF4444; background:rgba(239,68,68,.13); color:#EF4444 }
     .cloze-sol { display:inline-block; margin-left:4px; font-size:13px; font-weight:700; color:#22C55E }
 
+    /* mcq_multiple — état "oubliée" (bonne réponse non cochée) */
+    .opt.missed { border-color:#F59E0B; background:rgba(245,158,11,.13); color:#F59E0B }
+    .opt.missed .opt-check { border-color:#F59E0B; background:#F59E0B }
+    .opt-tag { margin-left:auto; font-size:11px; font-weight:700; flex-shrink:0 }
+
+    /* matching — grille tap-tap */
+    @keyframes pairSnap { 0% { transform:scale(.9) } 60% { transform:scale(1.04) } 100% { transform:scale(1) } }
+    .match-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; align-items:start; }
+    .match-col { display:flex; flex-direction:column; gap:6px; }
+    .match-card { display:flex; align-items:center; gap:6px; width:100%; padding:11px 10px; background:var(--surface); border:2px solid var(--border); border-radius:13px; font-family:inherit; font-size:13px; font-weight:600; color:var(--text); cursor:pointer; line-height:1.35; min-height:52px; text-align:left; transition:border-color .14s, background .14s, box-shadow .14s, transform .1s; -webkit-tap-highlight-color:transparent; }
+    .match-card:active:not(:disabled) { transform:scale(.95) }
+    .match-card:disabled { cursor:default }
+    .match-card.is-selected { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+    .match-card.is-linked { border-color:var(--pair-c); background:color-mix(in srgb, var(--pair-c) 13%, transparent); animation:pairSnap .22s cubic-bezier(.34,1.56,.64,1); }
+    .match-card.is-correct { border-color:#22C55E; background:rgba(34,197,94,.15) }
+    .match-card.is-wrong { border-color:#EF4444; background:rgba(239,68,68,.15) }
+    .match-card-left { flex-direction:row; justify-content:space-between; }
+    .match-card-right .pair-badge { order:-1; }
+    .pair-badge { flex-shrink:0; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:#000; background:var(--pair-c); }
+    .match-hint { font-size:12px; color:var(--text-mute); text-align:center; margin:6px 0 0; }
+    .assoc-list { margin:10px 0 6px; }
+    .assoc-row { display:flex; align-items:center; gap:6px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:13px; line-height:1.35; }
+    .assoc-row:last-child { border-bottom:none }
+    .assoc-left { font-weight:700; flex:0 0 auto; max-width:42%; }
+    .assoc-arr { color:var(--text-mute); flex-shrink:0; }
+    .assoc-right { flex:1; color:var(--text-dim); }
+
     .fb-panel { border-radius:16px; padding:14px 16px; margin-top:18px; animation:feedbackIn .22s cubic-bezier(.2,.9,.3,1); }
     .fb-ok { background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.3) }
     .fb-ko { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.3) }
@@ -298,8 +325,123 @@
         </div>
       </template>
 
-      <!-- ───── fallback (type non géré dans cette étape) ───── -->
-      <template x-if="!['mcq_single','true_false','odd_one_out','k_prime','cloze_test'].includes(q.type)">
+      <!-- ───── mcq_multiple ───── -->
+      <template x-if="q.type === 'mcq_multiple'">
+        <div x-data="blockMcqMultiple(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Choix multiples · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <p style="font-size:12px;color:var(--text-mute);margin:-14px 0 16px;font-weight:600">Coche toutes les bonnes réponses</p>
+            <div class="options">
+              <template x-for="(opt, i) in quiz.options" :key="i">
+                <button class="opt" :class="optClass(i)" @click="toggle(i)" :disabled="checked || busy">
+                  <span class="opt-check">
+                    <i data-lucide="check" style="width:13px;height:13px;color:#fff" x-show="isSelected(i) || optClass(i)==='correct'" x-cloak></i>
+                    <i data-lucide="x" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='wrong'" x-cloak></i>
+                    <i data-lucide="alert-circle" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='missed'" x-cloak></i>
+                  </span>
+                  <span x-text="opt"></span>
+                  <span class="opt-tag" x-show="checked && optClass(i)==='missed'" x-cloak style="color:#F59E0B">oubliée</span>
+                </button>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Parfait ! Toutes les bonnes cases.' : 'Pas tout à fait…'"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="selected.length===0 || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── matching ───── -->
+      <template x-if="q.type === 'matching'">
+        <div x-data="blockMatching(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Associer · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+
+            <!-- grille tap-tap (avant vérification) -->
+            <div x-show="!checked">
+              <div class="match-grid">
+                <div class="match-col">
+                  <template x-for="(left, i) in lefts" :key="i">
+                    <button class="match-card match-card-left"
+                      :class="{ 'is-selected': selectedLeft===i && links[i]===null, 'is-linked': links[i]!==null }"
+                      :style="links[i]!==null ? `--pair-c:${PAIR_COLORS[i % PAIR_COLORS.length]}` : ''"
+                      @click="tapLeft(i)" :disabled="busy">
+                      <span style="flex:1" x-text="left"></span>
+                      <span x-show="links[i]!==null" class="pair-badge" :style="`--pair-c:${PAIR_COLORS[i % PAIR_COLORS.length]}`" x-text="i+1"></span>
+                      <i x-show="selectedLeft===i && links[i]===null" data-lucide="chevron-right" style="width:15px;height:15px;color:var(--accent);flex-shrink:0"></i>
+                    </button>
+                  </template>
+                </div>
+                <div class="match-col">
+                  <template x-for="(r, j) in rights" :key="r.oi">
+                    <button class="match-card match-card-right"
+                      :class="{ 'is-linked': reverseLink(j)!==null }"
+                      :style="reverseLink(j)!==null ? `--pair-c:${PAIR_COLORS[reverseLink(j) % PAIR_COLORS.length]}` : ''"
+                      @click="tapRight(j)" :disabled="busy">
+                      <span x-show="reverseLink(j)!==null" class="pair-badge" :style="`--pair-c:${PAIR_COLORS[reverseLink(j) % PAIR_COLORS.length]}`" x-text="reverseLink(j)+1"></span>
+                      <span style="flex:1" x-text="r.text"></span>
+                    </button>
+                  </template>
+                </div>
+              </div>
+              <p class="match-hint" x-show="selectedLeft===null && links.every(v => v===null)">Touche un élément à gauche, puis son correspondant à droite</p>
+            </div>
+
+            <!-- résultat (après vérification) -->
+            <div x-show="checked" x-cloak>
+              <div class="match-grid">
+                <div class="match-col">
+                  <template x-for="(left, i) in lefts" :key="i">
+                    <div class="match-card match-card-left" :class="isLinkedCorrectly(i) ? 'is-correct' : 'is-wrong'">
+                      <span style="flex:1" x-text="left"></span>
+                      <i :data-lucide="isLinkedCorrectly(i) ? 'check' : 'x'" style="width:14px;height:14px;flex-shrink:0"></i>
+                    </div>
+                  </template>
+                </div>
+                <div class="match-col">
+                  <template x-for="(left, i) in lefts" :key="i">
+                    <div class="match-card match-card-right" :class="isLinkedCorrectly(i) ? 'is-correct' : 'is-wrong'">
+                      <span style="flex:1" x-text="links[i]!==null ? rights[links[i]].text : '—'"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <template x-if="!isRight && solution.pairs">
+                <div class="assoc-list">
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#22C55E;margin:12px 0 6px">Bonnes associations :</div>
+                  <template x-for="(pair, i) in solution.pairs" :key="i">
+                    <div class="assoc-row">
+                      <span class="assoc-left" x-text="pair.left"></span>
+                      <span class="assoc-arr">→</span>
+                      <span class="assoc-right" x-text="pair.right"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <div class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'" style="margin-top:14px">
+                <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                  <span x-text="isRight ? 'Bien associé !' : 'Quelques erreurs…'"></span></p>
+                <p class="fb-expl" x-text="explanation"></p>
+              </div>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="!allLinked || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── fallback (type encore non géré : chrono_order, parsons, number_input, etc.) ───── -->
+      <template x-if="!['mcq_single','true_false','odd_one_out','k_prime','cloze_test','mcq_multiple','matching'].includes(q.type)">
         <div style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
             <div class="q-badge">Question · {{ concept.name }}</div>
@@ -488,6 +630,57 @@ document.addEventListener('alpine:init', () => {
       return norm(this.inputs[idx]) === norm(this.solution.answers[idx]) ? 'correct' : 'wrong';
     },
     check() { if (this.allFilled) this.submit(this.inputs.map(v => v.trim())); },
+  }));
+
+  // ── mcq_multiple (cocher plusieurs) ──
+  Alpine.data('blockMcqMultiple', (quiz) => ({
+    ...blockBase(quiz), selected: [],
+    toggle(i) {
+      if (this.checked) return;
+      const k = this.selected.indexOf(i);
+      if (k === -1) this.selected.push(i); else this.selected.splice(k, 1);
+    },
+    isSelected(i) { return this.selected.includes(i); },
+    optClass(i) {
+      if (!this.checked) return this.isSelected(i) ? 'selected' : '';
+      const ok = (this.solution.answer_indices || []);
+      if (ok.includes(i) && this.isSelected(i)) return 'correct';
+      if (ok.includes(i) && !this.isSelected(i)) return 'missed';   // bonne réponse oubliée
+      if (!ok.includes(i) && this.isSelected(i)) return 'wrong';    // cochée à tort
+      return 'dimmed';
+    },
+    check() { if (this.selected.length) this.submit([...this.selected]); },
+  }));
+
+  // ── matching (liaison tap-tap, right mélangé côté serveur) ──
+  // links[i] = index (dans `rights`) choisi pour left[i] ; la réponse soumise =
+  // [rights[links[i]].oi …] (index d'origine) — validée par _eval_matching côté serveur.
+  Alpine.data('blockMatching', (quiz) => ({
+    ...blockBase(quiz),
+    lefts: quiz.lefts || [],
+    rights: quiz.rights || [],
+    selectedLeft: null,
+    links: new Array((quiz.lefts || []).length).fill(null),
+    PAIR_COLORS: ['#22D3EE','#F59E0B','#A78BFA','#FB7185','#34D399','#FBBF24'],
+    reverseLink(j) { const i = this.links.indexOf(j); return i === -1 ? null : i; },
+    tapLeft(i) {
+      if (this.checked) return;
+      if (this.links[i] !== null) { this.links[i] = null; this.selectedLeft = i; return; }
+      this.selectedLeft = (this.selectedLeft === i) ? null : i;
+    },
+    tapRight(j) {
+      if (this.checked || this.selectedLeft === null) return;
+      const prev = this.reverseLink(j);          // ce right était-il déjà pris ?
+      if (prev !== null) this.links[prev] = null;
+      this.links[this.selectedLeft] = j;
+      this.selectedLeft = null;
+    },
+    get allLinked() { return this.links.length > 0 && this.links.every(v => v !== null); },
+    isLinkedCorrectly(i) { return this.links[i] !== null && this.rights[this.links[i]].oi === i; },
+    check() {
+      if (!this.allLinked) return;
+      this.submit(this.links.map(j => this.rights[j].oi));
+    },
   }));
 
 });
