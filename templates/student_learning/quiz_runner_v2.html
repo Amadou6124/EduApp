@@ -6,6 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
   <title>{{ concept.name }} — Quiz</title>
   <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <!-- Prism.js — coloration code (spot_the_bug / parsons_puzzle). Synchrone : prêt au montage Alpine. -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <!-- MathQuill (+ jQuery) — math_expression. defer AVANT Alpine pour être prêt au mount. -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
   <script defer src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
   <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
 
@@ -150,6 +158,54 @@
     .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
     .grid-2 .opt { justify-content:center; text-align:center; }
 
+    /* chrono_order / parsons — lignes réordonnables */
+    .ord-list { display:flex; flex-direction:column; gap:8px; }
+    .ord-row { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:13px; border:1.5px solid var(--border); background:var(--surface); transition:border-color .14s, background .14s; }
+    .ord-row.correct { border-color:#22C55E; background:rgba(34,197,94,.13) }
+    .ord-row.wrong { border-color:#EF4444; background:rgba(239,68,68,.13) }
+    .ord-rank { flex-shrink:0; width:24px; height:24px; border-radius:7px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:var(--text-dim) }
+    .ord-text { flex:1; font-size:14px; font-weight:600; line-height:1.35; }
+    .ord-arrows { display:flex; flex-direction:column; gap:2px; flex-shrink:0 }
+    .ord-arrow { width:30px; height:22px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:11px; line-height:1; }
+    .ord-arrow:disabled { opacity:.25; cursor:default }
+    .ord-arrow:active:not(:disabled) { transform:scale(.9) }
+    /* parsons : indentation + code mono */
+    .ord-code { font-family:'Courier New', monospace; font-size:13px; white-space:pre; overflow-x:auto; }
+    .ind-btns { display:flex; gap:3px; flex-shrink:0 }
+    .ind-btn { width:26px; height:22px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center }
+    .ind-btn:disabled { opacity:.25; cursor:default }
+    code[class*="language-"] { background:transparent !important; padding:0 !important }
+
+    /* number_input / dynamic_formula — champ numérique */
+    .num-wrap { display:flex; align-items:center; gap:10px; }
+    .num-input { flex:1; padding:15px 16px; border-radius:14px; border:2px solid var(--border); background:var(--surface); color:var(--text); font-family:inherit; font-size:22px; font-weight:800; text-align:center; }
+    .num-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent) }
+    .num-input.correct { border-color:#22C55E; color:#22C55E }
+    .num-input.wrong { border-color:#EF4444; color:#EF4444 }
+    .num-unit { font-size:16px; font-weight:700; color:var(--text-dim); flex-shrink:0 }
+    .draw-tag { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--accent); margin-bottom:10px; }
+
+    /* spot_the_bug — code cliquable */
+    .code-block { background:#1e1e2e; border-radius:14px; border:1px solid var(--border); overflow:hidden; user-select:none; }
+    .code-line { display:flex; align-items:stretch; cursor:pointer; transition:background .1s; border-bottom:1px solid rgba(255,255,255,.04); }
+    .code-line:last-child { border-bottom:none }
+    .code-line:hover:not(.checked) { background:rgba(255,255,255,.06) }
+    .code-line.ln-sel { background:color-mix(in srgb, var(--accent) 20%, transparent) }
+    .code-line.ln-correct { background:rgba(34,197,94,.22) !important }
+    .code-line.ln-wrong { background:rgba(239,68,68,.22) !important }
+    .line-num { padding:10px 10px 10px 14px; font-size:12px; color:#555; min-width:40px; text-align:right; border-right:1px solid rgba(255,255,255,.05); font-family:'Courier New', monospace; flex-shrink:0; }
+    .line-code { padding:10px 14px; font-family:'Courier New', monospace; font-size:13px; line-height:1.55; white-space:pre; overflow-x:auto; }
+    .fix-hint { display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px 14px; border-radius:10px; background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.28); font-family:'Courier New', monospace; font-size:13px; color:#22C55E; }
+
+    /* math_expression — MathQuill + clavier */
+    .mq-field { font-size:24px; min-height:62px; width:100%; display:block; padding:14px 16px; border-radius:16px; background:var(--surface); border:2px solid var(--border); color:var(--text); overflow-x:auto; white-space:nowrap; }
+    .mq-field.mq-focused { border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent) }
+    .mq-editable-field, .mq-math-mode { color:var(--text) }
+    .kpad { display:grid; grid-template-columns:repeat(7,1fr); gap:7px; margin-top:14px; }
+    .kbtn { height:46px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:17px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .1s, background .15s; }
+    .kbtn:hover { background:var(--surface-2) } .kbtn:active { transform:scale(.92) }
+    .kbtn.accent { background:color-mix(in srgb, var(--accent) 14%, transparent); border-color:color-mix(in srgb, var(--accent) 40%, transparent); color:var(--accent) }
+
     .final-wrap { position:fixed; inset:0; z-index:80; overflow-y:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg); padding:32px 24px calc(32px + env(safe-area-inset-bottom)); animation:quizPop .4s cubic-bezier(.2,.9,.3,1); }
     .trophy-ring { width:110px; height:110px; border-radius:50%; background:linear-gradient(150deg, var(--accent), #6d28d9); display:flex; align-items:center; justify-content:center; box-shadow:0 16px 40px color-mix(in srgb, var(--accent) 50%, transparent); margin-bottom:22px; }
     .star-item { display:inline-flex; transition:transform .35s cubic-bezier(.34,1.56,.64,1); }
@@ -162,7 +218,9 @@
 </head>
 <body>
 
-<div x-data="quizShell()" x-cloak @quiz:answered.window="advance($event.detail)">
+<div x-data="quizShell()" x-cloak
+     x-init="$nextTick(() => refreshIcons())"
+     @quiz:answered.window="advance($event.detail)">
 
   <!-- ════════════════ PHASE QUIZ ════════════════ -->
   <template x-if="phase === 'quiz'">
@@ -440,15 +498,193 @@
         </div>
       </template>
 
-      <!-- ───── fallback (type encore non géré : chrono_order, parsons, number_input, etc.) ───── -->
-      <template x-if="!['mcq_single','true_false','odd_one_out','k_prime','cloze_test','mcq_multiple','matching'].includes(q.type)">
+      <!-- ───── chrono_order ───── -->
+      <template x-if="q.type === 'chrono_order'">
+        <div x-data="blockChrono(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Ordonner · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="ord-list">
+              <template x-for="(pos, rank) in order" :key="pos">
+                <div class="ord-row" :class="rowClass(rank)">
+                  <span class="ord-rank" x-text="rank+1"></span>
+                  <span class="ord-text" x-text="quiz.items[pos]"></span>
+                  <div class="ord-arrows" x-show="!checked">
+                    <button class="ord-arrow" :disabled="rank===0" @click="move(rank,-1)" aria-label="Monter">▲</button>
+                    <button class="ord-arrow" :disabled="rank===order.length-1" @click="move(rank,1)" aria-label="Descendre">▼</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Bon ordre !' : 'Ordre incorrect'"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── parsons_puzzle ───── -->
+      <template x-if="q.type === 'parsons_puzzle'">
+        <div x-data="blockParsons(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Ordonner le code · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="ord-list">
+              <template x-for="(row, rank) in rows" :key="row.id">
+                <div class="ord-row" :class="rowClass(rank)">
+                  <div class="ord-arrows" x-show="!checked">
+                    <button class="ord-arrow" :disabled="rank===0" @click="move(rank,-1)" aria-label="Monter">▲</button>
+                    <button class="ord-arrow" :disabled="rank===rows.length-1" @click="move(rank,1)" aria-label="Descendre">▼</button>
+                  </div>
+                  <span class="ord-code ord-text" :style="`padding-left:${row.indent*22}px`" x-text="row.text"></span>
+                  <div class="ind-btns" x-show="!checked">
+                    <button class="ind-btn" :disabled="row.indent===0" @click="indent(rank,-1)">−</button>
+                    <button class="ind-btn" @click="indent(rank,1)">→</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Code correct !' : 'Pas tout à fait…'"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+              <template x-if="!isRight && solution.sequence">
+                <div class="code-block" style="margin-top:10px">
+                  <template x-for="(l, i) in solution.sequence" :key="i">
+                    <div class="code-line"><span class="line-num" x-text="i+1"></span><span class="line-code" :style="`padding-left:${14 + l.indent*22}px`" x-text="l.text"></span></div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── number_input ───── -->
+      <template x-if="q.type === 'number_input'">
+        <div x-data="blockNumber(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Saisir un nombre · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="num-wrap">
+              <input class="num-input" :class="checked ? (isRight ? 'correct' : 'wrong') : ''" type="text" inputmode="decimal" x-model="val" :disabled="checked || busy" @keydown.enter.prevent="val!=='' && !checked && check()" placeholder="…">
+              <span class="num-unit" x-show="quiz.unit" x-text="quiz.unit"></span>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Exact !' : ('Réponse : ' + solution.answer + (solution.unit ? ' ' + solution.unit : ''))"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="val==='' || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── dynamic_formula (énoncé tiré côté serveur) ───── -->
+      <template x-if="q.type === 'dynamic_formula'">
+        <div x-data="blockNumber(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Calcul · {{ concept.name }}</div>
+            <div class="draw-tag"><i data-lucide="shuffle" style="width:13px;height:13px"></i> valeurs tirées au hasard</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="num-wrap">
+              <input class="num-input" :class="checked ? (isRight ? 'correct' : 'wrong') : ''" type="text" inputmode="decimal" x-model="val" :disabled="checked || busy" @keydown.enter.prevent="val!=='' && !checked && check()" placeholder="…">
+              <span class="num-unit" x-show="quiz.unit" x-text="quiz.unit"></span>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Exact !' : ('Réponse : ' + solution.answer + (solution.unit ? ' ' + solution.unit : ''))"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="val==='' || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── spot_the_bug ───── -->
+      <template x-if="q.type === 'spot_the_bug'">
+        <div x-data="blockSpotBug(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Trouver le bug · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="code-block">
+              <template x-for="(line, i) in quiz.code" :key="i">
+                <div class="code-line" :class="lineClass(i)" @click="!checked && (selected=i)">
+                  <span class="line-num" x-text="i+1"></span>
+                  <span class="line-code" x-text="line"></span>
+                </div>
+              </template>
+            </div>
+            <div x-show="checked && !isRight && solution.correct_fix" x-cloak class="fix-hint"><i data-lucide="wrench" style="width:15px;height:15px"></i> Correction : <strong x-text="solution.correct_fix"></strong></div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Bug trouvé !' : ('Le bug était ligne ' + (solution.buggy_line+1))"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="selected===null || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── math_expression (MathQuill) ───── -->
+      <template x-if="q.type === 'math_expression'">
+        <div x-data="blockMath(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Expression maths · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Ta réponse</div>
+            <span class="mq-field" x-ref="mq"></span>
+            <div class="kpad">
+              <button type="button" class="kbtn" @mousedown.prevent="key('x')">x</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('y')">y</button>
+              <button type="button" class="kbtn accent" @mousedown.prevent="key('sq2')">x²</button>
+              <button type="button" class="kbtn accent" @mousedown.prevent="key('sqrt')">√</button>
+              <button type="button" class="kbtn accent" @mousedown.prevent="key('frac')">a∕b</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('pi')">π</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('bksp')"><i data-lucide="delete" style="width:18px;height:18px"></i></button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('(')">(</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key(')')">)</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('+')">+</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('-')">−</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('cdot')">×</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('2')">2</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('3')">3</button>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Bravo !' : ('Réponse attendue : ' + (solution.correct_expression || ''))"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── fallback minimal (type inconnu — sécurité) ───── -->
+      <template x-if="!['mcq_single','true_false','odd_one_out','k_prime','cloze_test','mcq_multiple','matching','chrono_order','parsons_puzzle','number_input','dynamic_formula','spot_the_bug','math_expression'].includes(q.type)">
         <div style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
             <div class="q-badge">Question · {{ concept.name }}</div>
             <h2 class="q-instruction" x-text="q.instruction"></h2>
             <div class="fallback-card">
               <i data-lucide="construction" style="width:26px;height:26px;color:var(--text-mute)"></i>
-              <p style="margin:10px 0 0">Ce type de question (<span x-text="q.type"></span>) arrive bientôt.</p>
+              <p style="margin:10px 0 0">Ce type de question (<span x-text="q.type"></span>) n'est pas reconnu.</p>
             </div>
           </div>
           <div class="quiz-footer">
@@ -680,6 +916,123 @@ document.addEventListener('alpine:init', () => {
     check() {
       if (!this.allLinked) return;
       this.submit(this.links.map(j => this.rights[j].oi));
+    },
+  }));
+
+  // ── chrono_order (flèches ▲▼) ──
+  // order[rank] = index d'origine de l'item à cette position ; réponse = order.
+  Alpine.data('blockChrono', (quiz) => ({
+    ...blockBase(quiz),
+    order: quiz.items.map((_, i) => i),
+    move(rank, dir) {
+      const j = rank + dir;
+      if (j < 0 || j >= this.order.length) return;
+      [this.order[rank], this.order[j]] = [this.order[j], this.order[rank]];
+    },
+    rowClass(rank) {
+      if (!this.checked) return '';
+      return this.order[rank] === (this.solution.correct_order || [])[rank] ? 'correct' : 'wrong';
+    },
+    check() { this.submit([...this.order]); },
+  }));
+
+  // ── parsons_puzzle (ordre + indentation) ──
+  // rows = [{id, text, indent}] dans l'ordre soumis ; réponse = [{id, indent}].
+  Alpine.data('blockParsons', (quiz) => ({
+    ...blockBase(quiz),
+    rows: (quiz.lines || []).map(l => ({ id: l.id, text: l.text, indent: 0 })),
+    move(rank, dir) {
+      const j = rank + dir;
+      if (j < 0 || j >= this.rows.length) return;
+      [this.rows[rank], this.rows[j]] = [this.rows[j], this.rows[rank]];
+    },
+    indent(rank, dir) {
+      const v = this.rows[rank].indent + dir;
+      if (v < 0 || v > 6) return;
+      this.rows[rank].indent = v;
+    },
+    rowClass(rank) {
+      if (!this.checked || !this.solution.sequence) return '';
+      const sol = this.solution.sequence[rank];
+      const r = this.rows[rank];
+      return (sol && sol.text === r.text && sol.indent === r.indent) ? 'correct' : 'wrong';
+    },
+    init() { this.$nextTick(() => { if (window.Prism) Prism.highlightAll(); }); },
+    check() { this.submit(this.rows.map(r => ({ id: r.id, indent: r.indent }))); },
+  }));
+
+  // ── number_input + dynamic_formula (champ numérique) ──
+  Alpine.data('blockNumber', (quiz) => ({
+    ...blockBase(quiz), val: '',
+    check() {
+      if (this.val === '') return;
+      const n = parseFloat(String(this.val).replace(',', '.'));
+      if (Number.isNaN(n)) { this.val = ''; return; }
+      this.submit(n);
+    },
+  }));
+
+  // ── spot_the_bug (ligne cliquable) ──
+  Alpine.data('blockSpotBug', (quiz) => ({
+    ...blockBase(quiz), selected: null,
+    lineClass(i) {
+      if (!this.checked) return this.selected === i ? 'ln-sel' : '';
+      if (i === this.solution.buggy_line) return 'ln-correct';
+      if (i === this.selected && !this.isRight) return 'ln-wrong';
+      return '';
+    },
+    check() { if (this.selected !== null) this.submit(this.selected); },
+  }));
+
+  // ── math_expression (MathQuill → format serveur) ──
+  // Le pont latexToServer reproduit la forme canonique attendue par _eval_math_expression ;
+  // la COMPARAISON finale est 100% serveur (le client n'a jamais la bonne réponse).
+  function latexToServer(tex) {
+    let s = tex || '';
+    s = s.replace(/\\left|\\right/g, '');
+    s = s.replace(/\\[,;:! ]/g, '');
+    s = s.replace(/\\cdot|\\times/g, '*');
+    s = s.replace(/\\pi/g, 'pi');
+    const frac = /\\frac\{([^{}]*)\}\{([^{}]*)\}/;
+    while (frac.test(s)) s = s.replace(frac, '($1)/($2)');
+    const sq = /\\sqrt\{([^{}]*)\}/;
+    while (sq.test(s)) s = s.replace(sq, 'sqrt($1)');
+    s = s.replace(/\^\{([^{}]*)\}/g, '^$1');
+    s = s.replace(/[{}]/g, '');
+    s = s.replace(/\\[a-zA-Z]+/g, '');
+    s = s.replace(/\\/g, '');
+    return s.replace(/\s+/g, '');
+  }
+  Alpine.data('blockMath', (quiz) => ({
+    ...blockBase(quiz), mf: null,
+    init() { this.$nextTick(() => this.mountMQ()); },
+    mountMQ() {
+      if (!window.MathQuill) { return; }
+      const MQ = MathQuill.getInterface(2);
+      this.mf = MQ.MathField(this.$refs.mq, {
+        spaceBehavesLikeTab: true,
+        handlers: { enter: () => { if (!this.checked) this.check(); } },
+      });
+      this.mf.focus();
+    },
+    key(a) {
+      const mf = this.mf; if (!mf) return;
+      switch (a) {
+        case 'sq2':  mf.write('^2'); break;
+        case 'sqrt': mf.cmd('\\sqrt'); break;
+        case 'frac': mf.cmd('\\frac'); break;
+        case 'pi':   mf.cmd('\\pi'); break;
+        case 'cdot': mf.cmd('\\cdot'); break;
+        case 'bksp': mf.keystroke('Backspace'); break;
+        default:     mf.typedText(a);
+      }
+      mf.focus();
+    },
+    check() {
+      if (this.checked || !this.mf) return;
+      const out = latexToServer(this.mf.latex());
+      if (!out) return;
+      this.submit(out);   // string → validation serveur (_eval_math_expression)
     },
   }));
 

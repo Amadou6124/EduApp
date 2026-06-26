@@ -24,7 +24,7 @@ from apps.lessons.services import (
 from apps.student_learning.services import award_xp, student_stats, BADGES_CATALOG, level_info, xp_for_next_level, XP_PER_LEVEL
 from apps.student_learning.models import (
     LessonProgress, QuizAttempt, Flashcard, StoryAttempt,
-    ConceptProgress, ExamAttempt,
+    ConceptProgress, ExamAttempt, QuestionDraw,
 )
 
 logger = logging.getLogger(__name__)
@@ -1810,6 +1810,8 @@ _QUIZ_ANSWER_FIELDS = (
     'answer_index', 'answer_indices', 'answer', 'odd_index', 'answers',
     'correct_order', 'buggy_line', 'correct_fix', 'pairs', 'solution_formula',
     'tolerance', 'variables',
+    # types restants : la séquence/expression correcte ne doit jamais partir au client.
+    'correct_sequence', 'correct_expression', 'accepted_equivalents',
     # explanation peut révéler la réponse → jamais côté client ; le feedback la
     # reçoit du serveur (réponse JSON de quiz_v2_answer).
     'explanation',
@@ -1821,11 +1823,13 @@ def _quiz_to_client(quiz):
 
     Tout le reste (instruction, options, items, text…) est conservé pour le rendu.
     Cas spéciaux :
-      - k_prime  : les statements gardent `text`, perdent `answer`.
-      - matching : `pairs` (l'adjacence left↔right EST la réponse) est strippé ; on
-        envoie les `lefts` dans l'ordre et les `rights` MÉLANGÉS, chacun gardant son
-        index d'origine `oi`, pour que le client reconstruise la réponse
-        (réponse[i] = oi du right choisi pour left[i] — cf. _eval_matching).
+      - k_prime        : les statements gardent `text`, perdent `answer`.
+      - matching       : `pairs` (l'adjacence left↔right EST la réponse) est strippé ;
+        on envoie les `lefts` ordonnés + les `rights` MÉLANGÉS, chacun gardant son
+        index d'origine `oi` (réponse[i] = oi du right choisi pour left[i]).
+      - parsons_puzzle : chaque ligne garde `id`+`text`, PERD `correct_indent` (réponse).
+    Note : dynamic_formula est traité dans la vue (énoncé tiré côté serveur) — ici on
+    se contente de retirer variables/solution_formula (déjà dans la liste).
     Réutilisable pour tous les concepts ; le serveur garde le quiz complet."""
     out = {k: v for k, v in quiz.items() if k not in _QUIZ_ANSWER_FIELDS}
     t = quiz.get('type')
@@ -1838,12 +1842,20 @@ def _quiz_to_client(quiz):
         rights = [{'text': p.get('right', ''), 'oi': i} for i, p in enumerate(pairs)]
         _random.shuffle(rights)
         out['rights'] = rights
+    elif t == 'parsons_puzzle':
+        import random as _random
+        lines = [{'id': l.get('id'), 'text': l.get('text', '')} for l in quiz.get('lines', [])]
+        _random.shuffle(lines)   # mélange l'ordre de départ (sinon la séquence serait donnée)
+        out['lines'] = lines
     return out
 
 
-def _quiz_solution(quiz):
+def _quiz_solution(quiz, context=None):
     """Réponse correcte minimale, renvoyée APRÈS validation pour rendre le feedback
-    (surlignage bonne réponse). Jamais exposée avant soumission."""
+    (surlignage / correction). Jamais exposée avant soumission.
+
+    `context` = {'variables': …} pour dynamic_formula (recalcul de la bonne réponse
+    depuis le tirage serveur). Ignoré par les autres types."""
     t = quiz.get('type')
     if t == 'mcq_single':   return {'answer_index': quiz.get('answer_index')}
     if t == 'mcq_multiple': return {'answer_indices': quiz.get('answer_indices', [])}
@@ -1851,9 +1863,27 @@ def _quiz_solution(quiz):
     if t == 'odd_one_out':  return {'odd_index': quiz.get('odd_index')}
     if t == 'k_prime':      return {'answers': [bool(s.get('answer')) for s in quiz.get('statements', [])]}
     if t == 'cloze_test':   return {'answers': quiz.get('answers', [])}
-    # matching : la bonne association left[i] → right d'origine i (paires ordonnées,
-    # pour afficher "left → right correct" dans le feedback APRÈS soumission).
+    # matching : la bonne association left[i] → right d'origine i (paires ordonnées).
     if t == 'matching':     return {'pairs': quiz.get('pairs', [])}
+    if t == 'chrono_order': return {'correct_order': quiz.get('correct_order', [])}
+    if t == 'number_input': return {'answer': quiz.get('answer'), 'unit': quiz.get('unit', '')}
+    if t == 'spot_the_bug': return {'buggy_line': quiz.get('buggy_line'), 'correct_fix': quiz.get('correct_fix', '')}
+    if t == 'math_expression': return {'correct_expression': quiz.get('correct_expression', '')}
+    if t == 'parsons_puzzle':
+        # séquence + indentation correctes, dans l'ordre, pour afficher la solution.
+        by_id = {l.get('id'): l for l in quiz.get('lines', [])}
+        seq = quiz.get('correct_sequence', [])
+        return {'sequence': [{'text': by_id.get(i, {}).get('text', ''),
+                              'indent': by_id.get(i, {}).get('correct_indent', 0)} for i in seq]}
+    if t == 'dynamic_formula':
+        from apps.lessons.services import _safe_eval_arith
+        if isinstance(context, dict) and 'variables' in context:
+            try:
+                ans = _safe_eval_arith(quiz.get('solution_formula', '0'), context['variables'])
+                return {'answer': ans, 'unit': quiz.get('unit', '')}
+            except Exception:
+                return {'unit': quiz.get('unit', '')}
+        return {'unit': quiz.get('unit', '')}
     return {}
 
 
@@ -1930,7 +1960,22 @@ def learn_quiz_v2(request, lesson_id, concept_id):
 
     quizzes = [q for q in concept.get('quiz', [])
                if int(q.get('pass_index', 0)) == pass_to_play]
-    client_quizzes = [_quiz_to_client(q) for q in quizzes]
+
+    # dynamic_formula : tirage des variables CÔTÉ SERVEUR (anti-triche A.5). Le client
+    # ne reçoit que l'énoncé chiffré ; variables + solution restent serveur (QuestionDraw).
+    from apps.lessons.services import draw_dynamic_formula
+    client_quizzes = []
+    for q in quizzes:
+        cq = _quiz_to_client(q)
+        if q.get('type') == 'dynamic_formula':
+            drawn = draw_dynamic_formula(q)
+            # practice (exam_attempt=None) : on remplace le tirage précédent → re-tirage à chaque ouverture
+            QuestionDraw.objects.filter(student=student, content_version=cv,
+                                        quiz_id=str(q.get('id')), exam_attempt__isnull=True).delete()
+            QuestionDraw.objects.create(student=student, content_version=cv,
+                                        quiz_id=str(q.get('id')), variables=drawn['variables'])
+            cq['instruction'] = drawn['statement']   # énoncé avec valeurs substituées
+        client_quizzes.append(cq)
 
     return render(request, 'student_learning/quiz_runner_v2.html', {
         'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
@@ -1967,19 +2012,33 @@ def quiz_v2_answer(request, lesson_id, concept_id):
     if quiz is None:
         return JsonResponse({'error': 'Quiz introuvable'}, status=404)
 
-    is_correct = bool(evaluate_answer_v2(quiz, student_answer))
+    # dynamic_formula : on relit le tirage SERVEUR (jamais reçu du client) et on
+    # recalcule la réponse attendue avec ces variables (anti-triche A.5).
+    context = None
+    draw_variables = None
+    if quiz.get('type') == 'dynamic_formula':
+        draw = (QuestionDraw.objects
+                .filter(student=student, content_version=cv, quiz_id=quiz_id,
+                        exam_attempt__isnull=True)
+                .order_by('-created_at').first())
+        if draw:
+            context = {'variables': draw.variables}
+            draw_variables = draw.variables
+
+    is_correct = bool(evaluate_answer_v2(quiz, student_answer, context))
 
     QuizAttempt.objects.create(
         student=student, lesson=lesson, content_version=cv,
         quiz_id=quiz_id, question_type=quiz.get('type', ''),
         student_answer=student_answer, is_correct=is_correct,
+        draw_variables=draw_variables,
     )
     passes_done = _recompute_concept_progress(student, cv, concept)
 
     return JsonResponse({
         'correct':     is_correct,
         'explanation': quiz.get('explanation', ''),
-        'solution':    _quiz_solution(quiz),
+        'solution':    _quiz_solution(quiz, context),
         'passes_done': passes_done,
         'passes':      _concept_passes(concept),
     })
