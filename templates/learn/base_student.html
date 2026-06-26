@@ -92,20 +92,6 @@
         <i data-lucide="award" class="w-5 h-5"></i>
         <span class="text-[10px] font-medium">Notes</span>
       </a>
-      <a href="{% url 'learn:flashcards' %}"
-         class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
-                {% if request.resolver_match.url_name == 'flashcards' or request.resolver_match.url_name == 'flashcards-session' %}text-student-500{% else %}text-gray-400{% endif %}">
-        <div class="relative">
-          <i data-lucide="layers" class="w-5 h-5"></i>
-          {% if student_due_count %}
-          <span class="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500
-                       text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-            {% if student_due_count > 9 %}9+{% else %}{{ student_due_count }}{% endif %}
-          </span>
-          {% endif %}
-        </div>
-        <span class="text-[10px] font-medium">Flashcards</span>
-      </a>
       <a href="{% url 'learn:profile' %}"
          class="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition
                 {% if request.resolver_match.url_name == 'profile' %}text-student-500{% else %}text-gray-400{% endif %}">

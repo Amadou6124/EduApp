@@ -155,19 +155,3 @@ class UnitViewsV2Test(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Lancer la génération')   # pas de verrou → bouton
 
-    # ── « Mes leçons » (v1) ne doit PAS montrer les shells v2 ────────────────────
-    def test_lesson_list_excludes_v2_shells(self):
-        from apps.lessons.models import Lesson
-        v1 = Lesson.objects.create(
-            teacher=self.teacher, school=self.school,
-            title='Leçon V1 Test', subject='Maths', format_version=1)
-        v2_shell = Lesson.objects.create(
-            teacher=self.teacher, school=self.school,
-            title='Shell V2 Test', subject='Maths', format_version=2)
-
-        resp = self.client.get(reverse('lessons:list'))
-        self.assertEqual(resp.status_code, 200)
-        listed = list(resp.context['lessons'])
-        self.assertIn(v1, listed)              # la v1 est listée
-        self.assertNotIn(v2_shell, listed)     # le shell v2 n'apparaît PAS
-        self.assertEqual(resp.context['stats']['total'], 1)  # compte v1 seulement

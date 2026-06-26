@@ -114,16 +114,6 @@
           <span x-show="$store.sidebar.open">Mes unités</span>
         </a>
 
-        <!-- Mes leçons (v1) -->
-        <a href="{% url 'lessons:list' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'list' or request.resolver_match.url_name == 'upload' or request.resolver_match.url_name == 'detail' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
-           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Mes leçons'">
-          <i data-lucide="book-marked" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Mes leçons</span>
-        </a>
-
         <!-- Mes notes -->
         <a href="{% url 'notes:dashboard' %}"
            class="flex items-center py-2 rounded-lg transition
@@ -979,7 +969,6 @@
           <a href="{% url 'teacher:students' %}"   class="sheet-item"><i data-lucide="users"></i> Mes élèves</a>
           <a href="{% url 'teacher:difficulty' %}" class="sheet-item"><i data-lucide="activity"></i> Suivi difficulté</a>
           <a href="{% url 'lessons:unit-list' %}"   class="sheet-item"><i data-lucide="sparkles"></i> Mes unités</a>
-          <a href="{% url 'lessons:list' %}"        class="sheet-item"><i data-lucide="book-marked"></i> Mes leçons</a>
         </div>
 
         {# ── PIED : nom + déconnexion ── #}
