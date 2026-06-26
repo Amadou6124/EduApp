@@ -68,6 +68,8 @@
     .lsep-line{flex:1;height:1px;background:var(--border)}
     .lsep-title{font-size:12px;font-weight:800;letter-spacing:.3px;color:var(--text-dim);white-space:nowrap;
       max-width:60%;overflow:hidden;text-overflow:ellipsis;text-align:center}
+    /* marqueur invisible de début de section de leçon (titre au scroll) */
+    .lsec-marker{position:absolute;left:0;width:1px;height:1px;pointer-events:none;opacity:0}
 
     /* ── bottomNav ─────────────────────────────────────────────────────────────── */
     .bottomNav{position:relative;z-index:40;flex-shrink:0;display:flex;justify-content:space-around;align-items:center;
@@ -107,6 +109,7 @@
     .lessonRow:hover{background:var(--hover)}
     @keyframes titleIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
     .titleAnim{animation:titleIn .4s cubic-bezier(.2,.9,.3,1)}
+    @media (prefers-reduced-motion: reduce){ .titleAnim{animation:none} }
     .placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;
       color:var(--text-mute);gap:10px;font-weight:600}
     [x-cloak]{display:none!important}
@@ -124,7 +127,7 @@
               :style="dropdown ? 'border-color:{{ lesson.color }}' : ''"
               @click="dropdown = !dropdown; if(dropdown) $nextTick(()=>refreshIcons())"><i data-lucide="library"></i></button>
       <div style="display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;flex:1;padding:0 10px;min-height:44px">
-        <div class="hdrTitle titleAnim" :key="tab" x-text="tab==='parcours' ? '{{ lesson.title|escapejs }}' : tabLabel"></div>
+        <div class="hdrTitle titleAnim" :key="tab + '|' + lessonTitle" x-text="tab==='parcours' ? lessonTitle : tabLabel"></div>
       </div>
       {% if lecteur_url %}
       <a class="iconBtn" title="Lire la leçon" href="{{ lecteur_url }}"
@@ -192,6 +195,7 @@
 
           <!-- nœuds -->
           {% for n in nodes %}
+          {% ifchanged n.lesson_id %}<div class="lsec-marker" data-lesson-title="{{ n.lesson_title }}" style="top:{{ n.y }}px"></div>{% endifchanged %}
           <div class="pnode" style="left:{{ n.x }}px;top:{{ n.y }}px;width:{{ node_size }}px;height:{{ node_size }}px"
                {% if n.status == 'current' %}x-ref="current"{% endif %}>
 
@@ -367,8 +371,28 @@
       jumpDir: null,
       toastMsg: '',
       _toastT: null,
+      lessonTitle: '{{ lesson.title|escapejs }}',   // titre du header (piloté au scroll si multi-leçons)
+      _titleIO: null,
       get tabLabel(){ return (this.tabs.find(t=>t.id===this.tab)||{}).label || ''; },
-      init(){ this.$nextTick(()=>{ this.refreshIcons(); this.scrollToCurrent(); }); },
+      init(){ this.$nextTick(()=>{ this.refreshIcons(); this.scrollToCurrent(); this.setupTitleObserver(); }); },
+      /* Titre au scroll : IntersectionObserver sur les marqueurs de section de leçon.
+         À chaque franchissement, on recalcule la leçon courante = dernier marqueur
+         passé sous la ligne de déclenchement (~14% du haut de la zone scrollable). */
+      setupTitleObserver(){
+        const main = this.$refs.main; if(!main) return;
+        const markers = Array.from(main.querySelectorAll('.lsec-marker'));
+        if(markers.length <= 1) return;   // 1 seule leçon → titre fixe, pas d'observer
+        const recompute = () => {
+          const line = main.getBoundingClientRect().top + main.clientHeight * 0.14;
+          let active = markers[0];
+          for(const m of markers){ if(m.getBoundingClientRect().top <= line) active = m; }
+          const t = active.dataset.lessonTitle;
+          if(t && t !== this.lessonTitle) this.lessonTitle = t;
+        };
+        this._titleIO = new IntersectionObserver(recompute, { root: main, threshold: [0, 1] });
+        markers.forEach(m => this._titleIO.observe(m));
+        recompute();
+      },
       refreshIcons(){ if(window.lucide) lucide.createIcons(); },
       openSheet(i){ this.sheet = this.nodes[i]; this.$nextTick(()=>this.refreshIcons()); },
       changeTab(id){ this.tab = id; this.$nextTick(()=>this.refreshIcons()); },
