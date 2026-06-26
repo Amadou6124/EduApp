@@ -164,9 +164,47 @@ def _build_lesson_concepts(lesson, correct_quiz_set: set) -> list:
 
 # ─── Dashboard ───────────────────────────────────────────────────────────────
 
+def _student_v2_lessons(student):
+    """Leçons v2 actives READY déployées dans la classe de l'élève, ordonnées
+    (matière puis date). Retourne [{id, title, subject, url}] — réutilisé par le
+    reroutage de /learn/ et le switcher 'Mes leçons' du parcours v2."""
+    deps = (
+        LessonDeployment.objects
+        .filter(school_class=student.school_class, is_active=True,
+                lesson__status=LessonStatus.READY, lesson__format_version=2)
+        .select_related('lesson', 'lesson__active_content_version')
+        .order_by('lesson__subject', 'lesson__created_at')
+    )
+    out, seen = [], set()
+    for d in deps:
+        if d.lesson_id in seen:
+            continue
+        seen.add(d.lesson_id)
+        acv = d.lesson.active_content_version
+        out.append({
+            'id': d.lesson_id,
+            'title': d.lesson.title,
+            'subject': d.lesson.subject or '',
+            'color': (acv.color if acv and acv.color else '#818CF8'),
+            'url': reverse('learn:parcours-v2', kwargs={'lesson_id': d.lesson_id}),
+        })
+    return out
+
+
 @student_required
 def learn_dashboard(request):
     student = request.student
+
+    # Reroutage v2 : l'accueil élève EST le parcours v2. Le dashboard v1 reste le
+    # filet (contourné, pas supprimé) — nettoyage v1 dans une session ultérieure.
+    #   • ?v1=1        → force l'ancien dashboard (échappatoire debug)
+    #   • ≥1 leçon v2  → redirige vers le parcours v2 par défaut (1ère leçon v2)
+    #   • 0 leçon v2   → ancien dashboard v1 (jamais de page vide)
+    if request.GET.get('v1') != '1':
+        v2_lessons = _student_v2_lessons(student)
+        if v2_lessons:
+            return redirect('learn:parcours-v2', lesson_id=v2_lessons[0]['id'])
+
     today = timezone.now().date()
 
     # 1. Matières disponibles dans la classe
@@ -1738,6 +1776,11 @@ def learn_parcours_v2(request, lesson_id):
             'lit': p['status'] == 'done',
         })
 
+    # Switcher 'Mes leçons' : toutes les leçons v2 de l'élève (marque la courante).
+    my_lessons = _student_v2_lessons(student)
+    for ml in my_lessons:
+        ml['current'] = (ml['id'] == lesson.id)
+
     return render(request, 'student_learning/parcours_v2.html', {
         'lesson': {
             'title':  lesson.title,
@@ -1751,6 +1794,8 @@ def learn_parcours_v2(request, lesson_id):
         'col_w':          _PCRS_COL_W,
         'node_size':      _PCRS_NODE,
         'progress_ratio': progress_ratio,
+        'my_lessons':     my_lessons,
+        'lecteur_url':    reverse('learn:lecteur-v2', kwargs={'lesson_id': lesson.id}),
     })
 
 
