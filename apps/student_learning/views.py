@@ -985,6 +985,7 @@ def assemble_nodes(cv, student):
             'url_quiz': reverse('learn:quiz-v2',
                                 kwargs={'lesson_id': cv.lesson_id, 'concept_id': cid}),
             'url_story': None,
+            'url_exam': None,
         })
 
     # 2. Nœud story — intercalé juste avant l'exam (spec §3.4)
@@ -1004,6 +1005,7 @@ def assemble_nodes(cv, student):
             'url_lecteur': None,
             'url_quiz': None,
             'url_story': reverse('learn:story-v2', kwargs={'lesson_id': cv.lesson_id}),
+            'url_exam': None,
         })
 
     # 3. Nœud checkpoint (exam) — toujours en dernier
@@ -1020,6 +1022,7 @@ def assemble_nodes(cv, student):
             'url_lecteur': None,
             'url_quiz': None,
             'url_story': None,
+            'url_exam': reverse('learn:exam-v2', kwargs={'lesson_id': cv.lesson_id}),
         })
 
     # 4. Calcul des statuts séquentiels
@@ -1059,6 +1062,7 @@ def assemble_nodes(cv, student):
             'url_lecteur': r['url_lecteur'],
             'url_quiz': r['url_quiz'],
             'url_story': r.get('url_story'),
+            'url_exam': r.get('url_exam'),
             **t,
         })
 
@@ -1863,6 +1867,136 @@ def story_v2_finish(request, lesson_id):
         score=score, answers=answers if isinstance(answers, list) else [],
     )
     return JsonResponse({'ok': True, 'first_time': first_time})
+
+
+# ─── EXAM v2 RÉEL (étape 5) — "Le Sommet" : 4 phases, SOMMATIF, correction SERVEUR ─
+# Aucun feedback pendant l'épreuve ; correction de TOUTES les réponses au submit via
+# evaluate_answer_v2 ; réponses correctes jamais exposées avant soumission. Dernier
+# maillon : exam passé → checkpoint "done" → parcours complété.
+
+def _concept_name_map(cv):
+    """{concept_id: nom} depuis concepts_data — pour le bilan par notion."""
+    concepts = cv.concepts_data if isinstance(cv.concepts_data, list) else []
+    return {str(c.get('id', '')): c.get('name', c.get('id', '')) for c in concepts}
+
+
+@student_required
+def learn_exam_v2(request, lesson_id):
+    """Affiche l'exam réel (exam_data) dans le player 'Le Sommet' (gated).
+    Questions masquées (réponses jamais envoyées au client avant soumission)."""
+    student = request.student
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv or not cv.exam_data:
+        raise Http404('Aucun examen disponible.')
+
+    ed = cv.exam_data
+    names = _concept_name_map(cv)
+    questions = []
+    for q in ed.get('questions', []):
+        cq = _quiz_to_client(q)                      # masque les réponses + normalise (matching/cloze)
+        cq['concept_id'] = q.get('concept_id', '')
+        cq['concept_name'] = names.get(str(q.get('concept_id', '')), 'Notion')
+        questions.append(cq)
+
+    return render(request, 'student_learning/exam_runner_v2.html', {
+        'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
+                   'color': cv.color or '#818CF8'},
+        'meta': {
+            'title': "Examen final",
+            'duration_s': int(ed.get('duration', 600)),
+            'pass_mark': float(ed.get('pass_mark', 0.6)),
+        },
+        'questions':    questions,
+        'n_questions':  len(questions),
+        'submit_url':   reverse('learn:exam-v2-submit', kwargs={'lesson_id': lesson_id}),
+        'parcours_url': reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def exam_v2_submit(request, lesson_id):
+    """Corrige TOUT côté serveur (evaluate_answer_v2), crée l'ExamAttempt, renvoie le
+    bilan (score, passed, par notion, détail par question avec la solution révélée)."""
+    from apps.lessons.services import evaluate_answer_v2
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id, format_version=2)
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv or not cv.exam_data:
+        return JsonResponse({'error': 'Aucun examen'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        client_answers = data.get('answers', [])      # liste indexée par position de question
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    ed = cv.exam_data
+    questions = ed.get('questions', [])
+    pass_mark = float(ed.get('pass_mark', 0.6))
+    names = _concept_name_map(cv)
+
+    # Correction question par question (100% serveur)
+    details = []
+    per_concept = {}   # concept_id -> [correct_count, total]
+    correct_total = 0
+    for i, q in enumerate(questions):
+        student_answer = client_answers[i] if i < len(client_answers) else None
+        is_correct = bool(evaluate_answer_v2(q, student_answer))
+        correct_total += 1 if is_correct else 0
+        cid = str(q.get('concept_id', ''))
+        agg = per_concept.setdefault(cid, [0, 0])
+        agg[0] += 1 if is_correct else 0
+        agg[1] += 1
+        details.append({
+            'i': i,
+            'concept_id': cid,
+            'concept_name': names.get(cid, 'Notion'),
+            'type': q.get('type', ''),
+            'instruction': q.get('instruction', ''),
+            'student_answer': student_answer,
+            'correct': is_correct,
+            'solution': _quiz_solution(q),            # révélée SEULEMENT maintenant
+            'explanation': q.get('explanation', ''),
+        })
+
+    total = len(questions) or 1
+    score = correct_total / total
+    passed = score >= pass_mark
+
+    concepts = [{
+        'id': cid, 'name': names.get(cid, 'Notion'),
+        'correct': c, 'total': t, 'pct': round(c / t * 100) if t else 0,
+    } for cid, (c, t) in per_concept.items()]
+
+    attempt_number = ExamAttempt.objects.filter(
+        student=student, content_version=cv).count() + 1
+    ExamAttempt.objects.create(
+        student=student, lesson=lesson, content_version=cv,
+        attempt_number=attempt_number, pass_mark=pass_mark,
+        score=score, passed=passed,
+        answers={'details': details, 'concepts': concepts},
+        submitted_at=timezone.now(),
+    )
+
+    return JsonResponse({
+        'score_pct': round(score * 100),
+        'passed': passed,
+        'pass_mark_pct': round(pass_mark * 100),
+        'correct': correct_total, 'total': total,
+        'concepts': concepts,
+        'questions': details,
+    })
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
