@@ -447,11 +447,52 @@ def unit_upload(request):
     return redirect('lessons:unit-detail', unit_id=unit.id)
 
 
+def _teacher_classes(teacher, school):
+    """Classes où l'enseignant intervient (pour le déploiement v2), avec compte élèves."""
+    return list(
+        SchoolClass.objects
+        .filter(class_subjects__teacher=teacher, school=school, is_active=True)
+        .annotate(student_count=Count('students', filter=Q(students__is_active=True)))
+        .distinct()
+        .order_by('level', 'name')
+    )
+
+
+@teacher_required
+def unit_list(request):
+    """Liste des Unités v2 de l'enseignant (les leçons v2 vivent sous leur Unité)."""
+    school = get_school(request)
+    units = (Unit.objects.filter(teacher=request.user, school=school)
+             .order_by('-created_at').prefetch_related('lessons'))
+    units_data = []
+    for u in units:
+        lessons = list(u.lessons.all())
+        ready = sum(1 for l in lessons if l.status == LessonStatus.READY)
+        units_data.append({'unit': u, 'total': len(lessons), 'ready': ready})
+    return render(request, 'lessons/unit_list.html', {'units_data': units_data})
+
+
 @teacher_required
 def unit_detail(request, unit_id):
     school = get_school(request)
     unit = get_object_or_404(Unit, pk=unit_id, teacher=request.user, school=school)
-    return render(request, 'lessons/unit_detail.html', _unit_status_context(unit))
+    ctx = _unit_status_context(unit)
+
+    # Déploiement v2 (additif) : pour chaque leçon READY, les classes du prof + état
+    # déployé. Réutilise deploy_card.html + lesson_deploy_toggle (mécanisme existant).
+    ready_lessons = [l for l in ctx['lessons'] if l.status == LessonStatus.READY]
+    classes = _teacher_classes(request.user, school) if ready_lessons else []
+    deployed = set(
+        LessonDeployment.objects
+        .filter(lesson__in=ready_lessons, is_active=True)
+        .values_list('lesson_id', 'school_class_id')
+    )
+    ctx['deploy_lessons'] = [{
+        'lesson': l,
+        'classes': [{'obj': c, 'is_deployed': (l.id, c.id) in deployed,
+                     'student_count': c.student_count} for c in classes],
+    } for l in ready_lessons]
+    return render(request, 'lessons/unit_detail.html', ctx)
 
 
 @teacher_required

@@ -104,13 +104,23 @@
           <span x-show="$store.sidebar.open">Mon tableau de bord</span>
         </a>
 
-        <!-- Mes leçons -->
+        <!-- Mes unités (v2 — portail élève) -->
+        <a href="{% url 'lessons:unit-list' %}"
+           class="flex items-center py-2 rounded-lg transition
+                  {% if request.resolver_match.url_name == 'unit-list' or request.resolver_match.url_name == 'unit-detail' or request.resolver_match.url_name == 'unit-upload' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Mes unités'">
+          <i data-lucide="sparkles" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Mes unités</span>
+        </a>
+
+        <!-- Mes leçons (v1) -->
         <a href="{% url 'lessons:list' %}"
            class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'lessons' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+                  {% if request.resolver_match.url_name == 'list' or request.resolver_match.url_name == 'upload' or request.resolver_match.url_name == 'detail' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mes leçons'">
-          <i data-lucide="sparkles" class="w-5 h-5 shrink-0"></i>
+          <i data-lucide="book-marked" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">Mes leçons</span>
         </a>
 
@@ -968,7 +978,8 @@
           <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Navigation</p>
           <a href="{% url 'teacher:students' %}"   class="sheet-item"><i data-lucide="users"></i> Mes élèves</a>
           <a href="{% url 'teacher:difficulty' %}" class="sheet-item"><i data-lucide="activity"></i> Suivi difficulté</a>
-          <a href="{% url 'lessons:list' %}"        class="sheet-item"><i data-lucide="book-open"></i> Mes leçons</a>
+          <a href="{% url 'lessons:unit-list' %}"   class="sheet-item"><i data-lucide="sparkles"></i> Mes unités</a>
+          <a href="{% url 'lessons:list' %}"        class="sheet-item"><i data-lucide="book-marked"></i> Mes leçons</a>
         </div>
 
         {# ── PIED : nom + déconnexion ── #}

@@ -14,6 +14,7 @@ urlpatterns = [
     path('<int:lesson_id>/deploy/<int:class_id>/', views.lesson_deploy_toggle, name='deploy-toggle'),
 
     # v2 — upload d'unité (parallèle au v1)
+    path('unit/',                        views.unit_list,     name='unit-list'),
     path('unit/upload/',                 views.unit_upload,   name='unit-upload'),
     path('unit/<int:unit_id>/',          views.unit_detail,   name='unit-detail'),
     path('unit/<int:unit_id>/generate/', views.unit_generate, name='unit-generate'),
