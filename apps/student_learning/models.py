@@ -167,6 +167,15 @@ class StoryAttempt(models.Model):
     answers = models.JSONField(default=list)
     completed_at = models.DateTimeField(auto_now_add=True)
 
+    # v2 (PORTAL_V2_SPEC) : rattachement au versioning (même pattern que QuizAttempt).
+    # Null pour les complétions v1 (story_finish) → v1 inchangé. PROTECT : étend le
+    # verrou anti-orphelinage de la version aux complétions de story v2.
+    content_version = models.ForeignKey(
+        LessonContentVersion, on_delete=models.PROTECT,
+        related_name='story_attempts',
+        null=True, blank=True,
+    )
+
     class Meta:
         ordering = ['-completed_at']
 

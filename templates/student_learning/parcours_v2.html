@@ -257,15 +257,15 @@
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
               <div class="rewardPill"><i data-lucide="gem" style="width:15px;height:15px;color:#22D3EE"></i> +<span x-text="sheet.xp"></span> XP</div>
             </div>
-            <!-- CTA quiz réel : navigue vers le runner ; sinon (story/exam, étapes suivantes) toast -->
-            <template x-if="sheet.url_quiz">
-              <a :href="sheet.url_quiz" class="ctaBtn"
+            <!-- CTA réel : quiz (runner) ou story (player) ; sinon (exam, étape suivante) toast -->
+            <template x-if="sheet.url_quiz || sheet.url_story">
+              <a :href="sheet.url_quiz || sheet.url_story" class="ctaBtn"
                  :style="`background:linear-gradient(150deg, ${sheet.g0}, ${sheet.g1});box-shadow:0 8px 22px ${sheet.glow};text-decoration:none`">
-                <i data-lucide="arrow-right" style="width:18px;height:18px"></i>
+                <i :data-lucide="sheet.type==='story' ? 'play' : 'arrow-right'" style="width:18px;height:18px"></i>
                 <span x-text="sheet.cta"></span>
               </a>
             </template>
-            <template x-if="!sheet.url_quiz">
+            <template x-if="!sheet.url_quiz && !sheet.url_story">
               <button class="ctaBtn" @click="toast(sheet.cta + ' — bientôt'); sheet=null"
                       :style="`background:linear-gradient(150deg, ${sheet.g0}, ${sheet.g1});box-shadow:0 8px 22px ${sheet.glow}`">
                 <i :data-lucide="sheet.type==='story' ? 'play' : 'arrow-right'" style="width:18px;height:18px"></i>

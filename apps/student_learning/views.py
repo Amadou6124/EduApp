@@ -960,7 +960,8 @@ def assemble_nodes(cv, student):
         cp.concept_id: cp.passes_done
         for cp in ConceptProgress.objects.filter(student=student, content_version=cv)
     }
-    story_done = StoryAttempt.objects.filter(student=student, lesson_id=cv.lesson_id).exists()
+    # version-aware (v2) : la complétion est rattachée à content_version (cf. migration 0006).
+    story_done = StoryAttempt.objects.filter(student=student, content_version=cv).exists()
     exam_passed = ExamAttempt.objects.filter(
         student=student, content_version=cv, passed=True
     ).exists()
@@ -983,6 +984,7 @@ def assemble_nodes(cv, student):
             'url_lecteur': url_lecteur,
             'url_quiz': reverse('learn:quiz-v2',
                                 kwargs={'lesson_id': cv.lesson_id, 'concept_id': cid}),
+            'url_story': None,
         })
 
     # 2. Nœud story — intercalé juste avant l'exam (spec §3.4)
@@ -1001,6 +1003,7 @@ def assemble_nodes(cv, student):
             'concept_id': None,
             'url_lecteur': None,
             'url_quiz': None,
+            'url_story': reverse('learn:story-v2', kwargs={'lesson_id': cv.lesson_id}),
         })
 
     # 3. Nœud checkpoint (exam) — toujours en dernier
@@ -1016,6 +1019,7 @@ def assemble_nodes(cv, student):
             'concept_id': None,
             'url_lecteur': None,
             'url_quiz': None,
+            'url_story': None,
         })
 
     # 4. Calcul des statuts séquentiels
@@ -1054,6 +1058,7 @@ def assemble_nodes(cv, student):
             'concept_id': r['concept_id'],
             'url_lecteur': r['url_lecteur'],
             'url_quiz': r['url_quiz'],
+            'url_story': r.get('url_story'),
             **t,
         })
 
@@ -1598,13 +1603,16 @@ _STORY_DEMO = {
 
 
 def story_v2_demo(request):
-    """Story cinématographique immersive v2 (DÉMO). Ungated."""
+    """Story cinématographique immersive v2 (DÉMO). Ungated.
+    finish_url vide → le player ne POSTe aucune complétion (mode démo)."""
     d = _STORY_DEMO
     return render(request, 'student_learning/story_v2.html', {
-        'lesson':     d['lesson'],
-        'scene':      d['scene'],
-        'characters': d['characters'],
-        'steps':      d['steps'],
+        'lesson':      d['lesson'],
+        'scene':       d['scene'],
+        'characters':  d['characters'],
+        'steps':       d['steps'],
+        'finish_url':  '',
+        'parcours_url': reverse('learn:parcours-v2-demo'),
     })
 
 
@@ -1795,6 +1803,66 @@ def learn_lecteur_v2(request, lesson_id):
         'n_sections':      len(sections),
         'back_url':        reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
     })
+
+
+# ─── STORY v2 RÉELLE (étape 4) — player immersif sur story_data réel ──────────
+# Éval CÔTÉ CLIENT (à la designer : choice/input/tokens/blank) — moment plaisir,
+# pas d'enjeu anti-triche. Seule la complétion (score) est persistée côté serveur.
+
+@student_required
+def learn_story_v2(request, lesson_id):
+    """Affiche la VRAIE story (story_data) dans le player immersif (gated)."""
+    student = request.student
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv or not cv.story_data:
+        raise Http404('Aucune histoire disponible.')
+
+    sd = cv.story_data
+    return render(request, 'student_learning/story_v2.html', {
+        'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
+                   'color': cv.color or '#10B981'},
+        'scene':        sd.get('scene') or {},
+        'characters':   sd.get('characters') or [],
+        'steps':        sd.get('steps') or [],
+        'finish_url':   reverse('learn:story-v2-finish', kwargs={'lesson_id': lesson_id}),
+        'parcours_url': reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def story_v2_finish(request, lesson_id):
+    """Enregistre la complétion de la story (version-aware) → débloque le nœud suivant."""
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id, format_version=2)
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv:
+        return JsonResponse({'error': 'Aucun contenu'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        score = max(0, min(100, int(data.get('score', 0))))
+        answers = data.get('answers', [])
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    first_time = not StoryAttempt.objects.filter(
+        student=student, content_version=cv).exists()
+    StoryAttempt.objects.create(
+        student=student, lesson=lesson, content_version=cv,
+        score=score, answers=answers if isinstance(answers, list) else [],
+    )
+    return JsonResponse({'ok': True, 'first_time': first_time})
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

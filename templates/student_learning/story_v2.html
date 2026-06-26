@@ -12,6 +12,14 @@
   {{ characters|json_script:"s-chars-json" }}
   {{ steps|json_script:"s-steps-json" }}
   {{ scene|json_script:"s-scene-json" }}
+  <script>
+    // Config Django (hors verbatim). finishUrl vide en DÉMO → aucune persistance.
+    const STORY_CFG = {
+      finishUrl:   "{{ finish_url|default:'' }}",
+      parcoursUrl: "{{ parcours_url|default:'/learn/v2/parcours/' }}",
+      csrf:        "{{ csrf_token }}",
+    };
+  </script>
 
   <style>
     /* ── variables dark ── */
@@ -576,8 +584,10 @@
         <div>
           <p class="s-prompt" x-text="waiting.prompt"></p>
           <div x-show="inputErr" class="s-hint">
-            <i data-lucide="alert-circle"></i>
-            <span x-text="inputTries >= 1 ? waiting.hint : 'Pas tout à fait, réessaie.'"></span>
+            <span style="flex-shrink:0">⚠</span>
+            <span x-text="inputPunctMsg
+              ? 'Ta phrase est correcte, mais n\'oublie pas la ponctuation finale (. ! ou ?).'
+              : (inputTries >= 1 ? waiting.hint : 'Pas tout à fait, réessaie.')"></span>
           </div>
           <div class="s-input-row">
             <input class="s-text-input" :class="inputErr ? 'err' : ''"
@@ -588,8 +598,8 @@
               autocomplete="off" autocorrect="off" spellcheck="false">
             <button class="s-send-btn"
               :style="'background:linear-gradient(150deg,'+accentColor+',#0891b2)'"
-              @click="submitInput()">
-              <i data-lucide="send" style="width:18px;height:18px"></i>
+              @click="submitInput()" aria-label="Envoyer">
+              <span style="font-size:17px;line-height:1">➤</span>
             </button>
           </div>
           <button x-show="inputTries >= 2" class="s-reveal-btn" @click="revealInput()">
@@ -612,12 +622,12 @@
                 @click="removeToken(t)">
                 <span class="s-token-num" x-text="(i+1)+'.'"></span>
                 <span x-text="t"></span>
-                <i data-lucide="x" style="width:11px;height:11px;opacity:.5"></i>
+                <span style="font-size:11px;opacity:.5;line-height:1">×</span>
               </button>
             </template>
           </div>
           <div x-show="tokensErr" class="s-hint">
-            <i data-lucide="rotate-ccw"></i>
+            <span style="flex-shrink:0">↻</span>
             Pas le bon ordre — touche pour retirer.
           </div>
           <div class="s-token-bank">
@@ -634,7 +644,7 @@
             :style="'background:linear-gradient(150deg,'+accentColor+',#0891b2)'"
             @click="checkTokens()">
             Vérifier
-            <i data-lucide="check" style="width:16px;height:16px"></i>
+            <span style="font-size:15px;line-height:1">✓</span>
           </button>
           <button x-show="tokensTries >= 2" class="s-reveal-btn" @click="revealTokens()">
             Montrer la solution
@@ -655,7 +665,10 @@
             <span x-text="waiting.parts[1]"></span>
           </div>
           <div x-show="blankErr" class="s-hint">
-            <i data-lucide="x"></i> Réessaie.
+            <span style="flex-shrink:0">⚠</span>
+            <span x-text="blankPunctMsg
+              ? 'Ta réponse est correcte, mais n\'oublie pas la ponctuation finale (. ! ou ?).'
+              : 'Réessaie.'"></span>
           </div>
           <div class="s-blank-opts">
             <template x-for="opt in waiting.options" :key="opt">
@@ -704,7 +717,7 @@
           <i data-lucide="rotate-ccw" style="width:15px;height:15px"></i>
           Rejouer
         </button>
-        <a class="s-solid-btn" href="/learn/v2/parcours/"
+        <a class="s-solid-btn" :href="parcoursUrl"
           :style="'background:linear-gradient(150deg,'+accentColor+',#0891b2)'">
           Parcours
           <i data-lucide="arrow-right" style="width:15px;height:15px"></i>
@@ -721,9 +734,22 @@ const _SD_CHARS = JSON.parse(document.getElementById('s-chars-json').textContent
 const _SD_STEPS = JSON.parse(document.getElementById('s-steps-json').textContent);
 const _SD_SCENE = JSON.parse(document.getElementById('s-scene-json').textContent);
 
-function _norm(s) {
-  return s.toString().trim().toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+/* Normalisation : casse + accents + espaces toujours normalisés.
+   keepPunct=false (défaut) : on retire AUSSI la ponctuation (. ! ? ; : ,) → tolérant.
+   keepPunct=true : on GARDE la ponctuation (pour pouvoir la vérifier).
+   Dans tous les cas la rigueur sur les MOTS (lettres) est préservée.
+   Utilisée par l'input ET le blank de la story. */
+function _norm(s, keepPunct = false) {
+  let out = s.toString()
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');   // sans accents
+  if (!keepPunct) out = out.replace(/[.!?;:,]/g, ' ');   // tolérant : ponctuation → espace
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+/* Présence d'une ponctuation finale (. ! ?) — pour check_punctuation niveau 1. */
+function _hasFinalPunct(s) {
+  return /[.!?]\s*$/.test(s.toString().trim());
 }
 
 function _shade(hex) {
@@ -750,14 +776,19 @@ document.addEventListener('alpine:init', () => {
     waiting: null,     /* step interactif courant */
     done:    false,
     correct: 0,
+    finished: false,   /* garde anti-double POST de complétion */
+
+    /* ── config serveur (persistance réelle ; vide en démo) ── */
+    finishUrl:   STORY_CFG.finishUrl,
+    parcoursUrl: STORY_CFG.parcoursUrl,
 
     /* ── TTS ── */
     ttsOn: false,
 
     /* ── sous-états interactions ── */
-    inputVal: '', inputErr: false, inputTries: 0,
+    inputVal: '', inputErr: false, inputTries: 0, inputPunctMsg: false,
     tokensOrder: [], tokensBank: [], tokensErr: false, tokensTries: 0,
-    blankPick: null, blankErr: false,
+    blankPick: null, blankErr: false, blankPunctMsg: false,
 
     /* ── effets décoratifs ── */
     particles: [],
@@ -809,9 +840,10 @@ document.addEventListener('alpine:init', () => {
         delay: (Math.random() * -12).toFixed(1),
       }));
 
-      /* Observe `done` pour générer les confettis */
+      /* Observe `done` : confettis + persistance de la complétion (si gated) */
       this.$watch('done', v => {
         if (!v) return;
+        this.persistCompletion();
         const cols = ['#FB7185','#22D3EE','#FBBF24','#A855F7','#34D399', this.accentColor];
         this.confetti = Array.from({ length: 34 }, (_, i) => ({
           id:    i,
@@ -861,14 +893,14 @@ document.addEventListener('alpine:init', () => {
         /* interaction — attend l'élève */
         this.waiting = s;
         if (s.type === 'input') {
-          this.inputVal = ''; this.inputErr = false; this.inputTries = 0;
+          this.inputVal = ''; this.inputErr = false; this.inputTries = 0; this.inputPunctMsg = false;
         } else if (s.type === 'tokens') {
           this.tokensBank  = [...s.tokens];
           this.tokensOrder = [];
           this.tokensErr   = false;
           this.tokensTries = 0;
         } else if (s.type === 'blank') {
-          this.blankPick = null; this.blankErr = false;
+          this.blankPick = null; this.blankErr = false; this.blankPunctMsg = false;
         }
         this.scrollBottom();
         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
@@ -908,16 +940,21 @@ document.addEventListener('alpine:init', () => {
       this.resolve(opt.label, opt.reply || null, who, !!opt.correct);
     },
 
-    /* ── INPUT ── */
+    /* ── INPUT (éval 2 passes : mots, puis ponctuation si check_punctuation) ── */
     submitInput() {
       if (!this.inputVal.trim()) return;
-      const ok = this.waiting.answers.some(a => _norm(a) === _norm(this.inputVal));
-      if (ok) {
-        this.resolve(this.inputVal, this.waiting.ok, this.chars[0].id, true);
-      } else {
-        this.inputErr = true;
-        this.inputTries++;
+      const wordsOk = this.waiting.answers.some(a => _norm(a) === _norm(this.inputVal));
+      if (!wordsOk) {                                   // mots faux → hint normal
+        this.inputErr = true; this.inputPunctMsg = false; this.inputTries++;
+        return;
       }
+      // mots bons : ponctuation finale exigée seulement si check_punctuation:true
+      if (this.waiting.check_punctuation && !_hasFinalPunct(this.inputVal)) {
+        this.inputErr = true; this.inputPunctMsg = true; this.inputTries++;
+        return;
+      }
+      this.inputPunctMsg = false;
+      this.resolve(this.inputVal, this.waiting.ok, this.chars[0].id, true);
     },
     revealInput() {
       const ans = this.waiting.answers[0].toUpperCase();
@@ -950,18 +987,23 @@ document.addEventListener('alpine:init', () => {
       this.resolve(sol.join(' → '), 'Ordre correct : ' + sol.join(', ') + '.', this.chars[0].id, false);
     },
 
-    /* ── BLANK ── */
+    /* ── BLANK (même logique 2 passes ; en pratique les options sont des mots) ── */
     submitBlank(opt) {
       this.blankPick = opt;
-      const ok = _norm(opt) === _norm(this.waiting.answer);
-      if (ok) {
-        const full = this.waiting.parts[0] + opt + this.waiting.parts[1];
-        setTimeout(() => {
-          this.resolve(full, this.waiting.ok || 'Bonne réponse !', this.chars[0].id, true);
-        }, 280);
-      } else {
-        this.blankErr = true;
+      const wordsOk = _norm(opt) === _norm(this.waiting.answer);
+      if (!wordsOk) {                                   // mauvais mot → rouge
+        this.blankErr = true; this.blankPunctMsg = false;
+        return;
       }
+      if (this.waiting.check_punctuation && !_hasFinalPunct(opt)) {
+        this.blankErr = true; this.blankPunctMsg = true;
+        return;
+      }
+      this.blankPunctMsg = false;
+      const full = this.waiting.parts[0] + opt + this.waiting.parts[1];
+      setTimeout(() => {
+        this.resolve(full, this.waiting.ok || 'Bonne réponse !', this.chars[0].id, true);
+      }, 280);
     },
 
     /* ── TTS ── */
@@ -975,6 +1017,17 @@ document.addEventListener('alpine:init', () => {
     toggleTts() {
       this.ttsOn = !this.ttsOn;
       if (!this.ttsOn && window.speechSynthesis) window.speechSynthesis.cancel();
+    },
+
+    /* ── PERSISTANCE complétion (seulement si gated : finishUrl présent) ── */
+    persistCompletion() {
+      if (!this.finishUrl || this.finished) return;   // démo OU déjà envoyé
+      this.finished = true;
+      fetch(this.finishUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': STORY_CFG.csrf },
+        body: JSON.stringify({ score: this.score, answers: [] }),
+      }).catch(() => { this.finished = false; });   // en cas d'échec réseau, réessai possible
     },
 
     /* ── RESTART ── */

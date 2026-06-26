@@ -38,6 +38,8 @@ urlpatterns = [
          views.learn_quiz_v2, name='quiz-v2'),
     path('v2/lesson/<int:lesson_id>/concept/<str:concept_id>/quiz/answer/',
          views.quiz_v2_answer, name='quiz-v2-answer'),
+    path('v2/lesson/<int:lesson_id>/story/',        views.learn_story_v2,  name='story-v2'),
+    path('v2/lesson/<int:lesson_id>/story/finish/', views.story_v2_finish, name='story-v2-finish'),
 
     # v2 (Phase C) — portail élève redesign. Démos (données en dur).
     path('v2/parcours/', views.parcours_v2_demo, name='parcours-v2-demo'),
