@@ -1464,6 +1464,12 @@ def _create_unit_skeleton(architect_structure: dict, *, teacher, school=None,
             title=meta['title'],
             summary=meta.get('summary', ''),
             slug=meta.get('id', ''),
+            # Les shells héritent l'identité matière de l'Unit (groupement du parcours
+            # élève par matière). subject vivait seulement sur l'Unit → leçons à vide.
+            subject=unit.subject,
+            subject_type=unit.subject_type,
+            level=unit.level,
+            level_detail=unit.level_detail,
             format_version=2,
             status=initial_status,
         )

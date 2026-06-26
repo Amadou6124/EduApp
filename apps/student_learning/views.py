@@ -371,6 +371,59 @@ def assemble_nodes(cv, student):
     return nodes
 
 
+def assemble_subject_parcours(lessons, student):
+    """Empile TOUTES les leçons d'une matière en un seul parcours (multi-leçons).
+
+    Pour chaque leçon : ses nœuds via assemble_nodes (statut séquentiel INTERNE →
+    déblocage INDÉPENDANT entre leçons). Entre deux leçons : un SÉPARATEUR portant
+    le titre de la leçon suivante (pas avant la 1ʳᵉ). Le zigzag (x) CONTINUE à
+    travers les leçons (compteur de squircles `si`) ; le y avance d'une rangée par
+    nœud ET par séparateur (compteur `ri`).
+
+    Retourne (nodes, separators) :
+      nodes      — squircles avec x/y/i globaux + lesson_id/lesson_title (scroll §3)
+      separators — [{title, y, lesson_id}] pour les dividers entre leçons
+    """
+    nodes_out, separators_out = [], []
+    si = 0   # index squircle (zigzag x — continu)
+    ri = 0   # index rangée (y — nœuds + séparateurs)
+    for li, lesson in enumerate(lessons):
+        cv = lesson.active_content_version or (
+            LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+        if not cv:
+            continue
+        if li > 0:   # séparateur AVANT la leçon (jamais avant la 1ʳᵉ)
+            separators_out.append({
+                'title': lesson.title,
+                'y': _pcrs_py(ri),
+                'lesson_id': lesson.id,
+            })
+            ri += 1
+        for n in assemble_nodes(cv, student):
+            n['x'] = _pcrs_px(si)
+            n['y'] = _pcrs_py(ri)
+            n['i'] = len(nodes_out)            # index global (openSheet)
+            n['lesson_id'] = lesson.id
+            n['lesson_title'] = lesson.title
+            nodes_out.append(n)
+            si += 1
+            ri += 1
+    return nodes_out, separators_out, ri
+
+
+def _student_v2_subjects(student):
+    """Matières DISTINCTES de l'élève (pour le dropdown du parcours). Une entrée par
+    matière : {subject, color, url} où url = parcours de la 1ʳᵉ leçon de la matière."""
+    out, seen = [], set()
+    for l in _student_v2_lessons(student):   # déjà ordonné (matière, date)
+        subj = l['subject'] or 'Autre'
+        if subj in seen:
+            continue
+        seen.add(subj)
+        out.append({'subject': subj, 'color': l['color'], 'url': l['url']})
+    return out
+
+
 # Mock du design (sous-ensemble couvrant tous les états : done/current/locked,
 # anneaux 2/3 passes, quiz/story/checkpoint).
 _PCRS_DEMO = {
@@ -1019,15 +1072,26 @@ def learn_parcours_v2(request, lesson_id):
     )
     get_object_or_404(LessonDeployment, lesson=lesson, school_class=student.school_class, is_active=True)
 
-    cv = lesson.active_content_version
-    if not cv:
-        cv = (LessonContentVersion.objects
-              .filter(lesson=lesson).order_by('-version').first())
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
     if not cv:
         from django.http import Http404
         raise Http404('Aucun contenu disponible.')
 
-    nodes = assemble_nodes(cv, student)
+    # Le parcours est PAR MATIÈRE : on dérive la matière de la leçon de l'URL et on
+    # empile TOUTES les leçons v2 actives de cette matière (déblocage indépendant).
+    subject = lesson.subject or ''
+    subject_deps = (
+        LessonDeployment.objects
+        .filter(school_class=student.school_class, is_active=True,
+                lesson__status=LessonStatus.READY, lesson__format_version=2,
+                lesson__subject=subject)
+        .select_related('lesson', 'lesson__active_content_version')
+        .order_by('lesson__created_at')
+    )
+    subject_lessons = [d.lesson for d in subject_deps] or [lesson]
+
+    nodes, separators, total_rows = assemble_subject_parcours(subject_lessons, student)
     done_count = sum(1 for n in nodes if n['status'] == 'done')
     progress_ratio = round(done_count / len(nodes), 4) if nodes else 0
 
@@ -1040,26 +1104,28 @@ def learn_parcours_v2(request, lesson_id):
             'lit': p['status'] == 'done',
         })
 
-    # Switcher 'Mes leçons' : toutes les leçons v2 de l'élève (marque la courante).
-    my_lessons = _student_v2_lessons(student)
-    for ml in my_lessons:
-        ml['current'] = (ml['id'] == lesson.id)
+    # Dropdown = UNIQUEMENT des matières (jamais des titres de leçon).
+    subjects = _student_v2_subjects(student)
+    for s in subjects:
+        s['current'] = (s['subject'] == (subject or 'Autre'))
 
+    head_color = cv.color or '#818CF8'
     return render(request, 'student_learning/parcours_v2.html', {
         'lesson': {
-            'title':  lesson.title,
-            'subject': lesson.subject or '',
-            'color':  cv.color or '#818CF8',
+            'title':  subject_lessons[0].title,   # titre de la 1ʳᵉ leçon (scroll-driven en §3)
+            'subject': subject,
+            'color':  head_color,
             'guide':  cv.guide or '',
         },
         'nodes':          nodes,
+        'separators':     separators,
         'segments':       segments,
-        'canvas_h':       len(nodes) * _PCRS_ROW_H + 60,
+        'canvas_h':       total_rows * _PCRS_ROW_H + 60,
         'col_w':          _PCRS_COL_W,
         'node_size':      _PCRS_NODE,
         'progress_ratio': progress_ratio,
-        'my_lessons':     my_lessons,
-        'lecteur_url':    reverse('learn:lecteur-v2', kwargs={'lesson_id': lesson.id}),
+        'subjects':       subjects,
+        'lecteur_url':    reverse('learn:lecteur-v2', kwargs={'lesson_id': subject_lessons[0].id}),
     })
 
 

@@ -9,7 +9,8 @@
   <script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
 
   {{ nodes|json_script:"pcrs-nodes" }}
-  {% if my_lessons %}{{ my_lessons|json_script:"pcrs-lessons" }}{% else %}<script id="pcrs-lessons" type="application/json">[]</script>{% endif %}
+  {% if subjects %}{{ subjects|json_script:"pcrs-subjects" }}{% else %}<script id="pcrs-subjects" type="application/json">[]</script>{% endif %}
+  {% if separators %}{{ separators|json_script:"pcrs-separators" }}{% else %}<script id="pcrs-separators" type="application/json">[]</script>{% endif %}
 
   <style>
     /* ── Thème sombre (THEMES.dark du design) ───────────────────────────────── */
@@ -62,6 +63,11 @@
       border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #fff}
     @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
     .endNote{text-align:center;padding:24px 0 8px;color:var(--text-mute);font-size:13px;font-weight:600}
+    /* séparateur de leçon (parcours par matière) : ligne + titre centré, occupe une rangée */
+    .lsep{position:absolute;left:0;width:100%;height:132px;display:flex;align-items:center;gap:12px;padding:0 6px;z-index:5;pointer-events:none}
+    .lsep-line{flex:1;height:1px;background:var(--border)}
+    .lsep-title{font-size:12px;font-weight:800;letter-spacing:.3px;color:var(--text-dim);white-space:nowrap;
+      max-width:60%;overflow:hidden;text-overflow:ellipsis;text-align:center}
 
     /* ── bottomNav ─────────────────────────────────────────────────────────────── */
     .bottomNav{position:relative;z-index:40;flex-shrink:0;display:flex;justify-content:space-around;align-items:center;
@@ -133,23 +139,22 @@
       {% endif %}
     </div>
 
-    <!-- ════ DROPDOWN MES LEÇONS (switcher matières — fidèle code.jsx dropPanel) ════ -->
+    <!-- ════ DROPDOWN MATIÈRES (uniquement des matières, jamais des titres de leçon) ════ -->
     <template x-if="dropdown">
       <div>
         <div @click="dropdown=false" style="position:fixed;inset:0;z-index:20"></div>
         <div class="dropPanel" style="position:absolute;top:100%;left:12px;z-index:40;width:min(340px,calc(100vw - 24px))">
-          <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-mute);font-weight:700;padding:4px 10px 8px">Mes leçons</div>
-          <template x-for="l in lessons" :key="l.id">
-            <a :href="l.url" @click.prevent="switchLesson(l)" class="lessonRow" :style="l.current ? `border-color:${l.color}` : ''">
-              <div :style="`width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(150deg, ${l.color}, #6d28d9)`">
-                <i data-lucide="sparkles" style="width:18px;height:18px"></i>
+          <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-mute);font-weight:700;padding:4px 10px 8px">Mes matières</div>
+          <template x-for="s in subjects" :key="s.subject">
+            <a :href="s.url" @click.prevent="switchSubject(s)" class="lessonRow" :style="s.current ? `border-color:${s.color}` : ''">
+              <div :style="`width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(150deg, ${s.color}, #6d28d9)`">
+                <i data-lucide="book-open" style="width:18px;height:18px"></i>
               </div>
               <div style="flex:1;text-align:left;min-width:0">
-                <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="l.title"></div>
-                <div x-show="l.subject" style="font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="l.subject"></div>
+                <div style="font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="s.subject"></div>
               </div>
-              <i x-show="l.current" data-lucide="check" :style="`width:18px;height:18px;color:${l.color}`"></i>
-              <i x-show="!l.current" data-lucide="chevron-right" style="width:16px;height:16px;opacity:.4;flex-shrink:0"></i>
+              <i x-show="s.current" data-lucide="check" :style="`width:18px;height:18px;color:${s.color}`"></i>
+              <i x-show="!s.current" data-lucide="chevron-right" style="width:16px;height:16px;opacity:.4;flex-shrink:0"></i>
             </a>
           </template>
         </div>
@@ -174,6 +179,16 @@
                   stroke-dasharray="{% if s.lit %}0{% else %}3 14{% endif %}" />
             {% endfor %}
           </svg>
+
+          <!-- séparateurs de leçon (multi-leçons par matière) -->
+          {% for sep in separators %}
+          <div class="lsep" style="top:{{ sep.y }}px"
+               data-lesson-id="{{ sep.lesson_id }}" data-lesson-title="{{ sep.title }}">
+            <span class="lsep-line"></span>
+            <span class="lsep-title">{{ sep.title }}</span>
+            <span class="lsep-line"></span>
+          </div>
+          {% endfor %}
 
           <!-- nœuds -->
           {% for n in nodes %}
@@ -337,7 +352,8 @@
   function parcours(){
     return {
       nodes: JSON.parse(document.getElementById('pcrs-nodes').textContent),
-      lessons: JSON.parse(document.getElementById('pcrs-lessons').textContent),
+      subjects: JSON.parse(document.getElementById('pcrs-subjects').textContent),
+      separators: JSON.parse(document.getElementById('pcrs-separators').textContent),
       dropdown: false,
       progress: {{ progress_ratio }},
       tab: 'parcours',
@@ -356,10 +372,10 @@
       refreshIcons(){ if(window.lucide) lucide.createIcons(); },
       openSheet(i){ this.sheet = this.nodes[i]; this.$nextTick(()=>this.refreshIcons()); },
       changeTab(id){ this.tab = id; this.$nextTick(()=>this.refreshIcons()); },
-      switchLesson(l){
+      switchSubject(s){
         this.dropdown = false;
-        if(l.current){ this.$refs.main && this.$refs.main.scrollTo({top:0,behavior:'smooth'}); return; }
-        window.location.href = l.url;   // bascule vers le parcours de cette leçon (scroll en haut au chargement)
+        if(s.current){ this.$refs.main && this.$refs.main.scrollTo({top:0,behavior:'smooth'}); return; }
+        window.location.href = s.url;   // bascule vers le parcours de cette matière (scroll en haut au chargement)
       },
       toast(m){ this.toastMsg=m; clearTimeout(this._toastT); this._toastT=setTimeout(()=>this.toastMsg='',1800); },
       scrollToCurrent(){ const el=this.$refs.current; if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); },
