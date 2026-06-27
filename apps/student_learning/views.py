@@ -1,12 +1,5 @@
 import json
 import logging
-from collections import defaultdict, OrderedDict
-from datetime import timedelta
-from urllib.parse import urlencode
-
-import datetime
-
-from django.db.models import Count, F
 from django.http import HttpResponse, JsonResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -128,7 +121,7 @@ def learn_profile(request):
 @student_required
 def learn_grades(request):
     """Rang, notes par matière (BulletinLine) et bulletins publiés de l'élève."""
-    from apps.schools.models import Bulletin, BulletinLine, Note
+    from apps.schools.models import Bulletin, Note
 
     student = request.student
 
