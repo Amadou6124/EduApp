@@ -16,7 +16,7 @@
     // Config Django (hors verbatim). finishUrl vide en DÉMO → aucune persistance.
     const STORY_CFG = {
       finishUrl:   "{{ finish_url|default:'' }}",
-      parcoursUrl: "{{ parcours_url|default:'/learn/v2/parcours/' }}",
+      parcoursUrl: "{{ parcours_url }}",
       csrf:        "{{ csrf_token }}",
     };
   </script>
@@ -446,7 +446,7 @@
 
   <!-- ── HEADER ─────────────────────────────── -->
   <header class="s-header">
-    <a href="/learn/v2/parcours/" class="s-back-btn" aria-label="Retour">
+    <a href="{{ parcours_url }}" class="s-back-btn" aria-label="Retour">
       <i data-lucide="arrow-left" style="width:18px;height:18px"></i>
     </a>
     <div class="s-scene-info">
