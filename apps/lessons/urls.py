@@ -14,4 +14,9 @@ urlpatterns = [
     path('unit/<int:unit_id>/',          views.unit_detail,   name='unit-detail'),
     path('unit/<int:unit_id>/generate/', views.unit_generate, name='unit-generate'),
     path('unit/<int:unit_id>/status/',   views.unit_status,   name='unit-status'),
+    # v2 — validation prof : édition du découpage (DRAFT only)
+    path('unit/<int:unit_id>/lesson/<int:lesson_id>/rename/', views.unit_lesson_rename, name='unit-lesson-rename'),
+    path('unit/<int:unit_id>/lesson/<int:lesson_id>/delete/', views.unit_lesson_delete, name='unit-lesson-delete'),
+    path('unit/<int:unit_id>/lesson/<int:lesson_id>/move/',   views.unit_lesson_move,   name='unit-lesson-move'),
+    path('unit/<int:unit_id>/lesson/<int:lesson_id>/merge/',  views.unit_lesson_merge,  name='unit-lesson-merge'),
 ]

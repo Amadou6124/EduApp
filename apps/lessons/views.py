@@ -145,7 +145,7 @@ def lesson_deploy_toggle(request, lesson_id, class_id):
 
 def _unit_status_context(unit) -> dict:
     """Contexte partagé par unit_detail et unit_status (checklist des shells)."""
-    lessons = list(unit.lessons.all().order_by('id'))
+    lessons = list(unit.lessons.all().order_by('order', 'id'))
     ready = sum(1 for l in lessons if l.status == LessonStatus.READY)
     total = len(lessons)
     return {
@@ -157,6 +157,9 @@ def _unit_status_context(unit) -> dict:
         'all_ready':         total > 0 and ready == total,
         'generation_active': is_generation_active(unit),
         'has_error':         any(l.status == LessonStatus.ERROR for l in lessons),
+        # Validation prof : édition possible seulement en DRAFT (avant génération).
+        'is_draft':          unit.status == LessonStatus.DRAFT,
+        'can_delete':        total > 1,
     }
 
 
@@ -295,6 +298,12 @@ def unit_generate(request, unit_id):
     school = get_school(request)
     unit = get_object_or_404(Unit, pk=unit_id, teacher=request.user, school=school)
 
+    # Garde : pas de génération sur une unité vide (toutes les leçons supprimées).
+    if unit.lessons.count() == 0:
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Ajoute au moins une leçon avant de générer.', 'type': 'warning'}})
+        return resp
+
     launched = launch_unit_generation(unit)
     msg = 'Génération lancée…' if launched else 'Génération déjà en cours.'
     typ = 'info' if launched else 'warning'
@@ -325,3 +334,105 @@ def unit_status(request, unit_id):
         'total': ctx['total_count'],
         'generation_active': ctx['generation_active'],
     })
+
+
+# ─── Validation prof : édition du découpage (DRAFT only, HTMX) ─────────────────
+# Renommer / réordonner / fusionner / supprimer les leçons AVANT génération.
+# Toutes scopées unit.status == DRAFT ; retour = partial de la liste éditable.
+
+def _unit_draft(request, unit_id):
+    """Charge l'Unit du prof ; (unit, None) si DRAFT, (unit, erreur) sinon."""
+    school = get_school(request)
+    unit = get_object_or_404(Unit, pk=unit_id, teacher=request.user, school=school)
+    if unit.status != LessonStatus.DRAFT:
+        return unit, HttpResponse('Édition impossible : la génération est déjà lancée.', status=403)
+    return unit, None
+
+
+def _reindex_lessons(unit):
+    """Renumérote order = 0,1,2… selon l'ordre courant (pas de trous)."""
+    for i, l in enumerate(unit.lessons.all().order_by('order', 'id')):
+        if l.order != i:
+            l.order = i
+            l.save(update_fields=['order'])
+
+
+def _unit_edit_partial(request, unit):
+    """Re-rend la liste éditable des leçons (cible HTMX, réaction instantanée)."""
+    lessons = list(unit.lessons.all().order_by('order', 'id'))
+    return render(request, 'lessons/partials/unit_lessons_edit.html', {
+        'unit': unit,
+        'lessons': lessons,
+        'can_delete': len(lessons) > 1,
+    })
+
+
+@teacher_required
+@require_POST
+def unit_lesson_rename(request, unit_id, lesson_id):
+    unit, err = _unit_draft(request, unit_id)
+    if err:
+        return err
+    lesson = get_object_or_404(Lesson, pk=lesson_id, unit=unit)
+    title = (request.POST.get('title') or '').strip()
+    if not title:
+        return HttpResponse('Titre requis.', status=422)
+    lesson.title = title[:200]
+    lesson.save(update_fields=['title'])
+    return _unit_edit_partial(request, unit)
+
+
+@teacher_required
+@require_POST
+def unit_lesson_delete(request, unit_id, lesson_id):
+    unit, err = _unit_draft(request, unit_id)
+    if err:
+        return err
+    if unit.lessons.count() <= 1:
+        return HttpResponse('Au moins une leçon est requise.', status=422)
+    get_object_or_404(Lesson, pk=lesson_id, unit=unit).delete()
+    _reindex_lessons(unit)
+    return _unit_edit_partial(request, unit)
+
+
+@teacher_required
+@require_POST
+def unit_lesson_move(request, unit_id, lesson_id):
+    unit, err = _unit_draft(request, unit_id)
+    if err:
+        return err
+    direction = request.POST.get('direction')
+    lessons = list(unit.lessons.all().order_by('order', 'id'))
+    idx = next((i for i, l in enumerate(lessons) if l.id == int(lesson_id)), None)
+    if idx is None:
+        return _unit_edit_partial(request, unit)
+    swap = idx - 1 if direction == 'up' else idx + 1 if direction == 'down' else None
+    if swap is None or swap < 0 or swap >= len(lessons):
+        return _unit_edit_partial(request, unit)   # extrémité → no-op
+    a, b = lessons[idx], lessons[swap]
+    a.order, b.order = b.order, a.order
+    a.save(update_fields=['order'])
+    b.save(update_fields=['order'])
+    _reindex_lessons(unit)
+    return _unit_edit_partial(request, unit)
+
+
+@teacher_required
+@require_POST
+def unit_lesson_merge(request, unit_id, lesson_id):
+    """Fusionne CETTE leçon avec la PRÉCÉDENTE (titre = celui de la précédente ;
+    résumés concaténés), puis supprime celle-ci."""
+    unit, err = _unit_draft(request, unit_id)
+    if err:
+        return err
+    lessons = list(unit.lessons.all().order_by('order', 'id'))
+    idx = next((i for i, l in enumerate(lessons) if l.id == int(lesson_id)), None)
+    if idx is None or idx == 0:
+        return HttpResponse('Fusion impossible : aucune leçon au-dessus.', status=422)
+    cur, prev = lessons[idx], lessons[idx - 1]
+    parts = [p for p in [(prev.summary or '').strip(), (cur.summary or '').strip()] if p]
+    prev.summary = '\n\n'.join(parts)
+    prev.save(update_fields=['summary'])
+    cur.delete()
+    _reindex_lessons(unit)
+    return _unit_edit_partial(request, unit)

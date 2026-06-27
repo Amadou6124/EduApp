@@ -153,5 +153,7 @@ class UnitViewsV2Test(TestCase):
         unit = self._skeleton()
         resp = self.client.get(reverse('lessons:unit-detail', args=[unit.id]))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, 'Lancer la génération')   # pas de verrou → bouton
+        # DRAFT : liste éditable (validation prof) + bouton « Valider et générer ».
+        self.assertContains(resp, 'unit-lessons-edit')
+        self.assertContains(resp, 'Valider et générer')
 

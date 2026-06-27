@@ -148,6 +148,10 @@ class Lesson(models.Model):
     # pour l'instant (la PK reste l'identité ; unique_together(unit, slug) plus tard).
     summary = models.TextField(_('résumé'), null=True, blank=True)
     slug = models.SlugField(_('slug'), max_length=100, null=True, blank=True)
+    # v2 : ordre de la leçon dans son unité (validation prof — réordonnancement).
+    # Défaut 0 ; posé à la création du skeleton (séquence Architecte). Servira aussi
+    # à ordonner les leçons dans le parcours élève. Additif, sans impact v1.
+    order = models.PositiveSmallIntegerField(_('ordre'), default=0)
     subject = models.CharField(
         _('matière'), max_length=100,
         help_text=_('Ex: Mathématiques, SVT, Français'),

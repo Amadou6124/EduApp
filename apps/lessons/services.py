@@ -1458,12 +1458,13 @@ def _create_unit_skeleton(architect_structure: dict, *, teacher, school=None,
         source_file=source_file, source_type=source_type,
         status=initial_status,
     )
-    for meta in architect_structure['lessons']:
+    for idx, meta in enumerate(architect_structure['lessons']):
         Lesson.objects.create(
             teacher=teacher, school=school, unit=unit,
             title=meta['title'],
             summary=meta.get('summary', ''),
             slug=meta.get('id', ''),
+            order=idx,   # séquence Architecte (réordonnable par le prof)
             # Les shells héritent l'identité matière de l'Unit (groupement du parcours
             # élève par matière). subject vivait seulement sur l'Unit → leçons à vide.
             subject=unit.subject,
