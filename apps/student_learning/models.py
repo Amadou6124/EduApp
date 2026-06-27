@@ -209,38 +209,6 @@ class Flashcard(models.Model):
         ]
 
 
-class DailyChallenge(models.Model):
-
-    class ChallengeType(models.TextChoices):
-        QUIZ_DAILY       = 'quiz_daily',       _('Quiz du jour')
-        FLASHCARD_REVIEW = 'flashcard_review', _('Révision flashcards')
-        LESSON_READ      = 'lesson_read',      _('Lire une leçon')
-        STORY_COMPLETE   = 'story_complete',   _('Compléter une story')
-
-    student = models.ForeignKey(
-        Student, on_delete=models.CASCADE,
-        related_name='daily_challenges',
-    )
-    date = models.DateField()
-    lesson = models.ForeignKey(
-        Lesson, on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='daily_challenges',
-    )
-    challenge_type = models.CharField(
-        max_length=20, choices=ChallengeType.choices,
-    )
-    is_completed = models.BooleanField(default=False)
-    completed_at = models.DateTimeField(null=True, blank=True)
-    xp_earned = models.PositiveSmallIntegerField(default=0)
-
-    class Meta:
-        unique_together = [('student', 'date')]
-        indexes = [
-            models.Index(fields=['student', 'date', 'is_completed'], name='challenge_student_date_idx'),
-        ]
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # v2 (PORTAL_V2_SPEC) — Progression & examen, ancrés sur LessonContentVersion.
 # content_version en PROTECT = verrou anti-orphelinage (la progression d'élève
