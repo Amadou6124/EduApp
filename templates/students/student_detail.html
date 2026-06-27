@@ -20,46 +20,65 @@
   {# ── Section 1 — Identité (inline-editable) ── #}
   {% include "students/partials/student_profile_view.html" %}
 
-  {# ── Section 2 — Situation financière ── #}
-  <div class="card p-6">
-    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-5">Situation financière</h3>
+  {% comment %}
+    ── Section 2 — Fiche financière (lot 5) : timeline + encaissement au guichet ──
+    L'ANCIEN bloc « Situation financière » (3 tuiles tuition_fee/get_total_paid +
+    historique) a été RETIRÉ : il reposait sur l'ancien modèle de solde global et
+    contredisait la timeline (allocations). La timeline est désormais le SEUL résumé
+    financier (dû / versé / reste = agrégats par allocation). Le journal des versements
+    bruts est conservé séparément SOUS la timeline (cf. Section 2ter).
+    La timeline (finance/partials/timeline.html) est ré-rendue en OOB (#fee-timeline)
+    après chaque encaissement. Le panneau de guichet est chargé par HTMX dans
+    #collect-panel-body. État neutre conservé si l'élève n'a pas de fiche.
+  {% endcomment %}
+  <div x-data="{ collectOpen: false }"
+       @close-collect-panel.window="collectOpen = false"
+       @keydown.escape.window="collectOpen = false">
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-      <div class="text-center p-4 bg-gray-50 rounded-xl">
-        <p class="text-xs text-gray-400 mb-1">Frais annuels</p>
-        <p class="text-lg font-bold text-gray-700">{{ student.tuition_fee|intcomma }}</p>
-        <p class="text-xs text-gray-400">FCFA</p>
-      </div>
-      <div class="text-center p-4 bg-green-50 rounded-xl">
-        <p class="text-xs text-gray-400 mb-1">Total versé</p>
-        <p class="text-lg font-bold text-green-600">{{ student.get_total_paid|intcomma }}</p>
-        <p class="text-xs text-gray-400">FCFA</p>
-      </div>
-      <div class="text-center p-4 rounded-xl {% if student.get_balance_due <= 0 %}bg-green-50{% else %}bg-red-50{% endif %}">
-        <p class="text-xs text-gray-400 mb-1">Solde restant</p>
-        <p class="text-lg font-bold {% if student.get_balance_due <= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-          {{ student.get_balance_due|intcomma }}
-        </p>
-        <p class="text-xs text-gray-400">FCFA</p>
-      </div>
+    <div id="fee-timeline">
+      {% include "finance/partials/timeline.html" with account=fee_account %}
     </div>
 
-    {% comment %}
-      Historique des versements — RÉPARÉ (lot 3) : le modèle Payment expose
-      is_cancelled / payment_date (et non is_valid / paid_at).
-    {% endcomment %}
-    <h4 class="text-sm font-medium text-gray-700 mb-3">Historique des versements</h4>
-    {% with valid_payments=student.payments.all %}
-      {% if valid_payments %}
+    {# Overlay #}
+    <div x-show="collectOpen" x-cloak
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-40" @click="collectOpen = false"></div>
+
+    {# Panneau d'encaissement (slide depuis la droite) #}
+    <div x-show="collectOpen" x-cloak
+         class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col"
+         x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+      <div id="collect-panel-body" class="h-full flex flex-col">
+        {# Chargé par HTMX au clic sur « Encaisser ». #}
+      </div>
+    </div>
+  </div>
+
+  {% comment %}
+    ── Section 2ter — Journal des versements (Payment réels) ──
+    Distinct de la timeline ci-dessus : la timeline montre l'AFFECTATION aux tranches
+    (allocations) ; ce journal liste les VERSEMENTS bruts encaissés (Payment immuables),
+    y compris d'éventuels paiements non encore alloués (anciens / page Paiements en
+    attendant l'unification du lot 6). C'est le SEUL historique des paiements de la fiche.
+  {% endcomment %}
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Journal des versements</h3>
+      <span class="text-[11px] text-gray-400">montants reçus (toutes familles)</span>
+    </div>
+    {% with payments=student.payments.all %}
+      {% if payments %}
         <div class="space-y-2">
-          {% for payment in valid_payments %}
+          {% for payment in payments %}
             {% if not payment.is_cancelled %}
               <div class="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-xl text-sm">
                 <div class="flex items-center gap-3">
                   <div class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></div>
                   <div>
                     <p class="font-medium text-gray-800">{{ payment.amount|intcomma }} FCFA</p>
-                    <p class="text-xs text-gray-400">{{ payment.get_payment_method_display }} · {{ payment.payment_date|date:"d/m/Y" }}</p>
+                    <p class="text-xs text-gray-400">{{ payment.get_payment_method_display }} · {{ payment.payment_date|date:"d/m/Y" }}{% if not payment.allocations.exists %} · <span class="text-amber-600">non affecté</span>{% endif %}</p>
                   </div>
                 </div>
                 <span class="text-xs text-gray-400 font-mono">{{ payment.receipt_number }}</span>
@@ -71,66 +90,6 @@
         <p class="text-sm text-gray-400 text-center py-4">Aucun versement enregistré</p>
       {% endif %}
     {% endwith %}
-  </div>
-
-  {% comment %}
-    ── Section 2bis — Fiche financière par année (lot 3, affichage minimal) ──
-    Vue de vérification sobre : la timeline soignée + l'encaissement viennent au lot 5.
-    Affichée uniquement si une fiche existe pour l'enrollment actif ; sinon état neutre.
-  {% endcomment %}
-  <div class="card p-6">
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Fiche financière
-        {% if fee_account %}<span class="normal-case text-gray-300">· {{ fee_account.enrollment.school_year.name|default:"année active" }}</span>{% endif %}
-      </h3>
-      {% if fee_account %}
-        <span class="text-xs text-gray-400">Solde {{ fee_account.total_balance|intcomma }} / {{ fee_account.total_due|intcomma }} FCFA</span>
-      {% endif %}
-    </div>
-
-    {% if not fee_account %}
-      <p class="text-sm text-gray-400 text-center py-4">Aucune fiche financière pour cette année.</p>
-    {% else %}
-      {% for family_label, debts in fee_families %}
-          <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-4 mb-2">{{ family_label }}</h4>
-          <div class="space-y-3">
-            {% for debt in debts %}
-              <div class="rounded-xl border border-gray-100 p-3">
-                <div class="flex items-center justify-between text-sm">
-                  <span class="font-medium text-gray-800">{{ debt.label }}{% if not debt.is_active %} <span class="text-xs text-gray-400">(inactive)</span>{% endif %}</span>
-                  <span class="{% if debt.status == 'paid' %}badge-success{% elif debt.status == 'partial' %}badge-warning{% else %}badge-danger{% endif %}">
-                    {{ debt.balance|intcomma }} / {{ debt.total_amount|intcomma }} FCFA
-                  </span>
-                </div>
-                {# Tranches (surtout pour la scolarité) #}
-                {% with installments=debt.installments.all %}
-                  {% if installments %}
-                    <div class="mt-2 space-y-1">
-                      {% for inst in installments %}
-                        <div class="flex items-center justify-between text-xs">
-                          <span class="text-gray-500">{{ inst.label }} · éch. {{ inst.due_date|date:"d/m/Y" }}</span>
-                          <span class="flex items-center gap-2">
-                            <span class="text-gray-600">{{ inst.amount_due|intcomma }} FCFA</span>
-                            {% if inst.is_overdue %}
-                              <span class="badge-danger">En retard</span>
-                            {% elif inst.status == 'paid' %}
-                              <span class="badge-success">Payé</span>
-                            {% elif inst.status == 'partial' %}
-                              <span class="badge-warning">Partiel</span>
-                            {% else %}
-                              <span class="text-gray-400">Impayé</span>
-                            {% endif %}
-                          </span>
-                        </div>
-                      {% endfor %}
-                    </div>
-                  {% endif %}
-                {% endwith %}
-              </div>
-            {% endfor %}
-          </div>
-      {% endfor %}
-    {% endif %}
   </div>
 
   {# ── Section 2.5 — Parents / Tuteurs ── #}

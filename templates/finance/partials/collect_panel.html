@@ -1,0 +1,154 @@
+{% load humanize %}
+{% comment %}
+Corps du panneau de guichet (lot 5), chargé par HTMX dans #collect-panel-body.
+Choix de la FAMILLE de destination + montant + aperçu d'allocation en direct + mode de
+paiement. Encaisse via finance:collect-create. Responsive : utilisable au pouce.
+{% endcomment %}
+{{ targets|json_script:"collect-targets" }}
+
+<div x-data="collectData()" class="flex flex-col h-full">
+
+  {# ── Header ── #}
+  <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-3 min-w-0">
+      {% with c=student.get_avatar_colors %}
+      <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+           style="background:{{ c.0 }};color:{{ c.1 }}">{{ student.get_initials }}</div>
+      {% endwith %}
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900 truncate">{{ student.full_name }}</h2>
+        <p class="text-xs text-gray-500">{{ student.school_class.name }}{% if account %} · reste {{ account.total_balance|intcomma }} F{% endif %}</p>
+      </div>
+    </div>
+    <button type="button" @click="collectOpen = false"
+            class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0">
+      <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
+    </button>
+  </div>
+
+  {% if not targets %}
+    <div class="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
+      <div class="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mb-4">
+        <i data-lucide="check-circle" class="w-7 h-7 text-green-600"></i>
+      </div>
+      <p class="text-sm font-semibold text-gray-800">Rien à encaisser</p>
+      <p class="text-xs text-gray-500 mt-1">Toutes les familles dues sont soldées.</p>
+    </div>
+  {% else %}
+
+  <form id="collect-form" hx-post="{% url 'finance:collect-create' student.id %}" hx-swap="none"
+        class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+    {% csrf_token %}
+    <input type="hidden" name="debt_id" :value="debtId">
+    <input type="hidden" name="subscription_scope" :value="scope">
+
+    {# ── Famille de destination ── #}
+    <div>
+      <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Affecter le paiement à</label>
+      <div class="space-y-2">
+        <template x-for="t in targets" :key="t.debt_id">
+          <button type="button" @click="debtId = t.debt_id; refreshPreview()"
+                  :class="debtId == t.debt_id ? 'border-primary-600 bg-primary-50' : 'border-gray-200 hover:border-gray-300'"
+                  class="w-full border-2 rounded-xl p-3 flex items-center justify-between text-left transition">
+            <span class="flex items-center gap-2 min-w-0">
+              <span class="text-sm font-medium text-gray-800 truncate" x-text="t.label"></span>
+              <span x-show="t.overdue" class="badge-danger shrink-0">En retard</span>
+            </span>
+            <span class="text-sm font-semibold shrink-0"
+                  :class="debtId == t.debt_id ? 'text-primary-700' : 'text-gray-500'">
+              <span x-show="t.is_subscription" x-text="fmt(t.monthly) + ' F/mois'"></span>
+              <span x-show="!t.is_subscription" x-text="'dû ' + fmt(t.due_now) + ' F'"></span>
+            </span>
+          </button>
+        </template>
+      </div>
+
+      {# Abonnement : 1 mois / année entière #}
+      <div x-show="sel && sel.is_subscription" x-cloak class="flex gap-2 mt-2">
+        <button type="button" @click="scope='month'; refreshPreview()"
+                :class="scope==='month' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500'"
+                class="flex-1 border-2 rounded-lg px-3 py-2 text-xs font-medium transition">Ce mois</button>
+        <button type="button" @click="scope='year'; refreshPreview()"
+                :class="scope==='year' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500'"
+                class="flex-1 border-2 rounded-lg px-3 py-2 text-xs font-medium transition">Année entière</button>
+      </div>
+    </div>
+
+    {# ── Montant ── #}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">Montant <span class="text-red-500">*</span></label>
+      <div class="relative">
+        <input type="number" name="amount" min="1" step="1" x-ref="amount" x-model="amount"
+               @input.debounce.350ms="refreshPreview()"
+               class="input-field text-2xl font-bold pr-14" placeholder="0">
+        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">FCFA</span>
+      </div>
+      <button type="button" x-show="sel && !(sel.is_subscription && scope==='year')"
+              @click="amount = sel.due_now; refreshPreview()"
+              class="mt-2 text-xs text-primary-600 hover:underline">
+        Régler le solde de <span x-text="sel ? sel.label : ''"></span> (<span x-text="sel ? fmt(sel.due_now) : 0"></span> F)
+      </button>
+    </div>
+
+    {# ── Aperçu d'allocation en direct ── #}
+    <div id="allocation-preview"></div>
+
+    {# ── Mode de paiement (cartes-radio) ── #}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-3">Mode de paiement <span class="text-red-500">*</span></label>
+      <div class="grid grid-cols-2 gap-2" x-data="{ pm: 'cash' }">
+        {% for val, label in payment_methods %}
+          <label class="relative cursor-pointer">
+            <input type="radio" name="payment_method" value="{{ val }}" x-model="pm" class="sr-only peer" {% if val == 'cash' %}checked{% endif %}>
+            <div class="border-2 rounded-xl p-3 text-center transition peer-checked:border-primary-600 peer-checked:bg-primary-50 border-gray-200 hover:border-gray-300">
+              {% if val == 'cash' %}<i data-lucide="wallet" class="w-6 h-6 mx-auto text-gray-500"></i>
+              {% elif val == 'orange_money' %}<i data-lucide="smartphone" class="w-6 h-6 mx-auto text-gray-500"></i>
+              {% elif val == 'wave' %}<i data-lucide="smartphone" class="w-6 h-6 mx-auto text-gray-500"></i>
+              {% else %}<i data-lucide="credit-card" class="w-6 h-6 mx-auto text-gray-500"></i>{% endif %}
+              <p class="text-xs font-semibold text-gray-700 mt-1">{{ label }}</p>
+            </div>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+  </form>
+
+  {# ── Pied : boutons ── #}
+  <div class="px-6 py-4 border-t border-gray-100 flex gap-3 shrink-0">
+    <button type="button" @click="collectOpen = false" class="btn-secondary flex-1 justify-center">Annuler</button>
+    <button type="submit" form="collect-form" :disabled="!debtId || !amount || amount <= 0"
+            class="btn-primary flex-1 justify-center min-h-[44px] disabled:opacity-50">
+      <span x-text="amount > 0 ? ('Encaisser ' + fmt(amount) + ' F') : 'Encaisser'"></span>
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  function collectData() {
+    return {
+      targets: JSON.parse(document.getElementById('collect-targets').textContent),
+      debtId: null,
+      amount: '',
+      scope: 'month',
+      init() {
+        // Pré-sélection : la 1ère cible (déjà triée « plus en retard d'abord » côté serveur).
+        if (this.targets.length) this.debtId = this.targets[0].debt_id;
+        this.$nextTick(() => this.refreshPreview());
+      },
+      get sel() { return this.targets.find(t => t.debt_id == this.debtId) },
+      fmt(n) { return (n || 0).toLocaleString('fr-FR') },
+      refreshPreview() {
+        if (!this.debtId || !this.amount || this.amount <= 0) {
+          document.getElementById('allocation-preview').innerHTML = '';
+          return;
+        }
+        htmx.ajax('POST', '{% url 'finance:collect-preview' student.id %}', {
+          target: '#allocation-preview', swap: 'innerHTML',
+          values: { debt_id: this.debtId, amount: this.amount, subscription_scope: this.scope,
+                    csrfmiddlewaretoken: '{{ csrf_token }}' },
+        });
+      },
+    }
+  }
+</script>

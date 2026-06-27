@@ -91,6 +91,16 @@ def _generate_standard(payment, school):
         'school_year':    school_year,
         'amount_words':   amount_to_words_fr(int(payment.amount)),
         'signer_title':   school.receipt_signer_title or 'Le Caissier / Directeur',
+        # Détail d'allocation (lot 5) : à quelle(s) tranche(s) ce paiement a été affecté.
+        # Vide pour les paiements non alloués (anciens / hors guichet) → bloc masqué.
+        'allocations': [
+            {'label': a.installment.label,
+             'debt':  a.installment.debt.label,
+             'amount': _fmt_amount(a.amount)}
+            for a in payment.allocations
+                .select_related('installment__debt')
+                .order_by('installment__debt__kind', 'installment__sequence')
+        ],
     }
 
     html_string = render_to_string('payments/pdf/receipt_standard.html', ctx)
