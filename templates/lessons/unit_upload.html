@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Importer un document{% endblock %}
+{% block page_title %}Importer un document{% endblock %}
+{% block page_subtitle %}<p class="text-sm text-gray-500 mt-0.5">Studio de création IA</p>{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'lessons:unit-upload' %}" enctype="multipart/form-data"
+      x-data="{
+    step: 1,
+    selectedClass:   null,
+    selectedSubject: null,
+    file: null, fileName: '', fileSize: '', fileIsImg: false,
+    isDragging: false,
+    title: '',
+    selectClass(id, name, level, levelLabel) {
+        this.selectedClass = { id, name, level, levelLabel };
+        this.selectedSubject = null; this.step = 2;
+    },
+    selectSubject(name, type) { this.selectedSubject = { name, type }; this.step = 3; },
+    goBack(s) { this.step = s; if (s <= 1) this.selectedClass = null; if (s <= 2) this.selectedSubject = null; },
+    handleDrop(e) { e.preventDefault(); this.isDragging = false; const f = e.dataTransfer.files[0]; if (f) this.setFile(f); },
+    setFile(f) {
+        this.file = f; this.fileName = f.name;
+        this.fileSize = (f.size / 1024 / 1024).toFixed(1) + ' Mo';
+        this.fileIsImg = /\.(jpg|jpeg|png)$/i.test(f.name);
+        const dt = new DataTransfer(); dt.items.add(f); this.$refs.fileInput.files = dt.files;
+    },
+    clearFile() { this.file = null; this.fileName = ''; this.fileSize = ''; this.fileIsImg = false; this.$refs.fileInput.value = ''; },
+    get canSubmit() { return this.selectedClass && this.selectedSubject && this.file; }
+}" class="max-w-lg mx-auto pb-24 lg:pb-8">
+
+  {% csrf_token %}
+
+  {# Champs DÉDUITS (remplis par l'assistant depuis classe + matière choisies) #}
+  <input type="hidden" name="selected_class_id"      :value="selectedClass ? selectedClass.id : ''">
+  <input type="hidden" name="selected_level"         :value="selectedClass ? selectedClass.level : ''">
+  <input type="hidden" name="selected_level_detail"  :value="selectedClass ? selectedClass.name : ''">
+  <input type="hidden" name="selected_subject_name"  :value="selectedSubject ? selectedSubject.name : ''">
+  <input type="hidden" name="selected_subject_type"  :value="selectedSubject ? selectedSubject.type : ''">
+  <input type="file" name="source_file" x-ref="fileInput" class="hidden"
+         accept=".pdf,.jpg,.jpeg,.png" @change="const f=$event.target.files[0]; if(f) setFile(f)">
+
+  {# Barre de progression #}
+  <div class="mb-8">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-semibold text-primary-600" x-text="'Étape ' + step + ' / 3'"></span>
+      <span class="text-xs font-medium text-gray-400"
+            x-text="step === 1 ? 'Classe' : step === 2 ? 'Matière' : 'Document'"></span>
+    </div>
+    <div class="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+      <div class="h-full bg-primary-600 rounded-full transition-all duration-500 ease-out"
+           :style="'width: ' + (step / 3 * 100) + '%'"></div>
+    </div>
+  </div>
+
+  {% if errors.architecte %}
+  <div class="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2">
+    <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600 shrink-0"></i>
+    <p class="text-sm text-red-700">{{ errors.architecte }}</p>
+  </div>
+  {% endif %}
+
+  {# ── ÉTAPE 1 — CLASSE ───────────────────────────────────────────────────── #}
+  <div x-show="step === 1"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0 translate-y-3"
+       x-transition:enter-end="opacity-100 translate-y-0">
+    <div class="text-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">Pour quelle classe ?</h2>
+      <p class="text-sm text-gray-500 mt-1.5">Sélectionnez la classe concernée</p>
+    </div>
+
+    {% if classes_data %}
+    <div class="space-y-3">
+      {% for cls in classes_data %}
+      <button type="button"
+              @click="selectClass({{ cls.id }}, '{{ cls.name|escapejs }}', '{{ cls.level|escapejs }}', '{{ cls.level_label|escapejs }}')"
+              class="w-full flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-200
+                     hover:border-primary-300 hover:shadow-md text-left active:scale-[0.98]
+                     transition-all duration-150 animate-fade-in-up"
+              style="animation-delay:{{ forloop.counter0 }}00ms; animation-fill-mode:both">
+        <div class="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+          <i data-lucide="graduation-cap" class="w-6 h-6 text-primary-600"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-gray-900 text-sm">{{ cls.name }}</p>
+          <p class="text-xs text-gray-500 mt-0.5">{{ cls.level_label }}</p>
+        </div>
+        <span class="shrink-0 px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold">
+          {{ cls.subjects|length }} matière{{ cls.subjects|length|pluralize }}
+        </span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 shrink-0"></i>
+      </button>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-16">
+      <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="graduation-cap" class="w-10 h-10 text-gray-300"></i>
+      </div>
+      <p class="font-semibold text-gray-700">Aucune classe assignée</p>
+      <p class="text-sm text-gray-400 mt-1">Contactez le directeur pour être affecté à des classes.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── ÉTAPE 2 — MATIÈRE ──────────────────────────────────────────────────── #}
+  <div x-show="step === 2"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0 translate-x-4"
+       x-transition:enter-end="opacity-100 translate-x-0">
+    <button type="button" @click="goBack(1)"
+            class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      <span x-text="selectedClass ? selectedClass.name : ''"></span>
+    </button>
+    <div class="text-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">Quelle matière ?</h2>
+      <p class="text-sm text-gray-500 mt-1.5">Matières que vous enseignez dans cette classe</p>
+    </div>
+
+    {% for cls in classes_data %}
+    <div x-show="selectedClass && selectedClass.id === {{ cls.id }}" class="space-y-3">
+      {% for s in cls.subjects %}
+      <button type="button"
+              @click="selectSubject('{{ s.name|escapejs }}', '{{ s.type|escapejs }}')"
+              class="w-full flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-200
+                     hover:shadow-md text-left active:scale-[0.98] transition-all duration-150 animate-fade-in-up"
+              style="animation-delay:{{ forloop.counter0 }}00ms; animation-fill-mode:both">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0
+                    {% if s.type == 'literary' %}bg-indigo-50{% elif s.type == 'math' %}bg-blue-50
+                    {% elif s.type == 'language' %}bg-emerald-50{% elif s.type == 'geography' %}bg-amber-50
+                    {% elif s.type == 'scientific' %}bg-green-50{% elif s.type == 'code' %}bg-purple-50
+                    {% elif s.type == 'accounting' %}bg-orange-50{% else %}bg-gray-50{% endif %}">
+          <i data-lucide="{{ s.icon }}" class="w-6 h-6
+                    {% if s.type == 'literary' %}text-indigo-600{% elif s.type == 'math' %}text-blue-600
+                    {% elif s.type == 'language' %}text-emerald-600{% elif s.type == 'geography' %}text-amber-600
+                    {% elif s.type == 'scientific' %}text-green-600{% elif s.type == 'code' %}text-purple-600
+                    {% elif s.type == 'accounting' %}text-orange-600{% else %}text-gray-500{% endif %}"></i>
+        </div>
+        <div class="flex-1 min-w-0"><p class="font-bold text-gray-900 text-sm">{{ s.name }}</p></div>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 shrink-0"></i>
+      </button>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── ÉTAPE 3 — DOCUMENT ─────────────────────────────────────────────────── #}
+  <div x-show="step === 3"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0 translate-x-4"
+       x-transition:enter-end="opacity-100 translate-x-0">
+    <div class="flex items-center gap-1.5 text-sm text-gray-500 mb-5">
+      <button type="button" @click="goBack(1)" class="hover:text-primary-600 transition-colors">
+        <span x-text="selectedClass ? selectedClass.name : ''"></span></button>
+      <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-gray-300"></i>
+      <button type="button" @click="goBack(2)" class="hover:text-primary-600 transition-colors">
+        <span x-text="selectedSubject ? selectedSubject.name : ''"></span></button>
+    </div>
+
+    {# Récap "tout déduit" #}
+    <div class="bg-primary-50 border border-primary-100 rounded-2xl p-4 mb-5 flex items-center gap-3 animate-fade-in-up"
+         style="animation-fill-mode:both">
+      <div class="w-10 h-10 rounded-xl bg-white border border-primary-100 flex items-center justify-center shrink-0">
+        <i data-lucide="graduation-cap" class="w-5 h-5 text-primary-600"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-sm font-bold text-gray-900">
+          <span x-text="selectedClass ? selectedClass.name : ''"></span>
+          <span class="text-primary-400 mx-1 font-normal">·</span>
+          <span x-text="selectedSubject ? selectedSubject.name : ''"></span>
+        </p>
+        <p class="text-xs text-primary-600 mt-0.5" x-text="selectedClass ? selectedClass.levelLabel : ''"></p>
+      </div>
+      <div class="ml-auto shrink-0 flex items-center gap-1 text-xs font-semibold text-green-600">
+        <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline">Tout déduit</span>
+      </div>
+    </div>
+
+    {# Drag & drop animé #}
+    <div class="mb-5" @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false" @drop="handleDrop">
+      <div x-show="file" class="rounded-2xl border-2 border-dashed border-green-300 bg-green-50 p-5 flex items-center gap-4 animate-fade-in-up"
+           style="animation-fill-mode:both">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" :class="fileIsImg ? 'bg-blue-100' : 'bg-red-100'">
+          <i data-lucide="image" class="w-6 h-6 text-blue-600" x-show="fileIsImg"></i>
+          <i data-lucide="file-text" class="w-6 h-6 text-red-600" x-show="!fileIsImg"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-gray-800 truncate" x-text="fileName"></p>
+          <p class="text-xs text-gray-500 mt-0.5" x-text="fileSize"></p>
+        </div>
+        <button type="button" @click="clearFile()"
+                class="shrink-0 w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center
+                       text-gray-400 hover:text-red-500 hover:border-red-200 transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div x-show="!file" @click="$refs.fileInput.click()"
+           :class="isDragging ? 'border-primary-500 bg-primary-50/60 scale-[1.02] shadow-lg cursor-copy'
+                              : 'border-gray-300 bg-white hover:border-primary-400 hover:bg-gray-50 cursor-pointer'"
+           class="rounded-2xl border-2 border-dashed min-h-[180px] flex flex-col items-center justify-center
+                  px-6 py-10 text-center transition-all duration-200">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-3 transition-colors"
+             :class="isDragging ? 'bg-primary-100' : 'bg-gray-100'">
+          <i data-lucide="upload-cloud" class="w-7 h-7 transition-colors" :class="isDragging ? 'text-primary-600' : 'text-gray-400'"></i>
+        </div>
+        <p class="text-sm font-semibold text-gray-700" :class="isDragging ? 'text-primary-700' : ''">
+          <span x-show="!isDragging">Glissez votre cours ici</span>
+          <span x-show="isDragging">Relâchez pour ajouter</span>
+        </p>
+        <p class="text-sm text-primary-600 font-medium mt-0.5" x-show="!isDragging">
+          ou <span class="underline underline-offset-2">cliquez pour parcourir</span>
+        </p>
+        <p class="text-xs text-gray-400 mt-3">PDF, JPG, PNG — max 10 Mo</p>
+      </div>
+    </div>
+
+    {% if errors.source_file %}
+    <div class="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2">
+      <i data-lucide="circle-x" class="w-4 h-4 text-red-500 shrink-0"></i>
+      <p class="text-sm text-red-600">{{ errors.source_file }}</p>
+    </div>
+    {% endif %}
+
+    <button type="submit" :disabled="!canSubmit"
+            class="w-full h-14 rounded-2xl bg-primary-600 text-white font-bold text-base
+                   flex items-center justify-center gap-2.5 hover:bg-primary-700 active:scale-[0.98]
+                   transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100">
+      <i data-lucide="sparkles" class="w-5 h-5 shrink-0"></i>
+      Analyser le document
+    </button>
+    <p class="text-xs text-gray-400 text-center mt-2.5">
+      L'IA détecte la structure (unité + leçons). Vous validez avant la génération.
+    </p>
+  </div>
+
+</form>
+{% endblock %}

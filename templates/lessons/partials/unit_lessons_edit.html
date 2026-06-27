@@ -1,0 +1,48 @@
+{# Liste éditable des leçons (validation prof, DRAFT). Cible HTMX : tout remplace ce bloc. #}
+<div id="unit-lessons-edit" class="space-y-2.5"
+     hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+  {% for l in lessons %}
+  <div class="flex items-center gap-2 bg-white rounded-2xl border border-gray-200 px-3 py-2.5">
+
+    {# flèches ▲▼ — un tap = un déplacement #}
+    <div class="flex flex-col gap-0.5 shrink-0">
+      <button type="button" aria-label="Monter"
+              class="w-7 h-6 rounded-lg border border-gray-200 text-gray-500 text-xs leading-none flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-default active:scale-95 transition"
+              {% if forloop.first %}disabled{% else %}hx-post="{% url 'lessons:unit-lesson-move' unit.id l.id %}" hx-vals='{"direction": "up"}' hx-target="#unit-lessons-edit" hx-swap="outerHTML"{% endif %}>▲</button>
+      <button type="button" aria-label="Descendre"
+              class="w-7 h-6 rounded-lg border border-gray-200 text-gray-500 text-xs leading-none flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 disabled:cursor-default active:scale-95 transition"
+              {% if forloop.last %}disabled{% else %}hx-post="{% url 'lessons:unit-lesson-move' unit.id l.id %}" hx-vals='{"direction": "down"}' hx-target="#unit-lessons-edit" hx-swap="outerHTML"{% endif %}>▼</button>
+    </div>
+
+    <span class="shrink-0 w-6 h-6 rounded-lg bg-primary-50 text-primary-600 text-xs font-bold flex items-center justify-center">{{ forloop.counter }}</span>
+
+    {# titre INLINE éditable — hx-post au blur/Enter, sans changer de page #}
+    <input type="text" name="title" value="{{ l.title }}" maxlength="200"
+           class="flex-1 min-w-0 text-sm font-semibold text-gray-900 bg-transparent border border-transparent rounded-lg px-2 py-1.5 hover:bg-gray-50 focus:bg-white focus:border-primary-300 focus:outline-none transition"
+           hx-post="{% url 'lessons:unit-lesson-rename' unit.id l.id %}"
+           hx-trigger="change, keydown[key=='Enter']"
+           hx-target="#unit-lessons-edit" hx-swap="outerHTML">
+
+    {# fusionner vers le haut — pas sur la 1ère #}
+    {% if not forloop.first %}
+    <button type="button" title="Fusionner avec la leçon du dessus"
+            class="shrink-0 w-8 h-8 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 flex items-center justify-center active:scale-95 transition"
+            hx-post="{% url 'lessons:unit-lesson-merge' unit.id l.id %}"
+            hx-target="#unit-lessons-edit" hx-swap="outerHTML"
+            hx-confirm="Fusionner cette leçon avec celle du dessus ?">
+      <i data-lucide="arrow-up-to-line" class="w-4 h-4"></i>
+    </button>
+    {% endif %}
+
+    {# supprimer — confirmation native légère ; désactivé s'il ne reste qu'une leçon #}
+    <button type="button" aria-label="Supprimer"
+            class="shrink-0 w-8 h-8 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center active:scale-95 transition disabled:opacity-30 disabled:cursor-default"
+            {% if can_delete %}hx-post="{% url 'lessons:unit-lesson-delete' unit.id l.id %}" hx-target="#unit-lessons-edit" hx-swap="outerHTML" hx-confirm="Supprimer cette leçon ?"{% else %}disabled title="Au moins une leçon"{% endif %}>
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+    </button>
+  </div>
+  {% endfor %}
+
+  <script>if(window.lucide)lucide.createIcons();</script>
+</div>

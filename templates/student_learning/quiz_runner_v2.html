@@ -1,0 +1,1044 @@
+{% load static l10n %}{% localize off %}
+<!DOCTYPE html>
+<html lang="fr" class="theme-dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <title>{{ concept.name }} — Quiz</title>
+  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <!-- Prism.js — coloration code (spot_the_bug / parsons_puzzle). Synchrone : prêt au montage Alpine. -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <!-- MathQuill (+ jQuery) — math_expression. defer AVANT Alpine pour être prêt au mount. -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+  <script defer src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
+  <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
+
+  {{ questions|json_script:"rq-data" }}
+  <script>
+    // Config injectée par Django (hors verbatim). Le runner valide CÔTÉ SERVEUR :
+    // les questions ci-dessus n'ont PAS les champs-réponse (sécurité §A.5).
+    const RUNNER_CFG = {
+      answerUrl:   "{{ answer_url }}",
+      parcoursUrl: "{{ parcours_url }}",
+      csrf:        "{{ csrf_token }}",
+      nQuestions:  {{ n_questions }},
+      accent:      "{{ lesson.color }}",
+    };
+  </script>
+
+  <style>
+    .theme-dark {
+      --bg: radial-gradient(120% 90% at 20% -10%, #1a1340 0%, #0b0b1a 55%, #07060f 100%);
+      --text: #ffffff;
+      --text-dim: rgba(255,255,255,.58);
+      --text-mute: rgba(255,255,255,.38);
+      --surface: rgba(255,255,255,.05);
+      --surface-2: rgba(255,255,255,.09);
+      --border: rgba(255,255,255,.09);
+      --accent: {{ lesson.color }};
+    }
+    *, *::before, *::after { box-sizing: border-box }
+    html, body { margin: 0; height: 100%; }
+    ::-webkit-scrollbar { width: 0 }
+    body {
+      font-family: 'Manrope', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      overflow: hidden; -webkit-font-smoothing: antialiased;
+    }
+    [x-cloak] { display: none !important }
+
+    @keyframes quizPop { from { opacity:0; transform:translateX(22px) scale(.97) } to { opacity:1; transform:translateX(0) scale(1) } }
+    @keyframes feedbackIn { from { opacity:0; transform:translateY(16px) scale(.97) } to { opacity:1; transform:translateY(0) scale(1) } }
+    @keyframes confettiFall { 0% { transform:translateY(-80px) rotate(0); opacity:1 } 100% { transform:translateY(105vh) rotate(720deg); opacity:0 } }
+    @keyframes starPop { 0% { transform:scale(0) } 60% { transform:scale(1.3) } 100% { transform:scale(1) } }
+
+    .quizPanel { position:fixed; inset:0; z-index:70; display:flex; flex-direction:column; background:var(--bg); color:var(--text); max-width:560px; margin:0 auto; }
+    .quiz-header { display:flex; align-items:center; gap:12px; padding:18px 18px 0; flex-shrink:0; }
+    .iconBtn { width:40px; height:40px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:background .15s; }
+    .iconBtn:hover { background:var(--surface-2) }
+    .iconBtn:active { transform:scale(.92) }
+    .prog-track { flex:1; height:8px; border-radius:99px; background:var(--surface-2); overflow:hidden; }
+    .prog-fill { height:100%; border-radius:99px; background:var(--accent); transition:width .35s cubic-bezier(.2,.9,.3,1); }
+
+    .quiz-body { flex:1; overflow-y:auto; min-height:0; padding:20px 18px 4px; display:flex; flex-direction:column; animation:quizPop .3s cubic-bezier(.2,.9,.3,1); }
+    .q-badge { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
+    .q-instruction { font-size:21px; font-weight:800; line-height:1.38; margin:0 0 22px; }
+
+    .options { display:flex; flex-direction:column; gap:9px; }
+    .opt { display:flex; align-items:center; gap:12px; padding:13px 15px; border-radius:14px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-size:15px; font-weight:600; cursor:pointer; text-align:left; width:100%; transition:border-color .13s, background .13s, transform .1s, opacity .15s; }
+    .opt:hover:not(:disabled):not(.correct):not(.wrong) { background:var(--surface-2); border-color:rgba(255,255,255,.18); }
+    .opt:active:not(:disabled) { transform:scale(.985) }
+    .opt.selected { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent) }
+    .opt.correct { border-color:#22C55E; background:rgba(34,197,94,.13); color:#22C55E }
+    .opt.wrong { border-color:#EF4444; background:rgba(239,68,68,.13); color:#EF4444 }
+    .opt.dimmed { opacity:.38 }
+    .opt-check { width:22px; height:22px; border-radius:6px; flex-shrink:0; border:2px solid rgba(255,255,255,.2); background:transparent; display:flex; align-items:center; justify-content:center; transition:border-color .13s, background .13s; }
+    .opt.selected .opt-check { border-color:var(--accent); background:var(--accent) }
+    .opt.correct .opt-check { border-color:#22C55E; background:#22C55E }
+    .opt.wrong .opt-check { border-color:#EF4444; background:#EF4444 }
+
+    .tf-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .tf-card { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:36px 16px; border-radius:20px; gap:14px; border:2px solid var(--border); background:var(--surface); cursor:pointer; transition:border-color .15s, background .15s, transform .12s; font-size:19px; font-weight:800; color:var(--text); }
+    .tf-card:hover { background:var(--surface-2) }
+    .tf-card:active { transform:scale(.94) }
+    .tf-card.selected { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent) }
+    .tf-card.correct { border-color:#22C55E; background:rgba(34,197,94,.15); color:#22C55E }
+    .tf-card.wrong { border-color:#EF4444; background:rgba(239,68,68,.15); color:#EF4444 }
+    .tf-icon { width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+    .tf-true-icon { background:rgba(34,197,94,.2) }
+    .tf-false-icon { background:rgba(239,68,68,.2) }
+
+    .kp-list { display:flex; flex-direction:column; gap:0; }
+    .kp-row { display:flex; align-items:center; gap:10px; padding:13px 0; border-bottom:1px solid var(--border); }
+    .kp-row:last-child { border-bottom:none }
+    .kp-text { flex:1; font-size:14px; line-height:1.5; color:var(--text) }
+    .kp-toggles { display:flex; gap:6px; flex-shrink:0 }
+    .kp-btn { padding:7px 13px; border-radius:10px; font-size:13px; font-weight:700; border:1.5px solid var(--border); background:var(--surface); color:var(--text-dim); cursor:pointer; transition:border-color .12s, background .12s, color .12s; }
+    .kp-btn:hover:not(:disabled) { background:var(--surface-2) }
+    .kp-btn.kp-on-v { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--text) }
+    .kp-btn.kp-on-f { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--text) }
+    .kp-btn.kp-good { border-color:#22C55E; background:rgba(34,197,94,.2); color:#22C55E }
+    .kp-btn.kp-bad { border-color:#EF4444; background:rgba(239,68,68,.2); color:#EF4444 }
+
+    /* cloze_test — texte à trous */
+    .cloze-text { font-size:17px; line-height:2.3; font-weight:600; }
+    .cloze-input { display:inline-block; min-width:96px; padding:5px 10px; margin:0 3px; border-radius:9px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-family:inherit; font-size:15px; font-weight:700; text-align:center; }
+    .cloze-input:focus { outline:none; border-color:var(--accent); }
+    .cloze-input.correct { border-color:#22C55E; background:rgba(34,197,94,.13); color:#22C55E }
+    .cloze-input.wrong { border-color:#EF4444; background:rgba(239,68,68,.13); color:#EF4444 }
+    .cloze-sol { display:inline-block; margin-left:4px; font-size:13px; font-weight:700; color:#22C55E }
+
+    /* mcq_multiple — état "oubliée" (bonne réponse non cochée) */
+    .opt.missed { border-color:#F59E0B; background:rgba(245,158,11,.13); color:#F59E0B }
+    .opt.missed .opt-check { border-color:#F59E0B; background:#F59E0B }
+    .opt-tag { margin-left:auto; font-size:11px; font-weight:700; flex-shrink:0 }
+
+    /* matching — grille tap-tap */
+    @keyframes pairSnap { 0% { transform:scale(.9) } 60% { transform:scale(1.04) } 100% { transform:scale(1) } }
+    .match-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; align-items:start; }
+    .match-col { display:flex; flex-direction:column; gap:6px; }
+    .match-card { display:flex; align-items:center; gap:6px; width:100%; padding:11px 10px; background:var(--surface); border:2px solid var(--border); border-radius:13px; font-family:inherit; font-size:13px; font-weight:600; color:var(--text); cursor:pointer; line-height:1.35; min-height:52px; text-align:left; transition:border-color .14s, background .14s, box-shadow .14s, transform .1s; -webkit-tap-highlight-color:transparent; }
+    .match-card:active:not(:disabled) { transform:scale(.95) }
+    .match-card:disabled { cursor:default }
+    .match-card.is-selected { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+    .match-card.is-linked { border-color:var(--pair-c); background:color-mix(in srgb, var(--pair-c) 13%, transparent); animation:pairSnap .22s cubic-bezier(.34,1.56,.64,1); }
+    .match-card.is-correct { border-color:#22C55E; background:rgba(34,197,94,.15) }
+    .match-card.is-wrong { border-color:#EF4444; background:rgba(239,68,68,.15) }
+    .match-card-left { flex-direction:row; justify-content:space-between; }
+    .match-card-right .pair-badge { order:-1; }
+    .pair-badge { flex-shrink:0; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:#000; background:var(--pair-c); }
+    .match-hint { font-size:12px; color:var(--text-mute); text-align:center; margin:6px 0 0; }
+    .assoc-list { margin:10px 0 6px; }
+    .assoc-row { display:flex; align-items:center; gap:6px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:13px; line-height:1.35; }
+    .assoc-row:last-child { border-bottom:none }
+    .assoc-left { font-weight:700; flex:0 0 auto; max-width:42%; }
+    .assoc-arr { color:var(--text-mute); flex-shrink:0; }
+    .assoc-right { flex:1; color:var(--text-dim); }
+
+    .fb-panel { border-radius:16px; padding:14px 16px; margin-top:18px; animation:feedbackIn .22s cubic-bezier(.2,.9,.3,1); }
+    .fb-ok { background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.3) }
+    .fb-ko { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.3) }
+    .fb-title { display:flex; align-items:center; gap:7px; font-size:15px; font-weight:800; margin:0 0 5px; }
+    .fb-ok .fb-title { color:#22C55E }
+    .fb-ko .fb-title { color:#EF4444 }
+    .fb-expl { font-size:13px; color:var(--text-dim); margin:0; line-height:1.55 }
+
+    .quiz-footer { padding:10px 18px calc(14px + env(safe-area-inset-bottom)); flex-shrink:0; min-height:72px; display:flex; align-items:flex-end; }
+    .ctaBtn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:none; border-radius:14px; color:#fff; font-family:'Manrope', system-ui, sans-serif; font-weight:800; font-size:16px; padding:15px 20px; cursor:pointer; transition:transform .12s, filter .12s; text-decoration:none; }
+    .ctaBtn:active { transform:scale(.97) }
+    .ctaBtn:disabled { cursor:default; opacity:.38 }
+    .cta-verify { background:var(--accent) }
+    .cta-continue-ok { background:linear-gradient(135deg, #22C55E, #16A34A) }
+    .cta-continue-ko { background:var(--surface-2); border:1px solid var(--border) }
+
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .grid-2 .opt { justify-content:center; text-align:center; }
+
+    /* chrono_order / parsons — lignes réordonnables */
+    .ord-list { display:flex; flex-direction:column; gap:8px; }
+    .ord-row { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:13px; border:1.5px solid var(--border); background:var(--surface); transition:border-color .14s, background .14s; }
+    .ord-row.correct { border-color:#22C55E; background:rgba(34,197,94,.13) }
+    .ord-row.wrong { border-color:#EF4444; background:rgba(239,68,68,.13) }
+    .ord-rank { flex-shrink:0; width:24px; height:24px; border-radius:7px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:var(--text-dim) }
+    .ord-text { flex:1; font-size:14px; font-weight:600; line-height:1.35; }
+    .ord-arrows { display:flex; flex-direction:column; gap:2px; flex-shrink:0 }
+    .ord-arrow { width:30px; height:22px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:11px; line-height:1; }
+    .ord-arrow:disabled { opacity:.25; cursor:default }
+    .ord-arrow:active:not(:disabled) { transform:scale(.9) }
+    /* parsons : indentation + code mono */
+    .ord-code { font-family:'Courier New', monospace; font-size:13px; white-space:pre; overflow-x:auto; }
+    .ind-btns { display:flex; gap:3px; flex-shrink:0 }
+    .ind-btn { width:26px; height:22px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center }
+    .ind-btn:disabled { opacity:.25; cursor:default }
+    code[class*="language-"] { background:transparent !important; padding:0 !important }
+
+    /* number_input / dynamic_formula — champ numérique */
+    .num-wrap { display:flex; align-items:center; gap:10px; }
+    .num-input { flex:1; padding:15px 16px; border-radius:14px; border:2px solid var(--border); background:var(--surface); color:var(--text); font-family:inherit; font-size:22px; font-weight:800; text-align:center; }
+    .num-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent) }
+    .num-input.correct { border-color:#22C55E; color:#22C55E }
+    .num-input.wrong { border-color:#EF4444; color:#EF4444 }
+    .num-unit { font-size:16px; font-weight:700; color:var(--text-dim); flex-shrink:0 }
+    .draw-tag { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--accent); margin-bottom:10px; }
+
+    /* spot_the_bug — code cliquable */
+    .code-block { background:#1e1e2e; border-radius:14px; border:1px solid var(--border); overflow:hidden; user-select:none; }
+    .code-line { display:flex; align-items:stretch; cursor:pointer; transition:background .1s; border-bottom:1px solid rgba(255,255,255,.04); }
+    .code-line:last-child { border-bottom:none }
+    .code-line:hover:not(.checked) { background:rgba(255,255,255,.06) }
+    .code-line.ln-sel { background:color-mix(in srgb, var(--accent) 20%, transparent) }
+    .code-line.ln-correct { background:rgba(34,197,94,.22) !important }
+    .code-line.ln-wrong { background:rgba(239,68,68,.22) !important }
+    .line-num { padding:10px 10px 10px 14px; font-size:12px; color:#555; min-width:40px; text-align:right; border-right:1px solid rgba(255,255,255,.05); font-family:'Courier New', monospace; flex-shrink:0; }
+    .line-code { padding:10px 14px; font-family:'Courier New', monospace; font-size:13px; line-height:1.55; white-space:pre; overflow-x:auto; }
+    .fix-hint { display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px 14px; border-radius:10px; background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.28); font-family:'Courier New', monospace; font-size:13px; color:#22C55E; }
+
+    /* math_expression — MathQuill + clavier */
+    .mq-field { font-size:24px; min-height:62px; width:100%; display:block; padding:14px 16px; border-radius:16px; background:var(--surface); border:2px solid var(--border); color:var(--text); overflow-x:auto; white-space:nowrap; }
+    .mq-field.mq-focused { border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent) }
+    .mq-editable-field, .mq-math-mode { color:var(--text) }
+    .kpad { display:grid; grid-template-columns:repeat(7,1fr); gap:7px; margin-top:14px; }
+    .kbtn { height:46px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:17px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .1s, background .15s; }
+    .kbtn:hover { background:var(--surface-2) } .kbtn:active { transform:scale(.92) }
+    .kbtn.accent { background:color-mix(in srgb, var(--accent) 14%, transparent); border-color:color-mix(in srgb, var(--accent) 40%, transparent); color:var(--accent) }
+
+    .final-wrap { position:fixed; inset:0; z-index:80; overflow-y:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg); padding:32px 24px calc(32px + env(safe-area-inset-bottom)); animation:quizPop .4s cubic-bezier(.2,.9,.3,1); }
+    .trophy-ring { width:110px; height:110px; border-radius:50%; background:linear-gradient(150deg, var(--accent), #6d28d9); display:flex; align-items:center; justify-content:center; box-shadow:0 16px 40px color-mix(in srgb, var(--accent) 50%, transparent); margin-bottom:22px; }
+    .star-item { display:inline-flex; transition:transform .35s cubic-bezier(.34,1.56,.64,1); }
+    .star-item.lit { animation:starPop .4s cubic-bezier(.34,1.56,.64,1) both }
+    .miniCard { display:flex; flex-direction:column; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px 22px; min-width:108px; }
+    .confetti-piece { position:fixed; pointer-events:none; z-index:90; animation:confettiFall var(--dur,1.5s) ease-in var(--delay,0s) forwards; }
+
+    .fallback-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px; text-align:center; color:var(--text-dim); }
+  </style>
+</head>
+<body>
+
+<div x-data="quizShell()" x-cloak
+     x-init="$nextTick(() => refreshIcons())"
+     @quiz:answered.window="advance($event.detail)">
+
+  <!-- ════════════════ PHASE QUIZ ════════════════ -->
+  <template x-if="phase === 'quiz'">
+    <div class="quizPanel">
+      <div class="quiz-header">
+        <a class="iconBtn" :href="parcoursUrl"><i data-lucide="x" style="width:20px;height:20px"></i></a>
+        <div class="prog-track"><div class="prog-fill" :style="`width:${((idx)/questions.length)*100}%`"></div></div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-mute);white-space:nowrap;min-width:30px;text-align:right">
+          <span x-text="idx+1"></span>/<span x-text="questions.length"></span>
+        </div>
+      </div>
+
+      <!-- ───── mcq_single ───── -->
+      <template x-if="q.type === 'mcq_single'">
+        <div x-data="blockMcqSingle(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">QCM · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="options">
+              <template x-for="(opt, i) in quiz.options" :key="i">
+                <button class="opt" :class="optClass(i)" @click="!checked && (selected=i)" :disabled="checked || busy">
+                  <span class="opt-check">
+                    <i data-lucide="check" style="width:13px;height:13px;color:#fff" x-show="selected===i || optClass(i)==='correct'" x-cloak></i>
+                    <i data-lucide="x" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='wrong'" x-cloak></i>
+                  </span>
+                  <span x-text="opt"></span>
+                </button>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Bravo !' : 'Bonne réponse : ' + quiz.options[solution.answer_index]"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="selected===null || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── true_false ───── -->
+      <template x-if="q.type === 'true_false'">
+        <div x-data="blockTrueFalse(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Vrai ou Faux · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="tf-grid">
+              <button class="tf-card" :class="cardClass(true)" @click="!checked && (selected=true)" :disabled="checked || busy">
+                <span class="tf-icon tf-true-icon"><i data-lucide="check" style="width:28px;height:28px;color:#22C55E"></i></span>Vrai
+              </button>
+              <button class="tf-card" :class="cardClass(false)" @click="!checked && (selected=false)" :disabled="checked || busy">
+                <span class="tf-icon tf-false-icon"><i data-lucide="x" style="width:28px;height:28px;color:#EF4444"></i></span>Faux
+              </button>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Exact !' : 'Pas tout à fait…'"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="selected===null || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── odd_one_out ───── -->
+      <template x-if="q.type === 'odd_one_out'">
+        <div x-data="blockOddOneOut(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">L'intrus · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="options">
+              <template x-for="(item, i) in quiz.items" :key="i">
+                <button class="opt" :class="optClass(i)" @click="!checked && (selected=i)" :disabled="checked || busy">
+                  <span class="opt-check">
+                    <i data-lucide="check" style="width:13px;height:13px;color:#fff" x-show="selected===i || optClass(i)==='correct'" x-cloak></i>
+                    <i data-lucide="x" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='wrong'" x-cloak></i>
+                  </span>
+                  <span x-text="item"></span>
+                </button>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Bien vu !' : 'L\'intrus était : ' + quiz.items[solution.odd_index]"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="selected===null || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── k_prime ───── -->
+      <template x-if="q.type === 'k_prime'">
+        <div x-data="blockKPrime(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Vrai / Faux · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="kp-list">
+              <template x-for="(st, i) in quiz.statements" :key="i">
+                <div class="kp-row">
+                  <span class="kp-text" x-text="st.text"></span>
+                  <div class="kp-toggles">
+                    <button class="kp-btn" :class="btnClass(i, true)"  @click="!checked && set(i, true)"  :disabled="checked || busy">V</button>
+                    <button class="kp-btn" :class="btnClass(i, false)" @click="!checked && set(i, false)" :disabled="checked || busy">F</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Parfait !' : 'Quelques erreurs…'"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="!allAnswered || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── cloze_test ───── -->
+      <template x-if="q.type === 'cloze_test'">
+        <div x-data="blockCloze(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Compléter · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="cloze-text">
+              <template x-for="(seg, i) in segments" :key="i">
+                <span>
+                  <span x-show="seg.type==='text'" x-text="seg.value"></span>
+                  <template x-if="seg.type==='blank'">
+                    <span>
+                      <input class="cloze-input" :class="inputClass(seg.idx)" x-model="inputs[seg.idx]" :disabled="checked || busy"
+                             :placeholder="'…'" @keydown.enter.prevent="allFilled && !checked && check()">
+                      <span class="cloze-sol" x-show="checked && inputClass(seg.idx)==='wrong'" x-cloak x-text="'→ ' + solution.answers[seg.idx]"></span>
+                    </span>
+                  </template>
+                </span>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Bien joué !' : 'Pas tout à fait…'"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="!allFilled || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── mcq_multiple ───── -->
+      <template x-if="q.type === 'mcq_multiple'">
+        <div x-data="blockMcqMultiple(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Choix multiples · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <p style="font-size:12px;color:var(--text-mute);margin:-14px 0 16px;font-weight:600">Coche toutes les bonnes réponses</p>
+            <div class="options">
+              <template x-for="(opt, i) in quiz.options" :key="i">
+                <button class="opt" :class="optClass(i)" @click="toggle(i)" :disabled="checked || busy">
+                  <span class="opt-check">
+                    <i data-lucide="check" style="width:13px;height:13px;color:#fff" x-show="isSelected(i) || optClass(i)==='correct'" x-cloak></i>
+                    <i data-lucide="x" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='wrong'" x-cloak></i>
+                    <i data-lucide="alert-circle" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='missed'" x-cloak></i>
+                  </span>
+                  <span x-text="opt"></span>
+                  <span class="opt-tag" x-show="checked && optClass(i)==='missed'" x-cloak style="color:#F59E0B">oubliée</span>
+                </button>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                <span x-text="isRight ? 'Parfait ! Toutes les bonnes cases.' : 'Pas tout à fait…'"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="selected.length===0 || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── matching ───── -->
+      <template x-if="q.type === 'matching'">
+        <div x-data="blockMatching(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Associer · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+
+            <!-- grille tap-tap (avant vérification) -->
+            <div x-show="!checked">
+              <div class="match-grid">
+                <div class="match-col">
+                  <template x-for="(left, i) in lefts" :key="i">
+                    <button class="match-card match-card-left"
+                      :class="{ 'is-selected': selectedLeft===i && links[i]===null, 'is-linked': links[i]!==null }"
+                      :style="links[i]!==null ? `--pair-c:${PAIR_COLORS[i % PAIR_COLORS.length]}` : ''"
+                      @click="tapLeft(i)" :disabled="busy">
+                      <span style="flex:1" x-text="left"></span>
+                      <span x-show="links[i]!==null" class="pair-badge" :style="`--pair-c:${PAIR_COLORS[i % PAIR_COLORS.length]}`" x-text="i+1"></span>
+                      <i x-show="selectedLeft===i && links[i]===null" data-lucide="chevron-right" style="width:15px;height:15px;color:var(--accent);flex-shrink:0"></i>
+                    </button>
+                  </template>
+                </div>
+                <div class="match-col">
+                  <template x-for="(r, j) in rights" :key="r.oi">
+                    <button class="match-card match-card-right"
+                      :class="{ 'is-linked': reverseLink(j)!==null }"
+                      :style="reverseLink(j)!==null ? `--pair-c:${PAIR_COLORS[reverseLink(j) % PAIR_COLORS.length]}` : ''"
+                      @click="tapRight(j)" :disabled="busy">
+                      <span x-show="reverseLink(j)!==null" class="pair-badge" :style="`--pair-c:${PAIR_COLORS[reverseLink(j) % PAIR_COLORS.length]}`" x-text="reverseLink(j)+1"></span>
+                      <span style="flex:1" x-text="r.text"></span>
+                    </button>
+                  </template>
+                </div>
+              </div>
+              <p class="match-hint" x-show="selectedLeft===null && links.every(v => v===null)">Touche un élément à gauche, puis son correspondant à droite</p>
+            </div>
+
+            <!-- résultat (après vérification) -->
+            <div x-show="checked" x-cloak>
+              <div class="match-grid">
+                <div class="match-col">
+                  <template x-for="(left, i) in lefts" :key="i">
+                    <div class="match-card match-card-left" :class="isLinkedCorrectly(i) ? 'is-correct' : 'is-wrong'">
+                      <span style="flex:1" x-text="left"></span>
+                      <i :data-lucide="isLinkedCorrectly(i) ? 'check' : 'x'" style="width:14px;height:14px;flex-shrink:0"></i>
+                    </div>
+                  </template>
+                </div>
+                <div class="match-col">
+                  <template x-for="(left, i) in lefts" :key="i">
+                    <div class="match-card match-card-right" :class="isLinkedCorrectly(i) ? 'is-correct' : 'is-wrong'">
+                      <span style="flex:1" x-text="links[i]!==null ? rights[links[i]].text : '—'"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <template x-if="!isRight && solution.pairs">
+                <div class="assoc-list">
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#22C55E;margin:12px 0 6px">Bonnes associations :</div>
+                  <template x-for="(pair, i) in solution.pairs" :key="i">
+                    <div class="assoc-row">
+                      <span class="assoc-left" x-text="pair.left"></span>
+                      <span class="assoc-arr">→</span>
+                      <span class="assoc-right" x-text="pair.right"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <div class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'" style="margin-top:14px">
+                <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i>
+                  <span x-text="isRight ? 'Bien associé !' : 'Quelques erreurs…'"></span></p>
+                <p class="fb-expl" x-text="explanation"></p>
+              </div>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="!allLinked || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── chrono_order ───── -->
+      <template x-if="q.type === 'chrono_order'">
+        <div x-data="blockChrono(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Ordonner · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="ord-list">
+              <template x-for="(pos, rank) in order" :key="pos">
+                <div class="ord-row" :class="rowClass(rank)">
+                  <span class="ord-rank" x-text="rank+1"></span>
+                  <span class="ord-text" x-text="quiz.items[pos]"></span>
+                  <div class="ord-arrows" x-show="!checked">
+                    <button class="ord-arrow" :disabled="rank===0" @click="move(rank,-1)" aria-label="Monter">▲</button>
+                    <button class="ord-arrow" :disabled="rank===order.length-1" @click="move(rank,1)" aria-label="Descendre">▼</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Bon ordre !' : 'Ordre incorrect'"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── parsons_puzzle ───── -->
+      <template x-if="q.type === 'parsons_puzzle'">
+        <div x-data="blockParsons(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Ordonner le code · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="ord-list">
+              <template x-for="(row, rank) in rows" :key="row.id">
+                <div class="ord-row" :class="rowClass(rank)">
+                  <div class="ord-arrows" x-show="!checked">
+                    <button class="ord-arrow" :disabled="rank===0" @click="move(rank,-1)" aria-label="Monter">▲</button>
+                    <button class="ord-arrow" :disabled="rank===rows.length-1" @click="move(rank,1)" aria-label="Descendre">▼</button>
+                  </div>
+                  <span class="ord-code ord-text" :style="`padding-left:${row.indent*22}px`" x-text="row.text"></span>
+                  <div class="ind-btns" x-show="!checked">
+                    <button class="ind-btn" :disabled="row.indent===0" @click="indent(rank,-1)">−</button>
+                    <button class="ind-btn" @click="indent(rank,1)">→</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Code correct !' : 'Pas tout à fait…'"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+              <template x-if="!isRight && solution.sequence">
+                <div class="code-block" style="margin-top:10px">
+                  <template x-for="(l, i) in solution.sequence" :key="i">
+                    <div class="code-line"><span class="line-num" x-text="i+1"></span><span class="line-code" :style="`padding-left:${14 + l.indent*22}px`" x-text="l.text"></span></div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── number_input ───── -->
+      <template x-if="q.type === 'number_input'">
+        <div x-data="blockNumber(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Saisir un nombre · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="num-wrap">
+              <input class="num-input" :class="checked ? (isRight ? 'correct' : 'wrong') : ''" type="text" inputmode="decimal" x-model="val" :disabled="checked || busy" @keydown.enter.prevent="val!=='' && !checked && check()" placeholder="…">
+              <span class="num-unit" x-show="quiz.unit" x-text="quiz.unit"></span>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Exact !' : ('Réponse : ' + solution.answer + (solution.unit ? ' ' + solution.unit : ''))"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="val==='' || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── dynamic_formula (énoncé tiré côté serveur) ───── -->
+      <template x-if="q.type === 'dynamic_formula'">
+        <div x-data="blockNumber(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Calcul · {{ concept.name }}</div>
+            <div class="draw-tag"><i data-lucide="shuffle" style="width:13px;height:13px"></i> valeurs tirées au hasard</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="num-wrap">
+              <input class="num-input" :class="checked ? (isRight ? 'correct' : 'wrong') : ''" type="text" inputmode="decimal" x-model="val" :disabled="checked || busy" @keydown.enter.prevent="val!=='' && !checked && check()" placeholder="…">
+              <span class="num-unit" x-show="quiz.unit" x-text="quiz.unit"></span>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Exact !' : ('Réponse : ' + solution.answer + (solution.unit ? ' ' + solution.unit : ''))"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="val==='' || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── spot_the_bug ───── -->
+      <template x-if="q.type === 'spot_the_bug'">
+        <div x-data="blockSpotBug(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Trouver le bug · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div class="code-block">
+              <template x-for="(line, i) in quiz.code" :key="i">
+                <div class="code-line" :class="lineClass(i)" @click="!checked && (selected=i)">
+                  <span class="line-num" x-text="i+1"></span>
+                  <span class="line-code" x-text="line"></span>
+                </div>
+              </template>
+            </div>
+            <div x-show="checked && !isRight && solution.correct_fix" x-cloak class="fix-hint"><i data-lucide="wrench" style="width:15px;height:15px"></i> Correction : <strong x-text="solution.correct_fix"></strong></div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Bug trouvé !' : ('Le bug était ligne ' + (solution.buggy_line+1))"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="selected===null || busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── math_expression (MathQuill) ───── -->
+      <template x-if="q.type === 'math_expression'">
+        <div x-data="blockMath(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Expression maths · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Ta réponse</div>
+            <span class="mq-field" x-ref="mq"></span>
+            <div class="kpad">
+              <button type="button" class="kbtn" @mousedown.prevent="key('x')">x</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('y')">y</button>
+              <button type="button" class="kbtn accent" @mousedown.prevent="key('sq2')">x²</button>
+              <button type="button" class="kbtn accent" @mousedown.prevent="key('sqrt')">√</button>
+              <button type="button" class="kbtn accent" @mousedown.prevent="key('frac')">a∕b</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('pi')">π</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('bksp')"><i data-lucide="delete" style="width:18px;height:18px"></i></button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('(')">(</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key(')')">)</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('+')">+</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('-')">−</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('cdot')">×</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('2')">2</button>
+              <button type="button" class="kbtn" @mousedown.prevent="key('3')">3</button>
+            </div>
+            <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
+              <p class="fb-title"><i :data-lucide="isRight ? 'check-circle' : 'x-circle'" style="width:17px;height:17px"></i><span x-text="isRight ? 'Bravo !' : ('Réponse attendue : ' + (solution.correct_expression || ''))"></span></p>
+              <p class="fb-expl" x-text="explanation"></p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button x-show="!checked" class="ctaBtn cta-verify" :disabled="busy" @click="check()" x-cloak x-text="busy ? '…' : 'Vérifier'"></button>
+            <button x-show="checked" class="ctaBtn" x-cloak :class="isRight ? 'cta-continue-ok' : 'cta-continue-ko'" @click="go()">Continuer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ───── fallback minimal (type inconnu — sécurité) ───── -->
+      <template x-if="!['mcq_single','true_false','odd_one_out','k_prime','cloze_test','mcq_multiple','matching','chrono_order','parsons_puzzle','number_input','dynamic_formula','spot_the_bug','math_expression'].includes(q.type)">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div class="quiz-body">
+            <div class="q-badge">Question · {{ concept.name }}</div>
+            <h2 class="q-instruction" x-text="q.instruction"></h2>
+            <div class="fallback-card">
+              <i data-lucide="construction" style="width:26px;height:26px;color:var(--text-mute)"></i>
+              <p style="margin:10px 0 0">Ce type de question (<span x-text="q.type"></span>) n'est pas reconnu.</p>
+            </div>
+          </div>
+          <div class="quiz-footer">
+            <button class="ctaBtn cta-continue-ko" @click="$dispatch('quiz:answered', { correct: false })">Passer <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>
+          </div>
+        </div>
+      </template>
+
+    </div>
+  </template>
+
+  <!-- ════════════════ PHASE FINALE ════════════════ -->
+  <template x-if="phase === 'done'">
+    <div class="final-wrap" x-init="$nextTick(() => { spawnConfetti(); refreshIcons(); })">
+      <div class="trophy-ring"><i data-lucide="award" style="width:54px;height:54px;color:#fff"></i></div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <template x-for="s in [1,2,3]" :key="s">
+          <span class="star-item" :class="s <= stars ? 'lit' : ''" :style="`animation-delay:${s*.12}s`">
+            <i data-lucide="star" :style="`width:34px;height:34px;color:${s <= stars ? '#FBBF24' : 'rgba(255,255,255,.15)'};fill:${s <= stars ? '#FBBF24' : 'none'}`"></i>
+          </span>
+        </template>
+      </div>
+      <h1 style="font-size:25px;font-weight:800;margin:0 0 6px" x-text="endTitle"></h1>
+      <p style="color:var(--text-dim);font-size:14px;margin:0 0 26px" x-text="`${score} / ${questions.length} bonnes réponses`"></p>
+      <div style="display:flex;gap:14px;margin-bottom:30px">
+        <div class="miniCard"><div style="font-size:26px;font-weight:800;color:var(--accent)" x-text="'+' + xp"></div><div style="font-size:12px;color:var(--text-dim)">XP gagnés</div></div>
+        <div class="miniCard"><div style="font-size:26px;font-weight:800;color:#22C55E" x-text="score"></div><div style="font-size:12px;color:var(--text-dim)">Réussites</div></div>
+      </div>
+      <a class="ctaBtn" :href="parcoursUrl" style="width:min(360px,90%);background:linear-gradient(150deg, var(--accent), #6d28d9)">
+        Retour au parcours <i data-lucide="check" style="width:18px;height:18px"></i>
+      </a>
+    </div>
+  </template>
+
+</div><!-- /quizShell -->
+
+<script>
+{% verbatim %}
+const _RQ = JSON.parse(document.getElementById('rq-data').textContent);
+
+// POST partagé : envoie la réponse, reçoit le verdict SERVEUR.
+async function postAnswer(quizId, answer) {
+  const res = await fetch(RUNNER_CFG.answerUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': RUNNER_CFG.csrf },
+    body: JSON.stringify({ quiz_id: quizId, answer }),
+  });
+  if (!res.ok) throw new Error('validation failed');
+  return res.json();   // { correct, explanation, solution, passes_done, passes }
+}
+
+document.addEventListener('alpine:init', () => {
+
+  // ── Shell : séquence + écran final ──
+  Alpine.data('quizShell', () => ({
+    idx: 0, results: [], phase: 'quiz',
+    questions: _RQ,
+    parcoursUrl: RUNNER_CFG.parcoursUrl,
+    get q()        { return this.questions[this.idx]; },
+    get score()    { return this.results.filter(Boolean).length; },
+    get stars()    { const r = this.score / this.questions.length; return r >= .85 ? 3 : r >= .6 ? 2 : r > 0 ? 1 : 0; },
+    get xp()       { return this.score * 10; },
+    get endTitle() { return this.stars === 3 ? 'Parfait !' : this.stars === 2 ? 'Bien joué !' : this.stars === 1 ? 'Courage !' : 'À retravailler'; },
+    refreshIcons() { if (window.lucide) lucide.createIcons(); },
+    advance(detail) {
+      this.results.push(detail.correct);
+      setTimeout(() => {
+        if (this.idx + 1 >= this.questions.length) { this.phase = 'done'; }
+        else { this.idx++; this.$nextTick(() => this.refreshIcons()); }
+      }, 170);
+    },
+    spawnConfetti() {
+      if (this.stars === 0) return;
+      const colors = ['#22D3EE','#F59E0B','#22C55E','#EF4444','#A78BFA','#FB7185','#FBBF24'];
+      for (let k = 0; k < 44; k++) {
+        const el = document.createElement('div');
+        el.className = 'confetti-piece';
+        const sz = 5 + Math.random() * 9;
+        el.style.cssText = `left:${Math.random()*100}vw;top:0;width:${sz}px;height:${sz}px;background:${colors[k % colors.length]};--dur:${1.1 + Math.random()*1.3}s;--delay:${Math.random()*.9}s;border-radius:${Math.random() > .45 ? '50%' : '2px'};`;
+        document.body.appendChild(el);
+        el.addEventListener('animationend', () => el.remove(), { once: true });
+      }
+    },
+  }));
+
+  // ── socle commun des blocs (état serveur) ──
+  const blockBase = (quiz) => ({
+    quiz, checked: false, busy: false, isRight: false,
+    solution: {}, explanation: '',
+    async submit(answer) {
+      this.busy = true;
+      try {
+        const r = await postAnswer(this.quiz.id, answer);
+        this.isRight = r.correct; this.solution = r.solution || {}; this.explanation = r.explanation || '';
+        this.checked = true;
+        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+      } catch (e) {
+        this.busy = false; alert('Connexion interrompue, réessaie.'); return;
+      }
+      this.busy = false;
+    },
+    go() { this.$dispatch('quiz:answered', { correct: this.isRight }); },
+  });
+
+  // ── mcq_single ──
+  Alpine.data('blockMcqSingle', (quiz) => ({
+    ...blockBase(quiz), selected: null,
+    optClass(i) {
+      if (!this.checked) return this.selected === i ? 'selected' : '';
+      if (i === this.solution.answer_index) return 'correct';
+      if (i === this.selected && !this.isRight) return 'wrong';
+      return 'dimmed';
+    },
+    check() { if (this.selected !== null) this.submit(this.selected); },
+  }));
+
+  // ── true_false ──
+  Alpine.data('blockTrueFalse', (quiz) => ({
+    ...blockBase(quiz), selected: null,
+    cardClass(val) {
+      if (!this.checked) return this.selected === val ? 'selected' : '';
+      if (val === this.solution.answer) return 'correct';
+      if (val === this.selected && !this.isRight) return 'wrong';
+      return '';
+    },
+    check() { if (this.selected !== null) this.submit(this.selected); },
+  }));
+
+  // ── odd_one_out ──
+  Alpine.data('blockOddOneOut', (quiz) => ({
+    ...blockBase(quiz), selected: null,
+    optClass(i) {
+      if (!this.checked) return this.selected === i ? 'selected' : '';
+      if (i === this.solution.odd_index) return 'correct';
+      if (i === this.selected && !this.isRight) return 'wrong';
+      return 'dimmed';
+    },
+    check() { if (this.selected !== null) this.submit(this.selected); },
+  }));
+
+  // ── k_prime ──
+  Alpine.data('blockKPrime', (quiz) => ({
+    ...blockBase(quiz),
+    answers: new Array(quiz.statements.length).fill(null),
+    set(i, val) { this.answers[i] = val; },
+    get allAnswered() { return this.answers.every(a => a !== null); },
+    btnClass(i, val) {
+      if (!this.checked) return this.answers[i] === val ? (val ? 'kp-on-v' : 'kp-on-f') : '';
+      // après correction : surligne la bonne réponse, marque l'erreur de l'élève
+      const sol = this.solution.answers[i];
+      if (val === sol) return 'kp-good';
+      if (val === this.answers[i] && this.answers[i] !== sol) return 'kp-bad';
+      return '';
+    },
+    check() { if (this.allAnswered) this.submit(this.answers); },
+  }));
+
+  // ── cloze_test (NOUVEAU widget) ──
+  Alpine.data('blockCloze', (quiz) => ({
+    ...blockBase(quiz),
+    inputs: [],
+    segments: [],
+    init() {
+      // découpe le texte "… {{0}} … {{1}} …" en segments texte/trou
+      const parts = (this.quiz.text || '').split(/(\{\{\d+\}\})/);
+      const segs = []; let nBlanks = 0;
+      parts.forEach(p => {
+        const m = p.match(/^\{\{(\d+)\}\}$/);
+        if (m) { const idx = parseInt(m[1], 10); segs.push({ type: 'blank', idx }); nBlanks = Math.max(nBlanks, idx + 1); }
+        else if (p) { segs.push({ type: 'text', value: p }); }
+      });
+      this.segments = segs;
+      this.inputs = new Array(nBlanks).fill('');
+    },
+    get allFilled() { return this.inputs.length > 0 && this.inputs.every(v => v.trim() !== ''); },
+    inputClass(idx) {
+      if (!this.checked) return '';
+      const norm = s => (s || '').trim().toLowerCase();
+      return norm(this.inputs[idx]) === norm(this.solution.answers[idx]) ? 'correct' : 'wrong';
+    },
+    check() { if (this.allFilled) this.submit(this.inputs.map(v => v.trim())); },
+  }));
+
+  // ── mcq_multiple (cocher plusieurs) ──
+  Alpine.data('blockMcqMultiple', (quiz) => ({
+    ...blockBase(quiz), selected: [],
+    toggle(i) {
+      if (this.checked) return;
+      const k = this.selected.indexOf(i);
+      if (k === -1) this.selected.push(i); else this.selected.splice(k, 1);
+    },
+    isSelected(i) { return this.selected.includes(i); },
+    optClass(i) {
+      if (!this.checked) return this.isSelected(i) ? 'selected' : '';
+      const ok = (this.solution.answer_indices || []);
+      if (ok.includes(i) && this.isSelected(i)) return 'correct';
+      if (ok.includes(i) && !this.isSelected(i)) return 'missed';   // bonne réponse oubliée
+      if (!ok.includes(i) && this.isSelected(i)) return 'wrong';    // cochée à tort
+      return 'dimmed';
+    },
+    check() { if (this.selected.length) this.submit([...this.selected]); },
+  }));
+
+  // ── matching (liaison tap-tap, right mélangé côté serveur) ──
+  // links[i] = index (dans `rights`) choisi pour left[i] ; la réponse soumise =
+  // [rights[links[i]].oi …] (index d'origine) — validée par _eval_matching côté serveur.
+  Alpine.data('blockMatching', (quiz) => ({
+    ...blockBase(quiz),
+    lefts: quiz.lefts || [],
+    rights: quiz.rights || [],
+    selectedLeft: null,
+    links: new Array((quiz.lefts || []).length).fill(null),
+    PAIR_COLORS: ['#22D3EE','#F59E0B','#A78BFA','#FB7185','#34D399','#FBBF24'],
+    reverseLink(j) { const i = this.links.indexOf(j); return i === -1 ? null : i; },
+    tapLeft(i) {
+      if (this.checked) return;
+      if (this.links[i] !== null) { this.links[i] = null; this.selectedLeft = i; return; }
+      this.selectedLeft = (this.selectedLeft === i) ? null : i;
+    },
+    tapRight(j) {
+      if (this.checked || this.selectedLeft === null) return;
+      const prev = this.reverseLink(j);          // ce right était-il déjà pris ?
+      if (prev !== null) this.links[prev] = null;
+      this.links[this.selectedLeft] = j;
+      this.selectedLeft = null;
+    },
+    get allLinked() { return this.links.length > 0 && this.links.every(v => v !== null); },
+    isLinkedCorrectly(i) { return this.links[i] !== null && this.rights[this.links[i]].oi === i; },
+    check() {
+      if (!this.allLinked) return;
+      this.submit(this.links.map(j => this.rights[j].oi));
+    },
+  }));
+
+  // ── chrono_order (flèches ▲▼) ──
+  // order[rank] = index d'origine de l'item à cette position ; réponse = order.
+  Alpine.data('blockChrono', (quiz) => ({
+    ...blockBase(quiz),
+    order: quiz.items.map((_, i) => i),
+    move(rank, dir) {
+      const j = rank + dir;
+      if (j < 0 || j >= this.order.length) return;
+      [this.order[rank], this.order[j]] = [this.order[j], this.order[rank]];
+    },
+    rowClass(rank) {
+      if (!this.checked) return '';
+      return this.order[rank] === (this.solution.correct_order || [])[rank] ? 'correct' : 'wrong';
+    },
+    check() { this.submit([...this.order]); },
+  }));
+
+  // ── parsons_puzzle (ordre + indentation) ──
+  // rows = [{id, text, indent}] dans l'ordre soumis ; réponse = [{id, indent}].
+  Alpine.data('blockParsons', (quiz) => ({
+    ...blockBase(quiz),
+    rows: (quiz.lines || []).map(l => ({ id: l.id, text: l.text, indent: 0 })),
+    move(rank, dir) {
+      const j = rank + dir;
+      if (j < 0 || j >= this.rows.length) return;
+      [this.rows[rank], this.rows[j]] = [this.rows[j], this.rows[rank]];
+    },
+    indent(rank, dir) {
+      const v = this.rows[rank].indent + dir;
+      if (v < 0 || v > 6) return;
+      this.rows[rank].indent = v;
+    },
+    rowClass(rank) {
+      if (!this.checked || !this.solution.sequence) return '';
+      const sol = this.solution.sequence[rank];
+      const r = this.rows[rank];
+      return (sol && sol.text === r.text && sol.indent === r.indent) ? 'correct' : 'wrong';
+    },
+    init() { this.$nextTick(() => { if (window.Prism) Prism.highlightAll(); }); },
+    check() { this.submit(this.rows.map(r => ({ id: r.id, indent: r.indent }))); },
+  }));
+
+  // ── number_input + dynamic_formula (champ numérique) ──
+  Alpine.data('blockNumber', (quiz) => ({
+    ...blockBase(quiz), val: '',
+    check() {
+      if (this.val === '') return;
+      const n = parseFloat(String(this.val).replace(',', '.'));
+      if (Number.isNaN(n)) { this.val = ''; return; }
+      this.submit(n);
+    },
+  }));
+
+  // ── spot_the_bug (ligne cliquable) ──
+  Alpine.data('blockSpotBug', (quiz) => ({
+    ...blockBase(quiz), selected: null,
+    lineClass(i) {
+      if (!this.checked) return this.selected === i ? 'ln-sel' : '';
+      if (i === this.solution.buggy_line) return 'ln-correct';
+      if (i === this.selected && !this.isRight) return 'ln-wrong';
+      return '';
+    },
+    check() { if (this.selected !== null) this.submit(this.selected); },
+  }));
+
+  // ── math_expression (MathQuill → format serveur) ──
+  // Le pont latexToServer reproduit la forme canonique attendue par _eval_math_expression ;
+  // la COMPARAISON finale est 100% serveur (le client n'a jamais la bonne réponse).
+  function latexToServer(tex) {
+    let s = tex || '';
+    s = s.replace(/\\left|\\right/g, '');
+    s = s.replace(/\\[,;:! ]/g, '');
+    s = s.replace(/\\cdot|\\times/g, '*');
+    s = s.replace(/\\pi/g, 'pi');
+    const frac = /\\frac\{([^{}]*)\}\{([^{}]*)\}/;
+    while (frac.test(s)) s = s.replace(frac, '($1)/($2)');
+    const sq = /\\sqrt\{([^{}]*)\}/;
+    while (sq.test(s)) s = s.replace(sq, 'sqrt($1)');
+    s = s.replace(/\^\{([^{}]*)\}/g, '^$1');
+    s = s.replace(/[{}]/g, '');
+    s = s.replace(/\\[a-zA-Z]+/g, '');
+    s = s.replace(/\\/g, '');
+    return s.replace(/\s+/g, '');
+  }
+  Alpine.data('blockMath', (quiz) => ({
+    ...blockBase(quiz), mf: null,
+    init() { this.$nextTick(() => this.mountMQ()); },
+    mountMQ() {
+      if (!window.MathQuill) { return; }
+      const MQ = MathQuill.getInterface(2);
+      this.mf = MQ.MathField(this.$refs.mq, {
+        spaceBehavesLikeTab: true,
+        handlers: { enter: () => { if (!this.checked) this.check(); } },
+      });
+      this.mf.focus();
+    },
+    key(a) {
+      const mf = this.mf; if (!mf) return;
+      switch (a) {
+        case 'sq2':  mf.write('^2'); break;
+        case 'sqrt': mf.cmd('\\sqrt'); break;
+        case 'frac': mf.cmd('\\frac'); break;
+        case 'pi':   mf.cmd('\\pi'); break;
+        case 'cdot': mf.cmd('\\cdot'); break;
+        case 'bksp': mf.keystroke('Backspace'); break;
+        default:     mf.typedText(a);
+      }
+      mf.focus();
+    },
+    check() {
+      if (this.checked || !this.mf) return;
+      const out = latexToServer(this.mf.latex());
+      if (!out) return;
+      this.submit(out);   // string → validation serveur (_eval_math_expression)
+    },
+  }));
+
+});
+{% endverbatim %}
+</script>
+</body>
+</html>
+{% endlocalize %}

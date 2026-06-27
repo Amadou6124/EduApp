@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ unit.title }}{% endblock %}
+{% block page_title %}{{ unit.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+
+  <a href="{% url 'lessons:unit-list' %}"
+     class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> Mes unités
+  </a>
+
+  {# En-tête fixe de l'unité (ne change pas au polling) #}
+  <div class="flex items-center gap-4 mb-6">
+    <div class="w-14 h-14 rounded-2xl bg-primary-50 flex items-center justify-center shrink-0">
+      <i data-lucide="book-open" class="w-7 h-7 text-primary-600"></i>
+    </div>
+    <div class="min-w-0">
+      <h2 class="text-xl font-bold text-gray-900 leading-tight">{{ unit.title }}</h2>
+      <p class="text-sm text-gray-500 mt-0.5">
+        {{ unit.subject }} · {{ unit.get_level_display }}{% if unit.level_detail %} · {{ unit.level_detail }}{% endif %}
+      </p>
+    </div>
+  </div>
+
+  {# Bandeau + checklist + action (poll-és) #}
+  {% include "lessons/partials/unit_status.html" %}
+
+  {# ── Déploiement v2 : visible quand des leçons sont prêtes ── #}
+  {% if deploy_lessons %}
+  <div class="mt-8">
+    <h3 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
+      <i data-lucide="graduation-cap" class="w-4 h-4 text-primary-600"></i> Déployer aux classes
+    </h3>
+    <p class="text-xs text-gray-400 mb-4">Publie une leçon : elle apparaît dans le parcours des élèves de la classe.</p>
+
+    {% for item in deploy_lessons %}
+    <div class="mb-5">
+      <p class="text-sm font-semibold text-gray-900 mb-2 truncate">{{ item.lesson.title }}</p>
+      {% if item.classes %}
+        <div class="space-y-2">
+          {% for c in item.classes %}
+            {% include "lessons/partials/deploy_card.html" with lesson=item.lesson class=c.obj is_deployed=c.is_deployed student_count=c.student_count %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-xs text-gray-400">Aucune classe assignée à cette matière.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,312 @@
+{% load static l10n %}<!DOCTYPE html>
+<html lang="fr" class="theme-dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <title>{{ reading_title }} — Lecture</title>
+  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <script src="{% static 'vendor/lucide/lucide.min.js' %}" defer></script>
+  <script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
+
+  {{ terms|json_script:"rdr-terms" }}
+  {{ tts|json_script:"rdr-tts" }}
+  {{ section_titles|json_script:"rdr-sectitles" }}
+
+  <style>
+    .theme-dark{
+      --bg:radial-gradient(120% 90% at 20% -10%, #1a1340 0%, #0b0b1a 55%, #07060f 100%);
+      --solid-bg:#0b0b1a;
+      --text:#ffffff; --text-dim:rgba(255,255,255,.58); --text-mute:rgba(255,255,255,.42);
+      --surface:rgba(255,255,255,.05); --surface-2:rgba(255,255,255,.08); --border:rgba(255,255,255,.09);
+      --track:rgba(255,255,255,.16); --header-bg:rgba(12,11,26,.72); --panel-bg:rgba(20,18,40,.96);
+      --sheet-bg:rgba(18,16,36,.98);
+    }
+    *{box-sizing:border-box} html,body{margin:0;height:100%} ::-webkit-scrollbar{width:0}
+    body{font-family:'Manrope',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;-webkit-font-smoothing:antialiased}
+    .app{display:flex;flex-direction:column;height:100dvh;max-width:560px;margin:0 auto;position:relative}
+    .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
+    [x-cloak]{display:none!important}
+
+    .rhbtn{width:38px;height:38px;border-radius:11px;border:none;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,transform .1s}
+    .rhbtn:hover{background:var(--surface)} .rhbtn:active{transform:scale(.92)}
+    @keyframes rft{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    .rfade{animation:rft .25s ease}
+    .rsolid{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:12px;color:#fff;font-weight:800;font-size:15px;padding:11px 18px;cursor:pointer;transition:transform .12s,filter .15s}
+    .rsolid:hover{filter:brightness(1.08)} .rsolid:active{transform:scale(.97)} .rsolid:disabled{cursor:default}
+    .rfab{position:fixed;bottom:50px;z-index:76;display:flex;align-items:center;gap:9px;border:none;border-radius:24px;padding:11px 16px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:transform .12s}
+    .rfab:active{transform:scale(.95)}
+    .rfabR{position:fixed;bottom:50px;z-index:76;width:50px;height:50px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18);transition:transform .12s}
+    .rfabR:active{transform:scale(.92)}
+    .rdot{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px}
+    .backdrop{position:fixed;inset:0;background:rgba(5,4,12,.5);backdrop-filter:blur(4px);z-index:88;animation:fade .25s ease}
+    @keyframes fade{from{opacity:0}to{opacity:1}}
+    @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .rsheet{position:fixed;left:0;right:0;bottom:0;z-index:90;border-radius:24px 24px 0 0;padding:12px 18px calc(20px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;box-shadow:0 -10px 40px rgba(0,0,0,.3);animation:sheetUp .3s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
+    .rhandle{width:40px;height:5px;border-radius:5px;margin:0 auto 14px;background:var(--track)}
+    .rtoc{display:flex;gap:10px;width:100%;background:none;border:none;cursor:pointer;align-items:flex-start;padding:0;color:var(--text)}
+    .rta{width:100%;border:1.5px solid var(--border);border-radius:12px;padding:11px 13px;font-size:14.5px;font-family:inherit;resize:none;outline:none;line-height:1.5;background:var(--surface);color:var(--text)}
+    .rta::placeholder{color:var(--text-mute)}
+    .rck{display:flex;align-items:center;gap:9px;width:100%;padding:13px 15px;border-radius:13px;font-size:14.5px;font-weight:600;font-family:inherit;border:2px solid var(--border);background:var(--solid-bg);color:var(--text);transition:all .2s}
+    .rterm{display:inline;padding:0;border:none;background:transparent;font:inherit;cursor:pointer;color:var(--accent);font-weight:700;border-bottom:2px dotted var(--accent)}
+    .rhl{background:var(--accent-soft);border-radius:10px;padding:4px 8px;margin:0 -8px 16px;transition:background .3s}
+    .rhl-def{box-shadow:0 0 0 2px var(--accent)88}
+  </style>
+</head>
+<body>
+{% localize off %}
+<div class="app" x-data="reader()" style="--accent:{{ lesson.color }};--accent-soft:{{ lesson.color }}1f">
+
+  <!-- ════ HEADER ════ -->
+  <header style="position:relative;z-index:2;flex-shrink:0;background:var(--header-bg);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)">
+    <div class="flex items-center" style="gap:6px;padding:12px 10px 8px">
+      <button class="rhbtn" @click="stopTTS(); {% if back_url %}window.location.href='{{ back_url }}'{% else %}history.back(){% endif %}"><i data-lucide="arrow-left"></i></button>
+      <div style="flex:1;min-width:0;position:relative;height:24px">
+        <div class="rfade" :key="active" style="font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="sectionTitles[active]"></div>
+      </div>
+      <span style="font-variant-numeric:tabular-nums;font-size:14px;color:var(--text-dim);font-weight:600"><span x-text="active+1"></span> / {{ n_sections }}</span>
+      <button class="rhbtn" title="Lire à voix haute" @click="readSection()" :style="playing ? 'color:var(--accent)' : ''">
+        <i data-lucide="volume-2" x-show="!playing"></i><i data-lucide="pause" x-show="playing" x-cloak></i>
+      </button>
+    </div>
+    <div class="flex items-center justify-between" style="padding:0 12px 10px;gap:8px">
+      <div style="flex:1"></div>
+      <div class="flex items-center" style="gap:4px">
+        <button class="rhbtn" style="width:34px;height:34px" @click="decScale()"><i data-lucide="minus" style="width:15px;height:15px"></i></button>
+        <button class="rhbtn" style="width:34px;height:34px" @click="incScale()"><i data-lucide="plus" style="width:15px;height:15px"></i></button>
+      </div>
+    </div>
+    <div style="height:3px;background:var(--surface)">
+      <div :style="`height:100%;width:${progress*100}%;background:var(--accent);border-radius:0 3px 3px 0;transition:width .15s linear`"></div>
+    </div>
+  </header>
+
+  <!-- ════ MAIN ════ -->
+  <main x-ref="main" @scroll="onScroll" style="position:relative;z-index:1;flex:1;overflow-y:auto">
+    <div :style="`max-width:640px;margin:0 auto;padding:20px 20px 120px;--rscale:${scale}`">
+      <div style="font-size:12px;font-weight:700;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase">{{ subject_short }}</div>
+      <h1 style="font-size:28px;font-weight:800;margin:6px 0 12px;line-height:1.15">{{ reading_title }}</h1>
+      <div style="height:1px;background:var(--border);margin:2px 0 6px"></div>
+
+      {% for s in sections %}
+      <section data-sec="{{ forloop.counter0 }}" style="padding-top:18px">
+        <h2 style="font-size:22px;font-weight:800;margin:10px 0 14px;line-height:1.2">{{ s.title }}</h2>
+
+        {% for b in s.blocks %}
+        {% if b.type == 'p' %}
+          <p class="rblk" :class="hl.sec==={{ b.si }} && hl.blk==={{ b.bi }} ? 'rhl' : ''"
+             style="font-size:calc(16.5px * var(--rscale));line-height:1.75;color:var(--text);margin:0 0 16px">{{ b.rich_html|safe }}</p>
+
+        {% elif b.type == 'def' %}
+          <div :class="hl.sec==={{ b.si }} && hl.blk==={{ b.bi }} ? 'rhl-def' : ''"
+               style="border-left:3px solid var(--accent);background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:0 0 18px;transition:box-shadow .3s">
+            <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px">DÉFINITION</div>
+            <div style="font-size:15.5px;line-height:1.6"><b style="color:var(--accent)">{{ b.term }}</b> — {{ b.text }}</div>
+          </div>
+
+        {% elif b.type == 'example' %}
+          <div style="margin:0 0 18px;padding-left:14px;border-left:2px solid var(--border)">
+            <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text-mute);margin-bottom:4px">EXEMPLE</div>
+            <div style="font-size:15px;font-style:italic;color:var(--text-dim);line-height:1.6">{{ b.text }}</div>
+          </div>
+
+        {% elif b.type == 'key' %}
+          <div style="background:linear-gradient(150deg, var(--accent), #6d28d9);color:#fff;border-radius:16px;padding:16px 18px;margin:0 0 18px;box-shadow:0 10px 26px var(--accent-soft)">
+            <div class="flex items-center" style="gap:7px;font-size:11px;font-weight:800;letter-spacing:1px;margin-bottom:10px;opacity:.9"><i data-lucide="lightbulb" style="width:15px;height:15px"></i> POINTS CLÉS</div>
+            {% for it in b.items %}
+            <div class="flex" style="gap:9px;font-size:14.5px;margin:7px 0;line-height:1.45"><i data-lucide="check" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"></i>{{ it }}</div>
+            {% endfor %}
+          </div>
+
+        {% elif b.type == 'callout' %}
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:0 0 18px;display:flex;gap:12px">
+            <div style="flex-shrink:0;color:var(--accent);margin-top:1px"><i data-lucide="{% if b.icon == 'spark' %}sparkles{% else %}coffee{% endif %}" style="width:20px;height:20px"></i></div>
+            <div><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">{{ b.label|upper }}</div><div style="font-size:15px;line-height:1.6">{{ b.text }}</div></div>
+          </div>
+
+        {% elif b.type == 'warn' %}
+          <div style="background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.45);border-radius:14px;padding:14px 16px;margin:0 0 18px;display:flex;gap:12px">
+            <i data-lucide="alert-triangle" style="width:20px;height:20px;color:#D97706;flex-shrink:0;margin-top:1px"></i>
+            <div style="font-size:14.5px;line-height:1.55;font-weight:500">{{ b.text }}</div>
+          </div>
+
+        {% elif b.type == 'reflect' %}
+          <div x-data="{editing:true, val:''}" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;margin:0 0 18px;overflow:hidden">
+            <div class="flex items-center" style="gap:7px;padding:11px 16px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text-dim)"><i data-lucide="pencil" style="width:14px;height:14px"></i> RÉFLÉCHIS</div>
+            <div style="padding:16px">
+              <div style="font-size:14.5px;line-height:1.5;margin-bottom:12px">{{ b.prompt }}</div>
+              <div x-show="editing">
+                <textarea x-model="val" placeholder="Note tes idées ici…" rows="3" class="rta"></textarea>
+                <div class="flex items-center justify-between" style="margin-top:8px">
+                  <span style="font-size:12px;color:var(--text-mute)"><span x-text="val.length"></span> caractères</span>
+                  <button class="rsolid" :disabled="!val.trim()" @click="if(val.trim()) editing=false"
+                          :style="`background:var(--accent);opacity:${val.trim()?1:.4};padding:8px 16px;font-size:14px`"><i data-lucide="check" style="width:15px;height:15px"></i> Sauvegarder</button>
+                </div>
+              </div>
+              <div x-show="!editing" x-cloak>
+                <div style="font-size:15px;line-height:1.55;background:var(--solid-bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px" x-text="val"></div>
+                <button @click="editing=true" style="margin-top:8px;display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:var(--accent);font-weight:700;font-size:13px;cursor:pointer"><i data-lucide="pencil" style="width:13px;height:13px"></i> Modifier</button>
+              </div>
+            </div>
+          </div>
+
+        {% elif b.type == 'check' %}
+          {% if b.variant == 'tf' %}{% if b.answer %}{% with correct=0 %}{% include 'student_learning/_rcheck.html' %}{% endwith %}{% else %}{% with correct=1 %}{% include 'student_learning/_rcheck.html' %}{% endwith %}{% endif %}
+          {% else %}{% with correct=b.answer %}{% include 'student_learning/_rcheck.html' %}{% endwith %}{% endif %}
+        {% endif %}
+        {% endfor %}
+      </section>
+      {% endfor %}
+
+      <!-- CTA exercices -->
+      <div style="margin-top:34px;text-align:center;border:1px solid var(--border);border-radius:22px;padding:26px 20px;background:var(--surface)">
+        <div style="width:56px;height:56px;border-radius:18px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(150deg, var(--accent), #6d28d9)"><i data-lucide="dumbbell" style="color:#fff"></i></div>
+        <div style="font-size:19px;font-weight:800">Prêt à pratiquer ?</div>
+        <div style="font-size:14px;color:var(--text-dim);margin-top:4px">Teste tes connaissances avec un quiz.</div>
+        <button class="rsolid" @click="toast('Exercices — bientôt')" style="background:linear-gradient(150deg, var(--accent), #6d28d9);margin-top:16px">Faire les exercices <i data-lucide="chevron-right" style="width:17px;height:17px"></i></button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ════ FABs ════ -->
+  <button class="rfab" @click="toc=true; notesOpen=false" style="right:16px;background:linear-gradient(150deg, var(--accent), #6d28d9);color:#fff">
+    <i data-lucide="list" style="width:18px;height:18px"></i>
+    <span style="font-size:13px;font-weight:700;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="sectionTitles[active]"></span>
+    <span style="font-size:12px;opacity:.8"><span x-text="active+1"></span>/{{ n_sections }}</span>
+  </button>
+  <button class="rfabR" @click="notesOpen=true; toc=false" style="left:16px;background:var(--solid-bg);color:var(--text)">
+    <i data-lucide="notebook-pen" style="width:20px;height:20px"></i>
+    <span class="rdot" x-show="notes.length>0" x-cloak style="background:var(--accent)" x-text="notes.length>9?'9+':notes.length"></span>
+  </button>
+
+  <!-- ════ SHEET : SOMMAIRE ════ -->
+  <template x-if="toc">
+    <div>
+      <div class="backdrop" @click="toc=false"></div>
+      <div class="rsheet" style="background:var(--panel-bg);color:var(--text);max-height:72vh">
+        <div class="rhandle"></div>
+        <div class="flex items-center justify-between" style="margin-bottom:14px">
+          <div class="flex items-center" style="gap:8px;font-size:12px;font-weight:800;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase"><i data-lucide="list" style="width:16px;height:16px"></i> Sommaire</div>
+          <button class="rhbtn" @click="toc=false"><i data-lucide="x" style="width:18px;height:18px"></i></button>
+        </div>
+        <div style="overflow-y:auto">
+          <template x-for="(t, i) in sectionTitles" :key="i">
+            <button @click="goTo(i)" class="rtoc" :style="`color:${i>active ? 'var(--text-mute)' : 'var(--text)'}`">
+              <div style="position:relative;width:22px;display:flex;justify-content:center;flex-shrink:0">
+                <span x-show="i < sectionTitles.length-1" :style="`position:absolute;top:14px;bottom:-14px;width:2px;background:${i<active ? 'var(--accent)' : 'var(--border)'}`"></span>
+                <span :style="`margin-top:4px;border-radius:50%;z-index:1;transition:all .2s;width:${i===active?13:i<active?9:7}px;height:${i===active?13:i<active?9:7}px;background:${i===active?'var(--accent)':i<active?'var(--text-dim)':'var(--border)'}`"></span>
+              </div>
+              <span :style="`font-size:14px;padding-bottom:14px;text-align:left;font-weight:${i===active?700:500}`" x-text="t"></span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ════ SHEET : NOTES ════ -->
+  <template x-if="notesOpen">
+    <div>
+      <div class="backdrop" @click="notesOpen=false"></div>
+      <div class="rsheet" style="background:var(--panel-bg);color:var(--text);max-height:82vh">
+        <div class="rhandle"></div>
+        <div class="flex items-center justify-between" style="margin-bottom:14px">
+          <div class="flex items-center" style="gap:8px;font-size:12px;font-weight:800;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase"><i data-lucide="notebook-pen" style="width:16px;height:16px"></i> Mes notes <span x-show="notes.length>0" style="background:var(--surface);border-radius:8px;padding:1px 7px;font-size:11px" x-text="notes.length"></span></div>
+          <button class="rhbtn" @click="notesOpen=false"><i data-lucide="x" style="width:18px;height:18px"></i></button>
+        </div>
+        <div style="overflow-y:auto">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--accent);text-transform:uppercase;margin-bottom:6px">Note sur · <span x-text="sectionTitles[active]"></span></div>
+            <textarea x-model="noteVal" placeholder="Écris une note…" rows="2" class="rta"></textarea>
+            <button class="rsolid" :disabled="!noteVal.trim()" @click="addNote()" :style="`background:var(--accent);opacity:${noteVal.trim()?1:.4};margin-top:8px;width:100%;justify-content:center;padding:9px;font-size:14px`"><i data-lucide="check" style="width:15px;height:15px"></i> Ajouter la note</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+            <div x-show="notes.length===0" style="text-align:center;color:var(--text-mute);font-size:13px;padding:20px 0;line-height:1.6">Aucune note pour l'instant.<br>Note une idée pendant ta lecture.</div>
+            <template x-for="(n, i) in notes" :key="i">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
+                <div class="flex items-center justify-between" style="margin-bottom:6px">
+                  <span style="font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--accent);text-transform:uppercase" x-text="n.sec"></span>
+                  <button @click="delNote(i)" class="rhbtn" style="width:28px;height:28px"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--text-dim)"></i></button>
+                </div>
+                <div style="font-size:14px;line-height:1.45" x-text="n.text"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ════ SHEET : TERME ════ -->
+  <template x-if="term">
+    <div>
+      <div class="backdrop" @click="term=null"></div>
+      <div class="rsheet" style="background:var(--sheet-bg);color:var(--text)">
+        <div class="rhandle"></div>
+        <div class="flex items-center" style="gap:12px;margin-bottom:10px">
+          <div style="width:44px;height:44px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent)"><i data-lucide="book-open" style="width:20px;height:20px"></i></div>
+          <div><div style="font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--accent);text-transform:uppercase">Définition</div><div style="font-weight:800;font-size:18px" x-text="term"></div></div>
+        </div>
+        <p style="color:var(--text-dim);font-size:15px;line-height:1.6;margin:0" x-text="termDef"></p>
+        <button class="rsolid" @click="term=null" style="background:linear-gradient(150deg, var(--accent), #6d28d9);margin-top:16px;width:100%;justify-content:center">Compris</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- toast -->
+  <div x-show="toastMsg" x-transition x-cloak style="position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:95;background:rgba(28,25,50,.97);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:600;padding:12px 18px;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.5)" x-text="toastMsg"></div>
+</div>
+
+<script>
+  function reader(){
+    return {
+      terms: JSON.parse(document.getElementById('rdr-terms').textContent),
+      tts: JSON.parse(document.getElementById('rdr-tts').textContent),
+      sectionTitles: JSON.parse(document.getElementById('rdr-sectitles').textContent),
+      active: 0, progress: 0, scale: 1,
+      toc: false, notesOpen: false, term: null, termDef: '',
+      notes: [], noteVal: '',
+      playing: false, hl: { sec:-1, blk:-1 }, _play: false,
+      toastMsg: '', _toastT: null,
+      init(){ this.$nextTick(()=>this.refreshIcons()); window.addEventListener('beforeunload', ()=>this.stopTTS()); },
+      refreshIcons(){ if(window.lucide) lucide.createIcons(); },
+      $watchSheets(){},
+      onScroll(){
+        const el=this.$refs.main; if(!el) return;
+        const max=el.scrollHeight-el.clientHeight;
+        this.progress = max>0 ? el.scrollTop/max : 0;
+        let idx=0;
+        el.querySelectorAll('[data-sec]').forEach((s,i)=>{ if(s.offsetTop - el.scrollTop <= 120) idx=i; });
+        if(idx!==this.active && this._play) this.stopTTS();
+        this.active=idx;
+      },
+      goTo(i){ const el=this.$refs.main, t=el.querySelectorAll('[data-sec]')[i]; if(t) el.scrollTo({top:t.offsetTop-8,behavior:'smooth'}); this.toc=false; },
+      incScale(){ this.scale = Math.min(1.4, Math.round((this.scale+0.1)*10)/10); },
+      decScale(){ this.scale = Math.max(0.9, Math.round((this.scale-0.1)*10)/10); },
+      openTerm(k){ const keys=Object.keys(this.terms); const key=keys.find(t=>t.toLowerCase()===k.toLowerCase()); if(key){ this.termDef=this.terms[key]; this.term=key; this.$nextTick(()=>this.refreshIcons()); } },
+      addNote(){ if(!this.noteVal.trim()) return; this.notes.unshift({sec:this.sectionTitles[this.active], text:this.noteVal.trim()}); this.noteVal=''; this.$nextTick(()=>this.refreshIcons()); },
+      delNote(i){ this.notes.splice(i,1); },
+      toast(m){ this.toastMsg=m; clearTimeout(this._toastT); this._toastT=setTimeout(()=>this.toastMsg='',1800); },
+      stopTTS(){ if(window.speechSynthesis) window.speechSynthesis.cancel(); this._play=false; this.playing=false; this.hl={sec:-1,blk:-1}; },
+      readSection(){
+        if(!window.speechSynthesis) return;
+        if(this.playing){ this.stopTTS(); return; }
+        const queue=this.tts[this.active]||[];
+        if(!queue.length) return;
+        window.speechSynthesis.cancel(); this._play=true; this.playing=true;
+        let i=0; const self=this;
+        const next=()=>{
+          if(!self._play || i>=queue.length){ self.playing=false; self.hl={sec:-1,blk:-1}; return; }
+          self.hl={sec:self.active, blk:queue[i].bi};
+          const u=new SpeechSynthesisUtterance(queue[i].text); u.lang='fr-FR'; u.rate=0.98;
+          u.onend=()=>{ i++; next(); };
+          window.speechSynthesis.speak(u);
+        };
+        next();
+      },
+    };
+  }
+  document.addEventListener('DOMContentLoaded', ()=>{ if(window.lucide) lucide.createIcons(); });
+</script>
+{% endlocalize %}
+</body>
+</html>
