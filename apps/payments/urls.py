@@ -6,8 +6,8 @@ app_name = 'payments'
 
 urlpatterns = [
     path('',                                    views.payment_dashboard,        name='dashboard'),
-    path('form/<int:student_id>/',              views.payment_form,             name='form'),
-    path('create/<int:student_id>/',            views.payment_create,           name='create'),
+    # Ancien flux d'encaissement (form/create non-alloués) supprimé au lot 6 :
+    # l'unique flux est désormais finance:collect-* (allocation FIFO, lot 5).
     path('student/<int:student_id>/history/',   views.payment_history,          name='history'),
     path('cancel/<int:payment_id>/',            views.payment_cancel,           name='cancel'),
     path('receipt/<int:payment_id>/',           views.payment_receipt_download, name='receipt'),

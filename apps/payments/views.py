@@ -2,7 +2,7 @@ import json
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, DecimalField, F, Prefetch, Q, Subquery, OuterRef, Sum, ExpressionWrapper
+from django.db.models import Count, DecimalField, F, Prefetch, Q, Subquery, OuterRef, Sum
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,97 +15,166 @@ from apps.accounts.models import UserRole
 
 from apps.schools.models import SchoolClass
 from apps.core.mixins import get_school, director_or_staff_required
-from apps.dashboard.views import invalidate_dashboard_cache
 from apps.students.models import Student
 
-from .forms import PaymentCancelForm, PaymentCreateForm
+from .forms import PaymentCancelForm
 from .models import Payment
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Helpers — NOUVEAU MODÈLE (lot 6) : tout part des StudentFeeAccount ───────────
+# La page Paiements ne tourne PLUS sur l'ancien solde global (tuition_fee /
+# get_total_paid). Elle agrège les 3 familles de dettes et leurs allocations :
+#   - dû    = Σ FeeDebt.total_amount (dettes actives) de la fiche
+#   - versé = Σ PaymentAllocation.amount affectées aux tranches de la fiche
+#   - solde = dû − versé
+# Calculé en sous-requêtes (pas de Sum multi-jointures qui multiplierait les lignes).
 
+def _dashboard_accounts(school):
+    """Fiches financières actives de l'école, annotées dû / versé / solde (1 requête)."""
+    from apps.finance.models import StudentFeeAccount, FeeDebt, PaymentAllocation
 
-
-def _paid_subquery():
-    return (
-        Payment.objects
-        .filter(student=OuterRef('pk'), is_cancelled=False)
-        .values('student')
-        .annotate(s=Sum('amount'))
-        .values('s')
+    due_sq = (
+        FeeDebt.objects.filter(account=OuterRef('pk'), is_active=True)
+        .values('account').annotate(s=Sum('total_amount')).values('s')
     )
-
-
-def _students_qs(school):
-    paid_sq = _paid_subquery()
+    paid_sq = (
+        PaymentAllocation.objects
+        .filter(installment__debt__account=OuterRef('pk'))
+        .values('installment__debt__account').annotate(s=Sum('amount')).values('s')
+    )
     return (
-        Student.objects
-        .filter(school=school, is_active=True)
-        .select_related('school_class')
-        .prefetch_related(
-            Prefetch(
-                'payments',
-                queryset=Payment.objects.filter(
-                    is_cancelled=False
-                ).order_by('-payment_date'),
-                to_attr='active_payments',
-            )
-        )
+        StudentFeeAccount.objects
+        .filter(enrollment__school=school, enrollment__status='active',
+                enrollment__student__is_active=True)
+        .select_related('enrollment__student__school_class')
+        .prefetch_related(Prefetch(
+            'enrollment__student__payments',
+            queryset=Payment.objects.filter(is_cancelled=False).order_by('-payment_date'),
+            to_attr='active_payments',
+        ))
         .annotate(
-            total_paid=Coalesce(Subquery(paid_sq), Decimal('0'), output_field=DecimalField()),
-            balance=ExpressionWrapper(
-                F('tuition_fee') - Coalesce(Subquery(paid_sq), Decimal('0'), output_field=DecimalField()),
-                output_field=DecimalField(),
-            ),
+            due=Coalesce(Subquery(due_sq, output_field=DecimalField()), Decimal('0')),
+            paid=Coalesce(Subquery(paid_sq, output_field=DecimalField()), Decimal('0')),
         )
-        .order_by('school_class__name', 'full_name')
+        .annotate(balance=F('due') - F('paid'))
+        .order_by('enrollment__student__school_class__name', 'enrollment__student__full_name')
     )
 
 
-def _compute_stats(school, base_qs):
+def _compute_stats(school, accounts):
+    """Stats du haut — nouveau modèle. `accounts` = queryset annoté (toutes fiches)."""
     today = timezone.now().date()
     first_of_month = today.replace(day=1)
 
+    # « Encaissé ce mois » = argent réellement reçu (journal Payment immuable), pas les
+    # allocations : c'est la trésorerie entrée dans la caisse ce mois-ci.
     encaisse_mois = (
         Payment.objects
         .filter(student__school=school, is_cancelled=False, payment_date__gte=first_of_month)
         .aggregate(s=Sum('amount'))['s'] or Decimal('0')
     )
 
-    agg = base_qs.aggregate(
-        total_due=Sum('tuition_fee'),
-        total_paid_all=Sum('total_paid'),
+    agg = accounts.aggregate(
+        total_due=Sum('due'),
+        total_paid=Sum('paid'),
         count_soldes=Count('id', filter=Q(balance__lte=0)),
-        count_impayes=Count('id', filter=Q(total_paid=0)),
+        count_impayes=Count('id', filter=Q(paid=0)),
     )
-
     total_due = agg['total_due'] or Decimal('0')
-    total_paid_all = agg['total_paid_all'] or Decimal('0')
+    total_paid = agg['total_paid'] or Decimal('0')
+
+    # Élèves actifs SANS fiche financière (pas encore entrés par le nouveau système).
+    # En prod (base vierge) = 0 ; en dev, on l'affiche à part pour ne pas fausser les
+    # stats ni planter. Une fiche = 1 enrollment actif → on compte le delta.
+    total_active = Student.objects.filter(school=school, is_active=True).count()
+    sans_fiche = max(total_active - accounts.count(), 0)
 
     return {
-        'total_due':      total_due,
-        'encaisse_mois':  encaisse_mois,
-        'solde_restant':  total_due - total_paid_all,
-        'count_soldes':   agg['count_soldes'] or 0,
-        'count_impayes':  agg['count_impayes'] or 0,
+        'total_due':     total_due,
+        'encaisse_mois': encaisse_mois,
+        'solde_restant': total_due - total_paid,
+        'count_soldes':  agg['count_soldes'] or 0,
+        'count_impayes': agg['count_impayes'] or 0,
+        'sans_fiche':    sans_fiche,
     }
 
 
-def _apply_filters(qs, q, status, class_id):
+def _apply_filters(accounts, q, status, class_id):
+    """Filtres recherche / classe / statut sur les fiches annotées."""
     if q:
-        qs = qs.filter(full_name__icontains=q)
+        accounts = accounts.filter(enrollment__student__full_name__icontains=q)
     if class_id:
-        qs = qs.filter(school_class_id=class_id)
-    if status == 'unpaid':
-        qs = qs.filter(total_paid=0)
-    elif status == 'partial':
-        qs = qs.filter(total_paid__gt=0, balance__gt=0)
-    elif status == 'paid':
-        qs = qs.filter(balance__lte=0)
-    return qs
+        accounts = accounts.filter(enrollment__student__school_class_id=class_id)
+    if status == 'unpaid':            # rien versé
+        accounts = accounts.filter(paid=0)
+    elif status == 'partial':         # acompte < total
+        accounts = accounts.filter(paid__gt=0, balance__gt=0)
+    elif status == 'paid':            # soldé
+        accounts = accounts.filter(balance__lte=0)
+    return accounts
+
+
+def _overdue_rows(school, q, class_id, today=None):
+    """
+    Liste rouge des impayés EN RETARD (lot 6) : élèves ayant ≥ 1 tranche dont
+    due_date < aujourd'hui ET solde > 0. C'est l'aboutissement de la dimension
+    temporelle (on exploite enfin Installment.due_date).
+
+    Pour chaque élève : montant en retard (Σ des tranches échues impayées), nombre de
+    tranches en retard, et ancienneté (jours depuis la plus vieille échéance dépassée).
+    Tri par GRAVITÉ : le plus ancien retard d'abord (jours décroissants), puis le plus
+    gros montant — le guichetier traite les cas les plus critiques en premier.
+    """
+    from apps.finance.models import Installment
+    today = today or timezone.now().date()
+
+    insts = (
+        Installment.objects
+        .filter(debt__account__enrollment__school=school,
+                debt__account__enrollment__status='active',
+                debt__account__enrollment__student__is_active=True,
+                debt__is_active=True, due_date__lt=today)
+        .annotate(allocated=Coalesce(Sum('allocations__amount'), Decimal('0')))
+        .annotate(remaining=F('amount_due') - F('allocated'))
+        .filter(remaining__gt=0)
+        .select_related('debt__account__enrollment__student__school_class')
+    )
+    if class_id:
+        insts = insts.filter(debt__account__enrollment__student__school_class_id=class_id)
+    if q:
+        insts = insts.filter(debt__account__enrollment__student__full_name__icontains=q)
+
+    # Regroupement par élève (en Python : volume = élèves en retard, pas toute l'école).
+    rows = {}
+    for inst in insts:
+        student = inst.debt.account.enrollment.student
+        r = rows.get(student.id)
+        if r is None:
+            r = rows[student.id] = {
+                'student': student, 'amount': Decimal('0'),
+                'oldest': inst.due_date, 'count': 0,
+            }
+        r['amount'] += inst.remaining
+        r['count'] += 1
+        if inst.due_date < r['oldest']:
+            r['oldest'] = inst.due_date
+    out = list(rows.values())
+    for r in out:
+        r['days'] = (today - r['oldest']).days
+    out.sort(key=lambda r: (-r['days'], -r['amount']))
+    return out
 
 
 # ── Vues ──────────────────────────────────────────────────────────────────────
+
+_TAB_LIST = [
+    ('all',     'Tous'),
+    ('unpaid',  'Impayés'),
+    ('partial', 'Partiel'),
+    ('paid',    'Soldés'),
+    ('overdue', 'En retard'),
+]
+
 
 @login_required
 def payment_dashboard(request):
@@ -116,119 +185,31 @@ def payment_dashboard(request):
     status   = request.GET.get('status', 'unpaid')
     class_id = request.GET.get('class_id', '')
 
-    base_qs  = _students_qs(school)
-    stats    = _compute_stats(school, base_qs)
-    filtered = _apply_filters(base_qs, q, status, class_id)
+    accounts = _dashboard_accounts(school)
+    stats    = _compute_stats(school, accounts)
+    classes  = SchoolClass.objects.filter(school=school, is_active=True).order_by('name')
 
-    classes = SchoolClass.objects.filter(school=school, is_active=True).order_by('name')
-
-    tab_list = [
-        ('all',     'Tous'),
-        ('unpaid',  'Impayés'),
-        ('partial', 'Partiel'),
-        ('paid',    'Soldés'),
-    ]
-
-    encaisse_fmt = f"{int(stats['encaisse_mois']):,}".replace(',', ' ')
     ctx = {
-        'students':      filtered,
-        'stats':         stats,
-        'classes':       classes,
-        'tab_list':      tab_list,
-        'q':             q,
-        'status':        status,
-        'class_id':      class_id,
-        'school':        school,
-        'page_subtitle': f"{encaisse_fmt} FCFA collecté ce mois",
+        'stats':       stats,
+        'classes':     classes,
+        'tab_list':    _TAB_LIST,
+        'q':           q,
+        'status':      status,
+        'class_id':    class_id,
+        'school':      school,
+        'page_subtitle': f"{int(stats['encaisse_mois']):,}".replace(',', ' ') + " FCFA collecté ce mois",
     }
+
+    # Onglet « En retard » → liste rouge dédiée (basée sur les due_date).
+    ctx['is_overdue'] = (status == 'overdue')
+    if ctx['is_overdue']:
+        ctx['overdue_rows'] = _overdue_rows(school, q, class_id)
+    else:
+        ctx['accounts'] = _apply_filters(accounts, q, status, class_id)
 
     if request.htmx:
         return render(request, 'payments/partials/payment_list_refresh.html', ctx)
-
     return render(request, 'payments/dashboard.html', ctx)
-
-
-@login_required
-def payment_form(request, student_id):
-    school = get_school(request)
-    student = get_object_or_404(
-        Student.objects.select_related('school_class').prefetch_related('payments'),
-        id=student_id, school=school, is_active=True,
-    )
-    balance = student.get_balance_due()
-    form    = PaymentCreateForm()
-    return render(request, 'payments/partials/payment_form.html', {
-        'student': student,
-        'balance': balance,
-        'form':    form,
-    })
-
-
-@login_required
-@director_or_staff_required
-@require_POST
-def payment_create(request, student_id):
-    school = get_school(request)
-    student = get_object_or_404(
-        Student.objects.select_related('school_class').prefetch_related('payments'),
-        id=student_id, school=school, is_active=True,
-    )
-    form = PaymentCreateForm(request.POST, balance_due=student.get_balance_due())
-
-    if form.is_valid():
-        payment = form.save(commit=False)
-        payment.student      = student
-        payment.collected_by = request.user
-        payment.save()
-        invalidate_dashboard_cache(school)
-
-        # Notifier les parents (jamais bloquant)
-        try:
-            from apps.notifications.services import notify_guardians
-            from apps.notifications.models import NotificationCategory
-            notify_guardians(
-                student=student,
-                category=NotificationCategory.PAYMENT,
-                title='Paiement enregistré',
-                body=f'{payment.amount:,.0f} FCFA reçus le {payment.payment_date}.',
-                url=reverse('parent:payments'),
-                target=payment,
-            )
-        except Exception:
-            pass
-
-        # Le prefetch_related('payments') a été chargé avant le save → cache périmé.
-        # On le purge pour que get_balance_due() recompte le nouveau versement.
-        if hasattr(student, '_prefetched_objects_cache'):
-            student._prefetched_objects_cache.pop('payments', None)
-        balance_after = student.get_balance_due()
-
-        # Re-fetch les stats + liste pour OOB
-        base_qs  = _students_qs(school)
-        stats    = _compute_stats(school, base_qs)
-
-        resp = render(request, 'payments/partials/payment_create_success.html', {
-            'payment':       payment,
-            'student':       student,
-            'balance_after': balance_after,
-            'stats':         stats,
-        })
-        resp['HX-Trigger'] = json.dumps({
-            'showToast': {
-                'message': f'Versement de {payment.amount:,.0f} FCFA enregistré.',
-                'type':    'success',
-                'receipt_url': reverse('payments:receipt', args=[payment.id]),
-            },
-            'close-panel': True,
-        })
-        return resp
-
-    balance = student.get_balance_due()
-    return render(request, 'payments/partials/payment_form.html', {
-        'student': student,
-        'balance': balance,
-        'form':    form,
-    })
 
 
 @login_required
@@ -245,10 +226,25 @@ def payment_history(request, student_id):
         .order_by('-payment_date', '-created_at')
     )
     total_paid = sum(p.amount for p in payments if not p.is_cancelled)
+
+    # ── Tuiles de solde : NOUVEAU modèle (lot 6 finition) ───────────────────────
+    # On affiche dû/versé/solde des 3 familles par allocation (comme la page Paiements
+    # et la timeline fiche), pas l'ancien tuition_fee scolarité-seule. None si l'élève
+    # n'a pas encore de fiche (dev / base partielle) → la modale montre un état neutre.
+    from apps.finance.models import StudentFeeAccount
+    fee_account = (
+        StudentFeeAccount.objects
+        .filter(enrollment__student=student, enrollment__status='active',
+                enrollment__school=school)
+        .prefetch_related('debts__installments__allocations')
+        .order_by('-enrollment__school_year__start_date')
+        .first()
+    )
     return render(request, 'payments/partials/payment_timeline.html', {
-        'student':    student,
-        'payments':   payments,
-        'total_paid': total_paid,
+        'student':     student,
+        'payments':    payments,
+        'total_paid':  total_paid,
+        'fee_account': fee_account,
     })
 
 

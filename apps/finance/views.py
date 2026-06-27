@@ -201,5 +201,8 @@ def collect_create(request, student_id):
             'receipt_url': reverse('payments:receipt', args=[payment.id]),
         },
         'close-collect-panel': {},
+        # Permet à la page Paiements (lot 6) de rafraîchir sa liste + ses stats après
+        # un encaissement. Ignoré ailleurs (la fiche élève se met à jour via l'OOB).
+        'payment-collected': {},
     })
     return resp
