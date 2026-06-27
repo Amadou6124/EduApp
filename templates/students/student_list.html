@@ -22,13 +22,10 @@
   function studentsPageData() {
     return {
       showPanel: false,
-      panelMode: 'individual',
       showImportModal: false,
       showParent: false,
       showPayment: false,
       selectedClassId: null,
-      groupNames: [''],
-      groupClassId: null,
       classes: safeParse('classes-data'),
       viewMode: window.innerWidth < 640 ? 'cards' : (localStorage.getItem('studentsView') || 'cards'),
 
@@ -116,8 +113,6 @@
       },
       get canSubmit() { return !!this.gender && !!this.selectedClassId && this.optionsValid },
 
-      addGroupName() { this.groupNames.push('') },
-      removeGroupName(i) { if (this.groupNames.length > 1) this.groupNames.splice(i, 1) },
       setView(m) { this.viewMode = m; localStorage.setItem('studentsView', m) }
     }
   }
@@ -138,7 +133,7 @@
         <i data-lucide="upload" class="w-4 h-4 shrink-0"></i>
         <span class="hidden sm:inline">Importer</span>
       </button>
-      <button @click="showPanel = true; panelMode = 'individual'"
+      <button @click="showPanel = true"
               class="btn-primary min-h-[44px]">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -223,25 +218,15 @@
 
     {# Header du panel #}
     <div class="sticky top-0 bg-white z-10 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <h2 class="text-base font-semibold text-gray-900">Inscrire un élève</h2>
-        <div class="flex gap-1 bg-gray-100 rounded-lg p-0.5">
-          <button @click="panelMode = 'individual'"
-                  :class="panelMode === 'individual' ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'"
-                  class="px-3 py-1 text-xs font-medium rounded-md transition">Individuel</button>
-          <button @click="panelMode = 'group'"
-                  :class="panelMode === 'group' ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'"
-                  class="px-3 py-1 text-xs font-medium rounded-md transition">Groupe</button>
-        </div>
-      </div>
+      <h2 class="text-base font-semibold text-gray-900">Inscrire un élève</h2>
       <button @click="showPanel = false"
               class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
         <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
       </button>
     </div>
 
-    {# ── Mode individuel ── #}
-    <div x-show="panelMode === 'individual'" class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+    {# ── Inscription individuelle (seul flux du panneau depuis la suppression du mode Groupe) ── #}
+    <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
       <form hx-post="{% url 'students:create' %}"
             hx-target="#student-list-area"
             hx-swap="outerHTML"
@@ -556,68 +541,6 @@
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
             </svg>
             <span x-text="!gender ? 'Choisir le genre' : 'Inscrire'"></span>
-          </button>
-        </div>
-      </form>
-    </div>
-
-    {# ── Mode groupe ── #}
-    <div x-show="panelMode === 'group'" x-cloak class="flex-1 overflow-y-auto">
-      <form hx-post="{% url 'students:create-group' %}"
-            hx-target="#student-list-area"
-            hx-swap="outerHTML"
-            @submit="$el.querySelector('[name=names_data]').value = JSON.stringify(groupNames.filter(n => n.trim()))">
-        {% csrf_token %}
-        <input type="hidden" name="names_data" value="[]">
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Classe <span class="text-red-500">*</span></label>
-          <select name="class_id" x-model="groupClassId" required
-                  class="input-field">
-            <option value="">— Sélectionner une classe —</option>
-            {% for class in classes %}
-              <option value="{{ class.id }}">{{ class.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <label class="text-sm font-medium text-gray-700">Noms des élèves (un nom par ligne)</label>
-            <span class="text-xs text-gray-400" x-text="groupNames.filter(n => n.trim()).length + ' élève(s)'"></span>
-          </div>
-          <div class="space-y-2">
-            <template x-for="(name, i) in groupNames" :key="i">
-              <div class="flex items-center gap-2">
-                <input type="text" x-model="groupNames[i]"
-                       :placeholder="'Élève ' + (i + 1)"
-                       class="input-field flex-1"
-                       @keydown.enter.prevent="addGroupName()">
-                <button type="button" @click="removeGroupName(i)"
-                        x-show="groupNames.length > 1"
-                        class="btn-ghost transition">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-              </div>
-            </template>
-          </div>
-          <button type="button" @click="addGroupName()"
-                  class="mt-2 w-full py-2 border border-dashed border-gray-300 text-sm text-gray-500 hover:border-primary-600 hover:text-primary-600 rounded-lg transition">
-            + Ajouter un élève
-          </button>
-        </div>
-
-        <div class="flex gap-3 pt-2">
-          <button type="button" @click="showPanel = false"
-                  class="btn-secondary flex-1">
-            Annuler
-          </button>
-          <button type="submit"
-                  :disabled="!groupClassId || groupNames.filter(n => n.trim()).length === 0"
-                  class="btn-primary flex-1 min-h-[44px]"
-                  x-text="'Inscrire ' + groupNames.filter(n => n.trim()).length + ' élève(s)'">
           </button>
         </div>
       </form>

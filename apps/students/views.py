@@ -286,63 +286,6 @@ def student_create(request):
 
 
 @login_required
-@director_or_staff_required
-@require_http_methods(['POST'])
-def student_create_group(request):
-    school = get_school(request)
-    class_id   = request.POST.get('class_id')
-    names_json = request.POST.get('names_data', '[]')
-    school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
-
-    try:
-        names = [n.strip() for n in json.loads(names_json) if n.strip()]
-    except (json.JSONDecodeError, ValueError):
-        names = []
-
-    created_students = [
-        Student(
-            school       = school,
-            school_class = school_class,
-            full_name    = name,
-            tuition_fee  = school_class.annual_fee,
-            # Genre laissé nullable pour l'inscription de masse (saisie de noms, pas
-            # d'options par élève). Les frais genrés (tenue) ne s'appliqueront pas
-            # automatiquement tant que le genre n'est pas renseigné — assumé pour ce flux.
-        )
-        for name in names
-    ]
-    Student.objects.bulk_create(created_students)
-
-    # ── Fondation (lot 4a) : enrollment + fiche MINIMALE par élève ─────────────
-    # Mode minimal = scolarité + frais obligatoires uniquement (pas d'options : ce flux
-    # n'en saisit pas). ensure_active_enrollment renvoie None si pas d'année active →
-    # on saute la fiche sans planter. PostgreSQL renseigne les PK après bulk_create.
-    from apps.students.services import ensure_active_enrollment
-    from apps.finance.services import build_fee_account
-    for student in created_students:
-        enrollment = ensure_active_enrollment(student)
-        if enrollment is not None:
-            build_fee_account(enrollment)  # minimal, sans fee_selections
-
-    if request.htmx:
-        students = list(_students_qs(school))
-        stats    = compute_student_stats(school)
-        n        = len(created_students)
-        response = render(request, 'students/partials/student_list_refresh.html', {
-            'students':        students,
-            'stats':           stats,
-            'success_message': _(f'{n} élève(s) inscrit(s) dans {school_class.name}.'),
-        })
-        response['HX-Trigger'] = json.dumps({
-            'close-panel': True,
-            'showToast':   {'message': f'{n} élève(s) inscrit(s) avec succès.', 'type': 'success'},
-        })
-        return response
-
-    return redirect('students:list')
-
-
-@login_required
 def student_detail(request, student_id):
     school = get_school(request)
     student = get_object_or_404(
