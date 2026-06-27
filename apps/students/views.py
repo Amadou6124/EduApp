@@ -112,21 +112,82 @@ def student_list(request):
     students    = list(_students_qs(school, filter_type, class_id))
     stats       = compute_student_stats(school)
     classes     = SchoolClass.objects.filter(school=school, is_active=True).order_by('level', 'name')
-    classes_json = json.dumps([
+    # ── Données pour Alpine — passées comme OBJETS Python ──────────────────────
+    # IMPORTANT : on laisse {% … json_script %} encoder UNE seule fois côté template.
+    # Surtout PAS de json.dumps ici, sinon double encodage → JSON.parse renvoie une
+    # chaîne et tout le composant Alpine casse (bug lot 4a).
+    classes_data = [
         {'id': c.id, 'name': c.name, 'annual_fee': int(c.annual_fee), 'level': c.level}
         for c in classes
-    ])
-    nb_classes = len(classes)  # queryset évalué par classes_json — pas de SQL supplémentaire
+    ]
+    nb_classes = len(classes)  # queryset évalué par classes_data — pas de SQL supplémentaire
+
+    # Catalogue de frais + gabarits pour le panneau enrichi (lot 4a).
+    fees_data, schedule_data, default_template_count = _enrollment_catalog_data(school)
+
     return render(request, 'students/student_list.html', {
         'students':      students,
         'stats':         stats,
         'form':          StudentCreateForm(school=school),
         'classes':       classes,
-        'classes_json':  classes_json,
+        'classes_data':  classes_data,
+        'fees_data':     fees_data,
+        'schedule_data': schedule_data,
+        'default_template_count': default_template_count,
         'school':        school,
         'filter_type':   filter_type,
         'page_subtitle': f"{stats['total']} élève{'s' if stats['total'] != 1 else ''} · {nb_classes} classe{'s' if nb_classes != 1 else ''}",
     })
+
+
+def _enrollment_catalog_data(school):
+    """
+    Données (objets Python, à encoder via json_script) pour le panneau enrichi (lot 4a) :
+      - fees_data     : frais actifs hors scolarité (obligatoires + optionnels) + variantes ;
+      - schedule_data : gabarits de tranches de l'école ;
+      - default_template_count : nb de tranches du gabarit par défaut (1 par défaut).
+    Robuste à une école NON configurée : renvoie des listes vides + 1 (repli annuel).
+    """
+    from apps.finance.models import FeeType, FeeCategory, PaymentScheduleTemplate
+
+    fees = (
+        FeeType.objects
+        .filter(school=school, is_active=True)
+        .exclude(category=FeeCategory.TUITION)
+        .prefetch_related('variants')
+        .order_by('is_mandatory', 'order', 'name')
+    )
+    fees_data = []
+    for f in fees:
+        fees_data.append({
+            'id':              f.id,
+            'name':            f.name,
+            'category':        f.category,           # one_time | subscription
+            'is_mandatory':    f.is_mandatory,
+            'has_variants':    f.has_variants,
+            'is_gender_based': f.is_gender_based,
+            'default_amount':  int(f.default_amount) if f.default_amount is not None else None,
+            'icon':            f.get_icon(),
+            'variants': [
+                {'id': v.id, 'label': v.label, 'amount': int(v.amount), 'gender_key': v.gender_key}
+                for v in f.variants.all() if v.is_active
+            ],
+        })
+
+    templates = list(
+        PaymentScheduleTemplate.objects
+        .filter(school=school, is_active=True)
+        .order_by('installments_count')
+    )
+    schedule_data = [
+        {'id': t.id, 'name': t.name, 'installments_count': t.installments_count,
+         'is_default': t.is_default}
+        for t in templates
+    ]
+    default_count = next((t.installments_count for t in templates if t.is_default), 1)
+
+    # Objets Python (PAS de json.dumps) : json_script encodera une seule fois côté template.
+    return fees_data, schedule_data, default_count
 
 
 @login_required
@@ -134,17 +195,66 @@ def student_list(request):
 @require_http_methods(['POST'])
 def student_create(request):
     school = get_school(request)
+
+    # ── Garde-fou (lot 4a) : pas d'année active → pas d'inscription possible ────
+    # La fiche financière s'accroche à l'enrollment de l'année active. Sans année
+    # active, on bloque proprement (toast) au lieu d'inscrire un élève sans fiche.
+    from apps.students.services import ensure_active_enrollment, has_active_year
+    if not has_active_year(school):
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': 'Aucune année scolaire active — configurez-en une avant d\'inscrire.',
+            'type': 'error',
+        }})
+        return resp
+
     form = StudentCreateForm(request.POST, school=school)
 
     if form.is_valid():
         student = form.save(commit=False)
         student.school      = school
         student.tuition_fee = student.school_class.annual_fee
-        student.save()
+        student.save()  # gender inclus via le form (lot 4a)
         invalidate_dashboard_cache(school)
+
+        # ── Fondation + fiche financière (lot 4a) ──────────────────────────────
+        # 1) enrollment ACTIVE de l'année active (idempotent, contrainte unique lot 1).
+        # 2) génération de la fiche avec les options cochées + le gabarit choisi.
+        from apps.finance.services import build_fee_account
+        from apps.finance.models import PaymentScheduleTemplate
+
+        enrollment = ensure_active_enrollment(student)
+
+        # Options optionnelles cochées : name="option_fees" (liste d'IDs FeeType) +
+        # variant_<id> pour les frais à variantes (trajet de bus).
+        fee_selections = []
+        for fid in request.POST.getlist('option_fees'):
+            try:
+                fid_int = int(fid)
+            except (TypeError, ValueError):
+                continue
+            vid = request.POST.get(f'variant_{fid}') or None
+            try:
+                vid_int = int(vid) if vid else None
+            except (TypeError, ValueError):
+                vid_int = None
+            fee_selections.append({'fee_type_id': fid_int, 'variant_id': vid_int})
+
+        # Gabarit de scolarité choisi (sinon défaut résolu dans build_fee_account).
+        template = None
+        tpl_id = request.POST.get('schedule_template')
+        if tpl_id:
+            template = PaymentScheduleTemplate.objects.filter(
+                school=school, id=tpl_id, is_active=True,
+            ).first()
+
+        if enrollment is not None:
+            build_fee_account(enrollment, fee_selections=fee_selections, template=template)
 
         initial_amount = form.cleaned_data.get('initial_payment')
         if initial_amount and initial_amount > 0:
+            # Paiement initial conservé tel quel — NON alloué aux tranches ici.
+            # L'allocation Payment→Installment est le sujet du lot 5.
             Payment.objects.create(
                 student        = student,
                 amount         = initial_amount,
@@ -195,10 +305,24 @@ def student_create_group(request):
             school_class = school_class,
             full_name    = name,
             tuition_fee  = school_class.annual_fee,
+            # Genre laissé nullable pour l'inscription de masse (saisie de noms, pas
+            # d'options par élève). Les frais genrés (tenue) ne s'appliqueront pas
+            # automatiquement tant que le genre n'est pas renseigné — assumé pour ce flux.
         )
         for name in names
     ]
     Student.objects.bulk_create(created_students)
+
+    # ── Fondation (lot 4a) : enrollment + fiche MINIMALE par élève ─────────────
+    # Mode minimal = scolarité + frais obligatoires uniquement (pas d'options : ce flux
+    # n'en saisit pas). ensure_active_enrollment renvoie None si pas d'année active →
+    # on saute la fiche sans planter. PostgreSQL renseigne les PK après bulk_create.
+    from apps.students.services import ensure_active_enrollment
+    from apps.finance.services import build_fee_account
+    for student in created_students:
+        enrollment = ensure_active_enrollment(student)
+        if enrollment is not None:
+            build_fee_account(enrollment)  # minimal, sans fee_selections
 
     if request.htmx:
         students = list(_students_qs(school))
@@ -800,6 +924,17 @@ def student_import_confirm(request):
                     break
                 except IntegrityError:
                     continue
+
+    # ── Fondation (lot 4a) : enrollment + fiche MINIMALE par élève importé ──────
+    # Mode minimal (scolarité + frais obligatoires). L'enrichissement de l'import
+    # (colonne genre, options) est le sujet du lot 4b. Sans année active → skip sans
+    # planter (ensure_active_enrollment renvoie None).
+    from apps.students.services import ensure_active_enrollment
+    from apps.finance.services import build_fee_account
+    for student in created:
+        enrollment = ensure_active_enrollment(student)
+        if enrollment is not None:
+            build_fee_account(enrollment)
 
     if request.htmx:
         students = list(_students_qs(school))

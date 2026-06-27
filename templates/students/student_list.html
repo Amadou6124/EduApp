@@ -5,8 +5,20 @@
 {% block page_title %}Élèves{% endblock %}
 
 {% block extra_head %}
-{{ classes_json|json_script:"classes-data" }}
+{{ classes_data|json_script:"classes-data" }}
+{{ fees_data|json_script:"fees-data" }}
+{{ schedule_data|json_script:"schedule-data" }}
 <script>
+  // Parsing défensif : renvoie toujours un tableau, même si le script JSON est
+  // absent/vide/malformé (école non configurée) → Alpine ne casse jamais.
+  function safeParse(id) {
+    try {
+      const el = document.getElementById(id);
+      const v = el ? JSON.parse(el.textContent) : [];
+      return Array.isArray(v) ? v : [];
+    } catch (e) { return []; }
+  }
+
   function studentsPageData() {
     return {
       showPanel: false,
@@ -17,10 +29,93 @@
       selectedClassId: null,
       groupNames: [''],
       groupClassId: null,
-      classes: JSON.parse(document.getElementById('classes-data').textContent),
+      classes: safeParse('classes-data'),
       viewMode: window.innerWidth < 640 ? 'cards' : (localStorage.getItem('studentsView') || 'cards'),
+
+      // ── Inscription enrichie (lot 4a) ──
+      gender: '',                 // '' | 'F' | 'M' (obligatoire)
+      selectedFees: [],           // IDs des frais optionnels cochés (strings)
+      variantChoice: {},          // fee_id -> variant_id (trajet de bus)
+      templateId: null,           // gabarit de scolarité choisi (défaut à l'init)
+      showOptions: false,
+      showSchedule: false,
+      showRecapDetail: false,
+      fees: safeParse('fees-data'),
+      schedules: safeParse('schedule-data'),
+      defaultTemplateCount: {{ default_template_count|default:1 }} || 1,
+
+      init() {
+        // Robuste à une école NON configurée : pas de gabarit → templateId reste null,
+        // currentTemplateCount retombe sur 1 (repli annuel), rien ne casse.
+        const def = (this.schedules || []).find(s => s.is_default);
+        this.templateId = def ? def.id : ((this.schedules || [])[0] ? this.schedules[0].id : null);
+      },
+
+      // L'école a-t-elle un catalogue de frais ? (sinon : bandeau d'info en haut)
+      get hasCatalog() { return Array.isArray(this.fees) && this.fees.length > 0 },
+
       get selectedClass() { return this.classes.find(c => c.id == this.selectedClassId) },
       get selectedFee() { return this.selectedClass ? this.selectedClass.annual_fee : null },
+
+      // Frais par nature
+      get optionalFees()    { return this.fees.filter(f => !f.is_mandatory) },
+      get mandatoryOneTime(){ return this.fees.filter(f => f.is_mandatory && f.category === 'one_time') },
+
+      isSelected(fee) { return this.selectedFees.map(String).includes(String(fee.id)) },
+
+      // Montant d'un frais selon le contexte (genre / variante choisie / simple)
+      amountFor(fee) {
+        if (fee.is_gender_based) {
+          if (!this.gender) return 0;
+          const v = fee.variants.find(x => x.gender_key === this.gender);
+          return v ? v.amount : 0;
+        }
+        if (fee.has_variants) {
+          const v = fee.variants.find(x => x.id == this.variantChoice[fee.id]);
+          return v ? v.amount : 0;
+        }
+        return fee.default_amount || 0;
+      },
+
+      get currentTemplateCount() {
+        const t = (this.schedules || []).find(s => s.id == this.templateId);
+        // Repli annuel (1 tranche) si aucun gabarit — jamais "undefined".
+        return (t ? t.installments_count : this.defaultTemplateCount) || 1;
+      },
+      get currentTemplateName() {
+        const t = (this.schedules || []).find(s => s.id == this.templateId);
+        // École sans gabarit configuré → libellé clair, pas vide.
+        return t ? t.name : 'Paiement en une fois';
+      },
+      // 1ère tranche de scolarité = base + report du reste (cohérent serveur)
+      get firstTuition() {
+        if (!this.selectedFee) return 0;
+        const N = this.currentTemplateCount || 1;
+        return Math.floor(this.selectedFee / N) + (this.selectedFee % N > 0 ? 1 : 0);
+      },
+
+      // Total « à la rentrée » : 1ère tranche scolarité + ponctuels (oblig. + optionnels cochés)
+      get recapTotal() {
+        let total = this.firstTuition;
+        for (const f of this.mandatoryOneTime) total += this.amountFor(f);
+        for (const f of this.optionalFees)
+          if (this.isSelected(f) && f.category === 'one_time') total += this.amountFor(f);
+        return total;
+      },
+      // Abonnements cochés (bus/cantine) — hors total rentrée, listés à part
+      get selectedSubscriptions() {
+        return this.optionalFees.filter(f => this.isSelected(f) && f.category === 'subscription');
+      },
+      fmt(n) { return (n || 0).toLocaleString('fr-FR') },
+
+      // Une option à variantes non genrée (bus) cochée DOIT avoir un trajet choisi
+      get optionsValid() {
+        return this.optionalFees.every(f =>
+          !this.isSelected(f) || !f.has_variants || f.is_gender_based || this.variantChoice[f.id]
+        );
+      },
+      get canSubmit() { return !!this.gender && !!this.selectedClassId && this.optionsValid },
+
       addGroupName() { this.groupNames.push('') },
       removeGroupName(i) { if (this.groupNames.length > 1) this.groupNames.splice(i, 1) },
       setView(m) { this.viewMode = m; localStorage.setItem('studentsView', m) }
@@ -153,6 +248,22 @@
             x-init="$nextTick(() => $el.querySelector('[name=full_name]')?.focus())">
         {% csrf_token %}
 
+        {% comment %}
+          Bandeau d'info — école sans catalogue de frais (lot 4a, robustesse).
+          L'inscription de base reste possible (nom/classe/genre/scolarité) ; les
+          options s'activent une fois le catalogue configuré.
+        {% endcomment %}
+        <div x-show="!hasCatalog" x-cloak
+             class="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2.5">
+          <i data-lucide="info" class="w-4 h-4 text-amber-500 mt-0.5 shrink-0"></i>
+          <div class="text-xs text-amber-800">
+            Cette école n'a pas encore de catalogue de frais. L'inscription reste possible
+            (scolarité de la classe). Configurez-le dans
+            <a href="{% url 'settings:fees' %}" class="font-semibold underline hover:no-underline">Paramètres → Frais &amp; tranches</a>
+            pour activer les options.
+          </div>
+        </div>
+
         {# Section 1 — Infos essentielles #}
         <div>
           <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Informations essentielles</h3>
@@ -174,6 +285,25 @@
                 {% endfor %}
               </select>
             </div>
+
+            {# Genre — sélecteur segmenté OBLIGATOIRE (lot 4a). Pilote la tenue auto. #}
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Genre <span class="text-red-500">*</span></label>
+              <input type="hidden" name="gender" :value="gender">
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" @click="gender = 'F'"
+                        :class="gender === 'F' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+                        class="flex items-center justify-center gap-2 border-2 rounded-xl py-2.5 text-sm font-medium transition">
+                  <i data-lucide="venus" class="w-4 h-4"></i> Fille
+                </button>
+                <button type="button" @click="gender = 'M'"
+                        :class="gender === 'M' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+                        class="flex items-center justify-center gap-2 border-2 rounded-xl py-2.5 text-sm font-medium transition">
+                  <i data-lucide="mars" class="w-4 h-4"></i> Garçon
+                </button>
+              </div>
+            </div>
+
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone élève</label>
@@ -226,6 +356,114 @@
           </div>
         </div>
 
+        {% comment %}
+          ── Section 2b — Options et services (lot 4a, repliable, plié par défaut) ──
+          Affichée seulement si l'école a un catalogue (sinon le bandeau du haut
+          explique). Si catalogue SANS frais optionnel → message clair (jamais un trou).
+        {% endcomment %}
+        <div class="border-t border-gray-100 pt-4" x-show="hasCatalog">
+          <button type="button" @click="showOptions = !showOptions"
+                  class="flex items-center justify-between w-full mb-1">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Options et services</h3>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="showOptions && 'rotate-180'"></i>
+          </button>
+
+          {# Catalogue présent mais aucune option facultative #}
+          <p x-show="showOptions && !optionalFees.length" x-cloak class="text-xs text-gray-400 mt-2">
+            Aucune option configurée pour cette école.
+            <a href="{% url 'settings:fees' %}" class="text-primary-600 underline hover:no-underline">Ajouter des frais</a>
+          </p>
+
+          <div x-show="showOptions && optionalFees.length" x-cloak class="space-y-2 mt-2"
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 -translate-y-1"
+               x-transition:enter-end="opacity-100 translate-y-0">
+            <template x-for="fee in optionalFees" :key="fee.id">
+              <div class="rounded-xl border border-gray-100 p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <i :data-lucide="fee.icon" class="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true"></i>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-gray-800 truncate" x-text="fee.name"></p>
+                      {# Prix / nature dynamique #}
+                      <p class="text-xs text-gray-400">
+                        <span x-show="fee.is_gender_based && !gender">Choisissez d'abord le genre</span>
+                        <span x-show="fee.is_gender_based && gender" x-text="fmt(amountFor(fee)) + ' F · auto (' + (gender === 'F' ? 'Fille' : 'Garçon') + ')'"></span>
+                        <span x-show="!fee.is_gender_based && fee.has_variants">Selon le trajet / la formule</span>
+                        <span x-show="!fee.has_variants && fee.category === 'subscription'" x-text="fmt(fee.default_amount) + ' F / mois'"></span>
+                        <span x-show="!fee.has_variants && fee.category === 'one_time'" x-text="fmt(fee.default_amount) + ' F'"></span>
+                      </p>
+                    </div>
+                  </div>
+                  {# Toggle iOS — la checkbox est le vrai champ posté (name=option_fees) #}
+                  <label class="relative inline-block shrink-0 cursor-pointer">
+                    <input type="checkbox" name="option_fees" :value="fee.id" x-model="selectedFees" class="sr-only peer">
+                    <span class="block w-9 h-5 bg-gray-200 peer-checked:bg-primary-600 rounded-full transition"></span>
+                    <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></span>
+                  </label>
+                </div>
+
+                {# Sélecteur de variante (bus = trajet) quand l'option est cochée #}
+                <div x-show="isSelected(fee) && fee.has_variants && !fee.is_gender_based" x-cloak class="mt-3">
+                  <select :name="'variant_' + fee.id" x-model="variantChoice[fee.id]"
+                          class="input-field">
+                    <option value="">— Choisir —</option>
+                    <template x-for="v in fee.variants" :key="v.id">
+                      <option :value="v.id" x-text="v.label + ' — ' + fmt(v.amount) + ' F'"></option>
+                    </template>
+                  </select>
+                  <p x-show="!variantChoice[fee.id]" class="text-xs text-red-500 mt-1">Choix requis si l'option est activée.</p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        {% comment %}
+          ── Section 2c — Paiement de la scolarité : gabarit (repliable, plié) ──
+          Toujours visible (la scolarité est due dans tous les cas). Sans gabarit
+          configuré → état neutre « paiement en une fois », jamais "undefined tranche".
+        {% endcomment %}
+        <div class="border-t border-gray-100 pt-4">
+          <input type="hidden" name="schedule_template" :value="templateId">
+
+          {# Cas configuré : ligne cliquable + choix de gabarit #}
+          <template x-if="schedules.length">
+            <div>
+              <button type="button" @click="showSchedule = !showSchedule"
+                      class="flex items-center justify-between w-full">
+                <div class="text-left">
+                  <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Paiement de la scolarité</h3>
+                  <p class="text-xs text-gray-500 mt-0.5">
+                    <span x-text="currentTemplateName"></span> ·
+                    <span x-text="currentTemplateCount + ' tranche' + (currentTemplateCount > 1 ? 's' : '')"></span>
+                    · modifiable
+                  </p>
+                </div>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="showSchedule && 'rotate-180'"></i>
+              </button>
+              <div x-show="showSchedule" x-cloak class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                <template x-for="t in schedules" :key="t.id">
+                  <button type="button" @click="templateId = t.id"
+                          :class="templateId == t.id ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+                          class="border-2 rounded-xl p-2.5 text-left transition">
+                    <p class="text-sm font-medium" x-text="t.name"></p>
+                    <p class="text-xs text-gray-400" x-text="t.installments_count + ' tranche' + (t.installments_count > 1 ? 's' : '')"></p>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          {# Cas non configuré : état neutre, non cliquable #}
+          <template x-if="!schedules.length">
+            <div>
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Paiement de la scolarité</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Aucun échéancier configuré — scolarité due en une fois.</p>
+            </div>
+          </template>
+        </div>
+
         {# Section 3 — Paiement initial #}
         <div class="border-t border-gray-100 pt-4">
           <div class="flex items-center justify-between mb-3">
@@ -269,6 +507,40 @@
           </div>
         </div>
 
+        {# ── Récap LIVE « à la rentrée » (lot 4a) ── #}
+        <div class="border-t border-gray-100 pt-4" x-show="selectedClassId">
+          <div class="rounded-xl bg-primary-50 border border-primary-100 p-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-primary-800">À régler à la rentrée</span>
+              <span class="text-lg font-bold text-primary-700"><span x-text="fmt(recapTotal)"></span> F</span>
+            </div>
+            {# Détail replié #}
+            <button type="button" @click="showRecapDetail = !showRecapDetail"
+                    class="text-xs text-primary-600 hover:underline mt-1">
+              <span x-text="showRecapDetail ? 'masquer le détail' : 'voir le détail'"></span>
+            </button>
+            <div x-show="showRecapDetail" x-cloak class="mt-2 space-y-1 text-xs text-primary-900/70">
+              <div class="flex justify-between" x-show="selectedFee">
+                <span>Scolarité — 1ère tranche (<span x-text="currentTemplateName"></span>)</span>
+                <span x-text="fmt(firstTuition) + ' F'"></span>
+              </div>
+              <template x-for="f in mandatoryOneTime" :key="f.id">
+                <div class="flex justify-between"><span x-text="f.name"></span><span x-text="fmt(amountFor(f)) + ' F'"></span></div>
+              </template>
+              <template x-for="f in optionalFees" :key="'d'+f.id">
+                <div class="flex justify-between" x-show="isSelected(f) && f.category === 'one_time'">
+                  <span x-text="f.name"></span><span x-text="fmt(amountFor(f)) + ' F'"></span>
+                </div>
+              </template>
+            </div>
+            {# Abonnements (mensuels) — hors total rentrée #}
+            <p x-show="selectedSubscriptions.length" class="text-xs text-primary-700/70 mt-2 pt-2 border-t border-primary-100">
+              + <template x-for="(s, i) in selectedSubscriptions" :key="s.id"><span><span x-show="i > 0">, </span><span x-text="s.name.toLowerCase()"></span></span></template>
+              <span> à régler mensuellement (hors rentrée)</span>
+            </p>
+          </div>
+        </div>
+
         {# Boutons #}
         <div class="flex gap-3 pt-2">
           <button type="button" @click="showPanel = false"
@@ -276,12 +548,14 @@
             Annuler
           </button>
           <button type="submit"
+                  :disabled="!canSubmit"
+                  :class="!canSubmit && 'opacity-50 cursor-not-allowed'"
                   class="btn-primary flex-1 min-h-[44px]">
             <svg class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
             </svg>
-            Inscrire
+            <span x-text="!gender ? 'Choisir le genre' : 'Inscrire'"></span>
           </button>
         </div>
       </form>

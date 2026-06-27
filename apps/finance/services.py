@@ -50,27 +50,36 @@ def is_returning_student(enrollment):
 # 1. Construction de la fiche financière d'un enrollment
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def build_fee_account(enrollment, optional_fee_selections=None):
+def build_fee_account(enrollment, fee_selections=None, template=None):
     """
     Crée (ou retourne) le StudentFeeAccount d'un enrollment, avec ses dettes.
 
-    Génère AUTOMATIQUEMENT :
+    Génère :
       - la SCOLARITÉ (kind=tuition) depuis enrollment.school_class.annual_fee, découpée
-        en tranches par le gabarit par défaut de l'école (cf. generate_tuition_installments) ;
-      - les frais OBLIGATOIRES applicables (applies_to vs nouveau/ancien) :
-          * ONE_TIME    → 1 dette + 1 tranche (échéance = rentrée),
-          * SUBSCRIPTION → 1 dette is_active=False (mécanique prête ; les mensualités
-            seront générées à l'activation, lot 4 — on ne crée pas les 9 mois ici).
+        par `template` (gabarit choisi à l'inscription) sinon le gabarit par défaut ;
+      - les frais OBLIGATOIRES applicables (applies_to vs nouveau/ancien) ;
+      - les frais OPTIONNELS choisis à l'inscription, via `fee_selections`.
 
-    NE génère PAS les frais optionnels (is_mandatory=False) : ils sont choisis à
-    l'inscription (lot 4). `optional_fee_selections` est réservé à ce futur usage.
+    `fee_selections` (lot 4a — inscription unitaire) : liste de dicts
+        [{'fee_type_id': int, 'variant_id': int|None}, …]
+      décrivant les options cochées (tenue, fournitures, cantine, bus…). Pour groupe et
+      import, on appelle SANS fee_selections → seulement scolarité + frais obligatoires
+      (mode « minimal »). L'enrichissement options de l'import = lot 4b.
 
-    IDEMPOTENT : si la fiche existe DÉJÀ AVEC des dettes, on la retourne telle quelle
-    (on ne reconstruit pas — éviter d'écraser un échéancier déjà payé). Une fiche
-    existante mais VIDE (rare) est complétée.
+    DÉCISIONS ACTÉES (cf. FINANCE_MODULE_PLAN.md) :
+      - ONE_TIME (inscription, tenue, fournitures) → 1 dette + 1 tranche (éch. = rentrée).
+      - SUBSCRIPTION (bus, cantine) :
+          * choisi à l'inscription   → dette is_active=True, MAIS AUCUNE mensualité
+            générée d'avance ; la 1ère mensualité naîtra au paiement (lot 5) ;
+          * obligatoire non choisi   → dette is_active=False (mécanique prête).
+      - TENUE → variante auto selon student.gender ; BUS → variante = trajet choisi.
+
+    IDEMPOTENT : fiche existant DÉJÀ AVEC des dettes → retournée telle quelle (on ne
+    reconstruit pas un échéancier possiblement déjà payé).
     """
     school = enrollment.school
     school_class = enrollment.school_class
+    student = enrollment.student
     is_returning = is_returning_student(enrollment)
 
     with transaction.atomic():
@@ -88,17 +97,19 @@ def build_fee_account(enrollment, optional_fee_selections=None):
                 kind=FeeDebtKind.TUITION, label='Scolarité',
                 total_amount=annual_fee,
             )
-            template = (
+            tpl = template or (
                 PaymentScheduleTemplate.objects
                 .filter(school=school, is_default=True, is_active=True).first()
             )
             periods = []
             if enrollment.school_year_id:
                 periods = list(enrollment.school_year.periods.order_by('order'))
-            generate_tuition_installments(tuition_debt, template, periods)
+            generate_tuition_installments(tuition_debt, tpl, periods)
+
+        rentree = _start_date_for(enrollment)
+        processed_ids = set()  # anti double-comptage entre obligatoires et options
 
         # ── 2) Frais OBLIGATOIRES applicables (hors scolarité) ──────────────────
-        rentree = _start_date_for(enrollment)
         mandatory_fees = (
             FeeType.objects
             .filter(school=school, is_active=True, is_mandatory=True)
@@ -108,47 +119,82 @@ def build_fee_account(enrollment, optional_fee_selections=None):
         for fee in mandatory_fees:
             if not fee.applies_to_student(is_returning):
                 continue
+            # Abonnement obligatoire → inactif (pas d'activation automatique).
+            _make_debt(account, fee, is_returning, student, rentree,
+                       activate_subscription=False)
+            processed_ids.add(fee.id)
 
-            variant = None
-            if fee.has_variants:
-                if fee.is_gender_based:
-                    # Variante choisie AUTOMATIQUEMENT selon le genre de l'élève (lot 1).
-                    g = enrollment.student.gender
-                    variant = (
-                        fee.variants.filter(is_active=True, gender_key=g).first() if g else None
-                    )
-                    if variant is None:
-                        # Genre absent / pas de variante correspondante → on ne devine
-                        # pas, on saute (sera réglé manuellement à l'inscription, lot 4).
-                        continue
-                else:
-                    # Variante à choix manuel (bus, formule) → pas d'auto-sélection ici.
-                    continue
-
-            amount = fee.resolved_amount(is_returning, variant=variant)
-            if amount is None:
-                continue  # rien à facturer (sécurité)
-
-            label = fee.name if variant is None else f'{fee.name} — {variant.label}'
-
-            if fee.category == FeeCategory.SUBSCRIPTION:
-                # Abonnement obligatoire : dette inactive, mensualités non générées ici.
-                FeeDebt.objects.create(
-                    account=account, fee_type=fee, variant=variant,
-                    kind=FeeDebtKind.SUBSCRIPTION, label=label,
-                    total_amount=amount, is_active=False,
-                )
-            else:  # ONE_TIME
-                debt = FeeDebt.objects.create(
-                    account=account, fee_type=fee, variant=variant,
-                    kind=FeeDebtKind.ONE_TIME, label=label, total_amount=amount,
-                )
-                Installment.objects.create(
-                    debt=debt, sequence=1, amount_due=amount,
-                    due_date=rentree, label=label,
-                )
+        # ── 3) Frais OPTIONNELS choisis à l'inscription ─────────────────────────
+        for sel in (fee_selections or []):
+            fid = sel.get('fee_type_id')
+            if not fid or fid in processed_ids:
+                continue
+            fee = (
+                FeeType.objects
+                .filter(school=school, id=fid, is_active=True)
+                .exclude(category=FeeCategory.TUITION)
+                .first()
+            )
+            if fee is None:
+                continue
+            # Variante explicitement choisie (bus = trajet). Ignorée pour les frais
+            # genrés (résolus automatiquement par le genre dans _make_debt).
+            chosen_variant = None
+            vid = sel.get('variant_id')
+            if vid:
+                chosen_variant = fee.variants.filter(id=vid, is_active=True).first()
+            # Une option cochée = on l'active (abonnement is_active=True).
+            _make_debt(account, fee, is_returning, student, rentree,
+                       chosen_variant=chosen_variant, activate_subscription=True)
+            processed_ids.add(fid)
 
         return account
+
+
+def _make_debt(account, fee, is_returning, student, rentree,
+               chosen_variant=None, activate_subscription=False):
+    """
+    Crée la FeeDebt (+ tranche si ponctuel) pour un frais donné. Retourne la dette,
+    ou None si rien à facturer (variante introuvable / montant nul).
+
+    Résolution de la variante :
+      - frais genré (tenue)         → variante auto selon student.gender ;
+      - frais à variantes non genré → variante = chosen_variant (trajet bus). Requise :
+        sans elle, on saute (pas de montant fiable) ;
+      - frais simple                → pas de variante.
+    """
+    variant = chosen_variant
+    if fee.has_variants and fee.is_gender_based:
+        g = student.gender
+        variant = fee.variants.filter(is_active=True, gender_key=g).first() if g else None
+        if variant is None:
+            # Genre absent ou pas de variante correspondante → on ne devine pas.
+            return None
+    elif fee.has_variants and not fee.is_gender_based and variant is None:
+        return None
+
+    amount = fee.resolved_amount(is_returning, variant=variant)
+    if amount is None:
+        return None
+
+    label = fee.name if variant is None else f'{fee.name} — {variant.label}'
+
+    if fee.category == FeeCategory.SUBSCRIPTION:
+        # Abonnement : aucune mensualité générée d'avance (cf. décision actée).
+        return FeeDebt.objects.create(
+            account=account, fee_type=fee, variant=variant,
+            kind=FeeDebtKind.SUBSCRIPTION, label=label,
+            total_amount=amount, is_active=activate_subscription,
+        )
+    # ONE_TIME : 1 dette + 1 tranche échue à la rentrée.
+    debt = FeeDebt.objects.create(
+        account=account, fee_type=fee, variant=variant,
+        kind=FeeDebtKind.ONE_TIME, label=label, total_amount=amount,
+    )
+    Installment.objects.create(
+        debt=debt, sequence=1, amount_due=amount, due_date=rentree, label=label,
+    )
+    return debt
 
 
 def _start_date_for(enrollment):
