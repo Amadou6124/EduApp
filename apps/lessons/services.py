@@ -548,19 +548,26 @@ POINT DE VIGILANCE — pass_index vs concept_id :
 9. dynamic_formula — Formule à variables aléatoires
 - Quand l'utiliser : un calcul paramétré, RÉGÉNÉRÉ par élève (anti-triche) — maths,
   physique, comptabilité.
-- Champs : "formula_template" (l'équation, ex. "a*x + b = c") ; "variables" (un objet
+- Champs : "formula_template" (l'équation, ex. "a + b") ; "variables" (un objet
   où chaque variable a { "min", "max", "step" }) ; "solution_formula" (la formule qui
   CALCULE la réponse à partir des variables) ; "expected_input" ("numeric") ;
   "correct_answer" (valeur témoin d'un tirage).
+- RÈGLE PLACEHOLDERS — CRUCIAL : dans "instruction", CHAQUE variable DOIT apparaître
+  entre accolades {nom} (ex. {a}, {b}). Elle sera remplacée par un nombre tiré au
+  moment de l'affichage. N'écris JAMAIS la lettre nue sans accolades : sinon l'élève
+  verrait la lettre (« a oranges ») au lieu d'un nombre (« 3 oranges ») — ce qui n'a
+  AUCUN sens, surtout pour les jeunes niveaux. Les accolades ne servent QUE dans
+  "instruction" ; "formula_template" et "solution_formula" gardent les noms nus (a, b).
 - Exemple :
-  { "type": "dynamic_formula", "instruction": "Résous a·x + b = c pour x.",
-    "formula_template": "a*x + b = c",
-    "variables": { "a": {"min":2,"max":9,"step":1}, "b": {"min":1,"max":20,"step":1},
-                   "c": {"min":21,"max":60,"step":1} },
-    "solution_formula": "(c - b) / a", "expected_input": "numeric", "correct_answer": 4 }
+  { "type": "dynamic_formula",
+    "instruction": "Un vendeur a {a} oranges et {b} oranges. Combien en a-t-il en tout ?",
+    "formula_template": "a + b",
+    "variables": { "a": {"min":1,"max":9,"step":1}, "b": {"min":1,"max":9,"step":1} },
+    "solution_formula": "a + b", "expected_input": "numeric", "correct_answer": 8 }
 - Piège : "solution_formula" DOIT être une vraie formule CALCULABLE à partir des
   variables (ex. "(c - b) / a"), jamais une constante. Choisis des "min"/"max"/"step"
-  qui donnent un résultat propre. Le serveur recalcule la réponse par élève.
+  qui donnent un résultat propre, et un énoncé CONCRET (objets, fruits, billes…)
+  adapté à l'âge. Le serveur recalcule la réponse par élève.
 
 ────────────────────────────────────────────────────────────────────────────
 10. math_expression — Expression mathématique
