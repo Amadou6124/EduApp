@@ -1,0 +1,567 @@
+{% load static l10n %}{% localize off %}<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ meta.title }} — EduApp</title>
+<link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090E;--surface:#111118;--surface-2:#1A1A24;--surface-3:#22222E;
+  --border:rgba(255,255,255,.07);--border-2:rgba(255,255,255,.12);
+  --text:#EEEEF8;--dim:rgba(238,238,248,.52);--mute:rgba(238,238,248,.28);
+  --accent:{{ lesson.color }};--accent-dk:#4F46E5;--accent-bg:rgba(129,140,248,.1);
+  --pass:#34D399;--pass-bg:rgba(52,211,153,.1);
+  --warn:#FBBF24;--warn-bg:rgba(251,191,36,.1);
+  --fail:#F87171;--fail-bg:rgba(248,113,113,.1);
+  --flag:#FB923C;--flag-bg:rgba(251,146,60,.12);
+  --r8:8px;--r12:12px;--r16:16px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+[x-cloak]{display:none!important}
+.e-wrap{min-height:100dvh;display:flex;flex-direction:column}
+.e-phase{flex:1;display:flex;flex-direction:column;animation:fadein .2s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.e-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.e-scroll::-webkit-scrollbar{width:4px}
+.e-scroll::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:4px}
+.intro-body{max-width:420px;margin:0 auto;width:100%;padding:40px 20px 32px;display:flex;flex-direction:column;align-items:center}
+.intro-badge{font-size:11px;font-weight:800;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-top:6px}
+.intro-title{font-size:26px;font-weight:800;text-align:center;margin:10px 0 8px;line-height:1.25}
+.intro-sub{font-size:13.5px;color:var(--dim);text-align:center;margin-bottom:26px}
+.rules-card{width:100%;border:1px solid var(--border-2);border-radius:var(--r16);overflow:hidden;margin-bottom:28px}
+.rule-row{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border-bottom:1px solid var(--border)}
+.rule-row:last-child{border-bottom:none}
+.rule-icon{flex-shrink:0;margin-top:1px;color:var(--accent)}
+.rule-text{font-size:13.5px;color:var(--dim);line-height:1.5}
+.e-header{padding:14px 16px 0;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.e-progress-wrap{height:2px;background:var(--border-2);border-radius:2px;overflow:hidden;margin:12px 16px 0;flex-shrink:0}
+.e-progress-fill{height:100%;border-radius:2px;background:var(--accent);transition:width .4s ease}
+.q-grid{display:flex;flex-wrap:wrap;gap:7px;padding:14px 16px 0}
+.q-dot{position:relative;width:34px;height:34px;border-radius:9px;font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;cursor:pointer;border:none;transition:all .15s;flex-shrink:0}
+.q-dot.answered{background:var(--accent);color:#fff;border:2px solid transparent}
+.q-dot.current{border:2px solid var(--accent);background:var(--accent-bg);color:var(--accent)}
+.q-dot.unanswered{background:var(--surface-2);color:var(--mute);border:1.5px solid var(--border-2)}
+.q-dot.current.answered{background:var(--accent);border-color:var(--text);color:#fff}
+.flag-pip{position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--flag);border:2px solid var(--bg)}
+.q-card{margin:14px 16px 0;flex:1}
+.q-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.q-num{font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--mute);text-transform:uppercase}
+.q-concept{font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--accent);background:var(--accent-bg);padding:3px 9px;border-radius:20px}
+.q-flag-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;border:1px solid var(--border-2);background:var(--surface-2);color:var(--mute);transition:all .15s}
+.q-flag-btn.active{border-color:var(--flag);background:var(--flag-bg);color:var(--flag)}
+.q-prompt{font-size:18px;font-weight:700;line-height:1.4;margin-bottom:22px;color:var(--text)}
+.opt-list{display:flex;flex-direction:column;gap:9px}
+.opt-btn{display:flex;align-items:center;gap:13px;width:100%;padding:14px 16px;border-radius:var(--r12);cursor:pointer;text-align:left;background:var(--surface-2);border:1.5px solid var(--border);color:var(--text);transition:border-color .15s,background .15s;font-size:14.5px;font-family:inherit}
+.opt-btn:hover{border-color:var(--border-2)}
+.opt-btn.selected{border-color:var(--accent);background:var(--accent-bg)}
+.opt-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--border-2);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s}
+.opt-btn.selected .opt-radio{border-color:var(--accent);background:var(--accent)}
+.opt-radio.sq{border-radius:6px}
+.opt-radio-dot{width:8px;height:8px;border-radius:50%;background:#fff}
+.opt-radio-check{color:#fff;font-size:12px;font-weight:900;line-height:1}
+/* true_false */
+.tf-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tf-card{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 16px;border-radius:var(--r16);gap:12px;border:2px solid var(--border);background:var(--surface-2);cursor:pointer;font-size:17px;font-weight:800;color:var(--text);transition:border-color .15s,background .15s}
+.tf-card.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.tf-ic{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900}
+/* cloze */
+.cloze-text{font-size:17px;line-height:2.4;font-weight:600}
+.cloze-input{display:inline-block;min-width:92px;padding:4px 10px;margin:0 3px;border-radius:9px;border:1.5px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:inherit;font-size:15px;font-weight:700;text-align:center;outline:none}
+.cloze-input:focus{border-color:var(--accent)}
+/* matching */
+.assoc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.assoc-col-label{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--mute);margin-bottom:8px;text-align:center}
+.assoc-item{padding:10px 12px;border-radius:var(--r8);border:1.5px solid var(--border);background:var(--surface-2);font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;line-height:1.4;display:flex;align-items:center;justify-content:center;gap:8px}
+.assoc-item:hover{border-color:var(--border-2)}
+.assoc-item.sel-left{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.assoc-pair-badge{width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff}
+.e-actions{padding:14px 16px 20px;display:flex;gap:9px;flex-shrink:0}
+.btn-ghost{display:inline-flex;align-items:center;gap:7px;padding:12px 18px;border-radius:var(--r12);border:1.5px solid var(--border-2);background:transparent;color:var(--dim);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s}
+.btn-ghost:hover{border-color:var(--accent);color:var(--text)}
+.btn-primary{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;border-radius:var(--r12);border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn-primary:hover{opacity:.88}
+.btn-primary.danger{background:linear-gradient(135deg,#4F46E5,#6D28D9)}
+.e-sub-link{text-align:center;padding:0 16px 16px;flex-shrink:0}
+.e-sub-link button{background:none;border:none;color:var(--mute);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:3px}
+.timer-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:9px;font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--dim);transition:all .3s;flex-shrink:0}
+.timer-chip.warn{color:var(--warn);border-color:rgba(251,191,36,.3);background:var(--warn-bg)}
+.timer-chip.low{color:var(--fail);border-color:rgba(248,113,113,.3);background:var(--fail-bg)}
+.confirm-body{max-width:400px;margin:0 auto;width:100%;padding:48px 20px 32px;display:flex;flex-direction:column;align-items:center}
+.confirm-icon{width:68px;height:68px;border-radius:20px;display:flex;align-items:center;justify-content:center;background:var(--surface-2);border:1px solid var(--border-2);margin-bottom:20px;color:var(--warn);font-size:30px}
+.confirm-title{font-size:22px;font-weight:800;text-align:center;margin-bottom:10px}
+.confirm-sub{font-size:14px;color:var(--dim);text-align:center;line-height:1.6;margin-bottom:24px}
+.stat-row{display:flex;gap:10px;width:100%;margin-bottom:20px}
+.stat-card{flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r12);padding:14px 10px;text-align:center}
+.stat-val{font-size:22px;font-weight:800}
+.stat-lbl{font-size:11px;color:var(--mute);margin-top:3px}
+.confirm-warn{font-size:13px;color:var(--dim);line-height:1.6;margin-bottom:18px;text-align:center}
+.confirm-actions{display:flex;flex-direction:column;gap:9px;width:100%}
+.result-wrap{max-width:520px;margin:0 auto;width:100%;padding:24px 16px 40px}
+.result-header{text-align:center;padding-bottom:22px;border-bottom:1px solid var(--border);margin-bottom:22px}
+.result-pct{font-size:56px;font-weight:800;line-height:1;margin:10px 0 14px}
+.verdict-badge{display:inline-flex;align-items:center;gap:7px;padding:7px 16px;border-radius:12px;font-weight:800;font-size:14px}
+.result-meta{display:flex;justify-content:center;gap:16px;margin-top:12px;font-size:13px;color:var(--mute)}
+.section-label{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--mute);margin-bottom:14px}
+.concept-card{border:1px solid var(--border);border-radius:var(--r16);overflow:hidden;margin-bottom:12px;background:var(--surface)}
+.concept-head{padding:13px 16px}
+.concept-name-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.concept-name{font-size:14.5px;font-weight:800}
+.concept-score{font-size:13px;font-weight:700}
+.concept-bar-track{height:5px;border-radius:5px;background:var(--surface-3);overflow:hidden}
+.concept-bar-fill{height:100%;border-radius:5px;transition:width .6s ease}
+.concept-note{font-size:12px;font-weight:600;margin-top:9px}
+.detail-btn{display:inline-flex;align-items:center;gap:7px;padding:12px 20px;border-radius:var(--r12);border:1.5px solid var(--border-2);background:transparent;color:var(--dim);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;margin-top:22px;width:100%;justify-content:center}
+.detail-btn:hover{border-color:var(--accent);color:var(--accent)}
+.detail-section{margin-top:22px}
+.detail-q{border:1px solid var(--border);border-radius:var(--r12);margin-bottom:10px;overflow:hidden;background:var(--surface)}
+.detail-q-head{display:flex;align-items:flex-start;gap:11px;padding:13px 15px;border-bottom:1px solid var(--border)}
+.detail-ok{width:22px;height:22px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:13px;font-weight:900}
+.detail-q-text{font-size:14px;font-weight:600;line-height:1.45;flex:1}
+.detail-body{padding:12px 15px;display:flex;flex-direction:column;gap:6px}
+.detail-row{font-size:12.5px;line-height:1.5}
+.detail-row span{color:var(--mute)}
+.detail-expl{font-size:12px;color:var(--dim);line-height:1.55;margin-top:4px;padding-top:8px;border-top:1px solid var(--border)}
+.btn-cta-full{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:15px 20px;border-radius:var(--r12);border:none;background:var(--accent);color:#fff;font-size:15.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:opacity .15s;text-decoration:none}
+.btn-cta-full:hover{opacity:.88}
+.section-sep{height:1px;background:var(--border);margin:20px 0}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}}
+</style>
+
+{{ lesson|json_script:"e-lesson-json" }}
+{{ meta|json_script:"e-meta-json" }}
+{{ questions|json_script:"e-questions-json" }}
+<script>
+  // Config Django (hors verbatim). Correction 100% SERVEUR au submit.
+  const EXAM_CFG = {
+    submitUrl:   "{{ submit_url }}",
+    parcoursUrl: "{{ parcours_url }}",
+    csrf:        "{{ csrf_token }}",
+  };
+</script>
+
+<div class="e-wrap" x-data="examPlayer()" x-cloak>
+
+  <!-- ════════ PHASE 1 — INTRO ════════ -->
+  <div class="e-phase e-scroll" x-show="phase === 'intro'">
+    <div class="intro-body">
+      <div data-lucide="shield-check" style="width:56px;height:56px;color:var(--accent)"></div>
+      <div class="intro-badge">Examen</div>
+      <h1 class="intro-title" x-text="meta.title"></h1>
+      <p class="intro-sub" x-text="(lesson.subject ? lesson.subject + ' · ' : '') + questions.length + ' questions · ' + Math.round(meta.duration_s / 60) + ' min'"></p>
+      <div class="rules-card">
+        <div class="rule-row"><span data-lucide="target" class="rule-icon" style="width:17px;height:17px"></span><span class="rule-text" x-text="questions.length + ' questions, évaluées sur 100 %'"></span></div>
+        <div class="rule-row"><span data-lucide="clock" class="rule-icon" style="width:17px;height:17px"></span><span class="rule-text" x-text="'Minuteur : ' + Math.round(meta.duration_s / 60) + ' min — remise automatique à l\'échéance'"></span></div>
+        <div class="rule-row"><span data-lucide="eye-off" class="rule-icon" style="width:17px;height:17px"></span><span class="rule-text">Aucune correction pendant l'épreuve — le bilan s'affiche à la fin</span></div>
+        <div class="rule-row"><span data-lucide="flag" class="rule-icon" style="width:17px;height:17px"></span><span class="rule-text">Navigation libre entre les questions, marquage possible</span></div>
+        <div class="rule-row" style="border:none"><span data-lucide="bar-chart-2" class="rule-icon" style="width:17px;height:17px"></span><span class="rule-text">Bilan détaillé par notion à la remise</span></div>
+      </div>
+      <button class="btn-cta-full" @click="startExam()"><span data-lucide="play" style="width:18px;height:18px"></span> Commencer l'examen</button>
+    </div>
+  </div>
+
+  <!-- ════════ PHASE 2 — ÉPREUVE ════════ -->
+  <div class="e-phase" x-show="phase === 'running'" style="display:flex;flex-direction:column;overflow:hidden">
+    <div class="e-header" style="flex-shrink:0">
+      <span style="font-size:12.5px;color:var(--mute);font-weight:700;flex:1"><span x-text="answeredCount"></span> / <span x-text="questions.length"></span> répondues</span>
+      <div class="timer-chip" :class="timeLeft <= 30 ? 'low' : timeLeft <= 60 ? 'warn' : ''">
+        <span data-lucide="clock" style="width:14px;height:14px"></span>
+        <span x-text="mmss(timeLeft)"></span>
+      </div>
+    </div>
+    <div class="e-progress-wrap" style="flex-shrink:0"><div class="e-progress-fill" :style="'width:' + (answeredCount / questions.length * 100).toFixed(1) + '%'"></div></div>
+    <div class="q-grid" style="flex-shrink:0">
+      <template x-for="(q, i) in questions" :key="i">
+        <button class="q-dot" :class="i === idx ? (isAnswered(i) ? 'current answered' : 'current') : isAnswered(i) ? 'answered' : 'unanswered'" @click="goTo(i)">
+          <span x-text="i + 1"></span>
+          <span class="flag-pip" x-show="flagged[i]"></span>
+        </button>
+      </template>
+    </div>
+
+    <div class="e-scroll" style="flex:1">
+      <div class="q-card" x-show="questions.length > 0">
+        <div class="q-meta">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span class="q-num">Question <span x-text="idx + 1"></span> / <span x-text="questions.length"></span></span>
+            <span class="q-concept" x-text="cur?.concept_name"></span>
+          </div>
+          <button class="q-flag-btn" :class="flagged[idx] ? 'active' : ''" @click="toggleFlag()">
+            <span data-lucide="flag" style="width:13px;height:13px"></span>
+            <span x-text="flagged[idx] ? 'Marquée' : 'À revoir'"></span>
+          </button>
+        </div>
+        <p class="q-prompt" x-text="cur?.instruction"></p>
+
+        {% verbatim %}
+        <!-- mcq_single -->
+        <div x-show="cur?.type === 'mcq_single'" class="opt-list">
+          <template x-for="(opt, oi) in (cur?.options || [])" :key="oi">
+            <button class="opt-btn" :class="choixPick === oi ? 'selected' : ''" @click="choixPick = oi; autoSave()">
+              <span class="opt-radio"><span class="opt-radio-dot" x-show="choixPick === oi"></span></span>
+              <span x-text="opt" style="font-weight:500"></span>
+            </button>
+          </template>
+        </div>
+
+        <!-- mcq_multiple -->
+        <div x-show="cur?.type === 'mcq_multiple'" class="opt-list">
+          <p style="font-size:12px;color:var(--mute);margin:-8px 0 12px">Cochez toutes les bonnes réponses</p>
+          <template x-for="(opt, oi) in (cur?.options || [])" :key="oi">
+            <button class="opt-btn" :class="multiPick.includes(oi) ? 'selected' : ''" @click="toggleMulti(oi)">
+              <span class="opt-radio sq"><span class="opt-radio-check" x-show="multiPick.includes(oi)">✓</span></span>
+              <span x-text="opt" style="font-weight:500"></span>
+            </button>
+          </template>
+        </div>
+
+        <!-- true_false -->
+        <div x-show="cur?.type === 'true_false'" class="tf-grid">
+          <button class="tf-card" :class="tfPick === true ? 'selected' : ''" @click="tfPick = true; autoSave()">
+            <span class="tf-ic" style="background:rgba(52,211,153,.18);color:#34D399">✓</span>Vrai
+          </button>
+          <button class="tf-card" :class="tfPick === false ? 'selected' : ''" @click="tfPick = false; autoSave()">
+            <span class="tf-ic" style="background:rgba(248,113,113,.18);color:#F87171">✕</span>Faux
+          </button>
+        </div>
+
+        <!-- cloze_test -->
+        <div x-show="cur?.type === 'cloze_test'">
+          <div class="cloze-text">
+            <template x-for="(seg, si) in clozeSegments" :key="si">
+              <span>
+                <span x-show="seg.type === 'text'" x-text="seg.value"></span>
+                <template x-if="seg.type === 'blank'">
+                  <input class="cloze-input" x-model="clozeInputs[seg.idx]" @input="autoSave()" placeholder="…" autocomplete="off" spellcheck="false">
+                </template>
+              </span>
+            </template>
+          </div>
+        </div>
+
+        <!-- matching -->
+        <div x-show="cur?.type === 'matching'">
+          <p style="font-size:12px;color:var(--mute);margin-bottom:12px">Cliquez un élément à gauche, puis son correspondant à droite</p>
+          <div class="assoc-grid">
+            <div>
+              <p class="assoc-col-label">Élément</p>
+              <template x-for="(left, li) in (cur?.lefts || [])" :key="li">
+                <div class="assoc-item" style="margin-bottom:7px"
+                  :class="matchSelLeft === li ? 'sel-left' : ''"
+                  :style="matchLinks[li] !== undefined ? 'border-color:'+matchColors[li%matchColors.length]+';background:'+matchColors[li%matchColors.length]+'1f' : ''"
+                  @click="clickLeft(li)">
+                  <span class="assoc-pair-badge" x-show="matchLinks[li] !== undefined" :style="'background:'+matchColors[li%matchColors.length]" x-text="li + 1"></span>
+                  <span x-text="left"></span>
+                </div>
+              </template>
+            </div>
+            <div>
+              <p class="assoc-col-label">Correspondance</p>
+              <template x-for="(r, ri) in (cur?.rights || [])" :key="ri">
+                <div class="assoc-item" style="margin-bottom:7px"
+                  :style="leftForRight(ri) !== null ? 'border-color:'+matchColors[leftForRight(ri)%matchColors.length]+';background:'+matchColors[leftForRight(ri)%matchColors.length]+'1f' : ''"
+                  @click="clickRight(ri)">
+                  <span class="assoc-pair-badge" x-show="leftForRight(ri) !== null" :style="'background:'+matchColors[leftForRight(ri)%matchColors.length]" x-text="leftForRight(ri) + 1"></span>
+                  <span x-text="r.text"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        {% endverbatim %}
+        <div style="height:20px"></div>
+      </div>
+    </div>
+
+    <div class="e-actions" style="flex-shrink:0">
+      <button class="btn-ghost" x-show="idx > 0" @click="goTo(idx - 1)"><span data-lucide="arrow-left" style="width:16px;height:16px"></span> Précédent</button>
+      <button class="btn-primary" x-show="idx < questions.length - 1" @click="goTo(idx + 1)">Suivant <span data-lucide="arrow-right" style="width:16px;height:16px"></span></button>
+      <button class="btn-primary danger" x-show="idx === questions.length - 1" @click="submitExam()">Terminer l'examen <span data-lucide="check" style="width:16px;height:16px"></span></button>
+    </div>
+    <div class="e-sub-link" x-show="idx < questions.length - 1"><button @click="submitExam()">Terminer et soumettre…</button></div>
+  </div>
+
+  <!-- ════════ PHASE 3 — CONFIRMATION ════════ -->
+  <div class="e-phase e-scroll" x-show="phase === 'confirm'">
+    <div class="confirm-body">
+      <div class="confirm-icon">⚠</div>
+      <h2 class="confirm-title">Soumettre l'examen ?</h2>
+      <p class="confirm-sub">Une fois remise, votre copie est définitive — vous ne pourrez plus modifier vos réponses.</p>
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-val" x-text="answeredCount"></div><div class="stat-lbl">répondues</div></div>
+        <div class="stat-card"><div class="stat-val" :style="unanswered > 0 ? 'color:var(--warn)' : ''" x-text="unanswered"></div><div class="stat-lbl">sans réponse</div></div>
+        <div class="stat-card"><div class="stat-val" :style="flaggedCount > 0 ? 'color:var(--flag)' : ''" x-text="flaggedCount"></div><div class="stat-lbl">marquées</div></div>
+      </div>
+      <p class="confirm-warn" x-show="unanswered > 0" x-text="unanswered + ' question' + (unanswered > 1 ? 's' : '') + ' sans réponse.'"></p>
+      <div class="confirm-actions">
+        <button class="btn-cta-full" :disabled="submitting" @click="confirmSubmit()"><span data-lucide="check" style="width:17px;height:17px"></span> <span x-text="submitting ? 'Correction…' : 'Soumettre définitivement'"></span></button>
+        <button class="btn-ghost" style="width:100%;justify-content:center" @click="phase = 'running'" x-show="!submitting"><span data-lucide="arrow-left" style="width:16px;height:16px"></span> Revenir à l'examen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ PHASE 4 — BILAN ════════ -->
+  <div class="e-phase e-scroll" x-show="phase === 'result'">
+    <div class="result-wrap">
+      <div class="result-header">
+        <div class="intro-badge" style="font-size:11px;letter-spacing:2px">Bilan d'examen</div>
+        <div class="result-pct" x-text="scorePct + ' %'"></div>
+        <div class="verdict-badge" :style="passed ? 'background:var(--pass-bg);border:1px solid rgba(52,211,153,.3);color:var(--pass)' : 'background:var(--warn-bg);border:1px solid rgba(251,191,36,.3);color:var(--warn)'">
+          <span :data-lucide="passed ? 'award' : 'rotate-ccw'" style="width:16px;height:16px"></span>
+          <span x-text="passed ? 'Admis' : 'À retravailler'"></span>
+        </div>
+        <div class="result-meta">
+          <span x-text="correctCount + ' / ' + questions.length + ' bonnes réponses'"></span>
+          <span style="display:inline-flex;align-items:center;gap:5px"><span data-lucide="clock" style="width:13px;height:13px"></span><span x-text="mmss(timeUsed)"></span></span>
+        </div>
+      </div>
+
+      <!-- Niveau 1 : par notion -->
+      <div class="section-label">Par notion</div>
+      {% verbatim %}
+      <template x-for="cg in conceptGroups" :key="cg.id">
+        <div class="concept-card"><div class="concept-head">
+          <div class="concept-name-row">
+            <span class="concept-name" x-text="cg.name"></span>
+            <span class="concept-score" :style="cg.correct < cg.total ? 'color:var(--warn)' : 'color:var(--pass)'" x-text="cg.correct + ' / ' + cg.total"></span>
+          </div>
+          <div class="concept-bar-track"><div class="concept-bar-fill" :style="'width:'+cg.pct+'%;background:'+(cg.correct < cg.total ? 'var(--warn)' : 'var(--pass)')"></div></div>
+          <p class="concept-note" x-show="cg.correct < cg.total" style="color:var(--warn)">À approfondir</p>
+          <p class="concept-note" x-show="cg.correct === cg.total" style="color:var(--pass)">Maîtrisé</p>
+        </div></div>
+      </template>
+      {% endverbatim %}
+
+      <!-- Niveau 2 : revoir mes réponses -->
+      <button class="detail-btn" @click="showDetail = !showDetail; $nextTick(() => lucide.createIcons())">
+        <span :data-lucide="showDetail ? 'chevron-up' : 'eye'" style="width:16px;height:16px"></span>
+        <span x-text="showDetail ? 'Masquer les réponses' : 'Revoir mes réponses'"></span>
+      </button>
+      <div class="detail-section" x-show="showDetail">
+        <div class="section-sep"></div>
+        <div class="section-label">Détail question par question</div>
+        {% verbatim %}
+        <template x-for="(r, i) in detailRows" :key="i">
+          <div class="detail-q">
+            <div class="detail-q-head">
+              <div class="detail-ok" :style="r.correct ? 'background:var(--pass-bg);color:var(--pass)' : 'background:var(--fail-bg);color:var(--fail)'" x-text="r.correct ? '✓' : '✕'"></div>
+              <div style="flex:1">
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--mute);margin-bottom:4px" x-text="'Q' + (i+1) + ' · ' + r.concept_name"></div>
+                <div class="detail-q-text" x-text="r.instruction"></div>
+              </div>
+            </div>
+            <div class="detail-body">
+              <div class="detail-row"><span>Votre réponse : </span><strong x-text="r.studentText || '—'"></strong></div>
+              <div class="detail-row" x-show="!r.correct"><span>Bonne réponse : </span><strong style="color:var(--pass)" x-text="r.solutionText"></strong></div>
+              <p class="detail-expl" x-show="r.explanation" x-text="r.explanation"></p>
+            </div>
+          </div>
+        </template>
+        {% endverbatim %}
+      </div>
+
+      <a class="btn-cta-full" :href="parcoursUrl" style="margin-top:26px"><span data-lucide="arrow-right" style="width:17px;height:17px"></span> Retour au parcours</a>
+      <div style="height:32px"></div>
+    </div>
+  </div>
+
+</div><!-- /.e-wrap -->
+
+<script src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
+<script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
+<script>
+{% verbatim %}
+document.addEventListener('alpine:init', () => {
+  Alpine.data('examPlayer', () => ({
+    phase: 'intro',
+    lesson: {}, meta: {}, questions: [],
+    parcoursUrl: EXAM_CFG.parcoursUrl,
+    idx: 0, answers: {}, flagged: {},
+    timeLeft: 0, _timer: null, startedAt: null, timeUsed: 0,
+    submitting: false,
+    // buffers
+    choixPick: null, tfPick: null, multiPick: [],
+    clozeSegments: [], clozeInputs: [],
+    matchLinks: {}, matchSelLeft: null,
+    matchColors: ['#818CF8', '#34D399', '#FBBF24', '#FB7185', '#22D3EE'],
+    // résultat (serveur)
+    showDetail: false, detailRows: [], conceptGroups: [],
+    correctCount: 0, scorePct: 0, passed: false,
+
+    get cur() { return this.questions[this.idx]; },
+    get answeredCount() { return Object.keys(this.answers).length; },
+    get flaggedCount() { return Object.values(this.flagged).filter(Boolean).length; },
+    get unanswered() { return this.questions.length - this.answeredCount; },
+    isAnswered(i) { return this.answers[i] !== undefined; },
+    mmss(s) { const m = Math.floor(s / 60), x = s % 60; return m + ':' + String(x).padStart(2, '0'); },
+
+    init() {
+      this.lesson    = JSON.parse(document.getElementById('e-lesson-json').textContent);
+      this.meta      = JSON.parse(document.getElementById('e-meta-json').textContent);
+      this.questions = JSON.parse(document.getElementById('e-questions-json').textContent);
+      this.timeLeft  = this.meta.duration_s || 600;
+      this.$nextTick(() => lucide.createIcons());
+    },
+
+    startExam() {
+      this.phase = 'running';
+      this.startedAt = Date.now();
+      this.loadBufferFromAnswer(0);
+      this._timer = setInterval(() => {
+        this.timeLeft--;
+        if (this.timeLeft <= 0) { this.stopTimer(); this.confirmSubmit(); }
+      }, 1000);
+      this.$nextTick(() => lucide.createIcons());
+    },
+    stopTimer() {
+      if (this._timer) { clearInterval(this._timer); this._timer = null; }
+      this.timeUsed = this.startedAt ? Math.min(this.meta.duration_s, Math.round((Date.now() - this.startedAt) / 1000)) : 0;
+    },
+
+    // ── Navigation ──
+    goTo(i) { this.saveCurrentAnswer(); this.idx = i; this.loadBufferFromAnswer(i); this.$nextTick(() => lucide.createIcons()); },
+    autoSave() { this.saveCurrentAnswer(); },
+    toggleFlag() { this.flagged = { ...this.flagged, [this.idx]: !this.flagged[this.idx] }; },
+
+    saveCurrentAnswer() {
+      const q = this.cur; if (!q) return;
+      let val;
+      if (q.type === 'mcq_single')      val = this.choixPick !== null ? this.choixPick : undefined;
+      else if (q.type === 'true_false') val = this.tfPick !== null ? this.tfPick : undefined;
+      else if (q.type === 'mcq_multiple') val = this.multiPick.length ? [...this.multiPick].sort((a, b) => a - b) : undefined;
+      else if (q.type === 'cloze_test') val = (this.clozeInputs.length && this.clozeInputs.every(v => (v || '').trim() !== '')) ? this.clozeInputs.map(v => v.trim()) : undefined;
+      else if (q.type === 'matching') {
+        const n = (q.lefts || []).length;
+        const done = Object.keys(this.matchLinks).length === n && n > 0;
+        val = done ? q.lefts.map((_, li) => q.rights[this.matchLinks[li]].oi) : undefined;
+      }
+      if (val !== undefined) this.answers = { ...this.answers, [this.idx]: val };
+      else { const a = { ...this.answers }; delete a[this.idx]; this.answers = a; }
+    },
+
+    loadBufferFromAnswer(i) {
+      this.choixPick = null; this.tfPick = null; this.multiPick = [];
+      this.clozeSegments = []; this.clozeInputs = [];
+      this.matchLinks = {}; this.matchSelLeft = null;
+      const q = this.questions[i]; const ans = this.answers[i];
+      if (!q) return;
+
+      if (q.type === 'cloze_test') {
+        const parts = (q.text || '').split(/(\{\{\d+\}\})/);
+        let nB = 0; const segs = [];
+        parts.forEach(p => {
+          const m = p.match(/^\{\{(\d+)\}\}$/);
+          if (m) { const bi = parseInt(m[1], 10); segs.push({ type: 'blank', idx: bi }); nB = Math.max(nB, bi + 1); }
+          else if (p) segs.push({ type: 'text', value: p });
+        });
+        this.clozeSegments = segs;
+        this.clozeInputs = ans ? [...ans] : new Array(nB).fill('');
+      }
+      if (q.type === 'matching' && ans) {
+        const links = {};
+        q.lefts.forEach((_, li) => {
+          const j = q.rights.findIndex(r => r.oi === ans[li]);
+          if (j !== -1) links[li] = j;
+        });
+        this.matchLinks = links;
+      }
+      if (ans === undefined) return;
+      if (q.type === 'mcq_single')   this.choixPick = ans;
+      if (q.type === 'true_false')   this.tfPick = ans;
+      if (q.type === 'mcq_multiple') this.multiPick = [...ans];
+    },
+
+    // ── mcq_multiple ──
+    toggleMulti(oi) {
+      const k = this.multiPick.indexOf(oi);
+      if (k === -1) this.multiPick.push(oi); else this.multiPick.splice(k, 1);
+      this.autoSave();
+    },
+    // ── matching ──
+    leftForRight(ri) { const li = Object.keys(this.matchLinks).find(k => this.matchLinks[k] === ri); return li === undefined ? null : parseInt(li); },
+    clickLeft(li) {
+      if (this.matchLinks[li] !== undefined) { const a = { ...this.matchLinks }; delete a[li]; this.matchLinks = a; this.matchSelLeft = li; }
+      else this.matchSelLeft = (this.matchSelLeft === li) ? null : li;
+      this.autoSave();
+    },
+    clickRight(ri) {
+      if (this.matchSelLeft === null) return;
+      const a = { ...this.matchLinks };
+      Object.keys(a).forEach(k => { if (a[k] === ri) delete a[k]; });
+      a[this.matchSelLeft] = ri;
+      this.matchLinks = a; this.matchSelLeft = null;
+      this.autoSave();
+    },
+
+    // ── Submit (CORRECTION SERVEUR) ──
+    submitExam() { this.saveCurrentAnswer(); this.phase = 'confirm'; this.$nextTick(() => lucide.createIcons()); },
+    async confirmSubmit() {
+      if (this.submitting) return;
+      this.submitting = true;
+      this.stopTimer();
+      const answersList = this.questions.map((q, i) => this.answers[i] === undefined ? null : this.answers[i]);
+      try {
+        const res = await fetch(EXAM_CFG.submitUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': EXAM_CFG.csrf },
+          body: JSON.stringify({ answers: answersList }),
+        });
+        if (!res.ok) throw new Error('submit failed');
+        const data = await res.json();
+        this.applyResult(data);
+      } catch (e) {
+        this.submitting = false;
+        alert('La remise a échoué (connexion). Réessaie.');
+        this.phase = 'confirm';
+      }
+    },
+    applyResult(data) {
+      this.scorePct = data.score_pct;
+      this.passed = data.passed;
+      this.correctCount = data.correct;
+      this.conceptGroups = data.concepts;
+      // détail : on enrichit avec le texte lisible (depuis la question + la solution serveur)
+      this.detailRows = data.questions.map(d => {
+        const q = this.questions[d.i];
+        return {
+          correct: d.correct,
+          concept_name: d.concept_name,
+          instruction: d.instruction,
+          explanation: d.explanation,
+          studentText: this.fmtAnswer(q, d.student_answer),
+          solutionText: this.fmtSolution(q, d.solution),
+        };
+      });
+      this.submitting = false;
+      this.phase = 'result';
+      this.$nextTick(() => lucide.createIcons());
+    },
+
+    // ── Formatage lisible (la solution vient du serveur, révélée seulement ici) ──
+    _rightTextByOi(q, oi) { const r = (q.rights || []).find(x => x.oi === oi); return r ? r.text : '?'; },
+    fmtAnswer(q, raw) {
+      if (raw === undefined || raw === null) return 'Sans réponse';
+      if (q.type === 'mcq_single')   return q.options[raw];
+      if (q.type === 'true_false')   return raw ? 'Vrai' : 'Faux';
+      if (q.type === 'mcq_multiple') return (raw || []).map(i => q.options[i]).join(', ');
+      if (q.type === 'cloze_test')   return (raw || []).join(' · ');
+      if (q.type === 'matching')     return q.lefts.map((l, li) => l + ' ↔ ' + this._rightTextByOi(q, raw[li])).join(', ');
+      return String(raw);
+    },
+    fmtSolution(q, sol) {
+      if (!sol) return '';
+      if (q.type === 'mcq_single')   return q.options[sol.answer_index];
+      if (q.type === 'true_false')   return sol.answer ? 'Vrai' : 'Faux';
+      if (q.type === 'mcq_multiple') return (sol.answer_indices || []).map(i => q.options[i]).join(', ');
+      if (q.type === 'cloze_test')   return (sol.answers || []).join(' · ');
+      if (q.type === 'matching')     return (sol.pairs || []).map(p => p.left + ' ↔ ' + p.right).join(', ');
+      return '';
+    },
+  }));
+});
+{% endverbatim %}
+</script>
+</body>
+</html>
+{% endlocalize %}

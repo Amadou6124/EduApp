@@ -1,13 +1,6 @@
 import json
 import logging
-from collections import defaultdict, OrderedDict
-from datetime import timedelta
-from urllib.parse import urlencode
-
-import datetime
-
-from django.db.models import Count, F
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
@@ -16,13 +9,12 @@ from django.utils import timezone
 from apps.core.student_auth import (
     authenticate_student, login_student, logout_student, student_required,
 )
-from apps.core.constants import MASTERY_THRESHOLD, MASTERY_WEAK_THRESHOLD
-from apps.lessons.models import Lesson, LessonDeployment, LessonStatus
-from apps.lessons.services import (
-    evaluate_answer, calculate_lesson_mastery, sm2_update,
+from apps.lessons.models import Lesson, LessonContentVersion, LessonDeployment, LessonStatus
+from apps.student_learning.services import student_stats, BADGES_CATALOG
+from apps.student_learning.models import (
+    QuizAttempt, StoryAttempt,
+    ConceptProgress, ExamAttempt, QuestionDraw,
 )
-from apps.student_learning.services import award_xp, student_stats, BADGES_CATALOG, level_info, xp_for_next_level, XP_PER_LEVEL
-from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard, StoryAttempt
 
 logger = logging.getLogger(__name__)
 
@@ -69,606 +61,47 @@ def learn_logout(request):
     return redirect('learn:login')
 
 
-# ─── Dashboard helpers — concept nodes ───────────────────────────────────────
-
-_SUBJECT_ICONS = {
-    'math': '🔢', 'scientific': '🔬', 'literary': '📖',
-    'language': '💬', 'geography': '🗺️', 'accounting': '💰', 'code': '💻',
-}
-_CONCEPT_ICON_HINTS = [
-    ('phrase', '📝'), ('verbe', '✏️'), ('conjugaison', '✏️'),
-    ('grammaire', '📚'), ('vocabulaire', '💬'), ('lecture', '📖'),
-    ('fraction', '½'), ('equation', '⚖️'), ('geometrie', '📐'),
-    ('calcul', '🧮'), ('nombre', '🔢'), ('histoire', '📜'),
-    ('geo', '🗺️'), ('carte', '🗺️'), ('mot', '💬'),
-]
-_SUBJECT_LUCIDE = {
-    'math': 'calculator', 'scientific': 'activity', 'literary': 'pen-line',
-    'language': 'globe', 'geography': 'map-pin', 'code': 'code', 'accounting': 'bar-chart-2',
-}
-
-
-def _humanize_concept_id(cid: str) -> str:
-    return cid.replace('_', ' ').capitalize()
-
-
-def _concept_icon(cid: str, subject_type: str) -> str:
-    lower = cid.lower()
-    for hint, icon in _CONCEPT_ICON_HINTS:
-        if hint in lower:
-            return icon
-    return _SUBJECT_ICONS.get(subject_type, '📚')
-
-
-def _concept_state(done: int, total: int) -> str:
-    if done == 0:
-        return 'new'
-    ratio = done / total if total else 0
-    if ratio >= 0.8:
-        return 'done-strong'
-    if ratio >= 0.5:
-        return 'done-mid'
-    return 'done-weak'
-
-
-def _build_lesson_concepts(lesson, correct_quiz_set: set) -> list:
-    """Construit les groupes de concepts pour le chemin d'apprentissage.
-    Priorité : quiz_data.concepts (format riche) → fallback groupement par concept_id."""
-    qd = lesson.quiz_data or {}
-    quizzes = qd.get('quizzes', [])
-    concepts_raw = qd.get('concepts')
-
-    def _enrich(cid, name, icon, order, quiz_ids):
-        done = sum(1 for qid in quiz_ids if (lesson.id, qid) in correct_quiz_set)
-        total = len(quiz_ids)
-        state = _concept_state(done, total)
-        return {
-            'id': cid, 'name': name, 'icon': icon, 'order': order,
-            'quiz_ids': quiz_ids, 'done_count': done, 'total_count': total,
-            'state': state,
-            'lucide_icon': _SUBJECT_LUCIDE.get(lesson.subject_type, 'book-open'),
-        }
-
-    if concepts_raw:
-        return [
-            _enrich(c['id'],
-                    c.get('name', _humanize_concept_id(c['id'])),
-                    c.get('icon', '📚'),
-                    c.get('order', i),
-                    c.get('quiz_ids', []))
-            for i, c in enumerate(concepts_raw[:6], 1)
-        ]
-
-    # Fallback : groupement par concept_id, ordre d'apparition dans les quizzes
-    seen = list(OrderedDict.fromkeys(
-        q.get('concept_id', '') for q in quizzes if q.get('concept_id')
-    ))
-    by_concept: dict = defaultdict(list)
-    for q in quizzes:
-        cid = q.get('concept_id', '')
-        if cid:
-            by_concept[cid].append(q['id'])
-
-    return [
-        _enrich(cid,
-                _humanize_concept_id(cid),
-                _concept_icon(cid, lesson.subject_type),
-                order,
-                by_concept[cid])
-        for order, cid in enumerate(seen[:6], 1)
-    ]
-
-
 # ─── Dashboard ───────────────────────────────────────────────────────────────
+
+def _student_v2_lessons(student):
+    """Leçons v2 actives READY déployées dans la classe de l'élève, ordonnées
+    (matière puis date). Retourne [{id, title, subject, url}] — réutilisé par le
+    reroutage de /learn/ et le switcher 'Mes leçons' du parcours v2."""
+    deps = (
+        LessonDeployment.objects
+        .filter(school_class=student.school_class, is_active=True,
+                lesson__status=LessonStatus.READY, lesson__format_version=2)
+        .select_related('lesson', 'lesson__active_content_version')
+        .order_by('lesson__subject', 'lesson__created_at')
+    )
+    out, seen = [], set()
+    for d in deps:
+        if d.lesson_id in seen:
+            continue
+        seen.add(d.lesson_id)
+        acv = d.lesson.active_content_version
+        out.append({
+            'id': d.lesson_id,
+            'title': d.lesson.title,
+            'subject': d.lesson.subject or '',
+            'color': (acv.color if acv and acv.color else '#818CF8'),
+            'url': reverse('learn:parcours-v2', kwargs={'lesson_id': d.lesson_id}),
+        })
+    return out
+
 
 @student_required
 def learn_dashboard(request):
     student = request.student
-    today = timezone.now().date()
 
-    # 1. Matières disponibles dans la classe
-    subjects_raw = (
-        LessonDeployment.objects
-        .filter(school_class=student.school_class, is_active=True,
-                lesson__status=LessonStatus.READY)
-        .values_list('lesson__subject', 'lesson__subject_type')
-        .distinct()
-        .order_by('lesson__subject')
-    )
-    subjects = [{'name': s, 'type': t} for s, t in subjects_raw]
-
-    # 2. Matière active (GET param ou première)
-    active_subject = request.GET.get('subject')
-    if not active_subject and subjects:
-        active_subject = subjects[0]['name']
-
-    # 3. Leçons de la matière active + progression (zéro N+1)
-    lessons_data = []
-    if active_subject:
-        deployments = (
-            LessonDeployment.objects
-            .filter(school_class=student.school_class, is_active=True,
-                    lesson__status=LessonStatus.READY,
-                    lesson__subject=active_subject)
-            .select_related('lesson')
-            .order_by('lesson__created_at')
-        )
-        lesson_ids = [d.lesson_id for d in deployments]
-        progress_map = {
-            p.lesson_id: p
-            for p in LessonProgress.objects.filter(
-                student=student, lesson_id__in=lesson_ids)
-        }
-        # Batch unique : toutes les bonnes réponses de l'élève sur ces leçons
-        correct_quiz_set = set(
-            QuizAttempt.objects
-            .filter(student=student, lesson_id__in=lesson_ids, is_correct=True)
-            .values_list('lesson_id', 'quiz_id')
-            .distinct()
-        )
-
-        for dep in deployments:
-            prog = progress_map.get(dep.lesson_id)
-            mastery = calculate_lesson_mastery(student, dep.lesson)
-            if (prog and prog.is_completed) or mastery >= MASTERY_THRESHOLD:
-                node_state, progress_pct = 'completed', 100
-            elif prog or mastery >= MASTERY_WEAK_THRESHOLD:
-                node_state = 'in_progress'
-                if prog and not prog.is_completed:
-                    blocks_total = len(
-                        (dep.lesson.structured_content or {}).get('blocks', [])) or 1
-                    progress_pct = min(
-                        int(prog.last_block_index / blocks_total * 100), 99)
-                else:
-                    progress_pct = mastery
-            else:
-                node_state, progress_pct = 'not_started', 0
-
-            lessons_data.append({
-                'lesson':       dep.lesson,
-                'node_state':   node_state,
-                'progress_pct': progress_pct,
-                'mastery':      mastery,
-                'concepts':     _build_lesson_concepts(dep.lesson, correct_quiz_set),
-                'has_story':    bool(dep.lesson.story_data),
-            })
-
-    # 4. Leçon en cours
-    current_lesson_progress = (
-        LessonProgress.objects
-        .filter(student=student, is_completed=False)
-        .select_related('lesson')
-        .order_by('-started_at')
-        .first()
-    )
-
-    # 5. Streak quotidien
-    _update_streak(student, today)
-
-    # 6. Infos niveau
-    level_emoji, level_name = level_info(student.current_level)
-
-    return render(request, 'learn/dashboard.html', {
-        'student':                 student,
-        'subjects':                subjects,
-        'active_subject':          active_subject,
-        'lessons_data':            lessons_data,
-        'current_lesson_progress': current_lesson_progress,
-        'today':                   today,
-        'learn_toast':             request.session.pop('learn_toast', None),
-        'level_emoji':             level_emoji,
-        'level_name':              level_name,
-        'xp_to_next':              xp_for_next_level(student.total_xp),
-        'xp_in_level':             student.total_xp % XP_PER_LEVEL,
-    })
-
-
-def _update_streak(student, today):
-    """Met à jour le streak quotidien. Appelé à chaque visite du dashboard."""
-    last = student.last_activity_date
-    if last == today:
-        return
-    if last and last == today - timedelta(days=1):
-        student.streak_days += 1
-    else:
-        student.streak_days = 1
-    if student.streak_days > student.longest_streak:
-        student.longest_streak = student.streak_days
-    student.last_activity_date = today
-    student.save(update_fields=['streak_days', 'longest_streak', 'last_activity_date'])
-
-    # Bonus de palier (idempotent : streak_days ne passe qu'une fois par valeur).
-    if student.streak_days in (7, 30):
-        award_xp(student, 100 if student.streak_days == 7 else XP_PER_LEVEL, f'streak_{student.streak_days}')
-
-
-# ─── Stubs phases suivantes ──────────────────────────────────────────────────
-
-# ─── Lecture leçon (Phase 5) ─────────────────────────────────────────────────
-
-@student_required
-def learn_lesson(request, lesson_id):
-    student = request.student
-
-    deployment = get_object_or_404(
-        LessonDeployment, lesson_id=lesson_id, school_class=student.school_class,
-        is_active=True, lesson__status=LessonStatus.READY,
-    )
-    lesson = deployment.lesson
-
-    progress, _created = LessonProgress.objects.get_or_create(student=student, lesson=lesson)
-
-    blocks = (lesson.structured_content or {}).get('blocks', []) if lesson.structured_content else []
-
-    # Attache la note perso (reflection) à chaque bloc — indexé par block_id.
-    notes_map = {n['block_id']: n['text'] for n in (progress.notes or [])}
-    for b in blocks:
-        b['note'] = notes_map.get(b.get('id'), '')
-
-    total_blocks = len(blocks)
-    if total_blocks:
-        initial_pct = min(int((progress.last_block_index + 1) / total_blocks * 100), 100)
-    else:
-        initial_pct = 0
-
-    return render(request, 'learn/lesson.html', {
-        'student': student,
-        'lesson': lesson,
-        'progress': progress,
-        'blocks': blocks,
-        'total_blocks': total_blocks,
-        'initial_pct': initial_pct,
-        'has_story': bool(lesson.story_data),
-        'has_quiz': lesson.quiz_count > 0,
-        'already_done': StoryAttempt.objects.filter(student=student, lesson=lesson).exists(),
-        'learn_toast': request.session.pop('learn_toast', None),
-    })
-
-
-@student_required
-@require_http_methods(['POST'])
-def lesson_save_progress(request, lesson_id):
-    """Sauvegarde le dernier bloc lu (background IntersectionObserver). Retourne 204."""
-    student = request.student
-    try:
-        data = json.loads(request.body)
-        block_index = int(data.get('block_index', 0))
-        time_delta = int(data.get('time_seconds', 0))
-    except (ValueError, json.JSONDecodeError):
-        return HttpResponse(status=400)
-
-    LessonProgress.objects.filter(student=student, lesson_id=lesson_id).update(
-        last_block_index=block_index,
-        reading_time_seconds=F('reading_time_seconds') + max(time_delta, 0),
-    )
-    return HttpResponse(status=204)
-
-
-@student_required
-@require_http_methods(['POST'])
-def lesson_save_note(request, lesson_id):
-    """Sauvegarde une note personnelle sur un bloc 'reflection'. Retourne 204."""
-    student = request.student
-    try:
-        data = json.loads(request.body)
-        block_id = str(data.get('block_id', ''))
-        text = str(data.get('text', '')).strip()
-    except (json.JSONDecodeError, ValueError):
-        return HttpResponse(status=400)
-
-    if not block_id:
-        return HttpResponse(status=400)
-
-    progress = get_object_or_404(LessonProgress, student=student, lesson_id=lesson_id)
-    notes = progress.notes or []
-    updated = False
-    for note in notes:
-        if note['block_id'] == block_id:
-            note['text'] = text
-            note['updated_at'] = timezone.now().isoformat()
-            updated = True
-            break
-    if not updated and text:
-        notes.append({'block_id': block_id, 'text': text, 'created_at': timezone.now().isoformat()})
-
-    progress.notes = notes
-    progress.save(update_fields=['notes'])
-    return HttpResponse(status=204)
-
-
-@student_required
-@require_http_methods(['POST'])
-def lesson_complete(request, lesson_id):
-    """Marque la leçon complétée + 20 XP (inline, centralisé en Phase 9). Redirige au dashboard."""
-    student = request.student
-
-    deployment = get_object_or_404(
-        LessonDeployment, lesson_id=lesson_id, school_class=student.school_class, is_active=True,
-    )
-    lesson = deployment.lesson
-
-    progress, _ = LessonProgress.objects.get_or_create(student=student, lesson=lesson)
-
-    if not progress.is_completed:
-        progress.is_completed = True
-        progress.completed_at = timezone.now()
-        progress.save(update_fields=['is_completed', 'completed_at'])
-
-        # Création des flashcards (Option B — à la complétion, idempotent).
-        flashcards_raw = (lesson.flashcards_data or {}).get('flashcards', [])
-        if flashcards_raw:
-            today = timezone.localdate()
-            existing_ids = set(
-                Flashcard.objects.filter(student=student, lesson=lesson)
-                .values_list('flashcard_id', flat=True)
-            )
-            new_cards = [
-                Flashcard(student=student, lesson=lesson,
-                          flashcard_id=fc['id'], next_review_date=today)
-                for fc in flashcards_raw if fc.get('id') and fc['id'] not in existing_ids
-            ]
-            if new_cards:
-                Flashcard.objects.bulk_create(new_cards, ignore_conflicts=True)
-
-        # XP centralisé (recalcule niveau + badges, détecte montée de niveau).
-        xp_result = award_xp(student, 20, 'lecon_completee')
-        level_msg = ''
-        if xp_result['leveled_up']:
-            level_msg = f" · {xp_result['level_emoji']} Niveau {xp_result['new_level']} {xp_result['level_name']} !"
-        request.session['learn_toast'] = f"🎉 Leçon complétée ! +20 XP{level_msg}"
-
-    return redirect(f"{reverse('learn:dashboard')}?{urlencode({'subject': lesson.subject})}")
-
-
-# ─── Quiz engine (Phase 6) ───────────────────────────────────────────────────
-
-def _student_deployment(student, lesson_id, require_ready=True):
-    flt = dict(lesson_id=lesson_id, school_class=student.school_class, is_active=True)
-    if require_ready:
-        flt['lesson__status'] = LessonStatus.READY
-    return get_object_or_404(LessonDeployment, **flt)
-
-
-@student_required
-def learn_quiz(request, lesson_id):
-    """Moteur quiz question par question (état client Alpine, réponses jamais envoyées au client)."""
-    student = request.student
-    lesson = _student_deployment(student, lesson_id).lesson
-
-    quizzes = (lesson.quiz_data or {}).get('quizzes', [])
-    if not quizzes:
-        return redirect('learn:lesson', lesson_id=lesson_id)
-
-    # Payload client SANS les réponses (anti-triche : answer/answer_index/explanation/hint retirés).
-    client_quizzes = [{
-        'id': q.get('id'),
-        'type': q.get('type', 'mcq'),
-        'question': q.get('question', ''),
-        'options': q.get('options', []),
-        'image_url': q.get('image_url'),
-    } for q in quizzes]
-    has_ordering = any(q.get('type') == 'ordering' for q in quizzes)
-
-    return render(request, 'learn/quiz.html', {
-        'student': student,
-        'lesson': lesson,
-        'client_quizzes': client_quizzes,   # injecté via |json_script (sûr, sans réponses)
-        'total': len(quizzes),
-        'has_ordering': has_ordering,
-    })
-
-
-@student_required
-@require_http_methods(['POST'])
-def quiz_submit(request, lesson_id):
-    """Évalue une réponse, crée QuizAttempt, accorde +5 XP à la 1re bonne réponse. JSON."""
-    student = request.student
-    try:
-        data = json.loads(request.body)
-        quiz_id = str(data.get('quiz_id', ''))
-        student_answer = data.get('answer')
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({'error': 'Données invalides'}, status=400)
-
-    lesson = _student_deployment(student, lesson_id, require_ready=False).lesson
-    quizzes = (lesson.quiz_data or {}).get('quizzes', [])
-    quiz = next((q for q in quizzes if q.get('id') == quiz_id), None)
-    if not quiz:
-        return JsonResponse({'error': 'Quiz introuvable'}, status=404)
-
-    # 1re bonne réponse ? (vérifié AVANT de créer la tentative → anti-farming fiable)
-    already_correct = QuizAttempt.objects.filter(
-        student=student, lesson=lesson, quiz_id=quiz_id, is_correct=True,
-    ).exists()
-
-    is_correct = evaluate_answer(quiz, student_answer)
-
-    QuizAttempt.objects.create(
-        student=student, lesson=lesson, quiz_id=quiz_id,
-        question_type=quiz.get('type', 'mcq'),
-        student_answer=student_answer if isinstance(student_answer, (dict, list)) else str(student_answer),
-        is_correct=is_correct,
-        time_spent_seconds=min(int(data.get('time_seconds', 0) or 0), 32000),
-    )
-
-    xp_earned = 0
-    level_payload = {'leveled_up': False, 'new_level': None, 'level_emoji': '', 'level_name': '', 'new_badges': []}
-    if is_correct and not already_correct:
-        xp_earned = 5
-        r = award_xp(student, 5, 'quiz_correct')   # recalcule niveau + badges (corrige le bug niveau quiz)
-        level_payload = {
-            'leveled_up': r['leveled_up'], 'new_level': r['new_level'],
-            'level_emoji': r['level_emoji'], 'level_name': r['level_name'],
-            'new_badges': r['new_badges'],
-        }
-
-    return JsonResponse({
-        'correct': is_correct,
-        'explanation': quiz.get('explanation', ''),
-        'correct_answer': quiz.get('answer', ''),
-        'correct_index': quiz.get('answer_index', -1),
-        'xp_earned': xp_earned,
-        'mastery': calculate_lesson_mastery(student, lesson),
-        'hint': quiz.get('hint', ''),
-        **level_payload,
-    })
-
-
-@student_required
-def quiz_results(request, lesson_id):
-    """Résultats : score (dernières tentatives), XP, bonus 100% (idempotent)."""
-    student = request.student
-    lesson = _student_deployment(student, lesson_id, require_ready=False).lesson
-
-    quizzes = (lesson.quiz_data or {}).get('quizzes', [])
-    total = len(quizzes)
-    if total == 0:
-        return redirect('learn:lesson', lesson_id=lesson_id)
-
-    # Score = dernière tentative par quiz_id (1 requête, distinct on).
-    quiz_ids = [q['id'] for q in quizzes]
-    latest = (
-        QuizAttempt.objects
-        .filter(student=student, lesson=lesson, quiz_id__in=quiz_ids)
-        .order_by('quiz_id', '-attempted_at')
-        .distinct('quiz_id')
-        .values_list('is_correct', flat=True)
-    )
-    correct = sum(1 for ok in latest if ok)
-    score_pct = int(correct / total * 100)
-    mastery = calculate_lesson_mastery(student, lesson)
-
-    # Bonus 100% accordé UNE SEULE FOIS (flag sur LessonProgress → idempotent).
-    bonus_xp = 0
-    if score_pct == 100:
-        progress, _ = LessonProgress.objects.get_or_create(student=student, lesson=lesson)
-        if not progress.quiz_bonus_awarded:
-            bonus_xp = 30
-            progress.quiz_bonus_awarded = True
-            progress.save(update_fields=['quiz_bonus_awarded'])
-            award_xp(student, 30, 'quiz_parfait')   # recalcule niveau + badge quiz_parfait
-
-    return render(request, 'learn/quiz_results.html', {
-        'student': student,
-        'lesson': lesson,
-        'correct': correct,
-        'total': total,
-        'errors': total - correct,
-        'score_pct': score_pct,
-        'mastery': mastery,
-        'bonus_xp': bonus_xp,
-        'xp_from_quiz': correct * 5 + bonus_xp,
-    })
-
-
-# ─── Flashcards SM-2 (Phase 8) ───────────────────────────────────────────────
-
-@student_required
-def learn_flashcards(request):
-    """Paquets de flashcards par leçon (dues / total). 3 requêtes, zéro N+1."""
-    student = request.student
-    today = timezone.localdate()
-
-    lesson_ids = (Flashcard.objects.filter(student=student)
-                  .values_list('lesson_id', flat=True).distinct())
-    lessons = Lesson.objects.filter(id__in=lesson_ids).only(
-        'id', 'title', 'subject', 'subject_type')
-
-    due_counts = {r['lesson_id']: r['cnt'] for r in (
-        Flashcard.objects.filter(student=student, next_review_date__lte=today)
-        .values('lesson_id').annotate(cnt=Count('id')))}
-    total_counts = {r['lesson_id']: r['cnt'] for r in (
-        Flashcard.objects.filter(student=student)
-        .values('lesson_id').annotate(cnt=Count('id')))}
-
-    paquets = []
-    for l in lessons:
-        due = due_counts.get(l.id, 0)
-        total = total_counts.get(l.id, 0)
-        paquets.append({'lesson': l, 'due': due, 'total': total, 'reviewed': total - due})
-    paquets.sort(key=lambda x: -x['due'])
-
-    return render(request, 'learn/flashcards.html', {
-        'student': student,
-        'paquets': paquets,
-        'total_due': sum(p['due'] for p in paquets),
-    })
-
-
-@student_required
-def flashcards_session(request, lesson_id):
-    """Session de révision : flashcards dues d'une leçon."""
-    student = request.student
-    lesson = get_object_or_404(Lesson, pk=lesson_id)
-
-    due_cards = list(
-        Flashcard.objects.filter(
-            student=student, lesson=lesson,
-            next_review_date__lte=timezone.localdate(),
-        ).order_by('next_review_date')
-    )
-    if not due_cards:
-        return redirect('learn:flashcards')
-
-    fc_map = {fc['id']: fc for fc in (lesson.flashcards_data or {}).get('flashcards', [])}
-    session_cards = [{
-        'db_id': c.id,
-        'flashcard_id': c.flashcard_id,
-        'front': fc_map.get(c.flashcard_id, {}).get('front', ''),
-        'back': fc_map.get(c.flashcard_id, {}).get('back', ''),
-    } for c in due_cards]
-
-    return render(request, 'learn/flashcards_session.html', {
-        'student': student,
-        'lesson': lesson,
-        'session_cards': session_cards,
-        'total': len(session_cards),
-    })
-
-
-@student_required
-@require_http_methods(['POST'])
-def flashcard_review(request, card_id):
-    """Enregistre la qualité, applique SM-2. JSON."""
-    student = request.student
-    card = get_object_or_404(Flashcard, pk=card_id, student=student)
-
-    try:
-        data = json.loads(request.body)
-        quality = int(data.get('quality', 1))
-        if quality not in (1, 2, 4, 5):
-            quality = 1
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({'error': 'Données invalides'}, status=400)
-
-    today = timezone.localdate()
-    # Anti-farming : +2 XP seulement si la carte était DUE (1re révision du cycle).
-    # Les re-passages d'une carte ratée dans la session ont déjà next_review_date > today.
-    was_due = card.next_review_date <= today
-
-    new_reps, new_ef, new_interval = sm2_update(
-        card.repetitions, card.ease_factor, card.interval_days, quality)
-    next_review = today + datetime.timedelta(days=new_interval)
-
-    card.repetitions = new_reps
-    card.ease_factor = new_ef
-    card.interval_days = new_interval
-    card.next_review_date = next_review
-    card.last_quality = quality
-    card.total_reviews += 1
-    card.save(update_fields=[
-        'repetitions', 'ease_factor', 'interval_days',
-        'next_review_date', 'last_quality', 'total_reviews',
-    ])
-
-    if was_due:
-        award_xp(student, 2, 'flashcard_revisee')
-
-    return JsonResponse({
-        'next_review_days': new_interval,
-        'next_review_date': next_review.isoformat(),
-        'quality': quality,
-    })
+    # L'accueil élève EST le parcours v2 :
+    #   • ≥1 leçon v2  → redirige vers le parcours v2 par défaut (1ère leçon v2)
+    #   • 0 leçon v2   → écran vide v2
+    # (Le rendu zigzag v1 plus bas est désormais inatteignable — retiré au LOT 4.)
+    v2_lessons = _student_v2_lessons(student)
+    if v2_lessons:
+        return redirect('learn:parcours-v2', lesson_id=v2_lessons[0]['id'])
+    return render(request, 'student_learning/empty_v2.html', {'student': student})
 
 
 # ─── Profil (Phase 9) ────────────────────────────────────────────────────────
@@ -683,141 +116,12 @@ def learn_profile(request):
     })
 
 
-# ─── Stories interactives (Phase 10) ─────────────────────────────────────────
-
-CHAR_COLORS = {
-    'aminata': '#FF6B6B', 'moussa': '#4ECDC4', 'fatoumata': '#A855F7',
-    'ibrahima': '#F59E0B', 'boubacar': '#10B981', 'mariam': '#EC4899',
-    'kadiatou': '#6366F1', 'oumar': '#14B8A6',
-}
-CHAR_DEFAULT_COLOR = '#6B7280'
-
-
-def _char_color(name: str) -> str:
-    return CHAR_COLORS.get((name or '').lower().strip(), CHAR_DEFAULT_COLOR)
-
-
-@student_required
-def learn_story(request, lesson_id):
-    """Story interactive (dialogue type messagerie). expected jamais exposé au client."""
-    student = request.student
-    lesson = get_object_or_404(Lesson, pk=lesson_id)
-    get_object_or_404(LessonDeployment, lesson_id=lesson_id,
-                      school_class=student.school_class, is_active=True)
-
-    if not lesson.story_data:
-        return redirect('learn:lesson', lesson_id=lesson_id)
-
-    story = lesson.story_data
-
-    characters = {}
-    for char in story.get('characters', []):
-        name = char.get('name', '')
-        characters[name] = {
-            'name': name, 'role': char.get('role', ''),
-            'side': char.get('side', 'left'),
-            'color': _char_color(name),
-            'initial': name[0].upper() if name else '?',
-        }
-
-    # Dialogue SANS expected (anti-triche).
-    dialogue_safe = []
-    for item in story.get('dialogue', []):
-        itype = item.get('type', 'narration')
-        entry = {'type': itype, 'text': item.get('text', '')}
-        if itype in ('speech', 'question'):
-            name = item.get('speaker', '')
-            entry['speaker'] = name
-            entry['side'] = characters.get(name, {}).get('side', 'left')
-            entry['color'] = _char_color(name)
-            entry['initial'] = name[0].upper() if name else '?'
-            if itype == 'question':
-                entry['marker'] = item.get('marker', '')
-        dialogue_safe.append(entry)
-
-    questions_safe = {
-        q['marker']: {'question': q.get('question', ''), 'concept_ref': q.get('concept_ref', '')}
-        for q in story.get('questions', []) if q.get('marker')
-    }
-
-    return render(request, 'learn/story.html', {
-        'student': student,
-        'lesson': lesson,
-        'characters': characters,
-        'dialogue': dialogue_safe,
-        'questions_safe': questions_safe,
-        'total_questions': len(questions_safe),
-        'already_done': StoryAttempt.objects.filter(student=student, lesson=lesson).exists(),
-        'setting': story.get('setting', ''),
-        'title': story.get('title', 'Histoire'),
-    })
-
-
-@student_required
-@require_http_methods(['POST'])
-def story_answer(request, lesson_id):
-    """Évalue une réponse de story (expected côté serveur, tolérance inclusion)."""
-    from apps.lessons.services import normalize_text
-    student = request.student
-    lesson = get_object_or_404(Lesson, pk=lesson_id)
-
-    try:
-        data = json.loads(request.body)
-        marker = str(data.get('marker', ''))
-        student_answer = str(data.get('answer', '')).strip()
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid'}, status=400)
-
-    question = next(
-        (q for q in (lesson.story_data or {}).get('questions', []) if q.get('marker') == marker),
-        None,
-    )
-    if not question:
-        return JsonResponse({'error': 'Question non trouvée'}, status=404)
-
-    s = normalize_text(student_answer)
-    e = normalize_text(question.get('expected', ''))
-    is_correct = bool(e) and (s == e or s in e or e in s)
-
-    feedback = (f"Exactement ! {question['expected']} est la bonne réponse."
-                if is_correct else
-                f"Pas tout à fait... La réponse était : {question['expected']}")
-
-    return JsonResponse({'correct': is_correct, 'feedback': feedback, 'expected': question.get('expected', '')})
-
-
-@student_required
-@require_http_methods(['POST'])
-def story_finish(request, lesson_id):
-    """Crée StoryAttempt + XP (1re complétion uniquement, ≥50% → +25, 100% → +40)."""
-    student = request.student
-    lesson = get_object_or_404(Lesson, pk=lesson_id)
-
-    try:
-        data = json.loads(request.body)
-        score = max(0, min(int(data.get('score', 0)), 100))
-        answers = data.get('answers', [])
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({'error': 'Invalid'}, status=400)
-
-    # 1re complétion = aucun StoryAttempt avant celui qu'on va créer.
-    first_time = not StoryAttempt.objects.filter(student=student, lesson=lesson).exists()
-    StoryAttempt.objects.create(student=student, lesson=lesson, score=score, answers=answers)
-
-    xp_earned = 0
-    if first_time and score >= 50:
-        xp_earned = 40 if score == 100 else 25
-        award_xp(student, xp_earned, 'story_completee')
-
-    return JsonResponse({'xp_earned': xp_earned, 'score': score})
-
-
 # ─── Notes & Rangs (Phase 11) ────────────────────────────────────────────────
 
 @student_required
 def learn_grades(request):
     """Rang, notes par matière (BulletinLine) et bulletins publiés de l'élève."""
-    from apps.schools.models import Bulletin, BulletinLine, Note
+    from apps.schools.models import Bulletin, Note
 
     student = request.student
 
@@ -877,3 +181,834 @@ def learn_bulletin_pdf(request, bulletin_id):
     resp = HttpResponse(pdf_bytes, content_type='application/pdf')
     resp['Content-Disposition'] = f'inline; filename="bulletin_{name}_{period}.pdf"'
     return resp
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Portail élève, écran PARCOURS (Phase C).
+# Constantes/maths du chemin (px/py, anneau, segments de Bézier) + assemblage des
+# nœuds. Partagé par la vue réelle learn_parcours_v2.
+# ═══════════════════════════════════════════════════════════════════════════════
+import math as _math
+
+_PCRS_TYPE = {
+    'story':      {'label': "Histoire", 'cta': "Jouer l'histoire",  'g0': "#FB7185", 'g1': "#F59E0B",
+                   'dark': "#BE123C", 'glow': "rgba(251,113,133,.45)", 'icon': "drama"},
+    'quiz':       {'label': "Quiz",     'cta': "Commencer le quiz", 'g0': "#22D3EE", 'g1': "#3B82F6",
+                   'dark': "#1D4ED8", 'glow': "rgba(34,211,238,.45)", 'icon': "target"},
+    'checkpoint': {'label': "Examen",   'cta': "Passer l'examen",   'g0': "#FBBF24", 'g1': "#F59E0B",
+                   'dark': "#B45309", 'glow': "rgba(251,191,36,.5)",  'icon': "crown"},
+}
+_PCRS_COL_W, _PCRS_NODE, _PCRS_ROW_H, _PCRS_AMP, _PCRS_CX = 300, 74, 132, 82, 150
+
+
+def _pcrs_px(i):
+    return round(_PCRS_CX + _PCRS_AMP * _math.sin(i * 0.9), 2)
+
+
+def _pcrs_py(i):
+    return i * _PCRS_ROW_H + 80
+
+
+def _pcrs_ring_dash(seg, seg_done):
+    """Port du calcul d'anneau segmenté (ProgressRing). Retourne (track, fill, cap)."""
+    gap = 6
+    unit = 100 / seg
+    s_len = unit - gap
+    track = f"{s_len:.2f} {gap}"
+    parts = []
+    for i in range(seg_done):
+        parts.append(f"{s_len:.2f}")
+        if i < seg_done - 1:
+            parts.append(str(gap))
+    used = seg_done * s_len + max(0, seg_done - 1) * gap
+    parts.append(f"{100 - used:.2f}")
+    return track, " ".join(parts), "butt"
+
+
+def assemble_nodes(cv, student):
+    """
+    Assemble la liste plate des nœuds du parcours (spec §3.4).
+
+    Contrat d'entrée :
+        cv      — LessonContentVersion (avec concepts_data list, story_data, exam_data)
+        student — instance Student (utilisée pour lire ConceptProgress)
+
+    Contrat de sortie : liste de dicts prêts pour parcours_v2.html (json_script).
+    Chaque dict a les clés :
+        i, type, title, desc, status, xp, passes, passes_done,
+        x, y, show_ring, ring, url_lecteur
+        + les clés de _PCRS_TYPE (label, cta, g0, g1, dark, glow, icon)
+
+    Statuts (séquentiels) :
+        done    — passes_done >= passes (quiz) ou flag explicite (story/exam)
+        current — premier nœud non-done
+        locked  — tout ce qui suit le premier nœud non-done
+    """
+    concepts = cv.concepts_data if isinstance(cv.concepts_data, list) else []
+    has_story = bool(cv.story_data)
+    has_exam = bool(cv.exam_data)
+    url_lecteur = reverse('learn:lecteur-v2', kwargs={'lesson_id': cv.lesson_id})
+
+    # Progression depuis la base (lecture seule — aucune écriture ici)
+    cprog = {
+        cp.concept_id: cp.passes_done
+        for cp in ConceptProgress.objects.filter(student=student, content_version=cv)
+    }
+    # version-aware (v2) : la complétion est rattachée à content_version (cf. migration 0006).
+    story_done = StoryAttempt.objects.filter(student=student, content_version=cv).exists()
+    exam_passed = ExamAttempt.objects.filter(
+        student=student, content_version=cv, passed=True
+    ).exists()
+
+    # 1. Nœuds quiz (un par concept)
+    raw = []
+    for c in concepts:
+        cid = str(c.get('id', ''))
+        passes = max(1, int(c.get('passes', 1)))
+        passes_done = min(int(cprog.get(cid, 0)), passes)
+        raw.append({
+            'type': 'quiz',
+            'title': f"Quiz · {c.get('name', cid)}",
+            'desc': c.get('name', cid),
+            'passes': passes,
+            'passes_done': passes_done,
+            'is_done': passes_done >= passes,
+            'xp': 20,
+            'concept_id': cid,
+            'url_lecteur': url_lecteur,
+            'url_quiz': reverse('learn:quiz-v2',
+                                kwargs={'lesson_id': cv.lesson_id, 'concept_id': cid}),
+            'url_story': None,
+            'url_exam': None,
+        })
+
+    # 2. Nœud story — intercalé juste avant l'exam (spec §3.4)
+    if has_story:
+        scene_name = 'Histoire interactive'
+        if isinstance(cv.story_data, dict):
+            scene_name = (cv.story_data.get('scene') or {}).get('name') or scene_name
+        raw.append({
+            'type': 'story',
+            'title': scene_name,
+            'desc': "Plonge dans l'histoire interactive",
+            'passes': 1,
+            'passes_done': 1 if story_done else 0,
+            'is_done': story_done,
+            'xp': 25,
+            'concept_id': None,
+            'url_lecteur': None,
+            'url_quiz': None,
+            'url_story': reverse('learn:story-v2', kwargs={'lesson_id': cv.lesson_id}),
+            'url_exam': None,
+        })
+
+    # 3. Nœud checkpoint (exam) — toujours en dernier
+    if has_exam:
+        raw.append({
+            'type': 'checkpoint',
+            'title': 'Examen final',
+            'desc': "Évalue toutes tes connaissances",
+            'passes': 1,
+            'passes_done': 1 if exam_passed else 0,
+            'is_done': exam_passed,
+            'xp': 90,
+            'concept_id': None,
+            'url_lecteur': None,
+            'url_quiz': None,
+            'url_story': None,
+            'url_exam': reverse('learn:exam-v2', kwargs={'lesson_id': cv.lesson_id}),
+        })
+
+    # 4. Calcul des statuts séquentiels
+    first_non_done = next((i for i, r in enumerate(raw) if not r['is_done']), len(raw))
+
+    nodes = []
+    for i, r in enumerate(raw):
+        if r['is_done']:
+            status = 'done'
+        elif i == first_non_done:
+            status = 'current'
+        else:
+            status = 'locked'
+
+        t = _PCRS_TYPE[r['type']]
+        passes, passes_done = r['passes'], r['passes_done']
+        show_ring = (status == 'current' and r['type'] == 'quiz' and passes >= 2)
+        ring = None
+        if show_ring:
+            track, fill, cap = _pcrs_ring_dash(passes, passes_done)
+            ring = {'track': track, 'fill': fill, 'cap': cap, 'accent': t['g0']}
+
+        nodes.append({
+            'i': i,
+            'type': r['type'],
+            'title': r['title'],
+            'desc': r['desc'],
+            'status': status,
+            'xp': r['xp'],
+            'passes': passes,
+            'passes_done': passes_done,
+            'x': _pcrs_px(i),
+            'y': _pcrs_py(i),
+            'show_ring': show_ring,
+            'ring': ring,
+            'concept_id': r['concept_id'],
+            'url_lecteur': r['url_lecteur'],
+            'url_quiz': r['url_quiz'],
+            'url_story': r.get('url_story'),
+            'url_exam': r.get('url_exam'),
+            **t,
+        })
+
+    return nodes
+
+
+def assemble_subject_parcours(lessons, student):
+    """Empile TOUTES les leçons d'une matière en un seul parcours (multi-leçons).
+
+    Pour chaque leçon : ses nœuds via assemble_nodes (statut séquentiel INTERNE →
+    déblocage INDÉPENDANT entre leçons). Entre deux leçons : un SÉPARATEUR portant
+    le titre de la leçon suivante (pas avant la 1ʳᵉ). Le zigzag (x) CONTINUE à
+    travers les leçons (compteur de squircles `si`) ; le y avance d'une rangée par
+    nœud ET par séparateur (compteur `ri`).
+
+    Retourne (nodes, separators) :
+      nodes      — squircles avec x/y/i globaux + lesson_id/lesson_title (scroll §3)
+      separators — [{title, y, lesson_id}] pour les dividers entre leçons
+    """
+    nodes_out, separators_out = [], []
+    si = 0   # index squircle (zigzag x — continu)
+    ri = 0   # index rangée (y — nœuds + séparateurs)
+    for li, lesson in enumerate(lessons):
+        cv = lesson.active_content_version or (
+            LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+        if not cv:
+            continue
+        if li > 0:   # séparateur AVANT la leçon (jamais avant la 1ʳᵉ)
+            separators_out.append({
+                'title': lesson.title,
+                'y': _pcrs_py(ri),
+                'lesson_id': lesson.id,
+            })
+            ri += 1
+        for n in assemble_nodes(cv, student):
+            n['x'] = _pcrs_px(si)
+            n['y'] = _pcrs_py(ri)
+            n['i'] = len(nodes_out)            # index global (openSheet)
+            n['lesson_id'] = lesson.id
+            n['lesson_title'] = lesson.title
+            nodes_out.append(n)
+            si += 1
+            ri += 1
+    return nodes_out, separators_out, ri
+
+
+def _student_v2_subjects(student):
+    """Matières DISTINCTES de l'élève (pour le dropdown du parcours). Une entrée par
+    matière : {subject, color, url} où url = parcours de la 1ʳᵉ leçon de la matière."""
+    out, seen = [], set()
+    for l in _student_v2_lessons(student):   # déjà ordonné (matière, date)
+        subj = l['subject'] or 'Autre'
+        if subj in seen:
+            continue
+        seen.add(subj)
+        out.append({'subject': subj, 'color': l['color'], 'url': l['url']})
+    return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v2 (PORTAL_V2_SPEC) — Portail élève, écran LIRE / Lecteur (Phase C).
+# Helpers de rendu du texte (glossaire cliquable + TTS), partagés par learn_lecteur_v2.
+# ═══════════════════════════════════════════════════════════════════════════════
+import re as _re
+from html import escape as _esc
+
+
+def _reader_rich(text, term_keys):
+    """Port de rich() : enveloppe les termes du glossaire dans des boutons cliquables
+    (@click Alpine openTerm). Le reste du texte est échappé (sûr)."""
+    if not term_keys:
+        return _esc(text)
+    pattern = _re.compile('(' + '|'.join(_re.escape(k) for k in term_keys) + ')', _re.IGNORECASE)
+    lower = {k.lower() for k in term_keys}
+    out = []
+    for part in pattern.split(text):
+        if part and part.lower() in lower:
+            arg = part.replace('\\', '\\\\').replace("'", "\\'")
+            out.append(f'<button type="button" class="rterm" @click="openTerm(\'{arg}\')">{_esc(part)}</button>')
+        else:
+            out.append(_esc(part))
+    return ''.join(out)
+
+
+def _reader_txt_of(b):
+    """Port de txtOf() : texte lu à voix haute (TTS) selon le type de bloc."""
+    if b['type'] == 'p':
+        return b['text']
+    if b['type'] == 'def':
+        return b['term'] + ". " + b['text']
+    if b['type'] == 'example':
+        return b['text']
+    if b['type'] == 'key':
+        return ". ".join(b['items'])
+    return None
+
+
+# ─── Vues RÉELLES v2 (données de production, élève authentifié) ───────────────
+
+@student_required
+def learn_parcours_v2(request, lesson_id):
+    """Parcours v2 sur vraies données. Gated : élève authentifié + leçon déployée dans sa classe."""
+    student = request.student
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson, school_class=student.school_class, is_active=True)
+
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv:
+        from django.http import Http404
+        raise Http404('Aucun contenu disponible.')
+
+    # Le parcours est PAR MATIÈRE : on dérive la matière de la leçon de l'URL et on
+    # empile TOUTES les leçons v2 actives de cette matière (déblocage indépendant).
+    subject = lesson.subject or ''
+    subject_deps = (
+        LessonDeployment.objects
+        .filter(school_class=student.school_class, is_active=True,
+                lesson__status=LessonStatus.READY, lesson__format_version=2,
+                lesson__subject=subject)
+        .select_related('lesson', 'lesson__active_content_version')
+        .order_by('lesson__created_at')
+    )
+    subject_lessons = [d.lesson for d in subject_deps] or [lesson]
+
+    nodes, separators, total_rows = assemble_subject_parcours(subject_lessons, student)
+    done_count = sum(1 for n in nodes if n['status'] == 'done')
+    progress_ratio = round(done_count / len(nodes), 4) if nodes else 0
+
+    segments = []
+    for i in range(len(nodes) - 1):
+        p, q = nodes[i], nodes[i + 1]
+        my = (p['y'] + q['y']) / 2
+        segments.append({
+            'd': f"M {p['x']} {p['y']} C {p['x']} {my}, {q['x']} {my}, {q['x']} {q['y']}",
+            'lit': p['status'] == 'done',
+        })
+
+    # Dropdown = UNIQUEMENT des matières (jamais des titres de leçon).
+    subjects = _student_v2_subjects(student)
+    for s in subjects:
+        s['current'] = (s['subject'] == (subject or 'Autre'))
+
+    head_color = cv.color or '#818CF8'
+    return render(request, 'student_learning/parcours_v2.html', {
+        'lesson': {
+            'title':  subject_lessons[0].title,   # titre de la 1ʳᵉ leçon (scroll-driven en §3)
+            'subject': subject,
+            'color':  head_color,
+            'guide':  cv.guide or '',
+        },
+        'nodes':          nodes,
+        'separators':     separators,
+        'segments':       segments,
+        'canvas_h':       total_rows * _PCRS_ROW_H + 60,
+        'col_w':          _PCRS_COL_W,
+        'node_size':      _PCRS_NODE,
+        'progress_ratio': progress_ratio,
+        'subjects':       subjects,
+        'lecteur_url':    reverse('learn:lecteur-v2', kwargs={'lesson_id': subject_lessons[0].id}),
+    })
+
+
+@student_required
+def learn_lecteur_v2(request, lesson_id):
+    """Lecteur v2 sur vraies données (reading_data). Gated : élève authentifié + leçon déployée."""
+    student = request.student
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson, school_class=student.school_class, is_active=True)
+
+    cv = lesson.active_content_version
+    if not cv:
+        cv = (LessonContentVersion.objects
+              .filter(lesson=lesson).order_by('-version').first())
+    if not cv or not cv.reading_data:
+        from django.http import Http404
+        raise Http404('Aucun contenu de lecture disponible.')
+
+    rd = cv.reading_data
+    term_keys = list((rd.get('terms') or {}).keys())
+
+    sections = []
+    tts = []
+    for si, s in enumerate(rd.get('sections', [])):
+        blocks = []
+        sec_tts = []
+        for bi, b in enumerate(s.get('blocks', [])):
+            nb = dict(b, si=si, bi=bi)
+            if b.get('type') == 'p':
+                nb['rich_html'] = _reader_rich(b.get('text', ''), term_keys)
+            blocks.append(nb)
+            t = _reader_txt_of(b)
+            if t:
+                sec_tts.append({'bi': bi, 'text': t})
+        sections.append({'id': s.get('id', f's{si}'), 'title': s.get('title', ''), 'blocks': blocks})
+        tts.append(sec_tts)
+
+    subject = lesson.subject or ''
+    return render(request, 'student_learning/lecteur_v2.html', {
+        'lesson': {
+            'title':   lesson.title,
+            'subject': subject,
+            'color':   cv.color or '#818CF8',
+        },
+        'subject_short':   subject.split('—')[0].strip() if '—' in subject else subject,
+        'reading_title':   rd.get('title', lesson.title),
+        'sections':        sections,
+        'section_titles':  [s.get('title', '') for s in rd.get('sections', [])],
+        'terms':           rd.get('terms') or {},
+        'tts':             tts,
+        'n_sections':      len(sections),
+        'back_url':        reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
+    })
+
+
+# ─── STORY v2 RÉELLE (étape 4) — player immersif sur story_data réel ──────────
+# Éval CÔTÉ CLIENT (à la designer : choice/input/tokens/blank) — moment plaisir,
+# pas d'enjeu anti-triche. Seule la complétion (score) est persistée côté serveur.
+
+@student_required
+def learn_story_v2(request, lesson_id):
+    """Affiche la VRAIE story (story_data) dans le player immersif (gated)."""
+    student = request.student
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv or not cv.story_data:
+        raise Http404('Aucune histoire disponible.')
+
+    sd = cv.story_data
+    return render(request, 'student_learning/story_v2.html', {
+        'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
+                   'color': cv.color or '#10B981'},
+        'scene':        sd.get('scene') or {},
+        'characters':   sd.get('characters') or [],
+        'steps':        sd.get('steps') or [],
+        'finish_url':   reverse('learn:story-v2-finish', kwargs={'lesson_id': lesson_id}),
+        'parcours_url': reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def story_v2_finish(request, lesson_id):
+    """Enregistre la complétion de la story (version-aware) → débloque le nœud suivant."""
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id, format_version=2)
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv:
+        return JsonResponse({'error': 'Aucun contenu'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        score = max(0, min(100, int(data.get('score', 0))))
+        answers = data.get('answers', [])
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    first_time = not StoryAttempt.objects.filter(
+        student=student, content_version=cv).exists()
+    StoryAttempt.objects.create(
+        student=student, lesson=lesson, content_version=cv,
+        score=score, answers=answers if isinstance(answers, list) else [],
+    )
+    return JsonResponse({'ok': True, 'first_time': first_time})
+
+
+# ─── EXAM v2 RÉEL (étape 5) — "Le Sommet" : 4 phases, SOMMATIF, correction SERVEUR ─
+# Aucun feedback pendant l'épreuve ; correction de TOUTES les réponses au submit via
+# evaluate_answer_v2 ; réponses correctes jamais exposées avant soumission. Dernier
+# maillon : exam passé → checkpoint "done" → parcours complété.
+
+def _concept_name_map(cv):
+    """{concept_id: nom} depuis concepts_data — pour le bilan par notion."""
+    concepts = cv.concepts_data if isinstance(cv.concepts_data, list) else []
+    return {str(c.get('id', '')): c.get('name', c.get('id', '')) for c in concepts}
+
+
+@student_required
+def learn_exam_v2(request, lesson_id):
+    """Affiche l'exam réel (exam_data) dans le player 'Le Sommet' (gated).
+    Questions masquées (réponses jamais envoyées au client avant soumission)."""
+    student = request.student
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv or not cv.exam_data:
+        raise Http404('Aucun examen disponible.')
+
+    ed = cv.exam_data
+    names = _concept_name_map(cv)
+    questions = []
+    for q in ed.get('questions', []):
+        cq = _quiz_to_client(q)                      # masque les réponses + normalise (matching/cloze)
+        cq['concept_id'] = q.get('concept_id', '')
+        cq['concept_name'] = names.get(str(q.get('concept_id', '')), 'Notion')
+        questions.append(cq)
+
+    return render(request, 'student_learning/exam_runner_v2.html', {
+        'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
+                   'color': cv.color or '#818CF8'},
+        'meta': {
+            'title': "Examen final",
+            'duration_s': int(ed.get('duration', 600)),
+            'pass_mark': float(ed.get('pass_mark', 0.6)),
+        },
+        'questions':    questions,
+        'n_questions':  len(questions),
+        'submit_url':   reverse('learn:exam-v2-submit', kwargs={'lesson_id': lesson_id}),
+        'parcours_url': reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def exam_v2_submit(request, lesson_id):
+    """Corrige TOUT côté serveur (evaluate_answer_v2), crée l'ExamAttempt, renvoie le
+    bilan (score, passed, par notion, détail par question avec la solution révélée)."""
+    from apps.lessons.services import evaluate_answer_v2
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id, format_version=2)
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv or not cv.exam_data:
+        return JsonResponse({'error': 'Aucun examen'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        client_answers = data.get('answers', [])      # liste indexée par position de question
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    ed = cv.exam_data
+    questions = ed.get('questions', [])
+    pass_mark = float(ed.get('pass_mark', 0.6))
+    names = _concept_name_map(cv)
+
+    # Correction question par question (100% serveur)
+    details = []
+    per_concept = {}   # concept_id -> [correct_count, total]
+    correct_total = 0
+    for i, q in enumerate(questions):
+        student_answer = client_answers[i] if i < len(client_answers) else None
+        is_correct = bool(evaluate_answer_v2(q, student_answer))
+        correct_total += 1 if is_correct else 0
+        cid = str(q.get('concept_id', ''))
+        agg = per_concept.setdefault(cid, [0, 0])
+        agg[0] += 1 if is_correct else 0
+        agg[1] += 1
+        details.append({
+            'i': i,
+            'concept_id': cid,
+            'concept_name': names.get(cid, 'Notion'),
+            'type': q.get('type', ''),
+            'instruction': q.get('instruction', ''),
+            'student_answer': student_answer,
+            'correct': is_correct,
+            'solution': _quiz_solution(q),            # révélée SEULEMENT maintenant
+            'explanation': q.get('explanation', ''),
+        })
+
+    total = len(questions) or 1
+    score = correct_total / total
+    passed = score >= pass_mark
+
+    concepts = [{
+        'id': cid, 'name': names.get(cid, 'Notion'),
+        'correct': c, 'total': t, 'pct': round(c / t * 100) if t else 0,
+    } for cid, (c, t) in per_concept.items()]
+
+    attempt_number = ExamAttempt.objects.filter(
+        student=student, content_version=cv).count() + 1
+    ExamAttempt.objects.create(
+        student=student, lesson=lesson, content_version=cv,
+        attempt_number=attempt_number, pass_mark=pass_mark,
+        score=score, passed=passed,
+        answers={'details': details, 'concepts': concepts},
+        submitted_at=timezone.now(),
+    )
+
+    return JsonResponse({
+        'score_pct': round(score * 100),
+        'passed': passed,
+        'pass_mark_pct': round(pass_mark * 100),
+        'correct': correct_total, 'total': total,
+        'concepts': concepts,
+        'questions': details,
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUIZ v2 RÉEL (étape 3) — affichage des vrais quiz d'un concept + VALIDATION
+# SERVEUR (evaluate_answer_v2) + persistance (QuizAttempt → ConceptProgress).
+# Principe sécurité (§A.5) : la réponse correcte ne transite JAMAIS vers le client
+# avant soumission ; le verdict vient du serveur. Prépare le terrain dynamic_formula.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Champs-réponse à NE JAMAIS exposer au client tant que la réponse n'est pas soumise.
+_QUIZ_ANSWER_FIELDS = (
+    'answer_index', 'answer_indices', 'answer', 'odd_index', 'answers',
+    'correct_order', 'buggy_line', 'correct_fix', 'pairs', 'solution_formula',
+    'tolerance', 'variables',
+    # types restants : la séquence/expression correcte ne doit jamais partir au client.
+    'correct_sequence', 'correct_expression', 'accepted_equivalents',
+    # explanation peut révéler la réponse → jamais côté client ; le feedback la
+    # reçoit du serveur (réponse JSON de quiz_v2_answer).
+    'explanation',
+)
+
+
+def _quiz_to_client(quiz):
+    """Copie d'un quiz SANS les champs-réponse — sûre à envoyer au client.
+
+    Tout le reste (instruction, options, items, text…) est conservé pour le rendu.
+    Cas spéciaux :
+      - k_prime        : les statements gardent `text`, perdent `answer`.
+      - matching       : `pairs` (l'adjacence left↔right EST la réponse) est strippé ;
+        on envoie les `lefts` ordonnés + les `rights` MÉLANGÉS, chacun gardant son
+        index d'origine `oi` (réponse[i] = oi du right choisi pour left[i]).
+      - parsons_puzzle : chaque ligne garde `id`+`text`, PERD `correct_indent` (réponse).
+    Note : dynamic_formula est traité dans la vue (énoncé tiré côté serveur) — ici on
+    se contente de retirer variables/solution_formula (déjà dans la liste).
+    Réutilisable pour tous les concepts ; le serveur garde le quiz complet."""
+    out = {k: v for k, v in quiz.items() if k not in _QUIZ_ANSWER_FIELDS}
+    t = quiz.get('type')
+    if t == 'k_prime':
+        out['statements'] = [{'text': s.get('text', '')} for s in quiz.get('statements', [])]
+    elif t == 'matching':
+        import random as _random
+        pairs = quiz.get('pairs', [])
+        out['lefts'] = [p.get('left', '') for p in pairs]
+        rights = [{'text': p.get('right', ''), 'oi': i} for i, p in enumerate(pairs)]
+        _random.shuffle(rights)
+        out['rights'] = rights
+    elif t == 'parsons_puzzle':
+        import random as _random
+        lines = [{'id': l.get('id'), 'text': l.get('text', '')} for l in quiz.get('lines', [])]
+        _random.shuffle(lines)   # mélange l'ordre de départ (sinon la séquence serait donnée)
+        out['lines'] = lines
+    return out
+
+
+def _quiz_solution(quiz, context=None):
+    """Réponse correcte minimale, renvoyée APRÈS validation pour rendre le feedback
+    (surlignage / correction). Jamais exposée avant soumission.
+
+    `context` = {'variables': …} pour dynamic_formula (recalcul de la bonne réponse
+    depuis le tirage serveur). Ignoré par les autres types."""
+    t = quiz.get('type')
+    if t == 'mcq_single':   return {'answer_index': quiz.get('answer_index')}
+    if t == 'mcq_multiple': return {'answer_indices': quiz.get('answer_indices', [])}
+    if t == 'true_false':   return {'answer': bool(quiz.get('answer'))}
+    if t == 'odd_one_out':  return {'odd_index': quiz.get('odd_index')}
+    if t == 'k_prime':      return {'answers': [bool(s.get('answer')) for s in quiz.get('statements', [])]}
+    if t == 'cloze_test':   return {'answers': quiz.get('answers', [])}
+    # matching : la bonne association left[i] → right d'origine i (paires ordonnées).
+    if t == 'matching':     return {'pairs': quiz.get('pairs', [])}
+    if t == 'chrono_order': return {'correct_order': quiz.get('correct_order', [])}
+    if t == 'number_input': return {'answer': quiz.get('answer'), 'unit': quiz.get('unit', '')}
+    if t == 'spot_the_bug': return {'buggy_line': quiz.get('buggy_line'), 'correct_fix': quiz.get('correct_fix', '')}
+    if t == 'math_expression': return {'correct_expression': quiz.get('correct_expression', '')}
+    if t == 'parsons_puzzle':
+        # séquence + indentation correctes, dans l'ordre, pour afficher la solution.
+        by_id = {l.get('id'): l for l in quiz.get('lines', [])}
+        seq = quiz.get('correct_sequence', [])
+        return {'sequence': [{'text': by_id.get(i, {}).get('text', ''),
+                              'indent': by_id.get(i, {}).get('correct_indent', 0)} for i in seq]}
+    if t == 'dynamic_formula':
+        from apps.lessons.services import _safe_eval_arith
+        if isinstance(context, dict) and 'variables' in context:
+            try:
+                ans = _safe_eval_arith(quiz.get('solution_formula', '0'), context['variables'])
+                return {'answer': ans, 'unit': quiz.get('unit', '')}
+            except Exception:
+                return {'unit': quiz.get('unit', '')}
+        return {'unit': quiz.get('unit', '')}
+    return {}
+
+
+def _concept_passes(concept):
+    """Nombre de passes déclarés du concept (1..4), borné défensivement."""
+    return max(1, int(concept.get('passes', 1)))
+
+
+def _recompute_concept_progress(student, cv, concept):
+    """Recalcule passes_done depuis les QuizAttempt (SOURCE DE VÉRITÉ, §3.4).
+
+    Règle : un pass est *maîtrisé* quand CHAQUE quiz de ce pass a ≥1 QuizAttempt
+    correct de l'élève (formatif, basé maîtrise). passes_done = nombre de passes
+    consécutifs maîtrisés depuis le pass 0 (déblocage séquentiel). Idempotent."""
+    quizzes = concept.get('quiz', [])
+    passes = _concept_passes(concept)
+
+    correct_ids = set(
+        QuizAttempt.objects
+        .filter(student=student, content_version=cv, is_correct=True,
+                quiz_id__in=[str(q.get('id')) for q in quizzes])
+        .values_list('quiz_id', flat=True)
+    )
+
+    passes_done = 0
+    for p in range(passes):
+        pass_quizzes = [q for q in quizzes if int(q.get('pass_index', 0)) == p]
+        if pass_quizzes and all(str(q.get('id')) in correct_ids for q in pass_quizzes):
+            passes_done += 1
+        else:
+            break  # séquentiel : on s'arrête au premier pass non maîtrisé
+
+    ConceptProgress.objects.update_or_create(
+        student=student, content_version=cv, concept_id=str(concept.get('id', '')),
+        defaults={'lesson_id': cv.lesson_id, 'passes_done': passes_done},
+    )
+    return passes_done
+
+
+def _v2_concept_or_404(student, lesson_id, concept_id):
+    """Charge (lesson, cv, concept) pour un élève AUTORISÉ (leçon v2 déployée dans
+    sa classe). 404 sinon. Brique commune affichage + validation."""
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv:
+        raise Http404('Aucun contenu disponible.')
+    concepts = cv.concepts_data if isinstance(cv.concepts_data, list) else []
+    concept = next((c for c in concepts if str(c.get('id', '')) == str(concept_id)), None)
+    if concept is None:
+        raise Http404('Concept introuvable.')
+    return lesson, cv, concept
+
+
+@student_required
+def learn_quiz_v2(request, lesson_id, concept_id):
+    """Affiche les quiz du PASS COURANT d'un concept (vraies données, gated).
+
+    Le pass joué = le pass courant (= passes_done) ; si le concept est terminé,
+    on rejoue le dernier pass (révision, sans incrément possible)."""
+    student = request.student
+    lesson, cv, concept = _v2_concept_or_404(student, lesson_id, concept_id)
+
+    passes = _concept_passes(concept)
+    done = (ConceptProgress.objects
+            .filter(student=student, content_version=cv, concept_id=str(concept_id))
+            .values_list('passes_done', flat=True).first()) or 0
+    pass_to_play = done if done < passes else passes - 1
+
+    quizzes = [q for q in concept.get('quiz', [])
+               if int(q.get('pass_index', 0)) == pass_to_play]
+
+    # dynamic_formula : tirage des variables CÔTÉ SERVEUR (anti-triche A.5). Le client
+    # ne reçoit que l'énoncé chiffré ; variables + solution restent serveur (QuestionDraw).
+    from apps.lessons.services import draw_dynamic_formula
+    client_quizzes = []
+    for q in quizzes:
+        cq = _quiz_to_client(q)
+        if q.get('type') == 'dynamic_formula':
+            drawn = draw_dynamic_formula(q)
+            # practice (exam_attempt=None) : on remplace le tirage précédent → re-tirage à chaque ouverture
+            QuestionDraw.objects.filter(student=student, content_version=cv,
+                                        quiz_id=str(q.get('id')), exam_attempt__isnull=True).delete()
+            QuestionDraw.objects.create(student=student, content_version=cv,
+                                        quiz_id=str(q.get('id')), variables=drawn['variables'])
+            cq['instruction'] = drawn['statement']   # énoncé avec valeurs substituées
+        client_quizzes.append(cq)
+
+    return render(request, 'student_learning/quiz_runner_v2.html', {
+        'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
+                   'color': cv.color or '#818CF8'},
+        'concept': {'id': str(concept_id), 'name': concept.get('name', '')},
+        'pass_index':   pass_to_play,
+        'passes':       passes,
+        'questions':    client_quizzes,
+        'n_questions':  len(client_quizzes),
+        'answer_url':   reverse('learn:quiz-v2-answer',
+                                kwargs={'lesson_id': lesson_id, 'concept_id': concept_id}),
+        'parcours_url': reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def quiz_v2_answer(request, lesson_id, concept_id):
+    """Valide UNE réponse côté serveur (evaluate_answer_v2), enregistre la
+    QuizAttempt, recalcule ConceptProgress. Renvoie verdict + explication +
+    solution (la solution n'est exposée qu'APRÈS soumission)."""
+    from apps.lessons.services import evaluate_answer_v2
+    student = request.student
+    lesson, cv, concept = _v2_concept_or_404(student, lesson_id, concept_id)
+
+    try:
+        data = json.loads(request.body)
+        quiz_id = str(data.get('quiz_id', ''))
+        student_answer = data.get('answer')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    quiz = next((q for q in concept.get('quiz', []) if str(q.get('id')) == quiz_id), None)
+    if quiz is None:
+        return JsonResponse({'error': 'Quiz introuvable'}, status=404)
+
+    # dynamic_formula : on relit le tirage SERVEUR (jamais reçu du client) et on
+    # recalcule la réponse attendue avec ces variables (anti-triche A.5).
+    context = None
+    draw_variables = None
+    if quiz.get('type') == 'dynamic_formula':
+        draw = (QuestionDraw.objects
+                .filter(student=student, content_version=cv, quiz_id=quiz_id,
+                        exam_attempt__isnull=True)
+                .order_by('-created_at').first())
+        if draw:
+            context = {'variables': draw.variables}
+            draw_variables = draw.variables
+
+    is_correct = bool(evaluate_answer_v2(quiz, student_answer, context))
+
+    QuizAttempt.objects.create(
+        student=student, lesson=lesson, content_version=cv,
+        quiz_id=quiz_id, question_type=quiz.get('type', ''),
+        student_answer=student_answer, is_correct=is_correct,
+        draw_variables=draw_variables,
+    )
+    passes_done = _recompute_concept_progress(student, cv, concept)
+
+    return JsonResponse({
+        'correct':     is_correct,
+        'explanation': quiz.get('explanation', ''),
+        'solution':    _quiz_solution(quiz, context),
+        'passes_done': passes_done,
+        'passes':      _concept_passes(concept),
+    })
