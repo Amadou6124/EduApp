@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, transaction, models
 from django.db.models import Count, ProtectedError
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
@@ -19,6 +19,12 @@ from .forms import (
 )
 from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note, BulletinConfig
 from apps.core.mixins import get_school, director_or_staff_required
+
+# ── Module Finances (Lot 2) — catalogue de frais ───────────────────────────────
+from apps.finance.models import (
+    FeeType, FeeVariant, PaymentScheduleTemplate, FeeCategory,
+)
+from apps.finance.forms import FeeTypeForm, FeeVariantForm
 
 # Variables disponibles pour le mapping de reçu personnalisé
 _RECEIPT_VARIABLES = [
@@ -827,3 +833,328 @@ def coming_soon(request, section):
         'section_icon':   icon,
         'school':         get_school(request),
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FINANCES — Catalogue de frais & gabarits de tranches (Lot 2)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Toutes ces vues suivent le pattern settings existant : HTMX + partials + toast via
+# header HX-Trigger. Cible principale : #fee-catalog (catalogue) et
+# #schedule-templates (gabarits). Aucune n'opère hors de l'école courante.
+
+def _fee_types_qs(school):
+    """
+    Catalogue de gestion de l'école : tous les frais ACTIFS ET INACTIFS (le template
+    sépare les deux), SAUF la scolarité (TUITION) qui est présentée en bannière d'info,
+    jamais en carte. Variantes (toutes, actives + inactives) préchargées → zéro N+1 ;
+    le template grise les variantes désactivées.
+    """
+    return (
+        FeeType.objects
+        .filter(school=school)
+        .exclude(category=FeeCategory.TUITION)
+        .prefetch_related(
+            models.Prefetch(
+                'variants',
+                queryset=FeeVariant.objects.order_by('order', 'label'),
+            )
+        )
+        .order_by('order', 'name')
+    )
+
+
+def _catalog_context(school):
+    """Sépare le catalogue en frais actifs / inactifs (1 seule requête, split en Python)."""
+    fees = list(_fee_types_qs(school))
+    return {
+        'active_fees':   [f for f in fees if f.is_active],
+        'inactive_fees': [f for f in fees if not f.is_active],
+        'has_any':       bool(fees),
+    }
+
+
+def _render_catalog(request, school):
+    """Rend le partial catalogue (cartes actives + section désactivés + état vide)."""
+    return render_to_string(
+        'settings/partials/fee_catalog.html',
+        _catalog_context(school),
+        request=request,
+    )
+
+
+def _render_schedules(request, school):
+    """Rend le partial gabarits de tranches."""
+    return render_to_string(
+        'settings/partials/schedule_templates.html',
+        {'schedule_templates': PaymentScheduleTemplate.objects
+            .filter(school=school, is_active=True)},
+        request=request,
+    )
+
+
+def _toast(resp, message, msg_type='success', **extra):
+    """Pose un header HX-Trigger avec un toast (+ événements optionnels)."""
+    payload = {'showToast': {'message': message, 'type': msg_type}}
+    payload.update(extra)
+    resp['HX-Trigger'] = json.dumps(payload)
+    return resp
+
+
+@login_required
+@director_or_staff_required
+def fees(request):
+    """Écran principal : catalogue de frais + gabarit de tranches par défaut."""
+    school = get_school(request)
+    return render(request, 'settings/fees.html', {
+        **_catalog_context(school),
+        'schedule_templates': PaymentScheduleTemplate.objects
+            .filter(school=school, is_active=True),
+        'fee_form':           FeeTypeForm(),
+        'active_section':     'fees',
+        'school':             school,
+    })
+
+
+@login_required
+@director_or_staff_required
+def fee_form(request, fee_id=None):
+    """Renvoie le corps du modal (création si fee_id absent, édition sinon)."""
+    school = get_school(request)
+    instance = None
+    if fee_id is not None:
+        instance = get_object_or_404(FeeType, id=fee_id, school=school)
+    return render(request, 'settings/partials/fee_form.html', {
+        'form':     FeeTypeForm(instance=instance),
+        'fee':      instance,
+    })
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def fee_save(request, fee_id=None):
+    """Crée ou met à jour un FeeType depuis le modal (formulaire complet)."""
+    school = get_school(request)
+    instance = None
+    if fee_id is not None:
+        instance = get_object_or_404(FeeType, id=fee_id, school=school)
+
+    form = FeeTypeForm(request.POST, instance=instance)
+    if not form.is_valid():
+        # Réaffiche le formulaire avec ses erreurs DANS le modal. Status 200 volontaire :
+        # HTMX swappe le corps du modal (#fee-modal-body) ; le modal reste ouvert tant
+        # que le succès (closeFeeModal) n'est pas déclenché.
+        return render(request, 'settings/partials/fee_form.html',
+                      {'form': form, 'fee': instance})
+
+    obj = form.save(commit=False)
+    obj.school = school
+    if instance is None:
+        # Ordre d'affichage = à la fin du catalogue.
+        obj.order = (
+            FeeType.objects.filter(school=school)
+            .aggregate(m=models.Max('order'))['m'] or 0
+        ) + 1
+    try:
+        with transaction.atomic():
+            obj.full_clean(exclude=['school'])  # rejoue les garde-fous du modèle
+            obj.save()
+    except (IntegrityError, ValidationError):
+        return _toast(HttpResponse(status=422),
+                      'Un frais portant ce nom existe déjà.', 'error')
+
+    # Succès : on swappe le catalogue (OOB) et on demande la fermeture du modal.
+    catalog = _render_catalog(request, school)
+    resp = HttpResponse(
+        f'<div id="fee-catalog" hx-swap-oob="true">{catalog}</div>'
+    )
+    return _toast(
+        resp,
+        'Frais enregistré.' if instance is None else 'Frais modifié.',
+        closeFeeModal={},
+    )
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def fee_amount_update(request, fee_id):
+    """Édition inline du montant d'un frais simple (un seul champ)."""
+    school = get_school(request)
+    fee = get_object_or_404(FeeType, id=fee_id, school=school)
+    raw = (request.POST.get('default_amount') or '').strip()
+    try:
+        amount = int(raw)
+        if amount < 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        return _toast(HttpResponse(status=422), 'Montant invalide.', 'error')
+
+    fee.default_amount = amount
+    fee.save(update_fields=['default_amount'])
+    return _toast(HttpResponse(status=204), 'Montant mis à jour.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def fee_toggle_active(request, fee_id):
+    """
+    Bascule Actif/Inactif d'un frais. On ne supprime JAMAIS un frais (il pourra porter
+    des paiements) : désactiver le retire des inscriptions tout en le gardant en base
+    et réactivable. La réactivation peut échouer si un autre frais ACTIF porte déjà ce
+    nom (contrainte conditionnelle) → toast clair plutôt que 500.
+    """
+    school = get_school(request)
+    fee = get_object_or_404(FeeType, id=fee_id, school=school)
+    fee.is_active = not fee.is_active
+    try:
+        with transaction.atomic():
+            fee.save(update_fields=['is_active'])
+    except IntegrityError:
+        return _toast(
+            HttpResponse(status=422),
+            f'Impossible de réactiver : un frais actif « {fee.name} » existe déjà.',
+            'error',
+        )
+    resp = render(request, 'settings/partials/fee_catalog.html',
+                  _catalog_context(school))
+    return _toast(
+        resp,
+        'Frais réactivé.' if fee.is_active else 'Frais désactivé.',
+        'success' if fee.is_active else 'info',
+    )
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def fee_variant_add(request, fee_id):
+    """Ajoute une variante à un frais à variantes."""
+    school = get_school(request)
+    fee = get_object_or_404(FeeType, id=fee_id, school=school, has_variants=True)
+    form = FeeVariantForm(request.POST)
+    if not form.is_valid():
+        first = next(iter(form.errors.values()))[0]
+        return _toast(HttpResponse(status=422), first, 'error')
+    variant = form.save(commit=False)
+    variant.fee_type = fee
+    # Pour un frais genré, gender_key est imposé par le label de variante choisi
+    # (le template envoie 'M'/'F' en champ caché). Sinon il reste NULL.
+    variant.order = (
+        fee.variants.aggregate(m=models.Max('order'))['m'] or 0
+    ) + 1
+    try:
+        with transaction.atomic():
+            variant.save()
+    except IntegrityError:
+        # Contrainte uniq_fee_variant_type_label : une variante du même libellé existe
+        # déjà pour ce frais → on remonte un toast plutôt qu'une 500.
+        return _toast(HttpResponse(status=422),
+                      f'Une variante « {variant.label} » existe déjà.', 'error')
+    resp = render(request, 'settings/partials/fee_card.html',
+                  {'fee': _fee_types_qs(school).get(pk=fee.pk)})
+    return _toast(resp, 'Variante ajoutée.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def fee_variant_update(request, variant_id):
+    """
+    Édition inline d'une variante existante (label + montant), sans suppression/recréation.
+    On met à jour UNIQUEMENT label et amount : gender_key est préservé tel quel (ne pas
+    le clobber pour les frais genrés). Mettre à jour la même ligne ne peut pas violer la
+    contrainte d'unicité (même pk) ; renommer vers un label déjà pris (autre variante
+    active) → IntegrityError → toast.
+    """
+    school = get_school(request)
+    variant = get_object_or_404(FeeVariant, id=variant_id, fee_type__school=school)
+
+    label = (request.POST.get('label') or '').strip()
+    raw_amount = (request.POST.get('amount') or '').strip()
+    if not label:
+        return _toast(HttpResponse(status=422), 'Le libellé est obligatoire.', 'error')
+    try:
+        amount = int(raw_amount)
+        if amount < 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        return _toast(HttpResponse(status=422), 'Montant invalide.', 'error')
+
+    variant.label = label
+    variant.amount = amount
+    try:
+        with transaction.atomic():
+            variant.save(update_fields=['label', 'amount'])
+    except IntegrityError:
+        return _toast(HttpResponse(status=422),
+                      f'Une variante « {label} » existe déjà.', 'error')
+
+    resp = render(request, 'settings/partials/fee_card.html',
+                  {'fee': _fee_types_qs(school).get(pk=variant.fee_type_id)})
+    return _toast(resp, 'Variante mise à jour.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def fee_variant_toggle(request, variant_id):
+    """Bascule Actif/Inactif d'une variante (même logique que le frais : jamais de suppression dure)."""
+    school = get_school(request)
+    variant = get_object_or_404(FeeVariant, id=variant_id, fee_type__school=school)
+    variant.is_active = not variant.is_active
+    try:
+        with transaction.atomic():
+            variant.save(update_fields=['is_active'])
+    except IntegrityError:
+        return _toast(
+            HttpResponse(status=422),
+            f'Impossible de réactiver : une variante « {variant.label} » existe déjà.',
+            'error',
+        )
+    resp = render(request, 'settings/partials/fee_card.html',
+                  {'fee': _fee_types_qs(school).get(pk=variant.fee_type_id)})
+    return _toast(
+        resp,
+        'Variante réactivée.' if variant.is_active else 'Variante désactivée.',
+        'success' if variant.is_active else 'info',
+    )
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def schedule_set_default(request, template_id):
+    """Passe un gabarit de tranches en « par défaut » (les autres repassent à False)."""
+    school = get_school(request)
+    tpl = get_object_or_404(PaymentScheduleTemplate, id=template_id, school=school)
+    tpl.is_default = True
+    tpl.save()  # save() retire le flag des autres gabarits de l'école (cf. modèle)
+    resp = render(request, 'settings/partials/schedule_templates.html', {
+        'schedule_templates': PaymentScheduleTemplate.objects
+            .filter(school=school, is_active=True),
+    })
+    return _toast(resp, f'Gabarit « {tpl.name} » appliqué par défaut.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def fees_seed(request):
+    """
+    Pré-remplit un catalogue type malien pour TESTER (déclenchable à la main).
+
+    Volontairement une vue POST et non une data migration : on ne veut pas polluer
+    les écoles réelles. Idempotent : get_or_create par nom, ne duplique rien.
+    """
+    school = get_school(request)
+    from apps.finance.seeds import seed_fee_catalog
+    seed_fee_catalog(school)
+    catalog = _render_catalog(request, school)
+    schedules = _render_schedules(request, school)
+    resp = HttpResponse(
+        f'<div id="fee-catalog" hx-swap-oob="true">{catalog}</div>'
+        f'<div id="schedule-templates" hx-swap-oob="true">{schedules}</div>'
+    )
+    return _toast(resp, 'Catalogue de démonstration chargé.')

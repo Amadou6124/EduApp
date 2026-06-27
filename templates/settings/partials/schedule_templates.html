@@ -1,0 +1,38 @@
+{% load i18n %}
+{% comment %}
+Gabarits de tranches — cartes sélectionnables. Le gabarit is_default a une bordure
+primary + badge « Par défaut ». Cliquer sur un autre le passe par défaut (HTMX).
+Cible #schedule-templates. Responsive : 1 colonne mobile, 3 colonnes desktop.
+{% endcomment %}
+
+{% if schedule_templates %}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    {% for tpl in schedule_templates %}
+      <button type="button"
+              {% if not tpl.is_default %}
+              hx-post="{% url 'settings:schedule-set-default' tpl.id %}"
+              hx-target="#schedule-templates" hx-swap="innerHTML"
+              {% endif %}
+              class="card p-4 text-left transition relative
+                     {% if tpl.is_default %}border-primary-500 ring-1 ring-primary-500{% else %}hover:border-primary-300 cursor-pointer{% endif %}">
+        {% if tpl.is_default %}
+          <span class="badge-primary absolute top-3 right-3">Par défaut</span>
+        {% endif %}
+        <div class="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center mb-3">
+          <i data-lucide="calendar-clock" class="w-5 h-5 text-primary-600"></i>
+        </div>
+        <p class="font-semibold text-gray-900">{{ tpl.name }}</p>
+        <p class="text-xs text-gray-500 mt-0.5">
+          {{ tpl.installments_count }} tranche{{ tpl.installments_count|pluralize }}
+        </p>
+      </button>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card p-6 text-center">
+    <p class="text-sm text-gray-500">
+      Aucun gabarit de tranches. Utilisez « Charger un exemple » ci-dessus pour créer
+      les gabarits Annuel / Trimestriel / Mensuel.
+    </p>
+  </div>
+{% endif %}

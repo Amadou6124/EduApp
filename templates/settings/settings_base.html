@@ -13,6 +13,7 @@
   {% elif active_section == 'school-years' %}Années scolaires
   {% elif active_section == 'bulletin' %}Modèle de bulletin
   {% elif active_section == 'receipt' %}Modèle de reçu
+  {% elif active_section == 'fees' %}Frais & tranches
   {% endif %}
 </p>
 {% endblock %}
@@ -52,7 +53,8 @@
       <!-- Finance -->
       <div>
         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-1">Finance</p>
-        {% include "settings/partials/nav_item.html" with section="receipt" label="Modèle de reçu" icon="receipt" available=True %}
+        {% include "settings/partials/nav_item.html" with section="fees"    label="Frais & tranches" icon="wallet"  available=True %}
+        {% include "settings/partials/nav_item.html" with section="receipt" label="Modèle de reçu"    icon="receipt" available=True %}
       </div>
 
     </div>
@@ -75,6 +77,7 @@
           <option value="{% url 'settings:bulletin' %}"     {% if active_section == 'bulletin'     %}selected{% endif %}>Modèle bulletin</option>
         </optgroup>
         <optgroup label="Finance">
+          <option value="{% url 'settings:fees' %}"         {% if active_section == 'fees'         %}selected{% endif %}>Frais & tranches</option>
           <option value="{% url 'settings:receipt' %}"      {% if active_section == 'receipt'      %}selected{% endif %}>Modèle de reçu</option>
         </optgroup>
       </select>

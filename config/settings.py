@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'apps.parent',
     'apps.notifications',
     'apps.accounting',
+    'apps.finance',
     'apps.lessons',
     'apps.student_learning',
 ]
