@@ -274,6 +274,36 @@ def student_detail(request, student_id):
         .order_by('-created_at')[:20]
     )
 
+    # ── Fiche financière par année (lot 3) ────────────────────────────────────
+    # Fiche accrochée à l'enrollment ACTIVE (= inscription de l'année courante).
+    # Optionnelle : un élève dont la fiche n'a pas encore été générée (anciens non
+    # régénérés) n'en a pas → le template affiche un état neutre, sans planter.
+    from apps.finance.models import StudentFeeAccount, FeeDebtKind
+    fee_account = (
+        StudentFeeAccount.objects
+        .filter(enrollment__student=student, enrollment__status='active',
+                enrollment__school=school)
+        .select_related('enrollment__school_year')
+        .prefetch_related('debts__installments')
+        .order_by('-enrollment__school_year__start_date')
+        .first()
+    )
+    # Familles ordonnées (label, dettes) — uniquement les familles non vides, pour un
+    # template simple (pas de filtre custom).
+    fee_families = None
+    if fee_account:
+        debts = list(fee_account.debts.all())
+        ordered = [
+            ('Scolarité',       FeeDebtKind.TUITION),
+            ('Frais ponctuels', FeeDebtKind.ONE_TIME),
+            ('Abonnements',     FeeDebtKind.SUBSCRIPTION),
+        ]
+        fee_families = [
+            (label, [d for d in debts if d.kind == kind])
+            for label, kind in ordered
+        ]
+        fee_families = [(label, ds) for label, ds in fee_families if ds]
+
     return render(request, 'students/student_detail.html', {
         'student':           student,
         'school':            school,
@@ -284,6 +314,8 @@ def student_detail(request, student_id):
         'active_period':     active_period,
         'notifs_parents':    notifs_parents,
         'is_director':       request.role == UserRole.DIRECTOR or request.user.is_superuser,
+        'fee_account':       fee_account,
+        'fee_families':      fee_families,
     })
 
 

@@ -35,6 +35,15 @@ class FeeCategory(models.TextChoices):
     SUBSCRIPTION = 'subscription', _('Abonnement')
 
 
+class AppliesTo(models.TextChoices):
+    # À qui le frais s'applique AUTOMATIQUEMENT à l'inscription. La reconnaissance
+    # nouveau / ancien est faite par le socle temporel (lot 1) : un élève est ANCIEN
+    # s'il possède déjà un StudentEnrollment pour l'année précédente dans la même école.
+    NEW       = 'new',       _('Nouveaux élèves')        # uniquement les nouveaux inscrits
+    RETURNING = 'returning', _('Anciens élèves')          # uniquement les réinscriptions
+    ALL       = 'all',       _('Tous')                    # tout le monde (défaut)
+
+
 class FeeType(models.Model):
     """Un type de frais déclaré au catalogue d'une école."""
 
@@ -75,6 +84,20 @@ class FeeType(models.Model):
     is_gender_based = models.BooleanField(
         _('selon le genre'), default=False,
         help_text=_('La variante est choisie automatiquement selon le genre de l\'élève.'),
+    )
+    # ── Règle nouveaux / anciens (lot 3) ──────────────────────────────────────
+    # À quels élèves ce frais s'applique automatiquement à l'inscription, selon qu'ils
+    # ont (ANCIEN) ou non (NOUVEAU) un StudentEnrollment l'année précédente. Défaut ALL.
+    applies_to = models.CharField(
+        _('s\'applique à'), max_length=10,
+        choices=AppliesTo.choices, default=AppliesTo.ALL,
+    )
+    # Tarif réduit OPTIONNEL pour les anciens (réinscription). Si NULL, on applique
+    # default_amount (ou la variante) à tout le monde, ancien comme nouveau.
+    returning_amount = models.DecimalField(
+        _('tarif réinscription (FCFA)'), max_digits=10, decimal_places=0,
+        null=True, blank=True, validators=[MinValueValidator(0)],
+        help_text=_('Montant réduit pour les anciens élèves. Vide = même tarif pour tous.'),
     )
     # Désactivation douce : retire le frais des nouvelles inscriptions sans casser
     # l'historique des fiches financières qui le référencent déjà.
@@ -143,6 +166,30 @@ class FeeType(models.Model):
     def is_simple_amount(self):
         """True si le frais porte un montant unique éditable (ni scolarité ni variantes)."""
         return self.category != FeeCategory.TUITION and not self.has_variants
+
+    def applies_to_student(self, is_returning):
+        """
+        Ce frais s'applique-t-il automatiquement à un élève selon son statut ?
+        is_returning=True → ancien (réinscription), False → nouveau.
+        ALL → toujours ; NEW → nouveaux seulement ; RETURNING → anciens seulement.
+        """
+        if self.applies_to == AppliesTo.ALL:
+            return True
+        if self.applies_to == AppliesTo.NEW:
+            return not is_returning
+        return is_returning  # RETURNING
+
+    def resolved_amount(self, is_returning, variant=None):
+        """
+        Montant à facturer pour ce frais à un élève donné.
+        Priorité : variante (si fournie) > tarif réinscription (si ancien et défini) >
+        montant simple. Renvoie None pour la scolarité (montant = classe, hors catalogue).
+        """
+        if variant is not None:
+            return variant.amount
+        if is_returning and self.returning_amount is not None:
+            return self.returning_amount
+        return self.default_amount
 
 
 class FeeVariant(models.Model):
@@ -272,3 +319,263 @@ class PaymentScheduleTemplate(models.Model):
                 school=self.school, is_default=True,
             ).exclude(pk=self.pk).update(is_default=False)
         super().save(*args, **kwargs)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LOT 3 — FICHE FINANCIÈRE PAR ANNÉE : dettes, échéancier, allocation
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Modèle de données (4 niveaux) — accroché à l'ANNÉE via StudentEnrollment :
+#
+#   StudentFeeAccount   (1 par enrollment = 1 élève × 1 année)
+#     └─ FeeDebt        (1 dette ; kind ∈ {tuition, one_time, subscription})
+#          └─ Installment   (1 échéance datée ; N pour la scolarité, 1 pour un ponctuel,
+#                            1 par mois actif pour un abonnement)
+#               └─ PaymentAllocation  (lien Payment ↔ Installment ; montant ventilé)
+#
+# CONTRAT D'IMMUABILITÉ (capital) :
+#   - apps.payments.Payment reste un JOURNAL IMMUABLE : aucun champ « payé / alloué »
+#     n'y est ajouté. Le lien paiement → dette passe UNIQUEMENT par PaymentAllocation.
+#   - Aucun solde n'est stocké : tout solde (dette, tranche, fiche) se CALCULE en
+#     agrégeant les PaymentAllocation. Les méthodes ci-dessous ne mutent jamais d'état.
+#
+# CONTRAT DES 3 FAMILLES (jamais fondues) :
+#   - TUITION      : scolarité, total = SchoolClass.annual_fee (snapshot), découpée en
+#                    N Installment datés par un PaymentScheduleTemplate.
+#   - ONE_TIME     : frais ponctuel (inscription, fournitures, tenue), 1 Installment.
+#   - SUBSCRIPTION : abonnement (bus, cantine), résiliable (is_active=False arrête la
+#                    génération des mensualités) ; 1 Installment par mois actif.
+#   L'allocation d'un paiement se fait À L'INTÉRIEUR d'une dette (FIFO intra-dette),
+#   jamais en travers des familles.
+
+from decimal import Decimal as _D
+from datetime import date as _date
+
+from django.db.models import Sum as _Sum
+
+
+class FeeDebtKind(models.TextChoices):
+    TUITION      = 'tuition',      _('Scolarité')
+    ONE_TIME     = 'one_time',     _('Frais ponctuel')
+    SUBSCRIPTION = 'subscription', _('Abonnement')
+
+
+class DebtStatus(models.TextChoices):
+    """Statut de paiement calculé (jamais stocké) — partagé dette / tranche."""
+    PAID    = 'paid',    _('Payé')
+    PARTIAL = 'partial', _('Partiel')
+    UNPAID  = 'unpaid',  _('Impayé')
+
+
+class StudentFeeAccount(models.Model):
+    """
+    Fiche financière d'un élève pour UNE année scolaire.
+
+    Ancrage annuel : OneToOne vers StudentEnrollment (= élève × année × école).
+    Régénérée à chaque réinscription → l'année N+1 a sa propre fiche, l'historique
+    des années passées reste intact (un account par enrollment).
+
+    Ne stocke aucun montant : total_due / total_paid / total_balance agrègent les
+    trois familles de dettes à la volée.
+    """
+    enrollment = models.OneToOneField(
+        'students.StudentEnrollment', on_delete=models.CASCADE,
+        related_name='fee_account', verbose_name=_('inscription'),
+    )
+    created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('fiche financière')
+        verbose_name_plural = _('fiches financières')
+
+    def __str__(self):
+        return f'Fiche financière — {self.enrollment}'
+
+    # ── Agrégats (calculés, jamais stockés) ───────────────────────────────────
+    def active_debts(self):
+        return self.debts.filter(is_active=True)
+
+    def total_due(self):
+        return sum((d.total_amount for d in self.active_debts()), _D('0'))
+
+    def total_paid(self):
+        return sum((d.amount_paid() for d in self.active_debts()), _D('0'))
+
+    def total_balance(self):
+        return self.total_due() - self.total_paid()
+
+
+class FeeDebt(models.Model):
+    """
+    Une dette individuelle d'un élève pour l'année. Le champ `kind` la range dans
+    l'une des trois familles (jamais fondues).
+
+    total_amount est un SNAPSHOT figé à la création (le tarif catalogue / la scolarité
+    de la classe peut changer ensuite sans réécrire l'historique).
+    """
+    account = models.ForeignKey(
+        StudentFeeAccount, on_delete=models.CASCADE,
+        related_name='debts', verbose_name=_('fiche'),
+    )
+    # Nullable pour la scolarité (vient de la classe, pas d'un FeeType à montant).
+    fee_type = models.ForeignKey(
+        FeeType, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='debts', verbose_name=_('type de frais'),
+    )
+    # Variante choisie (trajet de bus, tenue genrée…), si applicable.
+    variant = models.ForeignKey(
+        FeeVariant, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='debts', verbose_name=_('variante'),
+    )
+    kind = models.CharField(
+        _('famille'), max_length=20, choices=FeeDebtKind.choices,
+    )
+    # Libellé figé à la création (ex. « Scolarité », « Inscription », « Bus — Kati »).
+    label = models.CharField(_('libellé'), max_length=150)
+    # Montant TOTAL dû pour cette dette (snapshot). Scolarité = annual_fee de la classe.
+    total_amount = models.DecimalField(
+        _('montant total (FCFA)'), max_digits=12, decimal_places=0,
+        validators=[MinValueValidator(0)],
+    )
+    # Résiliation d'un abonnement : is_active=False → on arrête de générer ses
+    # mensualités (les tranches déjà émises et payées restent).
+    is_active = models.BooleanField(_('active'), default=True)
+    created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('dette')
+        verbose_name_plural = _('dettes')
+        ordering = ['kind', 'created_at']
+        indexes = [
+            models.Index(fields=['account', 'kind'], name='feedebt_account_kind_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.label} — {self.total_amount} FCFA'
+
+    # ── Agrégats (calculés) ────────────────────────────────────────────────────
+    def amount_paid(self):
+        """Somme des allocations vers les tranches de cette dette (1 requête)."""
+        total = (
+            PaymentAllocation.objects
+            .filter(installment__debt=self)
+            .aggregate(s=_Sum('amount'))['s']
+        )
+        return total or _D('0')
+
+    def balance(self):
+        return self.total_amount - self.amount_paid()
+
+    def status(self):
+        paid = self.amount_paid()
+        if paid <= 0:
+            return DebtStatus.UNPAID
+        if paid >= self.total_amount:
+            return DebtStatus.PAID
+        return DebtStatus.PARTIAL
+
+
+class Installment(models.Model):
+    """
+    Une échéance datée d'une dette. due_date EST le cœur de la dimension temporelle.
+
+    - TUITION      : N tranches générées par le gabarit (dates dérivées des Period).
+    - ONE_TIME     : 1 tranche (due_date = rentrée).
+    - SUBSCRIPTION : 1 tranche par mois actif (générée au fil de l'année).
+    """
+    debt = models.ForeignKey(
+        FeeDebt, on_delete=models.CASCADE,
+        related_name='installments', verbose_name=_('dette'),
+    )
+    sequence = models.PositiveSmallIntegerField(_('ordre'), default=1)
+    amount_due = models.DecimalField(
+        _('montant attendu (FCFA)'), max_digits=12, decimal_places=0,
+        validators=[MinValueValidator(0)],
+    )
+    due_date = models.DateField(_('date limite'))
+    label = models.CharField(_('libellé'), max_length=100)
+    created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('tranche')
+        verbose_name_plural = _('tranches')
+        ordering = ['debt', 'sequence']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['debt', 'sequence'], name='uniq_installment_debt_sequence',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['due_date'], name='installment_due_date_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.label} — {self.amount_due} FCFA (éch. {self.due_date})'
+
+    # ── Agrégats (calculés) ────────────────────────────────────────────────────
+    def amount_allocated(self):
+        total = self.allocations.aggregate(s=_Sum('amount'))['s']
+        return total or _D('0')
+
+    def balance(self):
+        return self.amount_due - self.amount_allocated()
+
+    def status(self):
+        alloc = self.amount_allocated()
+        if alloc <= 0:
+            return DebtStatus.UNPAID
+        if alloc >= self.amount_due:
+            return DebtStatus.PAID
+        return DebtStatus.PARTIAL
+
+    def is_overdue(self, today=None):
+        """En retard = échéance passée ET solde restant > 0."""
+        today = today or _date.today()
+        return self.due_date < today and self.balance() > 0
+
+    def days_overdue(self, today=None):
+        today = today or _date.today()
+        if not self.is_overdue(today):
+            return 0
+        return (today - self.due_date).days
+
+
+class PaymentAllocation(models.Model):
+    """
+    Lien Payment ↔ Installment : le montant d'un paiement affecté à une tranche.
+
+    PIÈCE MAÎTRESSE DE L'IMMUABILITÉ : c'est cette table — et elle seule — qui relie
+    un Payment (journal immuable, apps.payments) à une dette. Un Payment de 30000 peut
+    être ventilé en plusieurs allocations (15000 → tranche 1, 15000 → tranche 2). Le
+    solde d'une tranche = Σ de ses allocations ; on ne mute JAMAIS un champ « payé ».
+    """
+    payment = models.ForeignKey(
+        'payments.Payment', on_delete=models.PROTECT,
+        related_name='allocations', verbose_name=_('paiement'),
+    )
+    installment = models.ForeignKey(
+        Installment, on_delete=models.PROTECT,
+        related_name='allocations', verbose_name=_('tranche'),
+    )
+    amount = models.DecimalField(
+        _('montant affecté (FCFA)'), max_digits=12, decimal_places=0,
+        validators=[MinValueValidator(1)],
+    )
+    created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('allocation de paiement')
+        verbose_name_plural = _('allocations de paiement')
+        ordering = ['created_at']
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(amount__gt=0), name='paymentallocation_amount_positive',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['payment'],     name='alloc_payment_idx'),
+            models.Index(fields=['installment'], name='alloc_installment_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.amount} FCFA : paiement #{self.payment_id} → tranche #{self.installment_id}'
