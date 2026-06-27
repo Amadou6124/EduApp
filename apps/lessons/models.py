@@ -184,24 +184,6 @@ class Lesson(models.Model):
         default='pdf',
     )
 
-    # Contenu généré par IA (JSON)
-    structured_content = models.JSONField(
-        _('contenu structuré'), null=True, blank=True,
-        help_text=_('Blocs de leçon générés par IA'),
-    )
-    quiz_data = models.JSONField(
-        _('quiz'), null=True, blank=True,
-        help_text=_('Quiz générés par IA'),
-    )
-    story_data = models.JSONField(
-        _('story'), null=True, blank=True,
-        help_text=_('Session de compréhension'),
-    )
-    flashcards_data = models.JSONField(
-        _('flashcards'), null=True, blank=True,
-        help_text=_('Flashcards pour répétition espacée'),
-    )
-
     # Statut et métadonnées IA
     status = models.CharField(
         _('statut'), max_length=20,
@@ -260,18 +242,6 @@ class Lesson(models.Model):
     @property
     def is_ready(self):
         return self.status == LessonStatus.READY
-
-    @property
-    def quiz_count(self):
-        if not self.quiz_data:
-            return 0
-        return len(self.quiz_data.get('quizzes', []))
-
-    @property
-    def flashcard_count(self):
-        if not self.flashcards_data:
-            return 0
-        return len(self.flashcards_data.get('flashcards', []))
 
 
 class LessonDeployment(models.Model):
