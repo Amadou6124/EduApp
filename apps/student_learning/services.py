@@ -1,6 +1,5 @@
 """Services gamification — XP, niveaux, badges, stats (Phase 9)."""
 from django.utils import timezone
-from django.db.models import Sum
 
 
 # ─── Niveaux ─────────────────────────────────────────────────────────────────
@@ -42,7 +41,6 @@ BADGES_CATALOG = {
     'streak_3':        {'name': '3 jours de suite',     'emoji': '🔥',     'desc': 'Streak de 3 jours'},
     'streak_7':        {'name': 'Une semaine !',        'emoji': '🔥🔥',   'desc': 'Streak de 7 jours'},
     'streak_30':       {'name': 'Mois entier',          'emoji': '🔥🔥🔥', 'desc': 'Streak de 30 jours'},
-    '50_flashcards':   {'name': "Mémoire d'or",         'emoji': '🧠',     'desc': '50 révisions de flashcards'},
     'niveau_3':        {'name': 'Savant',               'emoji': '🧠',     'desc': 'Niveau 3 atteint'},
     'niveau_5':        {'name': 'Maître',               'emoji': '🏆',     'desc': 'Niveau 5 atteint'},
     'niveau_6':        {'name': 'Génie !',              'emoji': '🚀',     'desc': 'Niveau 6 atteint'},
@@ -55,7 +53,7 @@ def _has_badge(student, badge_id: str) -> bool:
 
 def check_badges(student) -> list:
     """Vérifie toutes les conditions, accorde les nouveaux badges, retourne les nouveaux."""
-    from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard
+    from apps.student_learning.models import LessonProgress, QuizAttempt
 
     new_badges = []
 
@@ -87,9 +85,6 @@ def check_badges(student) -> list:
     if student.streak_days >= 3:  grant('streak_3')
     if student.streak_days >= 7:  grant('streak_7')
     if student.streak_days >= 30: grant('streak_30')
-
-    fc_reviews = Flashcard.objects.filter(student=student).aggregate(t=Sum('total_reviews'))['t'] or 0
-    if fc_reviews >= 50: grant('50_flashcards')
 
     if student.current_level >= 3: grant('niveau_3')
     if student.current_level >= 5: grant('niveau_5')
@@ -125,14 +120,13 @@ def award_xp(student, amount: int, reason: str = '') -> dict:
 
 def student_stats(student) -> dict:
     """Stats pour la page profil. ~5 requêtes."""
-    from apps.student_learning.models import LessonProgress, QuizAttempt, Flashcard
+    from apps.student_learning.models import LessonProgress, QuizAttempt
 
     lessons_done = LessonProgress.objects.filter(student=student, is_completed=True).count()
     quiz_sessions = QuizAttempt.objects.filter(student=student).values('lesson_id').distinct().count()
     quiz_total = QuizAttempt.objects.filter(student=student).count()
     quiz_correct = QuizAttempt.objects.filter(student=student, is_correct=True).count()
     score_moyen = int(quiz_correct / quiz_total * 100) if quiz_total else 0
-    fc_reviews = Flashcard.objects.filter(student=student).aggregate(t=Sum('total_reviews'))['t'] or 0
 
     emoji, name = level_info(student.current_level)
     return {
@@ -140,7 +134,6 @@ def student_stats(student) -> dict:
         'quiz_sessions': quiz_sessions,
         'quiz_total': quiz_total,
         'score_moyen': score_moyen,
-        'fc_reviews': fc_reviews,
         'level_emoji': emoji,
         'level_name': name,
         'level_pct': int((student.total_xp % XP_PER_LEVEL) / XP_PER_LEVEL * 100),

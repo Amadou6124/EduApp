@@ -1,6 +1,5 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
 
 from apps.students.models import Student
 from apps.lessons.models import Lesson, LessonContentVersion
@@ -94,35 +93,6 @@ class StoryAttempt(models.Model):
 
     class Meta:
         ordering = ['-completed_at']
-
-
-class Flashcard(models.Model):
-    student = models.ForeignKey(
-        Student, on_delete=models.CASCADE,
-        related_name='flashcards',
-    )
-    lesson = models.ForeignKey(
-        Lesson, on_delete=models.CASCADE,
-        related_name='student_flashcards',
-    )
-    flashcard_id = models.CharField(max_length=20)
-
-    # Algorithme SM-2
-    ease_factor = models.DecimalField(max_digits=4, decimal_places=2, default=2.50)
-    interval_days = models.PositiveSmallIntegerField(default=1)
-    repetitions = models.PositiveSmallIntegerField(default=0)
-    next_review_date = models.DateField(default=timezone.localdate)
-    last_quality = models.PositiveSmallIntegerField(
-        null=True, blank=True,
-        help_text=_('0-5, dernière réponse'),
-    )
-    total_reviews = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        unique_together = [('student', 'lesson', 'flashcard_id')]
-        indexes = [
-            models.Index(fields=['student', 'next_review_date'], name='flash_student_review_idx'),
-        ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
