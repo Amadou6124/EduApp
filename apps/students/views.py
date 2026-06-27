@@ -635,6 +635,7 @@ def student_import_template(request):
         'Téléphone élève',
         'Date de naissance (JJ/MM/AAAA)',
         'Lien parenté (père/mère/tuteur)',
+        'Genre (G/F)',   # lot 4b — optionnel, pilote la tenue auto
     ]
     ws.append(headers)
     header_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
@@ -647,8 +648,8 @@ def student_import_template(request):
     # ── Lignes 3-4 : exemples ────────────────────────────────────────
     example_fill = PatternFill(start_color='F7F9FC', end_color='F7F9FC', fill_type='solid')
     for row_data in [
-        ['Jean Kouassi',  'CP1',    '0700000002', '0700000001', '15/03/2015', 'père'],
-        ['Awa Traoré',    '6ème A', '0600000003', '',           '20/07/2013', 'mère'],
+        ['Jean Kouassi',  'CP1',    '0700000002', '0700000001', '15/03/2015', 'père', 'G'],
+        ['Awa Traoré',    '6ème A', '0600000003', '',           '20/07/2013', 'mère', 'F'],
     ]:
         ws.append(row_data)
         for cell in ws[ws.max_row]:
@@ -685,6 +686,13 @@ def _parse_student_rows(file_obj, filename, school):
         'mère': 'mother', 'mere': 'mother', 'mama': 'mother', 'mother': 'mother',
         'tuteur': 'guardian', 'tutrice': 'guardian', 'guardian': 'guardian',
     }
+    # Genre (lot 4b) — tolérance large, normalisé vers les codes Gender du lot 1 ('M'/'F').
+    # Cellule vide ou illisible → None (non bloquant : l'élève est créé sans genre).
+    gender_map = {
+        'f': 'F', 'fille': 'F', 'féminin': 'F', 'feminin': 'F', 'femme': 'F',
+        'g': 'M', 'garçon': 'M', 'garcon': 'M', 'm': 'M',
+        'masculin': 'M', 'homme': 'M',
+    }
 
     try:
         if filename.lower().endswith('.csv'):
@@ -714,8 +722,8 @@ def _parse_student_rows(file_obj, filename, school):
     for line_num, raw in enumerate(raw_rows, start=line_offset):
         if not any(raw):
             continue
-        cols = (raw + [''] * 6)[:6]
-        name_raw, class_raw, parent_phone, phone, dob_raw, rel_raw = [
+        cols = (raw + [''] * 7)[:7]
+        name_raw, class_raw, parent_phone, phone, dob_raw, rel_raw, gender_raw = [
             c.strip() for c in cols
         ]
         row_errors = []
@@ -739,6 +747,8 @@ def _parse_student_rows(file_obj, filename, school):
                 row_errors.append(f'Date « {dob_raw} » non reconnue (attendu JJ/MM/AAAA)')
 
         parent_relationship = relationship_map.get(rel_raw.lower(), '') if rel_raw else ''
+        # Genre : normalisé ou None. JAMAIS bloquant — pas une erreur de ligne.
+        gender = gender_map.get(gender_raw.lower()) if gender_raw else None
         is_duplicate = bool(school_class and (name_raw, school_class.name) in existing)
 
         if row_errors:
@@ -752,6 +762,7 @@ def _parse_student_rows(file_obj, filename, school):
                 'dob':                 dob.isoformat() if dob else '',
                 'parent_phone':        parent_phone,
                 'parent_relationship': parent_relationship,
+                'gender':              gender or '',     # '' = non renseigné
                 'annual_fee':          int(school_class.annual_fee),
                 'is_duplicate':        is_duplicate,
             })
@@ -802,6 +813,18 @@ def _unique_access_codes(school, count):
 @require_http_methods(['POST'])
 def student_import_confirm(request):
     school = get_school(request)
+
+    # ── Garde-fou (lot 4b) : pas d'année active → on bloque AVANT toute création ──
+    # Option la plus sûre : ne rien créer plutôt que d'importer 1000 élèves sans fiche.
+    from apps.students.services import has_active_year
+    if not has_active_year(school):
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': 'Configurez une année scolaire active avant d\'importer.',
+            'type': 'error',
+        }})
+        return resp
+
     try:
         rows = json.loads(request.POST.get('rows_data', '[]'))
     except json.JSONDecodeError:
@@ -831,6 +854,7 @@ def student_import_confirm(request):
             phone_number        = row.get('phone', ''),
             parent_phone_number = row.get('parent_phone', ''),
             parent_relationship = row.get('parent_relationship', ''),
+            gender              = row.get('gender') or None,   # lot 4b — pilote la tenue auto
             tuition_fee         = sc.annual_fee,
         )
         if row.get('dob'):
@@ -868,16 +892,30 @@ def student_import_confirm(request):
                 except IntegrityError:
                     continue
 
-    # ── Fondation (lot 4a) : enrollment + fiche MINIMALE par élève importé ──────
-    # Mode minimal (scolarité + frais obligatoires). L'enrichissement de l'import
-    # (colonne genre, options) est le sujet du lot 4b. Sans année active → skip sans
-    # planter (ensure_active_enrollment renvoie None).
-    from apps.students.services import ensure_active_enrollment
-    from apps.finance.services import build_fee_account
-    for student in created:
-        enrollment = ensure_active_enrollment(student)
-        if enrollment is not None:
-            build_fee_account(enrollment)
+    # ── Fondation + fiches (lot 4b) : enrollments + fiches en MASSE ─────────────
+    # Les élèves importés sont NEUFS → on crée leurs enrollments en un seul bulk_create
+    # (pas de get_or_create par élève : zéro N+1), puis build_fee_accounts_bulk génère
+    # toutes les fiches en ~10 requêtes (catalogue/gabarit préchargés une fois).
+    # Périmètre import (décision actée) : scolarité + frais obligatoires + tenue auto
+    # par genre. Les options facultatives (bus/cantine) se cochent ensuite, élève par
+    # élève, dans l'inscription individuelle. L'année active est garantie (garde-fou ci-dessus).
+    from apps.students.models import StudentEnrollment, EnrollmentStatus
+    from apps.schools.models import SchoolYear
+    from apps.finance.services import build_fee_accounts_bulk
+
+    active_year = SchoolYear.objects.get(school=school, is_active=True)
+    today = timezone.now().date()
+    enrollments = [
+        StudentEnrollment(
+            student=s, school=school, school_class=s.school_class,
+            school_year=active_year, status=EnrollmentStatus.ACTIVE, enrolled_at=today,
+        )
+        for s in created
+    ]
+    StudentEnrollment.objects.bulk_create(enrollments)
+    # Les objets `enrollments` portent déjà .student (avec gender) et .school_class
+    # (avec annual_fee) en mémoire → build_fee_accounts_bulk n'émet aucune requête N+1.
+    build_fee_accounts_bulk(enrollments)
 
     if request.htmx:
         students = list(_students_qs(school))

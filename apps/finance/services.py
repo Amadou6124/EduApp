@@ -197,6 +197,149 @@ def _make_debt(account, fee, is_returning, student, rentree,
     return debt
 
 
+def build_fee_accounts_bulk(enrollments):
+    """
+    Version VOLUME de build_fee_account, pour l'import de masse (lot 4b).
+
+    Génère, pour une liste d'enrollments de la MÊME école et MÊME année active, la
+    fiche financière de chacun en un nombre de requêtes CONSTANT (≈10) au lieu de
+    ~10×N : tout le catalogue/gabarit/périodes est préchargé UNE fois hors boucle, et
+    les StudentFeeAccount / FeeDebt / Installment sont créés en 3 bulk_create.
+
+    Périmètre (décision actée import) : scolarité (gabarit par défaut) + frais
+    OBLIGATOIRES applicables + tenue auto par genre. AUCUNE option facultative
+    (bus/cantine/ponctuels optionnels) — celles-ci se cochent élève par élève dans
+    l'inscription individuelle. La version unitaire build_fee_account reste utilisée
+    telle quelle par l'inscription individuelle (avec options).
+
+    Pré-requis : chaque enrollment porte déjà en mémoire son .student (avec gender) et
+    son .school_class (avec annual_fee) — c'est le cas après l'import (objets réutilisés),
+    donc zéro requête N+1 pour y accéder. Idempotent : les enrollments ayant déjà une
+    fiche sont ignorés.
+    """
+    if not enrollments:
+        return []
+
+    school = enrollments[0].school
+    active_year = enrollments[0].school_year
+
+    # ── Préchargement UNIQUE (hors boucle) ──────────────────────────────────────
+    mandatory_fees = list(
+        FeeType.objects
+        .filter(school=school, is_active=True, is_mandatory=True)
+        .exclude(category=FeeCategory.TUITION)
+        .prefetch_related('variants')
+        .order_by('order', 'name')
+    )
+    template = (
+        PaymentScheduleTemplate.objects
+        .filter(school=school, is_default=True, is_active=True).first()
+    )
+    periods = list(active_year.periods.order_by('order')) if active_year else []
+    n_tuition = _template_count(template)
+    tuition_due_dates, tuition_labels = _due_dates_for_year(active_year, n_tuition, periods)
+    rentree = _start_date_for(enrollments[0])
+
+    # Anciens (réinscriptions) parmi le lot — 1 seule requête (vide pour des imports
+    # de nouveaux élèves, mais correct dans le cas général).
+    returning_ids = set()
+    if active_year and active_year.start_date:
+        returning_ids = set(
+            StudentEnrollment.objects
+            .filter(student_id__in=[e.student_id for e in enrollments], school=school,
+                    school_year__start_date__lt=active_year.start_date)
+            .values_list('student_id', flat=True)
+        )
+
+    # Idempotence : on saute les enrollments ayant déjà une fiche (1 requête).
+    already = set(
+        StudentFeeAccount.objects
+        .filter(enrollment__in=enrollments)
+        .values_list('enrollment_id', flat=True)
+    )
+    todo = [e for e in enrollments if e.id not in already]
+    if not todo:
+        return []
+
+    with transaction.atomic():
+        # 1) Fiches (bulk). PostgreSQL renseigne les PK → on peut les référencer ensuite.
+        accounts = StudentFeeAccount.objects.bulk_create(
+            [StudentFeeAccount(enrollment=e) for e in todo]
+        )
+        acc_by_enroll = {e.id: acc for e, acc in zip(todo, accounts)}
+
+        # 2) Dettes (bulk) + plan d'échéances parallèle (même ordre que les dettes créées).
+        debt_objs, debt_plan = [], []
+        for e in todo:
+            acc = acc_by_enroll[e.id]
+            is_ret = e.student_id in returning_ids
+
+            annual = int(e.school_class.annual_fee or 0)
+            if annual > 0:
+                debt_objs.append(FeeDebt(
+                    account=acc, fee_type=None, variant=None,
+                    kind=FeeDebtKind.TUITION, label='Scolarité', total_amount=annual,
+                ))
+                debt_plan.append(('tuition', annual, 'Scolarité'))
+
+            for fee in mandatory_fees:
+                if not fee.applies_to_student(is_ret):
+                    continue
+                variant = None
+                if fee.has_variants:
+                    if fee.is_gender_based:
+                        g = e.student.gender
+                        # variantes préchargées → recherche en mémoire (pas de requête)
+                        variant = next(
+                            (v for v in fee.variants.all() if v.is_active and v.gender_key == g),
+                            None,
+                        ) if g else None
+                        if variant is None:
+                            continue  # genre absent / pas de variante → on saute
+                    else:
+                        continue      # variante à choix manuel → pas à l'import
+                amount = fee.resolved_amount(is_ret, variant=variant)
+                if amount is None:
+                    continue
+                label = fee.name if variant is None else f'{fee.name} — {variant.label}'
+                if fee.category == FeeCategory.SUBSCRIPTION:
+                    debt_objs.append(FeeDebt(
+                        account=acc, fee_type=fee, variant=variant,
+                        kind=FeeDebtKind.SUBSCRIPTION, label=label,
+                        total_amount=amount, is_active=False,
+                    ))
+                    debt_plan.append(('subscription', amount, label))  # pas de tranche
+                else:
+                    debt_objs.append(FeeDebt(
+                        account=acc, fee_type=fee, variant=variant,
+                        kind=FeeDebtKind.ONE_TIME, label=label, total_amount=amount,
+                    ))
+                    debt_plan.append(('one_time', amount, label))
+
+        created_debts = FeeDebt.objects.bulk_create(debt_objs)
+
+        # 3) Tranches (bulk) à partir du plan.
+        inst_objs = []
+        for debt, (kind, amount, label) in zip(created_debts, debt_plan):
+            if kind == 'tuition':
+                parts = _split_amount(int(amount), n_tuition)
+                for i in range(n_tuition):
+                    inst_objs.append(Installment(
+                        debt=debt, sequence=i + 1, amount_due=parts[i],
+                        due_date=tuition_due_dates[i], label=tuition_labels[i],
+                    ))
+            elif kind == 'one_time':
+                inst_objs.append(Installment(
+                    debt=debt, sequence=1, amount_due=amount,
+                    due_date=rentree, label=label,
+                ))
+            # subscription : aucune mensualité d'avance
+
+        Installment.objects.bulk_create(inst_objs)
+
+    return accounts
+
+
 def _start_date_for(enrollment):
     """Date de rentrée : début de l'année active si dispo, sinon aujourd'hui."""
     from datetime import date
@@ -231,56 +374,59 @@ def generate_tuition_installments(debt, template, periods):
     if debt.installments.exists():
         return list(debt.installments.all())
 
-    n = template.installments_count if template else 1
-    n = max(int(n), 1)
+    n = _template_count(template)
+    amounts = _split_amount(int(debt.total_amount), n)
+    due_dates, labels = _due_dates_for_year(debt.account.enrollment.school_year, n, periods)
 
-    # ── Montants : découpe avec report du reste (entiers FCFA) ──────────────────
-    total = int(debt.total_amount)
-    base = total // n
-    remainder = total - base * n  # réparti +1 sur les `remainder` premières tranches
-    amounts = [base + (1 if i < remainder else 0) for i in range(n)]
-
-    # ── Dates limites ───────────────────────────────────────────────────────────
-    due_dates, labels = _derive_due_dates(debt, n, periods)
-
-    installments = []
-    for i in range(n):
-        installments.append(Installment(
+    installments = [
+        Installment(
             debt=debt, sequence=i + 1,
             amount_due=amounts[i], due_date=due_dates[i], label=labels[i],
-        ))
+        )
+        for i in range(n)
+    ]
     Installment.objects.bulk_create(installments)
     return installments
 
 
-def _derive_due_dates(debt, n, periods):
-    """Retourne (due_dates, labels) selon la règle documentée ci-dessus."""
+# ── Helpers de découpage (réutilisés par la version unitaire ET la version bulk) ──
+
+def _template_count(template):
+    """Nombre de tranches d'un gabarit (1 si pas de gabarit → repli annuel)."""
+    return max(int(template.installments_count) if template else 1, 1)
+
+
+def _split_amount(total, n):
+    """Découpe `total` (FCFA entiers) en n parts, le reste réparti sur les premières.
+    Garantit Σ parts == total (jamais un franc perdu : 100000/3 → 33334+33333+33333)."""
+    base = total // n
+    remainder = total - base * n
+    return [base + (1 if i < remainder else 0) for i in range(n)]
+
+
+def _due_dates_for_year(school_year, n, periods):
+    """
+    (due_dates, labels) pour n tranches sur une année scolaire :
+      - n == nb de périodes → une tranche par période (due = fin de période, label = nom) ;
+      - sinon, année datée   → n segments égaux (due = fin de chaque segment) ;
+      - sinon (repli)        → mensualités à partir de la rentrée (~30 j).
+    Ne dépend QUE de l'année (pas d'une dette) → utilisable en lot pour tout un import.
+    """
     from datetime import date, timedelta
 
-    # Cas 1 : N == nombre de périodes → calage sur les périodes.
     if periods and n == len(periods):
-        due = [p.end_date for p in periods]
-        labels = [p.name for p in periods]
-        return due, labels
+        return [p.end_date for p in periods], [p.name for p in periods]
 
-    # Récupère les bornes de l'année via l'enrollment.
-    sy = debt.account.enrollment.school_year
-    start = sy.start_date if (sy and sy.start_date) else date.today()
-    end = sy.end_date if (sy and sy.end_date) else None
+    start = school_year.start_date if (school_year and school_year.start_date) else date.today()
+    end = school_year.end_date if (school_year and school_year.end_date) else None
 
-    # Cas 2 : année datée → N segments égaux, due_date = fin de chaque segment.
     if end and end > start:
         span = (end - start).days
-        due = []
-        for i in range(1, n + 1):
-            offset = round(span * i / n)
-            due.append(start + timedelta(days=offset))
+        due = [start + timedelta(days=round(span * i / n)) for i in range(1, n + 1)]
     else:
-        # Cas 3 (repli) : mensualités à partir de la rentrée (~30 j).
         due = [start + timedelta(days=30 * (i + 1)) for i in range(n)]
 
-    labels = [f'Tranche {i + 1}' for i in range(n)]
-    return due, labels
+    return due, [f'Tranche {i + 1}' for i in range(n)]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
