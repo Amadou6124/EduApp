@@ -1,7 +1,7 @@
 # Module Finances — Plan & Évolution
 
 Branche : `feature/finance-module` (depuis `develop`)
-Dernière mise à jour : 2026-06-27
+Dernière mise à jour : 2026-06-27 — Lot 1 terminé
 
 ## Objectif
 Refonte du système de frais, tranches de paiement et inscription annuelle pour EduApp.
@@ -26,7 +26,7 @@ Trois problèmes identifiés :
 - **Gabarits de tranches** (niveau école) : annuel / trimestriel / mensuel, surchargeable par élève.
 
 ## Lots d'exécution
-- [ ] **Lot 1 — Socle temporel** : réveiller `StudentEnrollment` (source de vérité, contrainte unique `(élève, année)`, statut `ACTIVE` écrit) + champ genre sur `Student`. Modèles + migration, sans UI.
+- [x] **Lot 1 — Socle temporel** : réveiller `StudentEnrollment` (source de vérité, contrainte unique `(élève, année)`, statut `ACTIVE` écrit) + champ genre sur `Student`. Modèles + migration, sans UI.
 - [ ] **Lot 2 — Catalogue de frais** : modèles catalogue + variantes + écran de config école.
 - [ ] **Lot 3 — Fiche financière par année** : postes élève + échéancier + allocation, liés à l'enrollment actif.
 - [ ] **Lot 4 — Inscription enrichie** : flux 3 clics générant la fiche financière à l'inscription.
@@ -52,3 +52,4 @@ Trois problèmes identifiés :
 | Date | Lot | Ce qui a été fait |
 |------|-----|-------------------|
 | 2026-06-27 | — | Création branche + plan initial |
+| 2026-06-27 | 1 | Champ `Student.gender` (M/F, nullable) + `Gender` TextChoices. Contrainte unique conditionnelle `uniq_enrollment_student_year` sur `StudentEnrollment (student, school_year)` (condition `school_year__isnull=False`). Docstring « source de vérité » sur le modèle. Migration schéma `0006` + data migration `0007` (backfill enrollments ACTIVE des élèves actifs vers l'année active, idempotente, reverse no-op). Backfill vérifié : 1074/1074 élèves rattachés, 0 doublon, école sans année active ignorée. Aucune UI touchée. |
