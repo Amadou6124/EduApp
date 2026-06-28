@@ -15,7 +15,15 @@ Re-rendue à l'identique après encaissement (cible #fee-timeline).
       Situation financière
       {% if account %}<span class="normal-case text-gray-300">· {{ account.enrollment.school_year.name|default:"année active" }}</span>{% endif %}
     </h3>
-    {% if account %}
+    {% comment %}
+      Bouton « Encaisser » = ADMIN uniquement (dépend de collectOpen + #collect-panel-body
+      du student_detail). En mode readonly (portail parent, lecture seule) on ne l'émet
+      pas → aucune action, aucune dépendance au scope Alpine de l'admin. readonly absent
+      (admin) = falsy → comportement inchangé. timeline.html ne porte AUCUN id : le
+      conteneur (#fee-timeline côté admin, un wrapper par enfant côté parent) est externe,
+      donc pas d'id dupliqué même avec plusieurs enfants sur la page parent.
+    {% endcomment %}
+    {% if account and not readonly %}
       <button type="button"
               hx-get="{% url 'finance:collect-panel' student.id %}"
               hx-target="#collect-panel-body" hx-swap="innerHTML"

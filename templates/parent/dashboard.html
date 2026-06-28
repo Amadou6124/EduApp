@@ -88,8 +88,20 @@
 
     <div class="border-t border-white/20 my-4"></div>
 
-    {# Statut paiement #}
-    {% if c.status == 'paid' %}
+    {% comment %}
+      Statut paiement — NOUVEAU modèle (lot 6bis-B), valeurs du helper central.
+      'no_fee' (enfant sans fiche) → état neutre, jamais « non réglée » rouge.
+    {% endcomment %}
+    {% if c.status == 'no_fee' %}
+      <div class="flex items-center gap-2.5">
+        <i data-lucide="info" class="w-5 h-5 text-white/50 shrink-0"></i>
+        <div>
+          <p class="text-white font-semibold text-sm">Fiche financière à venir</p>
+          <p class="text-white/60 text-xs mt-0.5">Pas encore disponible pour cette année.</p>
+        </div>
+      </div>
+
+    {% elif c.status == 'paid' %}
       <div class="flex items-center gap-2.5">
         <i data-lucide="check-circle" class="w-5 h-5 text-green-300 shrink-0"></i>
         <div>
@@ -126,6 +138,21 @@
 
   </div>
 </div>
+
+{# ════════════════════════════════════════════════════════ #}
+{#  SECTION 2a — TIMELINE FINANCIÈRE (lecture seule)     #}
+{#  Détail des 3 familles + tranches datées + retards de   #}
+{#  l'enfant ACTIF. Même partial que la fiche admin, mais  #}
+{#  readonly=True → pas de bouton Encaisser. active_account #}
+{#  vient de guarded_students (sécurisé). Mono-enfant à la  #}
+{#  fois (c=active_child) → une seule timeline sur la page, #}
+{#  pas d'id dupliqué.                                      #}
+{# ════════════════════════════════════════════════════════ #}
+{% if active_account %}
+<div class="mx-4 mt-3 animate-fade-in-up animate-delay-100">
+  {% include "finance/partials/timeline.html" with account=active_account student=c.student fee_families=active_fee_families readonly=True %}
+</div>
+{% endif %}
 
 {# ════════════════════════════════════════════════════════ #}
 {#  SECTION 2b — BANNIÈRE ANNONCES                       #}
