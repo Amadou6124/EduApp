@@ -54,3 +54,7 @@ package-lock.json
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Outils locaux / docs de test (non versionnés)
+.claude/
+test_docs/

@@ -45,6 +45,20 @@ urlpatterns = [
     path('receipt/',         settings_views.receipt,     name='receipt'),
     path('payment-methods/', settings_views.coming_soon, {'section': 'payment-methods'}, name='payment-methods'),
 
+    # Catalogue de frais & gabarits de tranches (Lot 2)
+    path('frais/',                        settings_views.fees,              name='fees'),
+    path('frais/form/',                   settings_views.fee_form,          name='fee-form'),
+    path('frais/save/',                   settings_views.fee_save,          name='fee-create'),
+    path('frais/<int:fee_id>/form/',      settings_views.fee_form,          name='fee-edit-form'),
+    path('frais/<int:fee_id>/save/',      settings_views.fee_save,          name='fee-update'),
+    path('frais/<int:fee_id>/amount/',    settings_views.fee_amount_update, name='fee-amount'),
+    path('frais/<int:fee_id>/toggle/',    settings_views.fee_toggle_active, name='fee-toggle'),
+    path('frais/<int:fee_id>/variants/add/',          settings_views.fee_variant_add,    name='fee-variant-add'),
+    path('frais/variants/<int:variant_id>/update/',   settings_views.fee_variant_update, name='fee-variant-update'),
+    path('frais/variants/<int:variant_id>/toggle/',   settings_views.fee_variant_toggle, name='fee-variant-toggle'),
+    path('frais/schedule/<int:template_id>/default/', settings_views.schedule_set_default, name='schedule-set-default'),
+    path('frais/seed/',                   settings_views.fees_seed,         name='fees-seed'),
+
     # ── DOCUMENTS ─────────────────────────────────────────────────────
     path('bulletin/', settings_views.bulletin, name='bulletin'),
     path('headers/',  settings_views.coming_soon, {'section': 'headers'},  name='headers'),

@@ -121,22 +121,12 @@ def _compute_kpis(school, active_period):
             is_cancelled=False,
         ).aggregate(total=Sum('amount'))
         total_collected = result['total'] or 0
-    paid_subquery = Coalesce(
-        Subquery(
-            Payment.objects.filter(student=OuterRef('pk'), is_cancelled=False)
-            .values('student')
-            .annotate(total=Sum('amount'))
-            .values('total')[:1]
-        ),
-        0,
-        output_field=DecimalField(),
-    )
-    unpaid_count = (
-        Student.objects.filter(school=school, is_active=True)
-        .annotate(total_paid=paid_subquery)
-        .filter(total_paid__lt=F('tuition_fee'))
-        .count()
-    )
+    # Élèves avec solde dû (lot 6bis-A) — NOUVEAU modèle : fiches dont balance > 0
+    # (somme des 3 familles par allocation). Les élèves SANS fiche ne sont pas comptés
+    # (« inconnus », pas « impayés »). Le sous-ensemble URGENT = la liste rouge du lot 6
+    # (tranches échues) ; ici on compte tout solde dû, cohérent avec le libellé « solde impayé ».
+    from apps.finance.services import fee_accounts_annotated
+    unpaid_count = fee_accounts_annotated(school=school).filter(balance__gt=0).count()
     school_avg = None
     if active_period:
         result = Note.objects.filter(
@@ -269,8 +259,10 @@ def _compute_charts(school, active_year):
     }
     revenue_data = [revenue_map.get((m['year'], m['num']), 0.0) for m in months]
 
-    # Objectif mensuel
-    total_fees = Student.objects.filter(school=school, is_active=True).aggregate(total=Sum('tuition_fee'))['total'] or 0
+    # Objectif mensuel — NOUVEAU modèle (lot 6bis-A) : dû réel des fiches (3 familles),
+    # pas tuition_fee. Les élèves sans fiche ne gonflent/sous-comptent pas l'objectif.
+    from apps.finance.services import fee_accounts_annotated
+    total_fees = fee_accounts_annotated(school=school).aggregate(t=Sum('due'))['t'] or 0
     nb = max(len(months), 1)
     objective = round(total_fees / nb, -3)
 
@@ -295,19 +287,18 @@ def _compute_class_health(school, active_period):
         return []
     class_ids = [sc.id for sc in classes]
 
-    # 5 requêtes batch au lieu de 5×N
-    fees_map = {
-        r['school_class_id']: r['total']
-        for r in Student.objects.filter(
-            school_class__in=class_ids, school=school, is_active=True,
-        ).values('school_class_id').annotate(total=Sum('tuition_fee'))
-    }
-    paid_map = {
-        r['student__school_class_id']: r['total']
-        for r in Payment.objects.filter(
-            student__school_class__in=class_ids, student__school=school, is_cancelled=False,
-        ).values('student__school_class_id').annotate(total=Sum('amount'))
-    }
+    # Taux de paiement — NOUVEAU modèle (lot 6bis-A) : dû ET versé calculés sur la MÊME
+    # population (les fiches), via le helper central. Une classe sans aucune fiche →
+    # dû=0 → taux « pas de données » (None), pas « 0% » trompeur (cf. plus bas).
+    from apps.finance.services import fee_accounts_annotated
+    accounts_by_class = (
+        fee_accounts_annotated(school=school)
+        .filter(enrollment__student__school_class__in=class_ids)
+        .values('enrollment__student__school_class_id')
+        .annotate(due_total=Sum('due'), paid_total=Sum('paid'))
+    )
+    fees_map = {r['enrollment__student__school_class_id']: r['due_total'] for r in accounts_by_class}
+    paid_map = {r['enrollment__student__school_class_id']: r['paid_total'] for r in accounts_by_class}
     avg_map, total_bul_map, admitted_bul_map = {}, {}, {}
     if active_period:
         avg_map = {
@@ -347,13 +338,24 @@ def _compute_class_health(school, active_period):
             success_rate = round(admitted / total * 100, 1)
         total_fees = fees_map.get(sc.id) or 0
         total_paid = paid_map.get(sc.id) or 0
-        payment_rate = round(total_paid / total_fees * 100, 1) if total_fees > 0 else 0
-        if class_avg and class_avg >= GOOD_AVERAGE_THRESHOLD and payment_rate > PAYMENT_GOOD_THRESHOLD:
-            status = 'good'
-        elif (class_avg and class_avg < PASS_THRESHOLD) or payment_rate < PAYMENT_CRITICAL_THRESHOLD:
-            status = 'critical'
+        # « pas de données » (None) si la classe n'a AUCUNE fiche, plutôt que « 0% » faux.
+        has_fees = total_fees > 0
+        payment_rate = round(total_paid / total_fees * 100, 1) if has_fees else None
+        if has_fees:
+            if class_avg and class_avg >= GOOD_AVERAGE_THRESHOLD and payment_rate > PAYMENT_GOOD_THRESHOLD:
+                status = 'good'
+            elif (class_avg and class_avg < PASS_THRESHOLD) or payment_rate < PAYMENT_CRITICAL_THRESHOLD:
+                status = 'critical'
+            else:
+                status = 'warning'
         else:
-            status = 'warning'
+            # Sans données de paiement → on ne classe que sur la moyenne (le paiement ne pénalise pas).
+            if class_avg and class_avg < PASS_THRESHOLD:
+                status = 'critical'
+            elif class_avg and class_avg >= GOOD_AVERAGE_THRESHOLD:
+                status = 'good'
+            else:
+                status = 'warning'
         rows.append({
             'class': sc, 'student_count': sc.student_count,
             'avg': class_avg, 'success_rate': success_rate,

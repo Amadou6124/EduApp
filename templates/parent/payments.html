@@ -73,14 +73,29 @@
   <div x-show="active === {{ forloop.counter0 }}" x-cloak
        class="space-y-4 mt-4 animate-fade-in">
 
-    {# ── Hero card ──────────────────────────────────── #}
+    {% comment %}
+      Hero card — solde NOUVEAU modèle (lot 6bis-B), = fiche admin.
+      no_fee (sans fiche) → neutre gris, jamais un faux solde.
+    {% endcomment %}
     <div class="mx-4 rounded-3xl p-5 text-white
-                {% if c.status == 'paid' %}
+                {% if c.status == 'no_fee' %}
+                bg-gradient-to-br from-gray-400 to-gray-600
+                {% elif c.status == 'paid' %}
                 bg-gradient-to-br from-green-500 to-emerald-700
                 {% else %}
                 bg-gradient-to-br from-amber-500 to-orange-600
                 {% endif %}">
 
+      {% if c.status == 'no_fee' %}
+      <div class="flex items-center gap-2">
+        <i data-lucide="info" class="w-5 h-5 shrink-0"></i>
+        <div>
+          <p class="text-sm font-semibold">Fiche financière à venir</p>
+          <p class="text-xs opacity-75 mt-0.5">Pas encore disponible pour cette année.</p>
+        </div>
+      </div>
+
+      {% else %}
       {% if c.status == 'paid' %}
       <div class="flex items-center gap-2 mb-4">
         <i data-lucide="check-circle" class="w-5 h-5 shrink-0"></i>
@@ -105,9 +120,10 @@
       </div>
       {% if c.status != 'paid' %}
       <div class="flex items-center justify-between text-xs mt-1">
-        <span class="opacity-60">Scolarité</span>
+        <span class="opacity-60">Total dû</span>
         <span class="opacity-75 js-money" data-money="{{ c.due }}">—</span>
       </div>
+      {% endif %}
       {% endif %}
     </div>
 

@@ -15,6 +15,14 @@ class ParentRelationship(models.TextChoices):
     OTHER    = 'other',    _('Autre')
 
 
+class Gender(models.TextChoices):
+    # Valeurs stockées volontairement courtes ('M'/'F') et stables : elles serviront
+    # de clé pour sélectionner automatiquement la variante de tarif « tenue »
+    # (uniforme fille / garçon) dans le module Finances. Ne pas renommer les codes.
+    MALE   = 'M', _('Garçon')
+    FEMALE = 'F', _('Fille')
+
+
 class Student(models.Model):
     school = models.ForeignKey(
         'schools.School',
@@ -31,6 +39,16 @@ class Student(models.Model):
     # db_index pour accélérer recherche et tri
     full_name = models.CharField(_('nom complet'), max_length=200, db_index=True)
     date_of_birth = models.DateField(_('date de naissance'), null=True, blank=True)
+    # Genre — additif : null/blank car les élèves déjà inscrits n'ont pas cette donnée.
+    # Pilote l'application automatique du tarif de tenue (variante fille/garçon) à
+    # l'inscription ; tant qu'il est null, aucune variante genrée n'est appliquée.
+    gender = models.CharField(
+        _('genre'),
+        max_length=1,
+        choices=Gender.choices,
+        null=True,
+        blank=True,
+    )
     phone_number = models.CharField(
         _('téléphone élève'),
         max_length=20,
@@ -192,9 +210,22 @@ class EnrollmentStatus(models.TextChoices):
 
 class StudentEnrollment(models.Model):
     """
-    Historique des inscriptions, école par école et année par année.
-    Student.school = inscription courante ; StudentEnrollment = passé
-    préservé en lecture seule lors d'un transfert.
+    Source de vérité de l'inscription d'un élève, année scolaire par année scolaire.
+
+    Contrat de données (module Finances, à partir du lot 1) :
+      - L'enrollment de statut ACTIVE rattaché à l'année active de l'école
+        (SchoolYear.is_active=True) EST l'inscription courante de l'élève.
+      - Student.school_class reste la classe courante en lecture rapide (cache de
+        l'enrollment ACTIVE) le temps de cette transition ; les deux doivent rester
+        cohérents. À terme, les frais de l'année s'accrocheront à l'enrollment, pas
+        au Student.
+      - Un transfert / une fin d'année fige l'enrollment (status TRANSFERRED /
+        GRADUATED / WITHDRAWN, ended_at renseigné) : il devient une archive en
+        lecture seule. Le passage de classe (lot 7) créera l'enrollment de N+1.
+
+    Note : school_year est nullable pour préserver les archives historiques créées
+    avant ce lot (retraits enregistrés sans année active) — voir la contrainte
+    d'unicité conditionnelle ci-dessous.
     """
     student = models.ForeignKey(
         'Student', on_delete=models.PROTECT,
@@ -225,6 +256,18 @@ class StudentEnrollment(models.Model):
         verbose_name = _('inscription')
         verbose_name_plural = _('inscriptions')
         ordering = ['-created_at']
+        constraints = [
+            # Un seul enrollment par couple (élève, année scolaire).
+            # Condition school_year__isnull=False : la contrainte ne s'applique QUE
+            # lorsqu'une année est renseignée. Les archives historiques sans année
+            # (school_year=NULL, créées avant le lot 1) ne sont donc jamais bloquées,
+            # et plusieurs d'entre elles peuvent coexister pour un même élève.
+            models.UniqueConstraint(
+                fields=['student', 'school_year'],
+                condition=models.Q(school_year__isnull=False),
+                name='uniq_enrollment_student_year',
+            ),
+        ]
         indexes = [
             models.Index(fields=['student', 'status'],    name='enrollment_student_status_idx'),
             models.Index(fields=['school', 'school_year'], name='enrollment_school_year_idx'),

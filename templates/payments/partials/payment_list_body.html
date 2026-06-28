@@ -1,47 +1,116 @@
 {% load humanize %}
-{% if not students %}
+{% comment %}
+Corps de liste (lot 6). Deux modes selon l'onglet :
+  - onglet « En retard » (overdue_rows défini) → LISTE ROUGE des impayés en retard ;
+  - autres onglets → tableau/cartes des fiches (accounts).
+{% endcomment %}
+
+{% if is_overdue %}
+  {# ════ LISTE ROUGE — impayés en retard (basée sur Installment.due_date) ════ #}
+  {% if not overdue_rows %}
+    <div class="text-center py-16 text-gray-400">
+      <div class="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+      </div>
+      <p class="text-sm font-medium text-gray-900 mb-0.5">Aucun retard</p>
+      <p class="text-xs text-gray-500">Aucune tranche échue impayée.</p>
+    </div>
+  {% else %}
+    <div class="table-card">
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Élève</th><th>Classe</th>
+              <th class="text-right">En retard</th>
+              <th class="text-center">Tranches</th>
+              <th class="text-right">Depuis</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in overdue_rows %}
+              <tr>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 bg-red-500">{{ r.student.full_name|first|upper }}</div>
+                    <a href="{% url 'students:detail' r.student.id %}" class="font-medium text-gray-900 text-sm hover:text-primary-600">{{ r.student.full_name }}</a>
+                  </div>
+                </td>
+                <td><span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ r.student.school_class.name }}</span></td>
+                <td class="text-right font-bold text-red-600 tabular-nums">{{ r.amount|floatformat:0|intcomma }} F</td>
+                <td class="text-center"><span class="badge-danger">{{ r.count }}</span></td>
+                <td class="text-right">
+                  <span class="text-xs font-semibold text-red-600">{{ r.days }} j</span>
+                  <span class="block text-[10px] text-gray-400">{{ r.oldest|date:"d/m/Y" }}</span>
+                </td>
+                <td>
+                  <div class="flex items-center justify-end gap-2">
+                    <button type="button"
+                            hx-get="{% url 'finance:collect-panel' r.student.id %}"
+                            hx-target="#collect-panel-body" hx-swap="innerHTML"
+                            @click="$store.payments.showPanel = true"
+                            class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold rounded-lg transition min-h-[32px]">
+                      Encaisser
+                    </button>
+                    {# Relance auto (notif/SMS) = évolution future — placeholder désactivé, pas d'infra SMS. #}
+                    <button type="button" disabled title="Relance automatique — bientôt"
+                            class="px-3 py-1.5 bg-gray-100 text-gray-400 text-xs font-semibold rounded-lg cursor-not-allowed min-h-[32px]">
+                      Relancer
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mt-4 text-xs text-gray-400 text-center">{{ overdue_rows|length }} élève{{ overdue_rows|length|pluralize }} en retard</div>
+  {% endif %}
+
+{% elif not accounts %}
   <div class="text-center py-16 text-gray-400">
     <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
       <i data-lucide="search" class="w-6 h-6 text-gray-400"></i>
     </div>
     <p class="text-sm font-medium text-gray-900 mb-0.5">Aucun résultat</p>
-    <p class="text-xs text-gray-500">Essayez de modifier vos filtres</p>
+    <p class="text-xs text-gray-500">Aucune fiche financière ne correspond à ces filtres.</p>
   </div>
 {% else %}
 
   <div x-show="viewMode === 'table'">
     <div class="overflow-x-auto">
-    <div class="table-card">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Élève</th>
-            <th>Classe</th>
-            <th class="text-right">Total dû</th>
-            <th class="text-right">Versé</th>
-            <th class="text-right">Solde</th>
-            <th class="text-center">Statut</th>
-            <th class="text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for student in students %}
-            {% include "payments/partials/payment_row.html" %}
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Élève</th><th>Classe</th>
+              <th class="text-right">Total dû</th>
+              <th class="text-right">Versé</th>
+              <th class="text-right">Solde</th>
+              <th class="text-center">Statut</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for account in accounts %}
+              {% include "payments/partials/payment_row.html" %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <div x-show="viewMode === 'cards'" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-    {% for student in students %}
+    {% for account in accounts %}
       {% include "payments/partials/payment_card.html" %}
     {% endfor %}
   </div>
 
   <div class="mt-4 text-xs text-gray-400 text-center">
-    {{ students|length }} élève{% if students|length > 1 %}s{% endif %} affiché{% if students|length > 1 %}s{% endif %}
+    {{ accounts|length }} élève{{ accounts|length|pluralize }} affiché{{ accounts|length|pluralize }}
   </div>
 
 {% endif %}

@@ -1,54 +1,14 @@
-import datetime
-
 from django import forms
 
-from .models import Payment, PaymentMethod
+from .models import Payment
 
 
+# PaymentCreateForm supprimé au lot 6 : l'ancien flux d'encaissement non-alloué
+# (payment_create) n'existe plus. L'unique encaissement passe par finance:collect-create
+# (allocation FIFO, lot 5). Seule subsiste l'annulation de paiement ci-dessous.
 _F = ('w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm '
       'focus:outline-none focus:ring-2 focus:ring-brand-blue '
       'text-gray-800 placeholder-gray-400')
-
-
-class PaymentCreateForm(forms.ModelForm):
-
-    class Meta:
-        model = Payment
-        fields = ['amount', 'payment_date', 'payment_method', 'notes']
-        widgets = {
-            'amount': forms.NumberInput(attrs={
-                'class': _F + ' text-2xl font-bold',
-                'placeholder': '0',
-                'min': '1',
-                'step': '1',
-            }),
-            'payment_date': forms.DateInput(attrs={
-                'class': _F,
-                'type': 'date',
-            }),
-            'notes': forms.Textarea(attrs={
-                'class': _F,
-                'rows': '2',
-                'placeholder': 'Remarques optionnelles…',
-            }),
-        }
-
-    def __init__(self, *args, balance_due=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.balance_due = balance_due
-        self.fields['payment_date'].initial = datetime.date.today
-        self.fields['payment_method'].required = True
-        self.fields['notes'].required = False
-
-    def clean_amount(self):
-        amount = self.cleaned_data.get('amount')
-        if amount is not None and amount <= 0:
-            raise forms.ValidationError('Le montant doit être supérieur à 0 FCFA.')
-        if amount is not None and self.balance_due is not None and amount > self.balance_due:
-            raise forms.ValidationError(
-                f'Le montant ({amount:,.0f} FCFA) dépasse le solde restant ({self.balance_due:,.0f} FCFA).'
-            )
-        return amount
 
 
 class PaymentCancelForm(forms.ModelForm):

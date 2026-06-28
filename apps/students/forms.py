@@ -4,10 +4,20 @@ from django.utils.translation import gettext_lazy as _
 from apps.payments.models import PaymentMethod
 from apps.schools.models import SchoolClass
 
-from .models import ParentRelationship, Student
+from .models import ParentRelationship, Student, Gender
 
 
 class StudentCreateForm(forms.ModelForm):
+    # Genre OBLIGATOIRE à l'inscription unitaire (lot 4a) : pilote la variante de tenue
+    # auto et, plus largement, la fiche financière. Le panneau envoie 'F'/'M' (codes du
+    # lot 1). Requis ici uniquement — groupe/import laissent le genre nullable.
+    gender = forms.ChoiceField(
+        label=_('Genre'),
+        choices=Gender.choices,
+        required=True,
+        error_messages={'required': _('Choisissez le genre de l\'élève.')},
+    )
+
     # Champs hors-modèle pour le paiement initial optionnel
     initial_payment = forms.DecimalField(
         label=_('Montant versé (FCFA)'),
@@ -24,7 +34,7 @@ class StudentCreateForm(forms.ModelForm):
     class Meta:
         model = Student
         fields = [
-            'school_class', 'full_name', 'date_of_birth',
+            'school_class', 'full_name', 'gender', 'date_of_birth',
             'phone_number', 'parent_phone_number', 'parent_relationship',
         ]
         widgets = {

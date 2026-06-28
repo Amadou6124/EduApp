@@ -227,6 +227,21 @@
   {{ method_label }}
 </div>
 
+{# Détail d'allocation (lot 5) : à quelle(s) tranche(s) ce versement a été affecté. #}
+{% if allocations %}
+<div class="field" style="margin-top:6px;">
+  <span class="field-label">Affectation :</span>
+</div>
+<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:2px;">
+  {% for a in allocations %}
+  <tr>
+    <td style="padding:2px 0;color:#374151;">{{ a.debt }} — {{ a.label }}</td>
+    <td style="padding:2px 0;text-align:right;font-weight:600;">{{ a.amount }} FCFA</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
 <!-- STATUT / RELIQUAT -->
 <div class="status-line">
   {% if status.label == 'Soldé' %}

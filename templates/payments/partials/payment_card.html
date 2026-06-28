@@ -1,5 +1,9 @@
 {% load humanize %}
-{% with balance=student.balance total_paid=student.total_paid tuition=student.tuition_fee %}
+{% comment %}
+Carte élève — NOUVEAU modèle (lot 6). `account` = StudentFeeAccount annoté
+(due / paid / balance). « + Versement » ouvre le panneau d'allocation (lot 5).
+{% endcomment %}
+{% with student=account.enrollment.student due=account.due paid=account.paid balance=account.balance %}
 <div class="card p-4">
 
   <div class="flex items-start justify-between mb-3">
@@ -8,7 +12,7 @@
         {{ student.full_name|first|upper }}
       </div>
       <div>
-        <p class="font-semibold text-gray-900 text-sm leading-tight">{{ student.full_name }}</p>
+        <a href="{% url 'students:detail' student.id %}" class="font-semibold text-gray-900 text-sm leading-tight hover:text-primary-600">{{ student.full_name }}</a>
         <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 mt-0.5 inline-block">
           {{ student.school_class.name }}
         </span>
@@ -16,32 +20,30 @@
     </div>
     {% if balance <= 0 %}
       <span class="badge-success">Soldé</span>
-    {% elif total_paid > 0 %}
+    {% elif paid > 0 %}
       <span class="badge-warning">Partiel</span>
     {% else %}
       <span class="badge-danger">Impayé</span>
     {% endif %}
   </div>
 
-  {% if tuition > 0 %}
-    {% with pct=total_paid|default:0 %}
+  {% if due > 0 %}
     <div class="mb-3">
       <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
         <div class="h-full rounded-full transition-all"
-             style="width: {% widthratio total_paid tuition 100 %}%;
-                    background-color: {% if balance <= 0 %}#22c55e{% elif total_paid > 0 %}#f59e0b{% else %}#ef4444{% endif %};">
+             style="width: {% widthratio paid due 100 %}%;
+                    background-color: {% if balance <= 0 %}#22c55e{% elif paid > 0 %}#f59e0b{% else %}#ef4444{% endif %};">
         </div>
       </div>
       <div class="flex justify-between mt-1 text-xs text-gray-400">
-        <span>{{ total_paid|floatformat:0|intcomma }} FCFA versés</span>
-        <span>{{ tuition|floatformat:0|intcomma }} FCFA</span>
+        <span>{{ paid|floatformat:0|intcomma }} FCFA versés</span>
+        <span>{{ due|floatformat:0|intcomma }} FCFA</span>
       </div>
     </div>
-    {% endwith %}
   {% endif %}
 
   {% if balance > 0 %}
-    <p class="text-sm font-bold mb-3 {% if total_paid > 0 %}text-orange-600{% else %}text-red-600{% endif %}">
+    <p class="text-sm font-bold mb-3 {% if paid > 0 %}text-orange-600{% else %}text-red-600{% endif %}">
       {{ balance|floatformat:0|intcomma }} FCFA restants
     </p>
   {% else %}
@@ -50,17 +52,15 @@
 
   <div class="flex gap-2">
     <button type="button"
-            hx-get="{% url 'payments:form' student.id %}"
-            hx-target="#payment-panel"
-            hx-swap="innerHTML"
+            hx-get="{% url 'finance:collect-panel' student.id %}"
+            hx-target="#collect-panel-body" hx-swap="innerHTML"
             @click="$store.payments.showPanel = true"
             class="btn-primary flex-1 min-h-[44px]">
       + Nouveau versement
     </button>
     <button type="button"
             hx-get="{% url 'payments:history' student.id %}"
-            hx-target="#payment-history-modal"
-            hx-swap="innerHTML"
+            hx-target="#payment-history-modal" hx-swap="innerHTML"
             @click="$store.payments.showHistory = true"
             class="p-2.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg border border-gray-200 transition" title="Historique">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

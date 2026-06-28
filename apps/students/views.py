@@ -42,61 +42,48 @@ logger = logging.getLogger(__name__)
 
 
 def _students_qs(school, filter_type='all', class_id=None):
-    """Queryset de base annoté — 0 N+1 grâce à select_related + prefetch_related."""
+    """
+    Queryset de la liste élèves, annoté par le helper CENTRAL (nouveau modèle) :
+    chaque élève porte fee_status / fee_due / fee_paid / fee_balance / has_fee_account.
+    Les élèves SANS fiche ont fee_status='no_fee' (badge neutre, jamais rouge).
+    Filtres Impayés/Partiel/Soldés = notion de FICHE → les sans-fiche en sont EXCLUS,
+    mais restent visibles dans « Tous ».
+    """
+    from apps.finance.services import annotate_students_with_fees
     qs = (
         Student.objects
         .filter(school=school, is_active=True)
         .select_related('school_class')
-        .prefetch_related('payments')
         .order_by('full_name')
     )
+    qs = annotate_students_with_fees(qs)
     if filter_type == 'no_parent':
         qs = qs.filter(parent_phone_number='')
     elif filter_type in ('unpaid', 'partial', 'paid'):
-        paid_sq = (
-            Payment.objects
-            .filter(student=OuterRef('pk'), is_cancelled=False)
-            .values('student')
-            .annotate(s=Sum('amount'))
-            .values('s')
-        )
-        qs = qs.annotate(
-            paid=Coalesce(Subquery(paid_sq), 0, output_field=DecimalField())
-        )
-        if filter_type == 'unpaid':            # Impayés : rien versé
-            qs = qs.filter(paid=0)
-        elif filter_type == 'partial':         # Partiels : acompte < total
-            qs = qs.filter(paid__gt=0, paid__lt=F('tuition_fee'))
-        else:                                  # Soldés : à jour
-            qs = qs.filter(paid__gte=F('tuition_fee'))
+        # fee_status ∈ {paid,partial,unpaid,no_fee} → filtrer dessus exclut no_fee.
+        qs = qs.filter(fee_status=filter_type)
     elif filter_type == 'class' and class_id:
         qs = qs.filter(school_class_id=class_id)
     return qs
 
 
 def compute_student_stats(school):
-    """4 requêtes fixes pour toutes les stats de la liste."""
+    """Stats de la liste — NOUVEAU modèle (lot 6bis-A). Solde global = Σ des soldes
+    positifs des FICHES (élèves sans fiche exclus + comptés à part)."""
+    from apps.finance.services import annotate_students_with_fees, count_without_account
     today = timezone.now().date()
     base = Student.objects.filter(school=school, is_active=True)
-    paid_sq = (
-        Payment.objects
-        .filter(student=OuterRef('pk'), is_cancelled=False)
-        .values('student')
-        .annotate(s=Sum('amount'))
-        .values('s')
-    )
     unpaid_balance = (
-        base
-        .annotate(paid=Coalesce(Subquery(paid_sq), 0, output_field=DecimalField()))
-        .annotate(balance=F('tuition_fee') - F('paid'))
-        .filter(balance__gt=0)
-        .aggregate(total=Sum('balance'))['total'] or 0
+        annotate_students_with_fees(base)
+        .filter(has_fee_account=True, fee_balance__gt=0)
+        .aggregate(total=Sum('fee_balance'))['total'] or 0
     )
     return {
-        'total':          base.count(),
-        'enrolled_today': base.filter(enrolled_at__date=today).count(),
-        'without_parent': base.filter(parent_phone_number='').count(),
-        'unpaid_balance': int(unpaid_balance),
+        'total':               base.count(),
+        'enrolled_today':      base.filter(enrolled_at__date=today).count(),
+        'without_parent':      base.filter(parent_phone_number='').count(),
+        'unpaid_balance':      int(unpaid_balance),
+        'without_fee_account': count_without_account(school),
     }
 
 
@@ -112,21 +99,82 @@ def student_list(request):
     students    = list(_students_qs(school, filter_type, class_id))
     stats       = compute_student_stats(school)
     classes     = SchoolClass.objects.filter(school=school, is_active=True).order_by('level', 'name')
-    classes_json = json.dumps([
+    # ── Données pour Alpine — passées comme OBJETS Python ──────────────────────
+    # IMPORTANT : on laisse {% … json_script %} encoder UNE seule fois côté template.
+    # Surtout PAS de json.dumps ici, sinon double encodage → JSON.parse renvoie une
+    # chaîne et tout le composant Alpine casse (bug lot 4a).
+    classes_data = [
         {'id': c.id, 'name': c.name, 'annual_fee': int(c.annual_fee), 'level': c.level}
         for c in classes
-    ])
-    nb_classes = len(classes)  # queryset évalué par classes_json — pas de SQL supplémentaire
+    ]
+    nb_classes = len(classes)  # queryset évalué par classes_data — pas de SQL supplémentaire
+
+    # Catalogue de frais + gabarits pour le panneau enrichi (lot 4a).
+    fees_data, schedule_data, default_template_count = _enrollment_catalog_data(school)
+
     return render(request, 'students/student_list.html', {
         'students':      students,
         'stats':         stats,
         'form':          StudentCreateForm(school=school),
         'classes':       classes,
-        'classes_json':  classes_json,
+        'classes_data':  classes_data,
+        'fees_data':     fees_data,
+        'schedule_data': schedule_data,
+        'default_template_count': default_template_count,
         'school':        school,
         'filter_type':   filter_type,
         'page_subtitle': f"{stats['total']} élève{'s' if stats['total'] != 1 else ''} · {nb_classes} classe{'s' if nb_classes != 1 else ''}",
     })
+
+
+def _enrollment_catalog_data(school):
+    """
+    Données (objets Python, à encoder via json_script) pour le panneau enrichi (lot 4a) :
+      - fees_data     : frais actifs hors scolarité (obligatoires + optionnels) + variantes ;
+      - schedule_data : gabarits de tranches de l'école ;
+      - default_template_count : nb de tranches du gabarit par défaut (1 par défaut).
+    Robuste à une école NON configurée : renvoie des listes vides + 1 (repli annuel).
+    """
+    from apps.finance.models import FeeType, FeeCategory, PaymentScheduleTemplate
+
+    fees = (
+        FeeType.objects
+        .filter(school=school, is_active=True)
+        .exclude(category=FeeCategory.TUITION)
+        .prefetch_related('variants')
+        .order_by('is_mandatory', 'order', 'name')
+    )
+    fees_data = []
+    for f in fees:
+        fees_data.append({
+            'id':              f.id,
+            'name':            f.name,
+            'category':        f.category,           # one_time | subscription
+            'is_mandatory':    f.is_mandatory,
+            'has_variants':    f.has_variants,
+            'is_gender_based': f.is_gender_based,
+            'default_amount':  int(f.default_amount) if f.default_amount is not None else None,
+            'icon':            f.get_icon(),
+            'variants': [
+                {'id': v.id, 'label': v.label, 'amount': int(v.amount), 'gender_key': v.gender_key}
+                for v in f.variants.all() if v.is_active
+            ],
+        })
+
+    templates = list(
+        PaymentScheduleTemplate.objects
+        .filter(school=school, is_active=True)
+        .order_by('installments_count')
+    )
+    schedule_data = [
+        {'id': t.id, 'name': t.name, 'installments_count': t.installments_count,
+         'is_default': t.is_default}
+        for t in templates
+    ]
+    default_count = next((t.installments_count for t in templates if t.is_default), 1)
+
+    # Objets Python (PAS de json.dumps) : json_script encodera une seule fois côté template.
+    return fees_data, schedule_data, default_count
 
 
 @login_required
@@ -134,23 +182,86 @@ def student_list(request):
 @require_http_methods(['POST'])
 def student_create(request):
     school = get_school(request)
+
+    # ── Garde-fou (lot 4a) : pas d'année active → pas d'inscription possible ────
+    # La fiche financière s'accroche à l'enrollment de l'année active. Sans année
+    # active, on bloque proprement (toast) au lieu d'inscrire un élève sans fiche.
+    from apps.students.services import ensure_active_enrollment, has_active_year
+    if not has_active_year(school):
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': 'Aucune année scolaire active — configurez-en une avant d\'inscrire.',
+            'type': 'error',
+        }})
+        return resp
+
     form = StudentCreateForm(request.POST, school=school)
 
     if form.is_valid():
         student = form.save(commit=False)
         student.school      = school
         student.tuition_fee = student.school_class.annual_fee
-        student.save()
+        student.save()  # gender inclus via le form (lot 4a)
         invalidate_dashboard_cache(school)
+
+        # ── Fondation + fiche financière (lot 4a) ──────────────────────────────
+        # 1) enrollment ACTIVE de l'année active (idempotent, contrainte unique lot 1).
+        # 2) génération de la fiche avec les options cochées + le gabarit choisi.
+        from apps.finance.services import build_fee_account
+        from apps.finance.models import PaymentScheduleTemplate
+
+        enrollment = ensure_active_enrollment(student)
+
+        # Options optionnelles cochées : name="option_fees" (liste d'IDs FeeType) +
+        # variant_<id> pour les frais à variantes (trajet de bus).
+        fee_selections = []
+        for fid in request.POST.getlist('option_fees'):
+            try:
+                fid_int = int(fid)
+            except (TypeError, ValueError):
+                continue
+            vid = request.POST.get(f'variant_{fid}') or None
+            try:
+                vid_int = int(vid) if vid else None
+            except (TypeError, ValueError):
+                vid_int = None
+            fee_selections.append({'fee_type_id': fid_int, 'variant_id': vid_int})
+
+        # Gabarit de scolarité choisi (sinon défaut résolu dans build_fee_account).
+        template = None
+        tpl_id = request.POST.get('schedule_template')
+        if tpl_id:
+            template = PaymentScheduleTemplate.objects.filter(
+                school=school, id=tpl_id, is_active=True,
+            ).first()
+
+        # On capture la fiche : ses tranches doivent exister AVANT d'allouer l'acompte.
+        account = None
+        if enrollment is not None:
+            account = build_fee_account(enrollment, fee_selections=fee_selections, template=template)
 
         initial_amount = form.cleaned_data.get('initial_payment')
         if initial_amount and initial_amount > 0:
-            Payment.objects.create(
+            payment = Payment.objects.create(
                 student        = student,
                 amount         = initial_amount,
                 payment_method = form.cleaned_data.get('payment_method') or 'cash',
                 collected_by   = request.user,
             )
+            # ── Allocation de l'acompte (fix) ───────────────────────────────────
+            # On réutilise STRICTEMENT le moteur du guichet (allocate_payment, lot 5),
+            # cible par défaut = la SCOLARITÉ (FIFO sur ses tranches, cascade). Anti
+            # sur-allocation géré par allocate_payment : si l'acompte dépasse le solde
+            # scolarité, le surplus reste simplement non alloué (jamais de sur-allocation).
+            # Cas limite (école sans annual_fee → pas de dette scolarité) : on alloue sur
+            # la 1ère dette disponible, sinon on laisse non affecté sans planter.
+            if account is not None:
+                from apps.finance.services import allocate_payment
+                from apps.finance.models import FeeDebtKind
+                target = (account.debts.filter(kind=FeeDebtKind.TUITION).first()
+                          or account.debts.first())
+                if target is not None:
+                    allocate_payment(payment, target)
 
         if student.parent_phone_number:
             logger.info('[SMS] Notification parent à envoyer — élève : %s', student.full_name)
@@ -171,49 +282,6 @@ def student_create(request):
 
     elif request.htmx:
         return render(request, 'students/partials/student_form_fields.html', {'form': form})
-
-    return redirect('students:list')
-
-
-@login_required
-@director_or_staff_required
-@require_http_methods(['POST'])
-def student_create_group(request):
-    school = get_school(request)
-    class_id   = request.POST.get('class_id')
-    names_json = request.POST.get('names_data', '[]')
-    school_class = get_object_or_404(SchoolClass, id=class_id, school=school)
-
-    try:
-        names = [n.strip() for n in json.loads(names_json) if n.strip()]
-    except (json.JSONDecodeError, ValueError):
-        names = []
-
-    created_students = [
-        Student(
-            school       = school,
-            school_class = school_class,
-            full_name    = name,
-            tuition_fee  = school_class.annual_fee,
-        )
-        for name in names
-    ]
-    Student.objects.bulk_create(created_students)
-
-    if request.htmx:
-        students = list(_students_qs(school))
-        stats    = compute_student_stats(school)
-        n        = len(created_students)
-        response = render(request, 'students/partials/student_list_refresh.html', {
-            'students':        students,
-            'stats':           stats,
-            'success_message': _(f'{n} élève(s) inscrit(s) dans {school_class.name}.'),
-        })
-        response['HX-Trigger'] = json.dumps({
-            'close-panel': True,
-            'showToast':   {'message': f'{n} élève(s) inscrit(s) avec succès.', 'type': 'success'},
-        })
-        return response
 
     return redirect('students:list')
 
@@ -274,9 +342,34 @@ def student_detail(request, student_id):
         .order_by('-created_at')[:20]
     )
 
+    # ── Fiche financière par année (lot 3) ────────────────────────────────────
+    # Fiche accrochée à l'enrollment ACTIVE (= inscription de l'année courante).
+    # Optionnelle : un élève dont la fiche n'a pas encore été générée (anciens non
+    # régénérés) n'en a pas → le template affiche un état neutre, sans planter.
+    from apps.finance.models import StudentFeeAccount
+    from apps.finance.services import timeline_families
+    fee_account = (
+        StudentFeeAccount.objects
+        .filter(enrollment__student=student, enrollment__status='active',
+                enrollment__school=school)
+        .select_related('enrollment__school_year')
+        .prefetch_related('debts__installments__allocations')
+        .order_by('-enrollment__school_year__start_date')
+        .first()
+    )
+    # Familles ordonnées (lot 5) — source unique partagée avec le re-render post-encaissement.
+    fee_families = timeline_families(fee_account)
+
+    # Statut du badge en-tête (lot 6bis-A) : helper central. 'no_fee' si pas de fiche
+    # → badge NEUTRE (jamais rouge « Impayé ») dans student_profile_view.
+    from apps.finance.services import student_fee_summary
+    _summary = student_fee_summary(student)
+    fee_status = _summary['status'] if _summary else 'no_fee'
+
     return render(request, 'students/student_detail.html', {
         'student':           student,
         'school':            school,
+        'fee_status':        fee_status,
         'observations':      observations,
         'guardians':         guardians,
         'absences_recentes': absences_recentes,
@@ -284,6 +377,8 @@ def student_detail(request, student_id):
         'active_period':     active_period,
         'notifs_parents':    notifs_parents,
         'is_director':       request.role == UserRole.DIRECTOR or request.user.is_superuser,
+        'fee_account':       fee_account,
+        'fee_families':      fee_families,
     })
 
 
@@ -536,6 +631,7 @@ def student_import_template(request):
         'Téléphone élève',
         'Date de naissance (JJ/MM/AAAA)',
         'Lien parenté (père/mère/tuteur)',
+        'Genre (G/F)',   # lot 4b — optionnel, pilote la tenue auto
     ]
     ws.append(headers)
     header_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
@@ -548,8 +644,8 @@ def student_import_template(request):
     # ── Lignes 3-4 : exemples ────────────────────────────────────────
     example_fill = PatternFill(start_color='F7F9FC', end_color='F7F9FC', fill_type='solid')
     for row_data in [
-        ['Jean Kouassi',  'CP1',    '0700000002', '0700000001', '15/03/2015', 'père'],
-        ['Awa Traoré',    '6ème A', '0600000003', '',           '20/07/2013', 'mère'],
+        ['Jean Kouassi',  'CP1',    '0700000002', '0700000001', '15/03/2015', 'père', 'G'],
+        ['Awa Traoré',    '6ème A', '0600000003', '',           '20/07/2013', 'mère', 'F'],
     ]:
         ws.append(row_data)
         for cell in ws[ws.max_row]:
@@ -586,6 +682,13 @@ def _parse_student_rows(file_obj, filename, school):
         'mère': 'mother', 'mere': 'mother', 'mama': 'mother', 'mother': 'mother',
         'tuteur': 'guardian', 'tutrice': 'guardian', 'guardian': 'guardian',
     }
+    # Genre (lot 4b) — tolérance large, normalisé vers les codes Gender du lot 1 ('M'/'F').
+    # Cellule vide ou illisible → None (non bloquant : l'élève est créé sans genre).
+    gender_map = {
+        'f': 'F', 'fille': 'F', 'féminin': 'F', 'feminin': 'F', 'femme': 'F',
+        'g': 'M', 'garçon': 'M', 'garcon': 'M', 'm': 'M',
+        'masculin': 'M', 'homme': 'M',
+    }
 
     try:
         if filename.lower().endswith('.csv'):
@@ -615,8 +718,8 @@ def _parse_student_rows(file_obj, filename, school):
     for line_num, raw in enumerate(raw_rows, start=line_offset):
         if not any(raw):
             continue
-        cols = (raw + [''] * 6)[:6]
-        name_raw, class_raw, parent_phone, phone, dob_raw, rel_raw = [
+        cols = (raw + [''] * 7)[:7]
+        name_raw, class_raw, parent_phone, phone, dob_raw, rel_raw, gender_raw = [
             c.strip() for c in cols
         ]
         row_errors = []
@@ -640,6 +743,8 @@ def _parse_student_rows(file_obj, filename, school):
                 row_errors.append(f'Date « {dob_raw} » non reconnue (attendu JJ/MM/AAAA)')
 
         parent_relationship = relationship_map.get(rel_raw.lower(), '') if rel_raw else ''
+        # Genre : normalisé ou None. JAMAIS bloquant — pas une erreur de ligne.
+        gender = gender_map.get(gender_raw.lower()) if gender_raw else None
         is_duplicate = bool(school_class and (name_raw, school_class.name) in existing)
 
         if row_errors:
@@ -653,6 +758,7 @@ def _parse_student_rows(file_obj, filename, school):
                 'dob':                 dob.isoformat() if dob else '',
                 'parent_phone':        parent_phone,
                 'parent_relationship': parent_relationship,
+                'gender':              gender or '',     # '' = non renseigné
                 'annual_fee':          int(school_class.annual_fee),
                 'is_duplicate':        is_duplicate,
             })
@@ -703,6 +809,18 @@ def _unique_access_codes(school, count):
 @require_http_methods(['POST'])
 def student_import_confirm(request):
     school = get_school(request)
+
+    # ── Garde-fou (lot 4b) : pas d'année active → on bloque AVANT toute création ──
+    # Option la plus sûre : ne rien créer plutôt que d'importer 1000 élèves sans fiche.
+    from apps.students.services import has_active_year
+    if not has_active_year(school):
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': 'Configurez une année scolaire active avant d\'importer.',
+            'type': 'error',
+        }})
+        return resp
+
     try:
         rows = json.loads(request.POST.get('rows_data', '[]'))
     except json.JSONDecodeError:
@@ -732,6 +850,7 @@ def student_import_confirm(request):
             phone_number        = row.get('phone', ''),
             parent_phone_number = row.get('parent_phone', ''),
             parent_relationship = row.get('parent_relationship', ''),
+            gender              = row.get('gender') or None,   # lot 4b — pilote la tenue auto
             tuition_fee         = sc.annual_fee,
         )
         if row.get('dob'):
@@ -768,6 +887,31 @@ def student_import_confirm(request):
                     break
                 except IntegrityError:
                     continue
+
+    # ── Fondation + fiches (lot 4b) : enrollments + fiches en MASSE ─────────────
+    # Les élèves importés sont NEUFS → on crée leurs enrollments en un seul bulk_create
+    # (pas de get_or_create par élève : zéro N+1), puis build_fee_accounts_bulk génère
+    # toutes les fiches en ~10 requêtes (catalogue/gabarit préchargés une fois).
+    # Périmètre import (décision actée) : scolarité + frais obligatoires + tenue auto
+    # par genre. Les options facultatives (bus/cantine) se cochent ensuite, élève par
+    # élève, dans l'inscription individuelle. L'année active est garantie (garde-fou ci-dessus).
+    from apps.students.models import StudentEnrollment, EnrollmentStatus
+    from apps.schools.models import SchoolYear
+    from apps.finance.services import build_fee_accounts_bulk
+
+    active_year = SchoolYear.objects.get(school=school, is_active=True)
+    today = timezone.now().date()
+    enrollments = [
+        StudentEnrollment(
+            student=s, school=school, school_class=s.school_class,
+            school_year=active_year, status=EnrollmentStatus.ACTIVE, enrolled_at=today,
+        )
+        for s in created
+    ]
+    StudentEnrollment.objects.bulk_create(enrollments)
+    # Les objets `enrollments` portent déjà .student (avec gender) et .school_class
+    # (avec annual_fee) en mémoire → build_fee_accounts_bulk n'émet aucune requête N+1.
+    build_fee_accounts_bulk(enrollments)
 
     if request.htmx:
         students = list(_students_qs(school))

@@ -1,0 +1,170 @@
+{% load humanize %}
+{% comment %}
+Timeline financière de l'élève (lot 5). Contexte : account, student, fee_families.
+- 3 tuiles résumé (dû / versé / reste), calculées (jamais stockées).
+- Famille Scolarité : timeline de tranches colorées (vert payé / orange partiel /
+  rouge en retard / gris à venir). Horizontale desktop, EMPILÉE sur mobile.
+- Frais ponctuels : lignes simples colorées. Abonnements : « X / mois · actif » + mois réglés.
+État neutre si pas de fiche (anciens non régénérés) — ne plante pas.
+Re-rendue à l'identique après encaissement (cible #fee-timeline).
+{% endcomment %}
+
+<div class="card p-6">
+  <div class="flex items-center justify-between mb-5 gap-3">
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+      Situation financière
+      {% if account %}<span class="normal-case text-gray-300">· {{ account.enrollment.school_year.name|default:"année active" }}</span>{% endif %}
+    </h3>
+    {% comment %}
+      Bouton « Encaisser » = ADMIN uniquement (dépend de collectOpen + #collect-panel-body
+      du student_detail). En mode readonly (portail parent, lecture seule) on ne l'émet
+      pas → aucune action, aucune dépendance au scope Alpine de l'admin. readonly absent
+      (admin) = falsy → comportement inchangé. timeline.html ne porte AUCUN id : le
+      conteneur (#fee-timeline côté admin, un wrapper par enfant côté parent) est externe,
+      donc pas d'id dupliqué même avec plusieurs enfants sur la page parent.
+    {% endcomment %}
+    {% if account and not readonly %}
+      <button type="button"
+              hx-get="{% url 'finance:collect-panel' student.id %}"
+              hx-target="#collect-panel-body" hx-swap="innerHTML"
+              @click="collectOpen = true"
+              class="btn-primary text-sm shrink-0">
+        <i data-lucide="wallet" class="w-4 h-4"></i>
+        Encaisser
+      </button>
+    {% endif %}
+  </div>
+
+  {% if not account %}
+    <p class="text-sm text-gray-400 text-center py-6">Aucune fiche financière pour cette année.</p>
+  {% else %}
+
+    {# ── 3 tuiles résumé ── #}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="text-center p-4 bg-gray-50 rounded-xl">
+        <p class="text-xs text-gray-400 mb-1">Total dû</p>
+        <p class="text-lg font-bold text-gray-700">{{ account.total_due|intcomma }}</p>
+        <p class="text-xs text-gray-400">FCFA</p>
+      </div>
+      <div class="text-center p-4 bg-green-50 rounded-xl">
+        <p class="text-xs text-gray-400 mb-1">Versé</p>
+        <p class="text-lg font-bold text-green-600">{{ account.total_paid|intcomma }}</p>
+        <p class="text-xs text-gray-400">FCFA</p>
+      </div>
+      <div class="text-center p-4 rounded-xl {% if account.total_balance <= 0 %}bg-green-50{% else %}bg-red-50{% endif %}">
+        <p class="text-xs text-gray-400 mb-1">Reste</p>
+        <p class="text-lg font-bold {% if account.total_balance <= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ account.total_balance|intcomma }}</p>
+        <p class="text-xs text-gray-400">FCFA</p>
+      </div>
+    </div>
+
+    {% for family_label, debts in fee_families %}
+      <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-5 mb-2">{{ family_label }}</h4>
+
+      {% for debt in debts %}
+        {# ── Famille SCOLARITÉ : timeline de tranches (cards colorées) ── #}
+        {% if debt.kind == 'tuition' %}
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+            {% comment %}
+              5 états d'une tranche, dans le BON ordre de priorité. Le point clé : une
+              tranche avec un acompte (amount_allocated > 0) ne montre JAMAIS son montant
+              total comme impayé, même échue → on teste 'partial' AVANT 'is_overdue'.
+              L'état hybride « partiel + en retard » : fond ambre (montre l'acompte versé)
+              + alerte de retard en ROUGE (montre l'urgence du solde restant).
+            {% endcomment %}
+            {% for inst in debt.installments.all %}
+              {% if inst.status == 'paid' %}
+                {# 1) PAYÉE → vert #}
+                <div class="rounded-xl border border-green-200 bg-green-50 p-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-green-700">{{ inst.label }}</span>
+                    <i data-lucide="check-circle" class="w-4 h-4 text-green-600"></i>
+                  </div>
+                  <p class="text-sm font-bold text-green-700 mt-1">{{ inst.amount_due|intcomma }} FCFA</p>
+                  <p class="text-[11px] text-green-600 mt-0.5">Payé · {{ inst.due_date|date:"d/m/Y" }}</p>
+                </div>
+              {% elif inst.status == 'partial' and inst.is_overdue %}
+                {# 2) PARTIELLEMENT PAYÉE ET EN RETARD → hybride ambre + alerte rouge #}
+                <div class="rounded-xl border border-amber-300 bg-amber-50 p-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-amber-700">{{ inst.label }}</span>
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i>
+                  </div>
+                  <p class="text-sm font-bold text-amber-700 mt-1">{{ inst.amount_allocated|intcomma }} / {{ inst.amount_due|intcomma }}</p>
+                  <p class="text-[11px] text-red-600 mt-0.5">Reste {{ inst.balance|intcomma }} · en retard {{ inst.due_date|date:"d/m/Y" }}</p>
+                </div>
+              {% elif inst.status == 'partial' %}
+                {# 3) PARTIELLEMENT PAYÉE, non échue → orange #}
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-amber-700">{{ inst.label }}</span>
+                    <i data-lucide="clock" class="w-4 h-4 text-amber-600"></i>
+                  </div>
+                  <p class="text-sm font-bold text-amber-700 mt-1">{{ inst.amount_allocated|intcomma }} / {{ inst.amount_due|intcomma }}</p>
+                  <p class="text-[11px] text-amber-600 mt-0.5">Reste {{ inst.balance|intcomma }} · {{ inst.due_date|date:"d/m/Y" }}</p>
+                </div>
+              {% elif inst.is_overdue %}
+                {# 4) TOTALEMENT IMPAYÉE ET ÉCHUE → rouge #}
+                <div class="rounded-xl border border-red-200 bg-red-50 p-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-red-700">{{ inst.label }}</span>
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-red-700"></i>
+                  </div>
+                  <p class="text-sm font-bold text-red-700 mt-1">{{ inst.amount_due|intcomma }} FCFA</p>
+                  <p class="text-[11px] text-red-700 mt-0.5">En retard · {{ inst.due_date|date:"d/m/Y" }}</p>
+                </div>
+              {% else %}
+                {# 5) À VENIR → neutre #}
+                <div class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-gray-600">{{ inst.label }}</span>
+                    <i data-lucide="circle" class="w-4 h-4 text-gray-300"></i>
+                  </div>
+                  <p class="text-sm font-bold text-gray-700 mt-1">{{ inst.amount_due|intcomma }} FCFA</p>
+                  <p class="text-[11px] text-gray-400 mt-0.5">À venir · {{ inst.due_date|date:"d/m/Y" }}</p>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+        {# ── Famille ABONNEMENTS : pay-as-you-go ── #}
+        {% elif debt.kind == 'subscription' %}
+          <div class="rounded-xl border border-gray-100 p-3 mb-2">
+            <div class="flex items-center justify-between text-sm">
+              <span class="font-medium text-gray-800">{{ debt.label }}</span>
+              <span class="text-xs text-gray-500">{{ debt.total_amount|intcomma }} F / mois · <span class="text-green-600 font-medium">actif</span></span>
+            </div>
+            {% with months=debt.installments.all %}
+              {% if months %}
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                  {% for inst in months %}
+                    {# Cohérence avec la scolarité : 'partial' (acompte) AVANT 'is_overdue'. #}
+                    <span class="text-[11px] px-2 py-0.5 rounded-full {% if inst.status == 'paid' %}bg-green-100 text-green-700{% elif inst.status == 'partial' %}bg-amber-100 text-amber-700{% elif inst.is_overdue %}bg-red-100 text-red-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+                      {{ inst.label }}{% if inst.status == 'paid' %} ✓{% endif %}
+                    </span>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="text-[11px] text-gray-400 mt-1">Aucune mensualité encore réglée.</p>
+              {% endif %}
+            {% endwith %}
+          </div>
+
+        {# ── Famille FRAIS PONCTUELS : ligne simple colorée ── #}
+        {% else %}
+          <div class="flex items-center justify-between rounded-xl border border-gray-100 p-3 mb-2 text-sm">
+            <span class="font-medium text-gray-800">{{ debt.label }}</span>
+            {% if debt.status == 'paid' %}
+              <span class="badge-success">Payé · {{ debt.total_amount|intcomma }} FCFA</span>
+            {% elif debt.status == 'partial' %}
+              <span class="badge-warning">Reste {{ debt.balance|intcomma }} / {{ debt.total_amount|intcomma }}</span>
+            {% else %}
+              <span class="badge-danger">Dû {{ debt.total_amount|intcomma }} FCFA</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+
+  {% endif %}
+</div>

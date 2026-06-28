@@ -26,7 +26,15 @@ function paymentsPageData() {
 {% endblock %}
 
 {% block content %}
-<div x-data="paymentsPageData()">
+<div x-data="paymentsPageData()"
+     @close-collect-panel.window="$store.payments.showPanel = false">
+
+  {# Rafraîchit liste + stats après un encaissement (événement émis par collect_create). #}
+  <div hx-get="{% url 'payments:dashboard' %}"
+       hx-trigger="payment-collected from:body"
+       hx-target="#payment-list-area" hx-swap="outerHTML"
+       hx-include="[name=q],[name=class_id],[name=status]"
+       class="hidden"></div>
 
   <div id="payment-stats" class="mb-6">
     {% include "payments/partials/payment_stats.html" %}
@@ -104,15 +112,17 @@ function paymentsPageData() {
        @click="$store.payments.showPanel = false">
   </div>
 
+  {% comment %}Panneau d'encaissement = panneau d'ALLOCATION du lot 5 (finance:collect-panel),
+     chargé par HTMX dans #collect-panel-body. Plus aucun ancien panneau non-alloué.{% endcomment %}
   <div x-show="$store.payments.showPanel" x-cloak
-       id="payment-panel"
-       class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col overflow-y-auto animate-slide-in-right"
+       class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col"
        x-transition:enter="transition ease-out duration-300"
        x-transition:enter-start="translate-x-full"
        x-transition:enter-end="translate-x-0"
        x-transition:leave="transition ease-in duration-200"
        x-transition:leave-start="translate-x-0"
        x-transition:leave-end="translate-x-full">
+    <div id="collect-panel-body" class="h-full flex flex-col"></div>
   </div>
 
   <div x-show="$store.payments.showHistory" x-cloak

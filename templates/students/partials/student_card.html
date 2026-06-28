@@ -14,11 +14,8 @@
   </div>
 
   <div class="flex items-center gap-2 flex-wrap">
-    {% with status=student.get_payment_status %}
-    <span class="{% if status == 'paid' %}badge-success{% elif status == 'partial' %}badge-warning{% else %}badge-danger{% endif %}">
-      {% if status == 'paid' %}Soldé{% elif status == 'partial' %}Partiel{% else %}Impayé{% endif %}
-    </span>
-    {% endwith %}
+    {# status financier annoté par le helper central → 'no_fee' (badge neutre) si pas de fiche. #}
+    {% include "students/partials/fee_status_badge.html" with status=student.fee_status %}
 
     {% if student.has_parent_linked %}
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary-50 text-primary-700">
