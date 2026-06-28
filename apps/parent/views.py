@@ -64,23 +64,35 @@ def parent_dashboard(request):
         .order_by('-is_primary', 'student__full_name')
     )
 
+    # ── Finances : NOUVEAU modèle (lot 6bis-B) via le helper central ────────────
+    # student_fee_summary → 3 familles par allocation, identique à la fiche admin.
+    # None = enfant sans fiche → état NEUTRE, jamais un solde faux.
+    from apps.finance.services import student_fee_summary
+
     children = []
     for link in links:
         s = link.student
-        total_paid = sum(p.amount for p in s.active_payments)
-        balance = s.tuition_fee - total_paid
-        status = 'paid' if balance <= 0 else ('partial' if total_paid > 0 else 'unpaid')
-        pct = int(total_paid / s.tuition_fee * 100) if s.tuition_fee else 0
+        summary = student_fee_summary(s)
+        if summary:
+            fin = {
+                'has_fee':    True,
+                'status':     summary['status'],          # paid / partial / unpaid
+                'total_paid': summary['paid'],
+                'balance':    summary['balance'],
+                'due':        summary['due'],
+                'has_overdue': summary['has_overdue'],
+                'pct_paid':   int(summary['paid'] / summary['due'] * 100) if summary['due'] else 0,
+            }
+        else:
+            fin = {'has_fee': False, 'status': 'no_fee', 'total_paid': 0,
+                   'balance': 0, 'due': 0, 'has_overdue': False, 'pct_paid': 0}
         bulletins = s.published_bulletins
         lb = bulletins[0] if bulletins else None
         children.append({
             'student':        s,
             'relationship':   link.get_relationship_display(),
             'is_primary':     link.is_primary,
-            'total_paid':     total_paid,
-            'balance':        max(balance, 0),
-            'pct_paid':       min(max(pct, 0), 100),
-            'status':         status,
+            **fin,
             'bulletins_count': len(bulletins),
             'last_bulletin':   lb,
             'last_bulletin_is_new': bool(
@@ -102,6 +114,27 @@ def parent_dashboard(request):
     if not active_child and children:
         active_child = children[0]
 
+    # ── Timeline détaillée de l'enfant ACTIF (lecture seule) ────────────────────
+    # Sécurité : on part de active_child['student'], issu de guarded_students — JAMAIS
+    # d'un id en paramètre. Préfetch debts→installments→allocations → zéro N+1 dans le
+    # rendu de la timeline. fee_families = même structure 3 familles que la fiche admin.
+    active_account = None
+    active_fee_families = None
+    if active_child and active_child['has_fee']:
+        from apps.finance.models import StudentFeeAccount
+        from apps.finance.services import timeline_families
+        cs = active_child['student']
+        active_account = (
+            StudentFeeAccount.objects
+            .filter(enrollment__student=cs, enrollment__status='active',
+                    enrollment__school=cs.school)
+            .select_related('enrollment__school_year')
+            .prefetch_related('debts__installments__allocations')
+            .order_by('-enrollment__school_year__start_date')
+            .first()
+        )
+        active_fee_families = timeline_families(active_account)
+
     from apps.schools.models import SchoolAnnouncement
     from django.db.models import Q as _Q
 
@@ -122,6 +155,8 @@ def parent_dashboard(request):
         'active_child':              active_child,
         'has_multiple':              len(children) > 1,
         'recent_announcements_count': recent_announcements_count,
+        'active_account':            active_account,       # fiche de l'enfant actif (ou None)
+        'active_fee_families':       active_fee_families,  # 3 familles pour la timeline
     })
 
 
@@ -168,29 +203,41 @@ def parent_payments(request):
         ))
         .order_by('-is_primary', 'student__full_name')
     )
+    # ── Solde : NOUVEAU modèle (lot 6bis-B) — IDENTIQUE à la fiche admin et à la
+    # page Paiements. Le helper somme les allocations (3 familles), pas tuition_fee.
+    # La liste des Payments bruts reste affichée comme JOURNAL des versements (immuable).
+    from apps.finance.services import student_fee_summary
+
     children = []
     total_paid_all = Decimal('0')
-    total_due_all = Decimal('0')
+    total_remaining_all = Decimal('0')
     for l in links:
         s = l.student
         for p in s.active_payments:
             p.month_group = p.payment_date.strftime('%Y-%m')
-        paid = sum((p.amount for p in s.active_payments), Decimal('0'))
-        due = s.tuition_fee or Decimal('0')
-        balance = max(due - paid, Decimal('0'))
-        pct = int(paid / due * 100) if due else 0
+        summary = student_fee_summary(s)
+        if summary:
+            due     = Decimal(summary['due'])
+            paid    = Decimal(summary['paid'])
+            balance = Decimal(summary['balance'])
+            status  = summary['status']
+            has_fee = True
+            pct     = int(paid / due * 100) if due else 0
+        else:
+            # Enfant sans fiche → état neutre, jamais un solde faux.
+            due = paid = balance = Decimal('0')
+            status, has_fee, pct = 'no_fee', False, 0
         children.append({
-            'student': s, 'payments': s.active_payments,
+            'student': s, 'payments': s.active_payments, 'has_fee': has_fee,
             'paid': paid, 'due': due, 'balance': balance,
-            'pct': min(max(pct, 0), 100),
-            'status': 'paid' if balance <= 0 else ('partial' if paid > 0 else 'unpaid'),
+            'pct': min(max(pct, 0), 100), 'status': status,
         })
         total_paid_all += paid
-        total_due_all += due
+        total_remaining_all += balance
     return render(request, 'parent/payments.html', {
         'children': children,
         'total_paid': total_paid_all,
-        'total_remaining': max(total_due_all - total_paid_all, Decimal('0')),
+        'total_remaining': total_remaining_all,
     })
 
 

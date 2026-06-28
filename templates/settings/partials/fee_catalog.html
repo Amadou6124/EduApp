@@ -1,0 +1,83 @@
+{% load i18n %}
+{% comment %}
+Catalogue de frais — cartes ACTIVES + section repliée des frais DÉSACTIVÉS.
+Cible HTMX #fee-catalog. Contexte fourni par les vues :
+  active_fees   — frais actifs (cartes éditables)
+  inactive_fees — frais désactivés (lignes grisées, réactivables)
+  has_any       — y a-t-il au moins un frais (actif ou non) ?
+La scolarité est exclue (bannière d'info, cf. fees.html).
+{% endcomment %}
+
+{% if has_any %}
+
+  {# --- Cartes actives --- #}
+  {% if active_fees %}
+    <div class="space-y-3">
+      {% for fee in active_fees %}
+        {% include "settings/partials/fee_card.html" with fee=fee %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-sm text-gray-400 text-center py-6 card">
+      Tous les frais sont désactivés. Réactivez-en un ci-dessous ou ajoutez-en un nouveau.
+    </p>
+  {% endif %}
+
+  {# --- Bouton ajouter --- #}
+  <button type="button"
+          hx-get="{% url 'settings:fee-form' %}"
+          hx-target="#fee-modal-body" hx-swap="innerHTML"
+          @click="showFeeModal = true"
+          class="btn-secondary w-full mt-4 justify-center min-h-[44px]">
+    <i data-lucide="plus" class="w-4 h-4"></i>
+    Ajouter un autre frais
+  </button>
+
+  {# --- Section repliée : frais DÉSACTIVÉS --- #}
+  {% if inactive_fees %}
+    <div x-data="{ openDisabled: false }" class="mt-6">
+      <button type="button" @click="openDisabled = !openDisabled"
+              class="flex items-center gap-2 text-xs font-semibold text-gray-400 hover:text-gray-600 transition">
+        <i data-lucide="chevron-right" class="w-4 h-4 transition-transform" :class="openDisabled && 'rotate-90'"></i>
+        Frais désactivés ({{ inactive_fees|length }})
+      </button>
+      <div x-show="openDisabled" x-cloak class="mt-3 space-y-2">
+        {% for fee in inactive_fees %}
+          <div class="flex items-center justify-between gap-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2.5">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <i data-lucide="{{ fee.get_icon }}" class="w-4 h-4 text-gray-300 shrink-0" aria-hidden="true"></i>
+              <span class="text-sm text-gray-500 line-through truncate">{{ fee.name }}</span>
+            </div>
+            <button type="button"
+                    hx-post="{% url 'settings:fee-toggle' fee.id %}"
+                    hx-target="#fee-catalog" hx-swap="innerHTML"
+                    class="btn-secondary text-xs px-3 py-1.5 shrink-0">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              Réactiver
+            </button>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+{% else %}
+  {# État vide global — aucun frais du tout #}
+  <div class="card p-8 sm:p-10 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="wallet" class="w-7 h-7 text-primary-600"></i>
+    </div>
+    <h3 class="text-base font-semibold text-gray-900 mb-1">Aucun frais pour l'instant</h3>
+    <p class="text-sm text-gray-500 max-w-xs mx-auto mb-5">
+      Commencez par ajouter vos frais (inscription, cantine, tenue…). Ils seront proposés à l'inscription des élèves.
+    </p>
+    <button type="button"
+            hx-get="{% url 'settings:fee-form' %}"
+            hx-target="#fee-modal-body" hx-swap="innerHTML"
+            @click="showFeeModal = true"
+            class="btn-primary min-h-[44px]">
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      Ajouter un frais
+    </button>
+  </div>
+{% endif %}

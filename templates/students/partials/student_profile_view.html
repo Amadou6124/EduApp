@@ -1,5 +1,6 @@
 {% load i18n humanize %}
-{% with colors=student.get_avatar_colors status=student.get_payment_status %}
+{# fee_status fourni par la vue student_detail via le helper central (None→'no_fee'). #}
+{% with colors=student.get_avatar_colors %}
 <div id="student-profile-card" class="card p-6">
 
   <div class="flex items-start gap-5">
@@ -16,9 +17,7 @@
             <span class="font-mono font-semibold text-primary-700">{{ student.access_code }}</span>
           </p>
         </div>
-        <span class="flex-shrink-0 {% if status == 'paid' %}badge-success{% elif status == 'partial' %}badge-warning{% else %}badge-danger{% endif %}">
-          {% if status == 'paid' %}Soldé{% elif status == 'partial' %}Partiel{% else %}Impayé{% endif %}
-        </span>
+        <span class="flex-shrink-0">{% include "students/partials/fee_status_badge.html" with status=fee_status %}</span>
       </div>
 
       <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">

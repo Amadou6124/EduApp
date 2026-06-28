@@ -14,25 +14,36 @@
   </button>
 </div>
 
-<!-- Stats -->
+{% comment %}
+  Tuiles de solde — NOUVEAU modèle (lot 6 finition) : dû/versé/solde des 3 familles
+  par allocation (cohérent avec la page Paiements + la timeline fiche). Repli neutre
+  si l'élève n'a pas de fiche financière. La liste « historique » plus bas reste le
+  journal des Payment réels (immuable), non modifiée.
+{% endcomment %}
+{% if fee_account %}
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-px bg-gray-100 border-b border-gray-100">
   <div class="bg-white text-center px-4 py-3">
     <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium mb-0.5">Total dû</p>
-    <p class="text-sm font-bold text-gray-800 tabular-nums">{{ student.tuition_fee|floatformat:0|intcomma }}</p>
+    <p class="text-sm font-bold text-gray-800 tabular-nums">{{ fee_account.total_due|floatformat:0|intcomma }}</p>
   </div>
   <div class="bg-white text-center px-4 py-3">
     <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium mb-0.5">Versé</p>
-    <p class="text-sm font-bold text-green-600 tabular-nums">{{ total_paid|floatformat:0|intcomma }}</p>
+    <p class="text-sm font-bold text-green-600 tabular-nums">{{ fee_account.total_paid|floatformat:0|intcomma }}</p>
   </div>
   <div class="bg-white text-center px-4 py-3">
     <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium mb-0.5">Solde</p>
-    {% with bal=student.get_balance_due %}
+    {% with bal=fee_account.total_balance %}
     <p class="text-sm font-bold tabular-nums {% if bal <= 0 %}text-green-600{% else %}text-red-600{% endif %}">
       {% if bal <= 0 %}0{% else %}{{ bal|floatformat:0|intcomma }}{% endif %}
     </p>
     {% endwith %}
   </div>
 </div>
+{% else %}
+<div class="px-4 py-3 border-b border-gray-100 bg-gray-50 text-center">
+  <p class="text-xs text-gray-400">Aucune fiche financière pour cette année — versements bruts ci-dessous.</p>
+</div>
+{% endif %}
 
 <!-- Timeline -->
 <div class="px-6 py-5 overflow-y-auto">

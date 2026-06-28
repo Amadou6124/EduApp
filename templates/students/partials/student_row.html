@@ -1,5 +1,6 @@
 {% load humanize %}
-{% with colors=student.get_avatar_colors status=student.get_payment_status %}
+{# status financier annoté par le helper central (annotate_students_with_fees) → 'no_fee' si pas de fiche. #}
+{% with colors=student.get_avatar_colors status=student.fee_status %}
 <tr class="{% if success %}bg-green-50{% endif %}">
 
   <td>
@@ -20,9 +21,7 @@
   <td class="text-gray-500">{{ student.phone_number|default:"—" }}</td>
 
   <td>
-    <span class="{% if status == 'paid' %}badge-success{% elif status == 'partial' %}badge-warning{% else %}badge-danger{% endif %}">
-      {% if status == 'paid' %}Soldé{% elif status == 'partial' %}Partiel{% else %}Impayé{% endif %}
-    </span>
+    {% include "students/partials/fee_status_badge.html" with status=status %}
   </td>
 
   <td class="text-center">

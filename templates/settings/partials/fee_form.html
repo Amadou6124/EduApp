@@ -1,0 +1,110 @@
+{% load i18n %}
+{% comment %}
+Corps du modal d'ajout / édition d'un FeeType. Chargé dans #fee-modal-body par HTMX.
+L'x-data local pilote la visibilité conditionnelle (montant masqué pour scolarité /
+variantes ; bascule « selon le genre » seulement si variantes). Les widgets portent
+déjà x-model (cf. forms.py) → les inputs et l'état Alpine restent synchronisés.
+Soumission HTMX : succès → la vue swappe #fee-catalog (OOB) et ferme le modal ;
+erreur → ce même partiel est re-rendu ici avec les messages.
+{% endcomment %}
+
+<form hx-post="{% if fee %}{% url 'settings:fee-update' fee.id %}{% else %}{% url 'settings:fee-create' %}{% endif %}"
+      hx-target="#fee-modal-body" hx-swap="innerHTML"
+      x-data="{
+        category: '{{ form.category.value|default:'one_time' }}',
+        hasVariants: {{ form.has_variants.value|yesno:'true,false,false' }},
+        isGenderBased: {{ form.is_gender_based.value|yesno:'true,false,false' }},
+      }"
+      x-effect="if (category === 'tuition') { hasVariants = false; isGenderBased = false }"
+      x-init="$watch('hasVariants', v => { if (!v) isGenderBased = false })">
+  {% csrf_token %}
+
+  {# En-tête #}
+  <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+    <h3 class="text-base font-semibold text-gray-900">
+      {% if fee %}Modifier le frais{% else %}Nouveau frais{% endif %}
+    </h3>
+    <button type="button" @click="showFeeModal = false"
+            class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+      <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
+    </button>
+  </div>
+
+  <div class="px-6 py-5 space-y-4">
+
+    {% if form.non_field_errors %}
+      <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+        {% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    {# Nom #}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom du frais <span class="text-red-500">*</span></label>
+      {{ form.name }}
+      {% for e in form.name.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}
+    </div>
+
+    {# Catégorie #}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">Type</label>
+      {{ form.category }}
+      <p class="text-xs text-gray-400 mt-1"
+         x-text="category === 'tuition' ? 'Le montant vient de la classe (SchoolClass.annual_fee).' : (category === 'subscription' ? 'Abonnement récurrent résiliable (bus, cantine).' : 'Frais ponctuel, dû une fois.')"></p>
+    </div>
+
+    {# Montant — masqué pour scolarité et frais à variantes #}
+    <div x-show="category !== 'tuition' && !hasVariants" x-cloak>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">Montant (FCFA)</label>
+      <div class="relative">
+        {{ form.default_amount }}
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">FCFA</span>
+      </div>
+      {% for e in form.default_amount.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}
+    </div>
+
+    {# Toggle : obligatoire #}
+    <label class="flex items-center justify-between cursor-pointer py-1">
+      <span class="text-sm text-gray-700">Obligatoire <span class="text-gray-400 font-normal">— appliqué à tous</span></span>
+      <span class="relative inline-block">
+        {{ form.is_mandatory }}
+        <span class="block w-9 h-5 bg-gray-200 peer-checked:bg-primary-600 rounded-full transition peer-focus:ring-2 peer-focus:ring-primary-500/30"></span>
+        <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></span>
+      </span>
+    </label>
+
+    {# Toggle : à variantes — caché pour la scolarité #}
+    <label class="flex items-center justify-between cursor-pointer py-1" x-show="category !== 'tuition'" x-cloak>
+      <span class="text-sm text-gray-700">À variantes <span class="text-gray-400 font-normal">— trajets, formules, tenue</span></span>
+      <span class="relative inline-block">
+        {{ form.has_variants }}
+        <span class="block w-9 h-5 bg-gray-200 peer-checked:bg-primary-600 rounded-full transition peer-focus:ring-2 peer-focus:ring-primary-500/30"></span>
+        <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></span>
+      </span>
+    </label>
+
+    {# Toggle : selon le genre — seulement si variantes #}
+    <label class="flex items-center justify-between cursor-pointer py-1" x-show="category !== 'tuition' && hasVariants" x-cloak>
+      <span class="text-sm text-gray-700">Selon le genre <span class="text-gray-400 font-normal">— tenue fille / garçon auto</span></span>
+      <span class="relative inline-block">
+        {{ form.is_gender_based }}
+        <span class="block w-9 h-5 bg-gray-200 peer-checked:bg-primary-600 rounded-full transition peer-focus:ring-2 peer-focus:ring-primary-500/30"></span>
+        <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></span>
+      </span>
+    </label>
+
+    <p x-show="hasVariants" x-cloak class="text-xs text-gray-400 bg-gray-50 rounded-lg p-2.5">
+      Les montants se définissent variante par variante, depuis la carte du frais.
+    </p>
+
+  </div>
+
+  {# Pied — boutons #}
+  <div class="px-6 py-4 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white">
+    <button type="submit" class="btn-primary flex-1 justify-center min-h-[44px]">
+      {% if fee %}Enregistrer{% else %}Créer le frais{% endif %}
+    </button>
+    <button type="button" @click="showFeeModal = false"
+            class="btn-secondary flex-1 justify-center min-h-[44px]">Annuler</button>
+  </div>
+</form>

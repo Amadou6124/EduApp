@@ -1,0 +1,33 @@
+{% load humanize %}
+{% comment %}
+Aperçu d'allocation en direct (lot 5) : montre où tomberait le montant saisi, AVANT
+validation. Encadré primary. Signale le trop-perçu (overflow > 0). Cible #allocation-preview.
+{% endcomment %}
+{% if plan %}
+  <div class="rounded-xl border border-primary-200 bg-primary-50/60 p-3">
+    <p class="text-xs font-semibold text-primary-700 mb-2 flex items-center gap-1.5">
+      <i data-lucide="git-branch" class="w-3.5 h-3.5"></i> Ce paiement va servir :
+    </p>
+    <div class="space-y-1.5">
+      {% for line in plan %}
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-gray-600">{{ line.label }}</span>
+          <span class="flex items-center gap-1.5">
+            <span class="font-semibold text-gray-800">{{ line.amount|intcomma }} F</span>
+            {% if line.full %}
+              <span class="text-green-600 font-medium">soldée ✓</span>
+            {% else %}
+              <span class="text-amber-600 font-medium">partiel (reste {{ line.remaining_after|intcomma }})</span>
+            {% endif %}
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+    {% if overflow > 0 %}
+      <p class="mt-2 text-xs text-red-600 flex items-center gap-1.5">
+        <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+        Trop-perçu : {{ overflow|intcomma }} F dépassent le solde de cette famille.
+      </p>
+    {% endif %}
+  </div>
+{% endif %}

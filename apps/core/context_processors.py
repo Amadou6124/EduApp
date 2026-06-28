@@ -13,11 +13,12 @@ def school_context(request):
     """
     Injecte dans chaque template :
       - active_year  : SchoolYear active (avec .period_name annoté)
-      - alert_count  : nb d'élèves avec solde > 0 (impayés + partiels)
+      - alert_count  : nb d'élèves EN RETARD (≥ 1 tranche échue impayée — nouveau
+                       modèle, cohérent avec la liste rouge du lot 6)
 
     Performance : 2 requêtes SQL par page authentifiée avec école.
       Req 1 — SchoolYear (LIMIT 1) + prefetch Period → 2 SQL internes, 1 unité logique
-      Req 2 — COUNT avec subquery corréléé sur Student/Payment
+      Req 2 — COUNT distinct des élèves ayant une tranche échue impayée (due_date indexée)
     """
     if not request.user.is_authenticated:
         return {}
@@ -38,8 +39,7 @@ def school_context(request):
         return {'active_role_display': active_role_display}
 
     from apps.schools.models import SchoolYear, Period
-    from apps.students.models import Student
-    from apps.payments.models import Payment
+    from apps.finance.models import Installment
 
     today = datetime.date.today()
 
@@ -75,23 +75,23 @@ def school_context(request):
         .first()
     )
 
-    # ── Requête 2 : élèves avec solde restant > 0 ─────────────────────────────
-    paid_sq = (
-        Payment.objects
-        .filter(student=OuterRef('pk'), is_cancelled=False)
-        .values('student')
-        .annotate(s=Sum('amount'))
-        .values('s')
-    )
+    # ── Requête 2 : élèves EN RETARD — NOUVEAU modèle (lot 6 finition) ─────────
+    # alert_count = nb d'élèves ayant ≥ 1 tranche échue impayée (due_date < today ET
+    # solde > 0), exactement la définition de la liste rouge du lot 6 (cohérence du
+    # badge cloche avec l'onglet « En retard »). Les élèves sans fiche n'ont aucune
+    # tranche → ignorés proprement. 1 requête (distinct count), due_date indexée.
     alert_count = (
-        Student.objects
-        .filter(school=school, is_active=True)
-        .annotate(
-            valid_paid=Coalesce(
-                Subquery(paid_sq), Decimal('0'), output_field=DecimalField()
-            )
-        )
-        .filter(valid_paid__lt=F('tuition_fee'))
+        Installment.objects
+        .filter(debt__account__enrollment__school=school,
+                debt__account__enrollment__status='active',
+                debt__account__enrollment__student__is_active=True,
+                debt__is_active=True, due_date__lt=today)
+        .annotate(allocated=Coalesce(Sum('allocations__amount'),
+                                     Decimal('0'), output_field=DecimalField()))
+        .annotate(remaining=F('amount_due') - F('allocated'))
+        .filter(remaining__gt=0)
+        .values('debt__account__enrollment__student_id')
+        .distinct()
         .count()
     )
 

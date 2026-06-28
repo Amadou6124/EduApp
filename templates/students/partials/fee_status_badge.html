@@ -1,0 +1,10 @@
+{% comment %}
+Badge de statut financier — source unique (lot 6bis-A). Attend `status` ∈
+{paid, partial, unpaid, no_fee}. CONTRAT : 'no_fee' (élève sans fiche) → état NEUTRE
+gris « — », JAMAIS rouge « Impayé ». Le statut est calculé par allocations (3 familles)
+via le helper central student_fee_summary / annotate_students_with_fees.
+{% endcomment %}
+{% if status == 'paid' %}<span class="badge-success">Soldé</span>
+{% elif status == 'partial' %}<span class="badge-warning">Partiel</span>
+{% elif status == 'unpaid' %}<span class="badge-danger">Impayé</span>
+{% else %}<span class="badge-neutral" title="Pas de fiche financière">—</span>{% endif %}

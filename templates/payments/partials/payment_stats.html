@@ -1,6 +1,7 @@
 {% load payment_tags %}
-{# Cartes stats — pattern .kpi harmonisé avec le dashboard. #}
-{# Pas d'id ici : l'id="payment-stats" est porté par le wrapper OOB (payment_list_refresh / payment_create_success). #}
+{% comment %}Cartes stats — NOUVEAU modèle (lot 6) : dû/versé/solde = agrégats des fiches par
+   allocation (plus l'ancien tuition_fee/get_total_paid). id="payment-stats" porté par
+   le wrapper OOB (payment_list_refresh).{% endcomment %}
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-2">
 
   <div class="kpi">
@@ -73,3 +74,12 @@
   </div>
 
 </div>
+
+{% comment %}Élèves actifs sans fiche financière (dev / base non encore peuplée). En prod base
+   vierge = 0. On les signale à part pour ne pas fausser les stats ci-dessus.{% endcomment %}
+{% if stats.sans_fiche %}
+  <p class="text-xs text-amber-600 mt-1 flex items-center gap-1.5">
+    <i data-lucide="info" class="w-3.5 h-3.5"></i>
+    {{ stats.sans_fiche }} élève{{ stats.sans_fiche|pluralize }} sans fiche financière (non comptés ci-dessus).
+  </p>
+{% endif %}

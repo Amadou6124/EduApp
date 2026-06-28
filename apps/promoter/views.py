@@ -67,12 +67,20 @@ def promoter_synthese(request):
     school_ids = [s.id for s in schools]
     now = timezone.now()
 
-    due_map = {
-        r['school_id']: r
-        for r in Student.objects
-        .filter(school_id__in=school_ids, is_active=True)
-        .values('school_id')
-        .annotate(total_due=Sum('tuition_fee'), student_count=Count('id'))
+    # Dû / versé — NOUVEAU modèle (lot 6bis-A) : agrégés depuis les FICHES (3 familles,
+    # par allocation), même population pour dû ET versé → taux honnête. Les élèves sans
+    # fiche ne sont pas comptés dans le financier (mais le sont dans student_count).
+    from apps.finance.services import fee_accounts_annotated
+    acct_map = {
+        r['enrollment__school_id']: r
+        for r in fee_accounts_annotated(school_ids=school_ids)
+        .values('enrollment__school_id')
+        .annotate(total_due=Sum('due'), total_paid=Sum('paid'))
+    }
+    count_map = {
+        r['school_id']: r['n']
+        for r in Student.objects.filter(school_id__in=school_ids, is_active=True)
+        .values('school_id').annotate(n=Count('id'))
     }
     classes_map = {
         r['school_id']: r['n']
@@ -80,12 +88,13 @@ def promoter_synthese(request):
         .filter(school_id__in=school_ids, is_active=True)
         .values('school_id').annotate(n=Count('id'))
     }
+    # payers = nb d'élèves ayant réellement payé (cash, journal) → métrique de trésorerie.
     paid_map = {
         r['student__school_id']: r
         for r in Payment.objects
         .filter(student__school_id__in=school_ids, is_cancelled=False)
         .values('student__school_id')
-        .annotate(total_paid=Sum('amount'), payers=Count('student_id', distinct=True))
+        .annotate(payers=Count('student_id', distinct=True))
     }
     month_map = {
         r['student__school_id']: r['paid_this_month']
@@ -99,12 +108,11 @@ def promoter_synthese(request):
 
     schools_data = []
     for s in schools:
-        due_row = due_map.get(s.id, {})
-        total_due = due_row.get('total_due') or Decimal('0')
-        student_count = due_row.get('student_count') or 0
-        paid_row = paid_map.get(s.id, {})
-        total_paid = paid_row.get('total_paid') or Decimal('0')
-        payers = paid_row.get('payers') or 0
+        acct_row = acct_map.get(s.id, {})
+        total_due = acct_row.get('total_due') or Decimal('0')
+        total_paid = acct_row.get('total_paid') or Decimal('0')
+        student_count = count_map.get(s.id, 0)
+        payers = (paid_map.get(s.id, {}) or {}).get('payers') or 0
         taux = int(total_paid / total_due * 100) if total_due else 0
         schools_data.append({
             'school':          s,
@@ -178,18 +186,18 @@ def promoter_ecoles(request):
     schools = [s for s in group.schools.all() if s.is_active]
     school_ids = [s.id for s in schools]
 
-    due_map = {
-        r['school_id']: r
-        for r in Student.objects
-        .filter(school_id__in=school_ids, is_active=True)
-        .values('school_id')
-        .annotate(total_due=Sum('tuition_fee'), student_count=Count('id'))
+    # Dû / versé — NOUVEAU modèle (lot 6bis-A) : fiches (même population), taux honnête.
+    from apps.finance.services import fee_accounts_annotated
+    acct_map = {
+        r['enrollment__school_id']: r
+        for r in fee_accounts_annotated(school_ids=school_ids)
+        .values('enrollment__school_id')
+        .annotate(total_due=Sum('due'), total_paid=Sum('paid'))
     }
-    paid_map = {
-        r['student__school_id']: r['s']
-        for r in Payment.objects
-        .filter(student__school_id__in=school_ids, is_cancelled=False)
-        .values('student__school_id').annotate(s=Sum('amount'))
+    count_map = {
+        r['school_id']: r['n']
+        for r in Student.objects.filter(school_id__in=school_ids, is_active=True)
+        .values('school_id').annotate(n=Count('id'))
     }
     class_map = {
         r['school_id']: r['n']
@@ -215,31 +223,20 @@ def promoter_ecoles(request):
         .values('school_id').annotate(n=Count('id'))
     }
 
-    # Impayés > 30 jours — un seul GROUP BY school (pas de boucle N+1)
-    paid_sq = (
-        Payment.objects
-        .filter(student=OuterRef('pk'), is_cancelled=False)
-        .values('student').annotate(s=Sum('amount')).values('s')
-    )
-    unpaid_rows = (
-        Student.objects
-        .filter(
-            school_id__in=school_ids,
-            is_active=True,
-            enrolled_at__date__lte=now.date() - datetime.timedelta(days=30),
-        )
-        .annotate(paid=Coalesce(Subquery(paid_sq), Decimal('0'), output_field=DecimalField()))
-        .filter(paid__lt=F('tuition_fee'))
-        .values('school_id').annotate(n=Count('id'))
-    )
-    unpaid_map = {r['school_id']: r['n'] for r in unpaid_rows}
+    # Élèves avec solde dû — NOUVEAU modèle : fiches dont balance > 0 (par école).
+    unpaid_map = {
+        r['enrollment__school_id']: r['n']
+        for r in fee_accounts_annotated(school_ids=school_ids)
+        .filter(balance__gt=0)
+        .values('enrollment__school_id').annotate(n=Count('id'))
+    }
 
     schools_data = []
     for s in schools:
-        due_row = due_map.get(s.id, {})
-        total_due = due_row.get('total_due') or Decimal('0')
-        student_count = due_row.get('student_count') or 0
-        total_paid = paid_map.get(s.id) or Decimal('0')
+        acct_row = acct_map.get(s.id, {})
+        total_due = acct_row.get('total_due') or Decimal('0')
+        total_paid = acct_row.get('total_paid') or Decimal('0')
+        student_count = count_map.get(s.id, 0)
         taux = int(total_paid / total_due * 100) if total_due else 0
         schools_data.append({
             'school':         s,
@@ -480,12 +477,23 @@ def promoter_school_detail(request, school_id):
         key=lambda d: d['teacher'].full_name,
     )
 
+    # Dû / versé par classe — NOUVEAU modèle (lot 6bis-A) : fiches (même population),
+    # taux honnête (remplace Sum(tuition_fee) et le paid cash pour le taux).
+    from apps.finance.services import fee_accounts_annotated
+    acct_by_class = {
+        r['enrollment__student__school_class_id']: r
+        for r in fee_accounts_annotated(school=school)
+        .values('enrollment__student__school_class_id')
+        .annotate(d=Sum('due'), p=Sum('paid'))
+    }
+
     classes_data = []
     total_students = 0
     total_due = Decimal('0')
     for c in classes:
-        due = c.due or Decimal('0')
-        paid = paid_by_class.get(c.id, Decimal('0'))
+        ar = acct_by_class.get(c.id, {})
+        due = ar.get('d') or Decimal('0')
+        paid = ar.get('p') or Decimal('0')
         taux = int(paid / due * 100) if due else 0
         classes_data.append({
             'cls': c, 'n_students': c.n_students, 'due': due, 'paid': paid,
@@ -493,23 +501,12 @@ def promoter_school_detail(request, school_id):
         })
         total_students += c.n_students
         total_due += due
-    total_paid = sum(paid_by_class.values(), Decimal('0'))
+    # Total versé (taux global) = Σ des versés des fiches (même population que le dû).
+    total_paid = sum((ar.get('p') or Decimal('0')) for ar in acct_by_class.values())
     taux_global = int(total_paid / total_due * 100) if total_due else 0
 
-    paid_sq = (
-        Payment.objects.filter(student=OuterRef('pk'), is_cancelled=False)
-        .values('student').annotate(s=Sum('amount')).values('s')
-    )
-    unpaid_30 = (
-        Student.objects
-        .filter(
-            school=school, is_active=True,
-            enrolled_at__date__lte=today - datetime.timedelta(days=30),
-        )
-        .annotate(paid=Coalesce(Subquery(paid_sq), Decimal('0'), output_field=DecimalField()))
-        .filter(paid__lt=F('tuition_fee'))
-        .count()
-    )
+    # Élèves avec solde dû (fiches dont balance > 0) — nouveau modèle.
+    unpaid_30 = fee_accounts_annotated(school=school).filter(balance__gt=0).count()
 
     absences_month = Attendance.objects.filter(
         school=school, status=AttendanceStatus.ABSENT,
