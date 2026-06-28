@@ -77,6 +77,26 @@
            focus:ring-2 focus:ring-gold-500/30;
   }
 
+  /* ─────────────── SIDEBAR — items de navigation ─────────────── */
+  /* Item de nav (source unique : repos · hover · actif + barre d'accent). */
+  .nav-link {
+    @apply relative flex items-center w-full py-2 rounded-lg
+           text-gray-600 transition-colors duration-150
+           hover:bg-gray-50 hover:text-gray-900;
+  }
+  .nav-link.is-active {
+    @apply bg-primary-50 text-primary-700 font-semibold hover:bg-primary-50;
+  }
+  /* Barre d'accent à gauche de l'item actif (état, jamais décoratif). */
+  .nav-link.is-active::before {
+    content: "";
+    @apply absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary-600;
+  }
+  /* Label de section (masqué en mode replié via x-show). */
+  .nav-section {
+    @apply px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400;
+  }
+
   /* ─────────────── FORMULAIRES ─────────────── */
   .input-field {
     @apply w-full bg-white rounded-lg

@@ -14,6 +14,8 @@ module.exports = {
        * ─────────────────────────────────────────────── */
       fontFamily: {
         sans: ['Manrope', 'system-ui', 'sans-serif'],
+        /* Wordmark (nom d'école) — Space Grotesk self-hosté, fallback Manrope */
+        wordmark: ['Space Grotesk', 'Manrope', 'sans-serif'],
       },
 
       // Échelle alignée sur le design system :
