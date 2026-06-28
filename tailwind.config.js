@@ -10,7 +10,7 @@ module.exports = {
     extend: {
 
       /* ───────────────────────────────────────────────
-       * TYPOGRAPHIE — Manrope (chargée via Google Fonts)
+       * TYPOGRAPHIE — Manrope (self-hosted : static/vendor/fonts/manrope/)
        * ─────────────────────────────────────────────── */
       fontFamily: {
         sans: ['Manrope', 'system-ui', 'sans-serif'],
