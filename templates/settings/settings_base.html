@@ -2,6 +2,7 @@
 
 {% block sidebar %}{% endblock %}
 {% block sidebar_margin %}{% endblock %}
+{% block page_header %}{% endblock %}
 
 {% block page_title %}Paramètres{% endblock %}
 
@@ -63,28 +64,31 @@
   <!-- ── Zone principale ─────────────────────────────────────── -->
   <div class="flex-1 min-w-0 flex flex-col">
 
-    <!-- Dropdown navigation (mobile uniquement) -->
-    <div class="sm:hidden px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
-      <select class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-              onchange="window.location.href = this.value">
-        <optgroup label="École">
-          <option value="{% url 'settings:general' %}"      {% if active_section == 'general'      %}selected{% endif %}>Général</option>
-          <option value="{% url 'settings:appearance' %}"   {% if active_section == 'appearance'   %}selected{% endif %}>Apparence</option>
-        </optgroup>
-        <optgroup label="Pédagogie">
-          <option value="{% url 'settings:subjects' %}"     {% if active_section == 'subjects'     %}selected{% endif %}>Matières</option>
-          <option value="{% url 'settings:school-years' %}" {% if active_section == 'school-years' %}selected{% endif %}>Années scolaires</option>
-          <option value="{% url 'settings:bulletin' %}"     {% if active_section == 'bulletin'     %}selected{% endif %}>Modèle bulletin</option>
-        </optgroup>
-        <optgroup label="Finance">
-          <option value="{% url 'settings:fees' %}"         {% if active_section == 'fees'         %}selected{% endif %}>Frais & tranches</option>
-          <option value="{% url 'settings:receipt' %}"      {% if active_section == 'receipt'      %}selected{% endif %}>Modèle de reçu</option>
-        </optgroup>
-      </select>
+    <!-- Nav sections (mobile uniquement) — pills défilables -->
+    <div class="sm:hidden border-b border-gray-200 bg-white shrink-0">
+      <div class="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
+        <a href="{% url 'settings:general' %}"      class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'general' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Général</a>
+        <a href="{% url 'settings:appearance' %}"   class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'appearance' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Apparence</a>
+        <a href="{% url 'settings:subjects' %}"     class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'subjects' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Matières</a>
+        <a href="{% url 'settings:school-years' %}" class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'school-years' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Années</a>
+        <a href="{% url 'settings:bulletin' %}"     class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'bulletin' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Bulletin</a>
+        <a href="{% url 'settings:fees' %}"         class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'fees' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Frais</a>
+        <a href="{% url 'settings:receipt' %}"      class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'receipt' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Reçu</a>
+      </div>
     </div>
 
     <!-- Contenu section -->
-    <div class="py-8 px-8 max-w-3xl w-full">
+    <div class="py-8 px-6 lg:px-8 max-w-3xl w-full">
+      <h1 class="text-xl font-semibold text-gray-900 mb-6">
+        {% if active_section == 'general' %}Général
+        {% elif active_section == 'appearance' %}Apparence
+        {% elif active_section == 'subjects' %}Matières & Classes
+        {% elif active_section == 'school-years' %}Années scolaires
+        {% elif active_section == 'bulletin' %}Modèle de bulletin
+        {% elif active_section == 'receipt' %}Modèle de reçu
+        {% elif active_section == 'fees' %}Frais & tranches
+        {% else %}Paramètres{% endif %}
+      </h1>
       {% block settings_content %}{% endblock %}
     </div>
 

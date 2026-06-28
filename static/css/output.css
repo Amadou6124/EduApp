@@ -1665,10 +1665,6 @@ p {
   margin-top: -0.125rem;
 }
 
-.-mt-2 {
-  margin-top: -0.5rem;
-}
-
 .mb-0\.5 {
   margin-bottom: 0.125rem;
 }
@@ -2295,10 +2291,6 @@ p {
 
 .max-w-\[260px\] {
   max-width: 260px;
-}
-
-.max-w-\[55\%\] {
-  max-width: 55%;
 }
 
 .max-w-\[80px\] {
@@ -3685,6 +3677,11 @@ p {
   padding-right: 0.75rem;
 }
 
+.px-3\.5 {
+  padding-left: 0.875rem;
+  padding-right: 0.875rem;
+}
+
 .px-4 {
   padding-left: 1rem;
   padding-right: 1rem;
@@ -3861,10 +3858,6 @@ p {
   padding-left: 2.25rem;
 }
 
-.pl-\[54px\] {
-  padding-left: 54px;
-}
-
 .pr-10 {
   padding-right: 2.5rem;
 }
@@ -4006,6 +3999,10 @@ p {
 
 .text-\[11px\] {
   font-size: 11px;
+}
+
+.text-\[15px\] {
+  font-size: 15px;
 }
 
 .text-\[9px\] {
@@ -5575,8 +5572,8 @@ p {
     min-height: 0px;
   }
 
-  .sm\:min-h-\[64px\] {
-    min-height: 64px;
+  .sm\:min-h-\[56px\] {
+    min-height: 56px;
   }
 
   .sm\:w-28 {
@@ -5792,10 +5789,6 @@ p {
     display: none;
   }
 
-  .lg\:flex-1 {
-    flex: 1 1 0%;
-  }
-
   .lg\:grid-cols-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5812,20 +5805,8 @@ p {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  .lg\:flex-row {
-    flex-direction: row;
-  }
-
-  .lg\:items-center {
-    align-items: center;
-  }
-
-  .lg\:justify-between {
-    justify-content: space-between;
-  }
-
-  .lg\:gap-0 {
-    gap: 0px;
+  .lg\:gap-2 {
+    gap: 0.5rem;
   }
 
   .lg\:px-6 {
@@ -5836,11 +5817,6 @@ p {
   .lg\:px-8 {
     padding-left: 2rem;
     padding-right: 2rem;
-  }
-
-  .lg\:py-3 {
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
   }
 
   .lg\:pb-0 {
