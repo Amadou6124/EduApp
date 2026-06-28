@@ -11,7 +11,7 @@ Raisons : perf 3G Mali · fiabilité (zéro dépendance CDN) · fondation PWA.
 | chartjs| 4.4.1  | https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js | 2026-06-16 |
 | manrope| v20    | https://fonts.gstatic.com/s/manrope/v20/ (latin woff2 variable, 24 Ko) | 2026-06-16 |
 
-<!-- NB : lucide @latest = legacy 1.20.0 (2021). Modernisation 0.577.x = tâche dédiée future. -->
+<!-- NB versions Lucide (piège de versionnage) : la série 0.x est l'ANCIENNE (pré-1.0, ≤ mars 2026). Lucide est passé en 1.0 stable le 2026-03-23 ; la 1.x est la ligne MODERNE actuelle (1.20.0 = 2026-06-16 ; latest 1.22.0 = 2026-06-28). Donc 1.20.0 est À JOUR — ne PAS « downgrader » vers 0.x. API inchangée : data-lucide + lucide.createIcons(). -->
 <!-- Manrope : police variable — 1 woff2 couvre wght 400-800, sous-ensemble latin suffit pour fr/Mali -->
 <!-- Chart.js 4.4.1 (cdnjs, bilan/dashboard accounting) : self-hosté 2026-06-16 -->
 
