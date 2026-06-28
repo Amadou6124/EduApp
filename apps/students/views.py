@@ -248,19 +248,33 @@ def student_create(request):
                 school=school, id=tpl_id, is_active=True,
             ).first()
 
+        # On capture la fiche : ses tranches doivent exister AVANT d'allouer l'acompte.
+        account = None
         if enrollment is not None:
-            build_fee_account(enrollment, fee_selections=fee_selections, template=template)
+            account = build_fee_account(enrollment, fee_selections=fee_selections, template=template)
 
         initial_amount = form.cleaned_data.get('initial_payment')
         if initial_amount and initial_amount > 0:
-            # Paiement initial conservé tel quel — NON alloué aux tranches ici.
-            # L'allocation Payment→Installment est le sujet du lot 5.
-            Payment.objects.create(
+            payment = Payment.objects.create(
                 student        = student,
                 amount         = initial_amount,
                 payment_method = form.cleaned_data.get('payment_method') or 'cash',
                 collected_by   = request.user,
             )
+            # ── Allocation de l'acompte (fix) ───────────────────────────────────
+            # On réutilise STRICTEMENT le moteur du guichet (allocate_payment, lot 5),
+            # cible par défaut = la SCOLARITÉ (FIFO sur ses tranches, cascade). Anti
+            # sur-allocation géré par allocate_payment : si l'acompte dépasse le solde
+            # scolarité, le surplus reste simplement non alloué (jamais de sur-allocation).
+            # Cas limite (école sans annual_fee → pas de dette scolarité) : on alloue sur
+            # la 1ère dette disponible, sinon on laisse non affecté sans planter.
+            if account is not None:
+                from apps.finance.services import allocate_payment
+                from apps.finance.models import FeeDebtKind
+                target = (account.debts.filter(kind=FeeDebtKind.TUITION).first()
+                          or account.debts.first())
+                if target is not None:
+                    allocate_payment(payment, target)
 
         if student.parent_phone_number:
             logger.info('[SMS] Notification parent à envoyer — élève : %s', student.full_name)
