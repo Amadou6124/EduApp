@@ -13,7 +13,11 @@ Rappels de contrat (cf. apps/finance/models.py) :
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import (
+    Sum, F, OuterRef, Subquery, Exists, Case, When, Value, CharField, DecimalField,
+)
+from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 from apps.students.models import StudentEnrollment
 from .models import (
@@ -668,3 +672,165 @@ def timeline_families(account):
         for label, kind in ordered
     ]
     return [(label, ds) for label, ds in families if ds]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 5. HELPER FINANCIER CENTRAL (lot 6bis-A) — source unique de vérité du solde
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Tous les écrans qui affichent un solde élève DOIVENT passer par ces helpers, pour
+# gérer le cas « élève SANS fiche financière » de façon UNIFORME :
+#   - per-objet  : student_fee_summary(student) → dict | None  (None = pas de fiche)
+#   - par qs élèves : annotate_students_with_fees(qs)  (statut 'no_fee' si pas de fiche)
+#   - par qs fiches : fee_accounts_annotated(...)  (agrégats dû/versé/solde des fiches)
+#
+# CONTRAT « SANS FICHE » : None / 'no_fee'. Chaque écran le rend par un ÉTAT NEUTRE
+# (gris « — »), JAMAIS par un défaut rouge « Impayé » (un élève sans fiche n'est pas
+# impayé, il n'a simplement pas encore de fiche). Les agrégats (totaux, taux) ne
+# comptent QUE les fiches ; le nombre d'élèves sans fiche est exposé À PART.
+
+
+def _due_subquery(account_ref):
+    """Σ des dettes actives d'une fiche (sous-requête corrélée)."""
+    return (
+        FeeDebt.objects.filter(account=account_ref, is_active=True)
+        .values('account').annotate(s=Sum('total_amount')).values('s')
+    )
+
+
+def _paid_subquery(account_ref):
+    """Σ des allocations affectées aux tranches d'une fiche (sous-requête corrélée)."""
+    return (
+        PaymentAllocation.objects.filter(installment__debt__account=account_ref)
+        .values('installment__debt__account').annotate(s=Sum('amount')).values('s')
+    )
+
+
+def fee_accounts_annotated(school=None, school_ids=None):
+    """
+    Queryset de StudentFeeAccount ACTIVES, annotées `due` / `paid` / `balance`
+    (les 3 familles, par allocation), en sous-requêtes (pas de Sum multi-jointures).
+
+    Source unique consommée par la page Paiements (lot 6), la liste élèves, le
+    dashboard et le promoteur. Filtrable par école (`school`) ou groupe (`school_ids`).
+    Les élèves sans fiche ne sont, par nature, PAS dans ce queryset → les agréger ici
+    ne les compte jamais (ce qui est voulu : on les expose à part, cf. count_without_account).
+    """
+    qs = StudentFeeAccount.objects.filter(
+        enrollment__status='active', enrollment__student__is_active=True,
+    )
+    if school is not None:
+        qs = qs.filter(enrollment__school=school)
+    if school_ids is not None:
+        qs = qs.filter(enrollment__school_id__in=school_ids)
+    return (
+        qs.select_related('enrollment__student__school_class')
+        .annotate(
+            due=Coalesce(Subquery(_due_subquery(OuterRef('pk')), output_field=DecimalField()), Decimal('0')),
+            paid=Coalesce(Subquery(_paid_subquery(OuterRef('pk')), output_field=DecimalField()), Decimal('0')),
+        )
+        .annotate(balance=F('due') - F('paid'))
+    )
+
+
+def count_without_account(school):
+    """Nb d'élèves actifs SANS fiche financière active (le « trou » à exposer à part)."""
+    total = StudentEnrollment.objects.none()  # placeholder pour lisibilité
+    from apps.students.models import Student
+    total_active = Student.objects.filter(school=school, is_active=True).count()
+    with_account = fee_accounts_annotated(school=school).count()
+    return max(total_active - with_account, 0)
+
+
+def annotate_students_with_fees(student_qs):
+    """
+    Annote un queryset d'ÉLÈVES avec leur situation financière (via la fiche de
+    l'enrollment actif), en gardant les élèves SANS fiche (statut 'no_fee') :
+      - has_fee_account : bool
+      - fee_due / fee_paid / fee_balance : montants (0 si pas de fiche)
+      - fee_status : 'no_fee' | 'paid' | 'partial' | 'unpaid'  (jamais rouge si no_fee)
+
+    Une seule requête (sous-requêtes corrélées) → pas de N+1 sur une liste d'élèves.
+    """
+    active_acc = StudentFeeAccount.objects.filter(
+        enrollment__student=OuterRef('pk'), enrollment__status='active',
+    )
+    due_sq = (
+        FeeDebt.objects
+        .filter(account__enrollment__student=OuterRef('pk'),
+                account__enrollment__status='active', is_active=True)
+        .values('account__enrollment__student')
+        .annotate(s=Sum('total_amount')).values('s')
+    )
+    paid_sq = (
+        PaymentAllocation.objects
+        .filter(installment__debt__account__enrollment__student=OuterRef('pk'),
+                installment__debt__account__enrollment__status='active')
+        .values('installment__debt__account__enrollment__student')
+        .annotate(s=Sum('amount')).values('s')
+    )
+    return (
+        student_qs
+        .annotate(has_fee_account=Exists(active_acc))
+        .annotate(
+            fee_due=Coalesce(Subquery(due_sq, output_field=DecimalField()), Decimal('0')),
+            fee_paid=Coalesce(Subquery(paid_sq, output_field=DecimalField()), Decimal('0')),
+        )
+        .annotate(fee_balance=F('fee_due') - F('fee_paid'))
+        .annotate(fee_status=Case(
+            When(has_fee_account=False, then=Value('no_fee')),
+            When(fee_balance__lte=0,    then=Value('paid')),
+            When(fee_paid__gt=0,        then=Value('partial')),
+            default=Value('unpaid'),
+            output_field=CharField(),
+        ))
+    )
+
+
+def _active_account_for(student):
+    """Fiche active d'un élève, annotée due/paid/balance — ou None (pas de fiche)."""
+    return (
+        fee_accounts_annotated(school=student.school)
+        .filter(enrollment__student=student)
+        .order_by('-enrollment__school_year__start_date')
+        .first()
+    )
+
+
+def student_has_overdue(account, today=None):
+    """L'élève a-t-il ≥1 tranche échue impayée sur cette fiche ? (cohérent liste rouge)."""
+    today = today or timezone.now().date()
+    return (
+        Installment.objects
+        .filter(debt__account=account, debt__is_active=True, due_date__lt=today)
+        .annotate(allocated=Coalesce(Sum('allocations__amount'), Decimal('0'), output_field=DecimalField()))
+        .annotate(remaining=F('amount_due') - F('allocated'))
+        .filter(remaining__gt=0)
+        .exists()
+    )
+
+
+def student_fee_summary(student, today=None):
+    """
+    Situation financière d'UN élève via sa fiche active. Retourne :
+      - None  si l'élève n'a PAS de fiche active → l'appelant DOIT afficher un état
+        NEUTRE (« pas de fiche »), jamais un défaut rouge « Impayé » ;
+      - sinon un dict {due, paid, balance, status, has_overdue, account} où status ∈
+        {'paid','partial','unpaid'} (3 familles, par allocation) et has_overdue = ≥1
+        tranche échue impayée (= définition de la liste rouge / badge alerte lot 6).
+    """
+    acc = _active_account_for(student)
+    if acc is None:
+        return None
+    due, paid = acc.due, acc.paid
+    balance = due - paid
+    if balance <= 0:
+        status = 'paid'
+    elif paid > 0:
+        status = 'partial'
+    else:
+        status = 'unpaid'
+    return {
+        'due': due, 'paid': paid, 'balance': balance, 'status': status,
+        'has_overdue': student_has_overdue(acc, today), 'account': acc,
+    }

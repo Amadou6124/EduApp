@@ -30,33 +30,20 @@ from .models import Payment
 # Calculé en sous-requêtes (pas de Sum multi-jointures qui multiplierait les lignes).
 
 def _dashboard_accounts(school):
-    """Fiches financières actives de l'école, annotées dû / versé / solde (1 requête)."""
-    from apps.finance.models import StudentFeeAccount, FeeDebt, PaymentAllocation
-
-    due_sq = (
-        FeeDebt.objects.filter(account=OuterRef('pk'), is_active=True)
-        .values('account').annotate(s=Sum('total_amount')).values('s')
-    )
-    paid_sq = (
-        PaymentAllocation.objects
-        .filter(installment__debt__account=OuterRef('pk'))
-        .values('installment__debt__account').annotate(s=Sum('amount')).values('s')
-    )
+    """
+    Fiches actives annotées dû/versé/solde + dernier paiement préchargé, pour la liste
+    Paiements. S'appuie sur le helper CENTRAL `fee_accounts_annotated` (source unique
+    partagée avec la liste élèves, le dashboard et le promoteur) ; on n'ajoute ici que
+    le prefetch du dernier reçu et le tri d'affichage.
+    """
+    from apps.finance.services import fee_accounts_annotated
     return (
-        StudentFeeAccount.objects
-        .filter(enrollment__school=school, enrollment__status='active',
-                enrollment__student__is_active=True)
-        .select_related('enrollment__student__school_class')
+        fee_accounts_annotated(school=school)
         .prefetch_related(Prefetch(
             'enrollment__student__payments',
             queryset=Payment.objects.filter(is_cancelled=False).order_by('-payment_date'),
             to_attr='active_payments',
         ))
-        .annotate(
-            due=Coalesce(Subquery(due_sq, output_field=DecimalField()), Decimal('0')),
-            paid=Coalesce(Subquery(paid_sq, output_field=DecimalField()), Decimal('0')),
-        )
-        .annotate(balance=F('due') - F('paid'))
         .order_by('enrollment__student__school_class__name', 'enrollment__student__full_name')
     )
 

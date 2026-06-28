@@ -42,61 +42,48 @@ logger = logging.getLogger(__name__)
 
 
 def _students_qs(school, filter_type='all', class_id=None):
-    """Queryset de base annoté — 0 N+1 grâce à select_related + prefetch_related."""
+    """
+    Queryset de la liste élèves, annoté par le helper CENTRAL (nouveau modèle) :
+    chaque élève porte fee_status / fee_due / fee_paid / fee_balance / has_fee_account.
+    Les élèves SANS fiche ont fee_status='no_fee' (badge neutre, jamais rouge).
+    Filtres Impayés/Partiel/Soldés = notion de FICHE → les sans-fiche en sont EXCLUS,
+    mais restent visibles dans « Tous ».
+    """
+    from apps.finance.services import annotate_students_with_fees
     qs = (
         Student.objects
         .filter(school=school, is_active=True)
         .select_related('school_class')
-        .prefetch_related('payments')
         .order_by('full_name')
     )
+    qs = annotate_students_with_fees(qs)
     if filter_type == 'no_parent':
         qs = qs.filter(parent_phone_number='')
     elif filter_type in ('unpaid', 'partial', 'paid'):
-        paid_sq = (
-            Payment.objects
-            .filter(student=OuterRef('pk'), is_cancelled=False)
-            .values('student')
-            .annotate(s=Sum('amount'))
-            .values('s')
-        )
-        qs = qs.annotate(
-            paid=Coalesce(Subquery(paid_sq), 0, output_field=DecimalField())
-        )
-        if filter_type == 'unpaid':            # Impayés : rien versé
-            qs = qs.filter(paid=0)
-        elif filter_type == 'partial':         # Partiels : acompte < total
-            qs = qs.filter(paid__gt=0, paid__lt=F('tuition_fee'))
-        else:                                  # Soldés : à jour
-            qs = qs.filter(paid__gte=F('tuition_fee'))
+        # fee_status ∈ {paid,partial,unpaid,no_fee} → filtrer dessus exclut no_fee.
+        qs = qs.filter(fee_status=filter_type)
     elif filter_type == 'class' and class_id:
         qs = qs.filter(school_class_id=class_id)
     return qs
 
 
 def compute_student_stats(school):
-    """4 requêtes fixes pour toutes les stats de la liste."""
+    """Stats de la liste — NOUVEAU modèle (lot 6bis-A). Solde global = Σ des soldes
+    positifs des FICHES (élèves sans fiche exclus + comptés à part)."""
+    from apps.finance.services import annotate_students_with_fees, count_without_account
     today = timezone.now().date()
     base = Student.objects.filter(school=school, is_active=True)
-    paid_sq = (
-        Payment.objects
-        .filter(student=OuterRef('pk'), is_cancelled=False)
-        .values('student')
-        .annotate(s=Sum('amount'))
-        .values('s')
-    )
     unpaid_balance = (
-        base
-        .annotate(paid=Coalesce(Subquery(paid_sq), 0, output_field=DecimalField()))
-        .annotate(balance=F('tuition_fee') - F('paid'))
-        .filter(balance__gt=0)
-        .aggregate(total=Sum('balance'))['total'] or 0
+        annotate_students_with_fees(base)
+        .filter(has_fee_account=True, fee_balance__gt=0)
+        .aggregate(total=Sum('fee_balance'))['total'] or 0
     )
     return {
-        'total':          base.count(),
-        'enrolled_today': base.filter(enrolled_at__date=today).count(),
-        'without_parent': base.filter(parent_phone_number='').count(),
-        'unpaid_balance': int(unpaid_balance),
+        'total':               base.count(),
+        'enrolled_today':      base.filter(enrolled_at__date=today).count(),
+        'without_parent':      base.filter(parent_phone_number='').count(),
+        'unpaid_balance':      int(unpaid_balance),
+        'without_fee_account': count_without_account(school),
     }
 
 
@@ -373,9 +360,16 @@ def student_detail(request, student_id):
     # Familles ordonnées (lot 5) — source unique partagée avec le re-render post-encaissement.
     fee_families = timeline_families(fee_account)
 
+    # Statut du badge en-tête (lot 6bis-A) : helper central. 'no_fee' si pas de fiche
+    # → badge NEUTRE (jamais rouge « Impayé ») dans student_profile_view.
+    from apps.finance.services import student_fee_summary
+    _summary = student_fee_summary(student)
+    fee_status = _summary['status'] if _summary else 'no_fee'
+
     return render(request, 'students/student_detail.html', {
         'student':           student,
         'school':            school,
+        'fee_status':        fee_status,
         'observations':      observations,
         'guardians':         guardians,
         'absences_recentes': absences_recentes,

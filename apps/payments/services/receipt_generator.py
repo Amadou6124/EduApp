@@ -38,13 +38,14 @@ def _payment_method_label(code):
     return labels.get(code, code)
 
 
-def _status_info(payment):
-    student   = payment.student
-    balance   = student.get_balance_due()
-    total_paid = student.get_total_paid()
-    if balance <= 0:
+def _status_info(summary):
+    """Statut affiché sur le reçu, depuis le résumé financier (helper central, lot 6bis-A).
+    summary=None (élève sans fiche, cas legacy) → état neutre « indisponible »."""
+    if summary is None:
+        return {'label': 'Indisponible', 'emoji': '•', 'color': '#9ca3af'}
+    if summary['balance'] <= 0:
         return {'label': 'Soldé', 'emoji': '✅', 'color': '#22c55e'}
-    if total_paid > 0:
+    if summary['paid'] > 0:
         return {'label': 'Partiel', 'emoji': '⏳', 'color': '#f59e0b'}
     return {'label': 'Impayé', 'emoji': '❌', 'color': '#ef4444'}
 
@@ -74,19 +75,32 @@ def _generate_standard(payment, school):
     d = payment.payment_date
     date_long = f'{d.day} {_MOIS_FR[d.month]} {d.year}'
 
+    # Solde global du reçu — NOUVEAU modèle (lot 6bis-A) : 3 familles par allocation.
+    # Repli « non disponible » si l'élève n'a pas de fiche (cas legacy résiduel). Le
+    # DÉTAIL d'allocation (lot 5) ci-dessous reste calculé depuis le paiement lui-même.
+    from apps.finance.services import student_fee_summary
+    summary = student_fee_summary(student)
+    if summary:
+        total_due_fmt = _fmt_amount(summary['due'])
+        total_paid_fmt = _fmt_amount(summary['paid'])
+        balance_fmt = _fmt_amount(summary['balance'])
+    else:
+        total_due_fmt = total_paid_fmt = '—'
+        balance_fmt = 'non disponible'
+
     ctx = {
         'payment':        payment,
         'school':         school,
         'student':        student,
         'class_name':     student.school_class.name,
         'amount_fmt':     _fmt_amount(payment.amount),
-        'total_due_fmt':  _fmt_amount(student.tuition_fee),
-        'total_paid_fmt': _fmt_amount(student.get_total_paid()),
-        'balance_fmt':    _fmt_amount(student.get_balance_due()),
+        'total_due_fmt':  total_due_fmt,
+        'total_paid_fmt': total_paid_fmt,
+        'balance_fmt':    balance_fmt,
         'date_fmt':       date_format(payment.payment_date, 'd/m/Y'),
         'date_long':      date_long,
         'method_label':   _payment_method_label(payment.payment_method),
-        'status':         _status_info(payment),
+        'status':         _status_info(summary),
         'logo_path':      logo_url,
         'school_year':    school_year,
         'amount_words':   amount_to_words_fr(int(payment.amount)),
@@ -115,13 +129,17 @@ def _generate_custom(payment, school):
     import fitz  # PyMuPDF
 
     student   = payment.student
+    # Solde — nouveau modèle (helper central) ; repli si pas de fiche (legacy).
+    from apps.finance.services import student_fee_summary
+    _summary = student_fee_summary(student)
+    solde_str = (_fmt_amount(_summary['balance']) + ' FCFA') if _summary else 'non disponible'
     variables = {
         'nom_eleve':        student.full_name,
         'classe':           student.school_class.name,
         'montant':          _fmt_amount(payment.amount) + ' FCFA',
         'date':             date_format(payment.payment_date, 'd/m/Y'),
         'numero_recu':      payment.receipt_number,
-        'solde':            _fmt_amount(student.get_balance_due()) + ' FCFA',
+        'solde':            solde_str,
         'nom_ecole':        school.name,
         'telephone_ecole':  school.phone_number or '',
         'mode_paiement':    _payment_method_label(payment.payment_method),

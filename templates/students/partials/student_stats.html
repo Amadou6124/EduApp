@@ -19,6 +19,10 @@
   <div class="card p-5">
     <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Solde impayé global</p>
     <p class="text-2xl font-bold text-red-600">{{ stats.unpaid_balance|intcomma }} <span class="text-sm font-normal text-gray-400">FCFA</span></p>
+    {# Solde calculé sur les fiches (nouveau modèle) — les élèves sans fiche sont exclus. #}
+    {% if stats.without_fee_account %}
+      <p class="text-[11px] text-amber-600 mt-1">{{ stats.without_fee_account }} sans fiche financière</p>
+    {% endif %}
   </div>
 
 </div>
