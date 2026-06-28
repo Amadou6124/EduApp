@@ -61,11 +61,12 @@ class GeneralSettingsForm(forms.ModelForm):
 
     class Meta:
         model = School
-        fields = ['name', 'phone_number', 'email',
+        fields = ['name', 'short_name', 'phone_number', 'email',
                   'address', 'city', 'country',
                   'current_school_year', 'school_type']
         widgets = {
             'name':                forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : École Primaire Sainte Marie'}),
+            'short_name':          forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : EPF Sundiata'}),
             'phone_number':        forms.TextInput(attrs={'class': _F, 'placeholder': '+223 00 00 00 00'}),
             'email':               forms.EmailInput(attrs={'class': _F, 'placeholder': 'contact@ecole.ml'}),
             'address':             forms.TextInput(attrs={'class': _F, 'placeholder': 'Rue Soundiata Keïta, Hamdallaye', 'list': 'countries-list'}),

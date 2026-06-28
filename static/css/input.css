@@ -21,6 +21,12 @@
      Global (compilé dans output.css) → couvre toutes les bases, y compris
      base_parent / base_student qui ne déclarent pas la règle en inline. */
   [x-cloak] { display: none !important; }
+
+  /* Focus clavier visible sur le châssis (header · sidebar · nav).
+     Microstate « premium » qui manquait — l'anneau épouse le radius natif. */
+  :where(header, aside, nav) :is(a, button):focus-visible {
+    @apply outline-none ring-2 ring-primary-500/40;
+  }
 }
 
 /* ════════════════════════════════════════════════════════

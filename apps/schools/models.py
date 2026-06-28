@@ -54,6 +54,11 @@ class SchoolGroup(models.Model):
 class School(models.Model):
     # ── Informations générales ─────────────────────────────────────
     name         = models.CharField(_('nom de l\'école'), max_length=200)
+    short_name   = models.CharField(
+        _('nom court'), max_length=30, blank=True,
+        help_text=_('Affiché dans la barre latérale et l\'en-tête. Ex : EPF Sundiata. '
+                    'Laissé vide = le nom complet est utilisé.'),
+    )
     address      = models.CharField(_('adresse'), max_length=300, blank=True)
     city         = models.CharField(_('ville'), max_length=100)
     country      = models.CharField(_('pays'), max_length=100, default='Côte d\'Ivoire')
@@ -113,6 +118,11 @@ class School(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def nav_name(self):
+        """Nom affiché dans le châssis (header / sidebar) : court si défini, sinon complet."""
+        return self.short_name or self.name
 
 
 class SchoolClass(models.Model):
