@@ -515,7 +515,9 @@ def observation_mark_read(request, student_id, obs_id):
         obs.read_by = request.user
         obs.save(update_fields=['is_read', 'read_at', 'read_by'])
 
-    # Retourne la card complète re-rendue (swap closest .obs-card)
+    # Inbox (Suivi) → ligne dense ; fiche élève → card complète.
+    if request.GET.get('row'):
+        return render(request, 'students/partials/obs_row.html', {'o': obs})
     return render(request, 'students/partials/obs_card.html', {
         'obs': obs, 'student': obs.student,
     })
@@ -1260,7 +1262,8 @@ def tracking_observations(request):
     from apps.teachers.models import StudentObservation
 
     school = get_school(request)
-    filtre = request.GET.get('filtre', 'all')
+    filtre = request.GET.get('filtre', 'unread')   # défaut = les actionnables
+    class_id = request.GET.get('class')
 
     qs = (
         StudentObservation.objects
@@ -1272,10 +1275,13 @@ def tracking_observations(request):
         qs = qs.filter(is_read=False)
     elif filtre == 'shared':
         qs = qs.filter(is_visible_to_parent=True)
+    if class_id:
+        qs = qs.filter(student__school_class_id=class_id)
 
-    page = Paginator(qs, 50).get_page(request.GET.get('page', 1))
+    page = Paginator(qs, 25).get_page(request.GET.get('page', 1))
+    classes = school.classes.filter(is_active=True).order_by('level', 'name')
     return render(request, 'students/partials/tracking_observations.html', {
-        'observations': page, 'filtre': filtre,
+        'observations': page, 'filtre': filtre, 'class_id': class_id, 'classes': classes,
     })
 
 
@@ -1284,6 +1290,8 @@ def tracking_observations(request):
 def tracking_difficulty(request):
     """Élèves signalés : absences>=3/mois OU moy<10 OU observations non lues. 4 requêtes."""
     school = get_school(request)
+    niveau   = request.GET.get('niveau')     # critical | warning | watch
+    class_id = request.GET.get('class')
     abs_map, bul_map, obs_map, active_period, flagged_ids = _difficulty_flagged(school)
 
     students = (
@@ -1291,6 +1299,8 @@ def tracking_difficulty(request):
         .filter(id__in=flagged_ids, school=school, is_active=True)
         .select_related('school_class')
     )
+    if class_id:
+        students = students.filter(school_class_id=class_id)
 
     results = []
     for s in students:
@@ -1307,8 +1317,13 @@ def tracking_difficulty(request):
             'obs_unread': obs_count, 'score': score,
             'level': 'critical' if score >= 4 else ('warning' if score >= 2 else 'watch'),
         })
+    if niveau in ('critical', 'warning', 'watch'):
+        results = [r for r in results if r['level'] == niveau]
     results.sort(key=lambda x: -x['score'])
 
+    page = Paginator(results, 30).get_page(request.GET.get('page', 1))
+    classes = school.classes.filter(is_active=True).order_by('level', 'name')
     return render(request, 'students/partials/tracking_difficulty.html', {
-        'results': results, 'period': active_period,
+        'results': page, 'period': active_period,
+        'niveau': niveau, 'class_id': class_id, 'classes': classes,
     })

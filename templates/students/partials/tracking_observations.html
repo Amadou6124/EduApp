@@ -1,34 +1,51 @@
 {% load humanize %}
-{# Onglet Observations — filtres + timeline paginée #}
+{# Onglet Observations — boîte de réception : lignes denses, non-lues d'abord, actions inline. #}
 <div>
-  <div class="inline-flex bg-gray-100 rounded-lg p-0.5 mb-4">
-    <button hx-get="{% url 'students:suivi-observations' %}?filtre=all" hx-target="#tracking-content"
-            class="px-3 py-1.5 rounded-md text-xs font-medium {% if filtre == 'all' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Toutes</button>
-    <button hx-get="{% url 'students:suivi-observations' %}?filtre=unread" hx-target="#tracking-content"
-            class="px-3 py-1.5 rounded-md text-xs font-medium {% if filtre == 'unread' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Non lues</button>
-    <button hx-get="{% url 'students:suivi-observations' %}?filtre=shared" hx-target="#tracking-content"
-            class="px-3 py-1.5 rounded-md text-xs font-medium {% if filtre == 'shared' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Partagées parent</button>
+  {# Filtres : statut (défaut Non lues) + classe #}
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="flex flex-wrap bg-gray-100 rounded-lg p-0.5">
+      <button hx-get="{% url 'students:suivi-observations' %}?filtre=unread{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if filtre == 'unread' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Non lues</button>
+      <button hx-get="{% url 'students:suivi-observations' %}?filtre=all{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if filtre == 'all' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Toutes</button>
+      <button hx-get="{% url 'students:suivi-observations' %}?filtre=shared{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if filtre == 'shared' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Partagées parent</button>
+    </div>
+    <select hx-get="{% url 'students:suivi-observations' %}?filtre={{ filtre }}" hx-target="#tracking-content" name="class"
+            class="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white">
+      <option value="">Toutes les classes</option>
+      {% for c in classes %}<option value="{{ c.id }}" {% if class_id == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
   </div>
 
   {% if observations %}
-  <div class="space-y-3">
-    {% for o in observations %}
-    {% include "students/partials/obs_card.html" with obs=o %}
-    {% endfor %}
-  </div>
+    <div class="rounded-xl border border-gray-200 bg-white overflow-hidden">
+      {% for o in observations %}
+        {% include "students/partials/obs_row.html" with o=o %}
+      {% endfor %}
+    </div>
 
-  {% if observations.has_other_pages %}
-  <div class="flex items-center justify-center gap-2 mt-4 text-sm">
-    {% if observations.has_previous %}<button hx-get="{% url 'students:suivi-observations' %}?filtre={{ filtre }}&page={{ observations.previous_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">←</button>{% endif %}
-    <span class="text-gray-400">{{ observations.number }} / {{ observations.paginator.num_pages }}</span>
-    {% if observations.has_next %}<button hx-get="{% url 'students:suivi-observations' %}?filtre={{ filtre }}&page={{ observations.next_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">→</button>{% endif %}
-  </div>
-  {% endif %}
+    {% if observations.has_other_pages %}
+    <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+      <span>{{ observations.start_index }}–{{ observations.end_index }} sur {{ observations.paginator.count }}</span>
+      <div class="flex gap-2">
+        {% if observations.has_previous %}<button hx-get="{% url 'students:suivi-observations' %}?filtre={{ filtre }}{% if class_id %}&class={{ class_id }}{% endif %}&page={{ observations.previous_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Précédent</button>{% else %}<span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Précédent</span>{% endif %}
+        {% if observations.has_next %}<button hx-get="{% url 'students:suivi-observations' %}?filtre={{ filtre }}{% if class_id %}&class={{ class_id }}{% endif %}&page={{ observations.next_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Suivant</button>{% else %}<span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Suivant</span>{% endif %}
+      </div>
+    </div>
+    {% endif %}
 
   {% else %}
-  <div class="card p-10 text-center">
-    <i data-lucide="message-square" class="w-10 h-10 mx-auto text-gray-300 mb-2"></i>
-    <p class="text-sm text-gray-400">Aucune observation</p>
-  </div>
+    <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4"><i data-lucide="inbox" class="w-7 h-7 text-gray-400"></i></div>
+      {% if filtre == 'unread' %}
+        <h3 class="text-sm font-semibold text-gray-900 mb-1">Tout est traité</h3>
+        <p class="text-sm text-gray-500 mb-4">Aucune observation non lue.</p>
+        <button hx-get="{% url 'students:suivi-observations' %}?filtre=all" hx-target="#tracking-content" class="btn-secondary text-sm">Voir toutes les observations</button>
+      {% else %}
+        <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucune observation</h3>
+        <p class="text-sm text-gray-500">Rien à afficher pour ce filtre.</p>
+      {% endif %}
+    </div>
   {% endif %}
 </div>

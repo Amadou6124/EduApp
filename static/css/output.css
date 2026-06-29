@@ -3595,10 +3595,6 @@ p {
   background-color: rgb(254 252 232 / var(--tw-bg-opacity, 1));
 }
 
-.bg-yellow-50\/30 {
-  background-color: rgb(254 252 232 / 0.3);
-}
-
 .bg-yellow-500 {
   --tw-bg-opacity: 1;
   background-color: rgb(234 179 8 / var(--tw-bg-opacity, 1));
@@ -4053,6 +4049,10 @@ p {
 
 .pt-1 {
   padding-top: 0.25rem;
+}
+
+.pt-12 {
+  padding-top: 3rem;
 }
 
 .pt-14 {
@@ -5064,6 +5064,10 @@ p {
 /* ════════════════════════════════════════════════════════
  * UTILITIES — animations & helpers
  * ════════════════════════════════════════════════════════ */
+
+.last\:border-b-0:last-child {
+  border-bottom-width: 0px;
+}
 
 .hover\:border-amber-300:hover {
   --tw-border-opacity: 1;
