@@ -1220,6 +1220,18 @@ p {
   color: rgb(107 114 128 / var(--tw-text-opacity, 1));
 }
 
+/* Override d'alignement : sans ça, .data-table thead th (spécificité 0,1,2)
+     écrase les utilitaires .text-right / .text-center (0,1,0) → en-têtes décalés
+     par rapport aux cellules. Ces sélecteurs ciblés (0,2,2) rétablissent l'alignement. */
+
+.data-table thead th.text-right  {
+  text-align: right;
+}
+
+.data-table thead th.text-center {
+  text-align: center;
+}
+
 .data-table tbody tr {
   border-bottom-width: 1px;
   --tw-border-opacity: 1;
@@ -3507,6 +3519,10 @@ p {
 
 .bg-red-50\/40 {
   background-color: rgb(254 242 242 / 0.4);
+}
+
+.bg-red-50\/50 {
+  background-color: rgb(254 242 242 / 0.5);
 }
 
 .bg-red-500 {

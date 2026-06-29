@@ -20,6 +20,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import SchoolClass, School, EducationLevel, SchoolAnnouncement
 from .forms import SchoolClassForm
+from .cockpit import build_class_cockpit
 from apps.core.mixins import get_school, director_or_staff_required
 from apps.core.text import norm_name
 
@@ -120,6 +121,20 @@ def class_list(request):
         'q':              request.GET.get('q', ''),
         'level':          request.GET.get('level', ''),
         'dispo':          request.GET.get('dispo', ''),
+    })
+
+
+@login_required
+def class_detail(request, class_id):
+    """Cockpit de classe : KPIs, élèves à risque, moyenne par matière, roster, matières/profs."""
+    if request.user.role == UserRole.TEACHER:
+        return redirect('teacher:dashboard')
+    school = get_school(request)
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school, is_active=True)
+    return render(request, 'schools/class_detail.html', {
+        'school_class': school_class,
+        'cockpit':      build_class_cockpit(school, school_class),
+        'page_title':   school_class.name,
     })
 
 

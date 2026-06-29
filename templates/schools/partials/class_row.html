@@ -2,7 +2,7 @@
 {# Ligne classe — cliquable → roster (liste élèves filtrée). Édition/suppression dans le menu ⋯. #}
 <tr id="class-row-{{ school_class.id }}"
     class="cursor-pointer {% if success %}bg-green-50{% endif %}"
-    onclick="window.location.href='{% url 'students:list' %}?class_id={{ school_class.id }}'">
+    onclick="window.location.href='{% url 'schools:class-detail' school_class.id %}'">
 
   <td><span class="font-medium text-gray-900">{{ school_class.name }}</span></td>
 

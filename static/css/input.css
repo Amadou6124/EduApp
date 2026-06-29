@@ -159,6 +159,11 @@
     @apply bg-gray-50 px-4 py-3 text-left
            text-xs font-semibold uppercase tracking-wider text-gray-500;
   }
+  /* Override d'alignement : sans ça, .data-table thead th (spécificité 0,1,2)
+     écrase les utilitaires .text-right / .text-center (0,1,0) → en-têtes décalés
+     par rapport aux cellules. Ces sélecteurs ciblés (0,2,2) rétablissent l'alignement. */
+  .data-table thead th.text-right  { text-align: right; }
+  .data-table thead th.text-center { text-align: center; }
   .data-table tbody tr {
     @apply border-b border-gray-100 transition-colors hover:bg-gray-50/50;
   }

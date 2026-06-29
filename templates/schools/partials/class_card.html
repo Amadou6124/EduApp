@@ -1,6 +1,7 @@
 {% load i18n humanize %}
-{# Carte classe (mobile) : « Voir élèves » → roster + édition. #}
+{# Carte classe (mobile) : corps → cockpit ; « Voir élèves » → roster ; crayon → édition. #}
 <div class="bg-white border border-gray-200 rounded-xl p-3.5">
+  <a href="{% url 'schools:class-detail' school_class.id %}" class="block">
   <div class="flex items-center justify-between gap-2">
     <span class="font-medium text-gray-900">{{ school_class.name }}</span>
     <span class="badge-neutral shrink-0">{{ school_class.get_level_display }}</span>
@@ -14,6 +15,7 @@
       <div class="h-full rounded-full {% if school_class.is_full %}bg-red-500{% else %}bg-primary-600{% endif %}" style="width:{% widthratio school_class.student_count school_class.max_capacity 100 %}%"></div>
     </div>
   {% endif %}
+  </a>
   <div class="flex items-center gap-2 mt-3">
     <a href="{% url 'students:list' %}?class_id={{ school_class.id }}"
        class="flex-1 h-9 border border-primary-600 text-primary-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 active:bg-primary-50 transition">

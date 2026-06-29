@@ -19,4 +19,5 @@ urlpatterns = [
     path('classes/<int:class_id>/delete/', views.class_delete, name='class-delete'),
     path('classes/<int:class_id>/row/', views.class_row, name='class-row'),
     path('classes/<int:class_id>/edit-modal/', views.class_edit_modal, name='class-edit-modal'),
+    path('classes/<int:class_id>/', views.class_detail, name='class-detail'),
 ]
