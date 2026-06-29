@@ -68,20 +68,41 @@ def _classes_qs(school):
         SchoolClass.objects
         .filter(school=school, is_active=True)
         .select_related('school')
-        .annotate(student_count=Count('students', filter=Q(students__is_active=True)))
+        .annotate(
+            student_count=Count('students', filter=Q(students__is_active=True)),
+            boys=Count('students',  filter=Q(students__is_active=True, students__gender='M')),
+            girls=Count('students', filter=Q(students__is_active=True, students__gender='F')),
+        )
     )
 
 
 def compute_class_stats(classes):
-    total_students = sum(c.get_student_count() for c in classes)
-    classes_with_capacity = [c for c in classes if c.max_capacity]
-    avg_fill_rate = 0
-    if classes_with_capacity:
-        avg_fill_rate = round(
-            sum(min(c.get_student_count() / c.max_capacity * 100, 100) for c in classes_with_capacity)
-            / len(classes_with_capacity)
-        )
-    return total_students, avg_fill_rate
+    """Agrégats liste classes : effectif, parité, et métrique de capacité honnête
+    (places restantes + classes complètes — pas une moyenne plafonnée trompeuse)."""
+    with_cap = [c for c in classes if c.max_capacity]
+    return {
+        'total_classes':     len(classes),
+        'total_students':    sum(c.student_count for c in classes),
+        'boys':              sum(c.boys for c in classes),
+        'girls':             sum(c.girls for c in classes),
+        'places_restantes':  sum(max(c.max_capacity - c.student_count, 0) for c in with_cap),
+        'classes_completes': sum(1 for c in with_cap if c.student_count >= c.max_capacity),
+    }
+
+
+def _filter_classes(request, school):
+    """Classes filtrées : recherche (nom) × niveau × disponibilité (places libres)."""
+    qs = _classes_qs(school)
+    q     = request.GET.get('q', '').strip()
+    level = request.GET.get('level', '')
+    if q:
+        qs = qs.filter(name__icontains=q)
+    if level:
+        qs = qs.filter(level=level)
+    classes = sorted(qs, key=lambda c: (c.level, c.name))
+    if request.GET.get('dispo') in ('1', 'true', 'on'):
+        classes = [c for c in classes if not c.is_full]
+    return classes
 
 
 @login_required
@@ -89,18 +110,16 @@ def class_list(request):
     if request.user.role == UserRole.TEACHER:
         return redirect('teacher:dashboard')
     school = get_school(request)
-    classes = list(_classes_qs(school))
-    total_students, avg_fill_rate = compute_class_stats(classes)
-
-    form = SchoolClassForm()
-    nb_classes = len(classes)
+    all_classes = list(_classes_qs(school))
     return render(request, 'schools/class_list.html', {
-        'classes':        classes,
-        'form':           form,
+        'classes':        _filter_classes(request, school),
+        'form':           SchoolClassForm(),
         'school':         school,
-        'total_students': total_students,
-        'avg_fill_rate':  avg_fill_rate,
-        'page_subtitle':  f"{nb_classes} classe{'s' if nb_classes != 1 else ''} · {total_students} élève{'s' if total_students != 1 else ''}",
+        'cstats':         compute_class_stats(all_classes),
+        'levels':         EducationLevel.choices,
+        'q':              request.GET.get('q', ''),
+        'level':          request.GET.get('level', ''),
+        'dispo':          request.GET.get('dispo', ''),
     })
 
 
@@ -157,13 +176,11 @@ def class_create(request):
     # Réponse succès (HTMX : liste rafraîchie + toast ; sinon page complète).
     if request.htmx:
         classes = list(_classes_qs(school))
-        total_students, avg_fill_rate = compute_class_stats(classes)
         resp = render(request, 'schools/partials/class_list_refresh.html', {
             'classes': classes,
             'form': SchoolClassForm(),
             'success_message': message,
-            'total_students': total_students,
-            'avg_fill_rate': avg_fill_rate,
+            'cstats': compute_class_stats(classes),
         })
         resp['HX-Trigger'] = json.dumps({'close-add-modal': True, 'showToast': {'message': str(message), 'type': 'success'}})
         return resp
@@ -213,15 +230,11 @@ def class_update(request, class_id):
 @login_required
 def class_search(request):
     school = get_school(request)
-    query = request.GET.get('q', '').strip()
-    classes = list(
-        _classes_qs(school).filter(name__icontains=query)
-        if query else
-        _classes_qs(school)
-    )
-
     return render(request, 'schools/partials/class_table_body.html', {
-        'classes': classes,
+        'classes': _filter_classes(request, school),
+        'q':     request.GET.get('q', ''),
+        'level': request.GET.get('level', ''),
+        'dispo': request.GET.get('dispo', ''),
     })
 
 
@@ -438,14 +451,12 @@ def class_import_confirm(request):
     if skipped:
         msg += f' {skipped} ignorée(s) (doublon).'
 
-    classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
-    total_students, avg_fill_rate = compute_class_stats(classes)
+    classes = list(_classes_qs(school))
 
     resp = render(request, 'schools/partials/class_list_refresh.html', {
         'classes': classes,
         'success_message': msg,
-        'total_students': total_students,
-        'avg_fill_rate': avg_fill_rate,
+        'cstats': compute_class_stats(classes),
     })
     resp['HX-Trigger'] = json.dumps({'close-import-modal': True, 'showToast': {'message': msg, 'type': 'success'}})
     return resp

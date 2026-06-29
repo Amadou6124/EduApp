@@ -1,132 +1,45 @@
 {% load i18n humanize %}
+{# Corps de liste classes : table dense (desktop) / cards (mobile). Ligne → roster. #}
 
-<!-- VUE CARDS : toujours visible mobile, desktop selon préférence -->
-<div class="p-4 block" :class="view === 'table' ? 'lg:hidden' : ''">
-  {% if classes %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {% for school_class in classes %}
-        <div class="card p-5 flex flex-col gap-3">
-          <span class="self-start px-3 py-1 rounded-full text-xs font-semibold"
-                style="{% if school_class.level == 'primary' %}background-color:#EAF3DE;color:#27500A{% elif school_class.level == 'middle' %}background-color:#E6F1FB;color:#0C447C{% elif school_class.level == 'high' %}background-color:#FAEEDA;color:#633806{% else %}background-color:#F3F4F6;color:#374151{% endif %}">
-            {{ school_class.get_level_display }}
-          </span>
-          <h3 class="font-medium text-gray-900 text-xl">{{ school_class.name }}</h3>
-          <div>
-            <div class="flex justify-between text-sm text-gray-500 mb-1.5">
-              <span>{{ school_class.get_student_count }} {% trans "élève(s)" %}</span>
-              {% if school_class.max_capacity %}
-                <span class="{% if school_class.is_full %}text-red-600 font-medium{% endif %}">/ {{ school_class.max_capacity }} {% trans "places" %}</span>
-              {% else %}
-                <span class="text-gray-300">{% trans "Sans limite" %}</span>
-              {% endif %}
-            </div>
-            {% if school_class.max_capacity %}
-              <div x-data="{ pct: Math.min({{ school_class.get_student_count }} / {{ school_class.max_capacity }} * 100, 100) }" class="bg-gray-100 rounded-full h-2">
-                <div class="h-2 rounded-full transition-all" :class="pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-orange-400' : 'bg-primary-600'" :style="`width: ${pct}%`"></div>
-              </div>
-            {% else %}
-              <div class="bg-gray-100 rounded-full h-2"></div>
-            {% endif %}
-          </div>
-          {% if school_class.max_capacity %}
-            {% if school_class.is_full %}
-              <span class="self-start inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">{% trans "Complet" %}</span>
-            {% else %}
-              <span class="self-start inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{% trans "Disponible" %}</span>
-            {% endif %}
-          {% endif %}
-          <p class="text-sm text-gray-500">{% trans "Frais" %} : <span class="font-semibold text-gray-800">{{ school_class.annual_fee|intcomma }} FCFA</span></p>
-          <div class="flex gap-2 mt-auto pt-1">
-            <a href="{% url 'students:list' %}?filter=class&class_id={{ school_class.id }}" class="flex-1 text-center py-2.5 text-sm font-medium text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-50 transition min-h-[44px] flex items-center justify-center">{% trans "Voir élèves" %}</a>
-            <button hx-get="{% url 'schools:class-edit-modal' school_class.id %}"
-                    hx-target="#modal-edit-content"
-                    hx-swap="innerHTML"
-                    hx-on::after-request="if(event.detail.successful) window.dispatchEvent(new CustomEvent('open-edit-modal'))"
-                    class="flex-1 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition min-h-[44px]">
-              {% trans "Modifier" %}
-            </button>
-          </div>
-        </div>
-      {% endfor %}
-      <button @click="showAddModal = true"
-              class="bg-white rounded-xl border-2 border-dashed border-gray-300 hover:border-primary-400 hover:bg-primary-50/50 transition p-5 flex flex-col items-center justify-center gap-3 min-h-[200px] group">
-        <div class="w-12 h-12 rounded-full bg-gray-100 group-hover:bg-primary-600 flex items-center justify-center transition">
-          <svg class="w-6 h-6 text-gray-400 group-hover:text-white transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-        </div>
-        <span class="text-sm text-gray-400 group-hover:text-gray-700 font-medium transition">{% trans "Nouvelle classe" %}</span>
-      </button>
+{% if not classes %}
+  <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+      <i data-lucide="school" class="w-7 h-7 text-gray-400"></i>
     </div>
-  {% else %}
-    <div class="text-center py-20">
-      <svg class="w-14 h-14 mx-auto mb-4 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
-      </svg>
-      <p class="font-medium text-gray-500 text-lg">{% trans "Aucune classe créée" %}</p>
-      <p class="text-sm mt-2 text-gray-400">{% trans "Cliquez sur \"Nouvelle classe\" pour commencer." %}</p>
-    </div>
-  {% endif %}
-</div>
-
-<!-- VUE TABLEAU : desktop uniquement quand préférence = table -->
-<div class="hidden" :class="view === 'table' ? 'lg:block' : ''">
-  {% if classes %}
-    <div x-data="classTableSort()" class="table-card overflow-x-auto">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th @click="sortBy('name')" class="cursor-pointer hover:text-primary-600 select-none whitespace-nowrap">{% trans "Nom" %} <span x-text="icon('name')"></span></th>
-            <th @click="sortBy('level')" class="cursor-pointer hover:text-primary-600 select-none whitespace-nowrap">{% trans "Niveau" %} <span x-text="icon('level')"></span></th>
-            <th @click="sortBy('students')" class="text-center cursor-pointer hover:text-primary-600 select-none whitespace-nowrap">{% trans "Élèves" %} <span x-text="icon('students')"></span></th>
-            <th @click="sortBy('capacity')" class="text-center cursor-pointer hover:text-primary-600 select-none whitespace-nowrap">{% trans "Capacité" %} <span x-text="icon('capacity')"></span></th>
-            <th @click="sortBy('fee')" class="text-right cursor-pointer hover:text-primary-600 select-none whitespace-nowrap">{% trans "Frais FCFA" %} <span x-text="icon('fee')"></span></th>
-            <th class="text-center whitespace-nowrap">{% trans "Statut" %}</th>
-            <th class="text-right">{% trans "Actions" %}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for school_class in classes %}
-            {% include "schools/partials/class_row.html" %}
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <div class="flex flex-col items-center justify-center py-12 px-8 text-center">
-      <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-        <i data-lucide="school" class="w-7 h-7 text-gray-400"></i>
-      </div>
+    {% if q or level or dispo %}
       <h3 class="text-sm font-semibold text-gray-900 mb-1">{% trans "Aucune classe" %}</h3>
-      <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
-        {% trans "Créez votre première classe." %}
-      </p>
-      <button @click="showAddModal = true" class="btn-primary text-sm">
-        <i data-lucide="plus" class="w-4 h-4"></i>
-        {% trans "Créer une classe" %}
+      <p class="text-sm text-gray-500 max-w-xs leading-relaxed">{% trans "Aucune classe ne correspond à ces filtres." %}</p>
+    {% else %}
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">{% trans "Aucune classe" %}</h3>
+      <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">{% trans "Créez votre première classe." %}</p>
+      <button type="button" @click="showAddModal = true" class="btn-primary text-sm">
+        <i data-lucide="plus" class="w-4 h-4"></i> {% trans "Créer une classe" %}
       </button>
-    </div>
-  {% endif %}
-</div>
+    {% endif %}
+  </div>
 
-<script>
-function classTableSort() {
-  return {
-    col: null, dir: 1,
-    sortBy(column) {
-      this.dir = this.col === column ? this.dir * -1 : 1;
-      this.col = column;
-      const tbody = this.$el.querySelector('tbody');
-      const rows = Array.from(tbody.querySelectorAll('tr[data-sortable]'));
-      rows.sort((a, b) => {
-        const av = a.dataset[column] || '';
-        const bv = b.dataset[column] || '';
-        if (!isNaN(av) && !isNaN(bv) && av !== '') return (parseFloat(av) - parseFloat(bv)) * this.dir;
-        return av.localeCompare(bv, 'fr') * this.dir;
-      });
-      rows.forEach(r => tbody.appendChild(r));
-    },
-    icon(col) { return this.col !== col ? '↕' : this.dir === 1 ? '↑' : '↓'; }
-  }
-}
-</script>
+{% else %}
+  {# Desktop : table dense #}
+  <div class="hidden lg:block table-card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{% trans "Classe" %}</th>
+          <th>{% trans "Niveau" %}</th>
+          <th>{% trans "Effectif" %}</th>
+          <th class="text-right">{% trans "Frais" %}</th>
+          <th class="text-center">{% trans "Statut" %}</th>
+          <th class="w-8"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for school_class in classes %}{% include "schools/partials/class_row.html" %}{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Mobile : cards #}
+  <div class="lg:hidden space-y-2.5">
+    {% for school_class in classes %}{% include "schools/partials/class_card.html" %}{% endfor %}
+  </div>
+{% endif %}

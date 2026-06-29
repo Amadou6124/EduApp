@@ -2088,6 +2088,10 @@ p {
   height: 19px;
 }
 
+.h-\[38px\] {
+  height: 38px;
+}
+
 .h-\[52px\] {
   height: 52px;
 }
@@ -2138,10 +2142,6 @@ p {
 
 .min-h-\[180px\] {
   min-height: 180px;
-}
-
-.min-h-\[200px\] {
-  min-height: 200px;
 }
 
 .min-h-\[32px\] {
@@ -2266,6 +2266,10 @@ p {
 
 .w-40 {
   width: 10rem;
+}
+
+.w-44 {
+  width: 11rem;
 }
 
 .w-48 {
@@ -2853,10 +2857,6 @@ p {
 .divide-gray-50 > :not([hidden]) ~ :not([hidden]) {
   --tw-divide-opacity: 1;
   border-color: rgb(249 250 251 / var(--tw-divide-opacity, 1));
-}
-
-.self-start {
-  align-self: flex-start;
 }
 
 .overflow-auto {
@@ -5204,11 +5204,6 @@ p {
   background-color: rgb(21 128 61 / var(--tw-bg-opacity, 1));
 }
 
-.hover\:bg-orange-50:hover {
-  --tw-bg-opacity: 1;
-  background-color: rgb(255 247 237 / var(--tw-bg-opacity, 1));
-}
-
 .hover\:bg-orange-50\/60:hover {
   background-color: rgb(255 247 237 / 0.6);
 }
@@ -5226,10 +5221,6 @@ p {
 .hover\:bg-primary-50:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(238 242 255 / var(--tw-bg-opacity, 1));
-}
-
-.hover\:bg-primary-50\/50:hover {
-  background-color: rgb(238 242 255 / 0.5);
 }
 
 .hover\:bg-primary-600\/5:hover {
@@ -5327,11 +5318,6 @@ p {
 .hover\:text-indigo-600:hover {
   --tw-text-opacity: 1;
   color: rgb(79 70 229 / var(--tw-text-opacity, 1));
-}
-
-.hover\:text-orange-500:hover {
-  --tw-text-opacity: 1;
-  color: rgb(249 115 22 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-primary-600:hover {
@@ -5547,6 +5533,11 @@ p {
   background-color: rgb(249 250 251 / var(--tw-bg-opacity, 1));
 }
 
+.active\:bg-primary-50:active {
+  --tw-bg-opacity: 1;
+  background-color: rgb(238 242 255 / var(--tw-bg-opacity, 1));
+}
+
 .active\:bg-primary-700:active {
   --tw-bg-opacity: 1;
   background-color: rgb(67 56 202 / var(--tw-bg-opacity, 1));
@@ -5625,11 +5616,6 @@ p {
   background-color: rgb(224 231 255 / var(--tw-bg-opacity, 1));
 }
 
-.group:hover .group-hover\:bg-primary-600 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(79 70 229 / var(--tw-bg-opacity, 1));
-}
-
 .group:hover .group-hover\:bg-red-200 {
   --tw-bg-opacity: 1;
   background-color: rgb(254 202 202 / var(--tw-bg-opacity, 1));
@@ -5650,11 +5636,6 @@ p {
   color: rgb(75 85 99 / var(--tw-text-opacity, 1));
 }
 
-.group:hover .group-hover\:text-gray-700 {
-  --tw-text-opacity: 1;
-  color: rgb(55 65 81 / var(--tw-text-opacity, 1));
-}
-
 .group:hover .group-hover\:text-gray-900 {
   --tw-text-opacity: 1;
   color: rgb(17 24 39 / var(--tw-text-opacity, 1));
@@ -5668,11 +5649,6 @@ p {
 .group:hover .group-hover\:text-primary-600 {
   --tw-text-opacity: 1;
   color: rgb(79 70 229 / var(--tw-text-opacity, 1));
-}
-
-.group:hover .group-hover\:text-white {
-  --tw-text-opacity: 1;
-  color: rgb(255 255 255 / var(--tw-text-opacity, 1));
 }
 
 .group:hover .group-hover\:opacity-100 {
@@ -5828,8 +5804,16 @@ p {
     width: 12rem;
   }
 
+  .sm\:w-60 {
+    width: 15rem;
+  }
+
   .sm\:w-\[420px\] {
     width: 420px;
+  }
+
+  .sm\:w-\[460px\] {
+    width: 460px;
   }
 
   .sm\:w-\[480px\] {
@@ -5846,6 +5830,10 @@ p {
 
   .sm\:w-\[680px\] {
     width: 680px;
+  }
+
+  .sm\:flex-none {
+    flex: none;
   }
 
   .sm\:scale-100 {
@@ -6169,6 +6157,10 @@ p {
 }
 
 @media (min-width: 1280px) {
+  .xl\:block {
+    display: block;
+  }
+
   .xl\:grid-cols-3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
