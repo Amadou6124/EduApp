@@ -508,6 +508,39 @@ class Note(models.Model):
         )
 
 
+class EvaluationColumn(models.Model):
+    """Nom d'une colonne d'évaluation (mode moyenne simple) — ex. « Devoir 1 », « Interro ».
+
+    Une entrée par (matière de classe, période, position). Optionnelle : sans entrée,
+    la colonne affiche un nom par défaut « Éval N ». En mode devoir/composition, les
+    noms sont fixes (« Devoir » / « Composition ») et ce modèle n'est pas utilisé.
+    """
+    class_subject = models.ForeignKey(
+        ClassSubject, on_delete=models.CASCADE,
+        related_name='evaluation_columns', verbose_name=_('matière de classe'),
+    )
+    period = models.ForeignKey(
+        Period, on_delete=models.CASCADE,
+        related_name='evaluation_columns', verbose_name=_('période'),
+    )
+    position = models.PositiveSmallIntegerField(_('position'))
+    name     = models.CharField(_('nom'), max_length=40)
+
+    class Meta:
+        verbose_name        = _('colonne d\'évaluation')
+        verbose_name_plural = _('colonnes d\'évaluation')
+        ordering            = ['position']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['class_subject', 'period', 'position'],
+                name='uniq_eval_col_cs_period_position',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.class_subject} — {self.period} · pos {self.position} : {self.name}'
+
+
 # ──────────────────────────────────────────────────────────────
 # Bulletins — Étape 3/3
 # ──────────────────────────────────────────────────────────────

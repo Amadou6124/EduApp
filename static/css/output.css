@@ -1621,6 +1621,10 @@ p {
   right: 0.125rem;
 }
 
+.right-1 {
+  right: 0.25rem;
+}
+
 .right-2 {
   right: 0.5rem;
 }
@@ -2128,6 +2132,14 @@ p {
   max-height: 13rem;
 }
 
+.max-h-72 {
+  max-height: 18rem;
+}
+
+.max-h-80 {
+  max-height: 20rem;
+}
+
 .max-h-\[420px\] {
   max-height: 420px;
 }
@@ -2316,6 +2328,10 @@ p {
   width: 1.75rem;
 }
 
+.w-72 {
+  width: 18rem;
+}
+
 .w-8 {
   width: 2rem;
 }
@@ -2368,6 +2384,10 @@ p {
   min-width: 16px;
 }
 
+.min-w-\[170px\] {
+  min-width: 170px;
+}
+
 .min-w-\[180px\] {
   min-width: 180px;
 }
@@ -2382,6 +2402,10 @@ p {
 
 .min-w-\[220px\] {
   min-width: 220px;
+}
+
+.min-w-\[240px\] {
+  min-width: 240px;
 }
 
 .min-w-\[280px\] {
@@ -2400,8 +2424,8 @@ p {
   min-width: 68px;
 }
 
-.min-w-\[72px\] {
-  min-width: 72px;
+.min-w-\[78px\] {
+  min-width: 78px;
 }
 
 .min-w-full {
@@ -3422,10 +3446,6 @@ p {
   background-color: rgb(238 242 255 / var(--tw-bg-opacity, 1));
 }
 
-.bg-inherit {
-  background-color: inherit;
-}
-
 .bg-orange-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(255 237 213 / var(--tw-bg-opacity, 1));
@@ -3537,10 +3557,6 @@ p {
 
 .bg-red-50\/50 {
   background-color: rgb(254 242 242 / 0.5);
-}
-
-.bg-red-50\/60 {
-  background-color: rgb(254 242 242 / 0.6);
 }
 
 .bg-red-500 {
@@ -5204,6 +5220,10 @@ p {
   background-color: rgb(249 250 251 / var(--tw-bg-opacity, 1));
 }
 
+.hover\:bg-gray-50\/40:hover {
+  background-color: rgb(249 250 251 / 0.4);
+}
+
 .hover\:bg-gray-50\/50:hover {
   background-color: rgb(249 250 251 / 0.5);
 }
@@ -5255,10 +5275,6 @@ p {
 .hover\:bg-primary-50:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(238 242 255 / var(--tw-bg-opacity, 1));
-}
-
-.hover\:bg-primary-600\/5:hover {
-  background-color: rgb(79 70 229 / 0.05);
 }
 
 .hover\:bg-primary-700:hover {
@@ -5495,6 +5511,10 @@ p {
 
 .focus\:ring-primary-500\/40:focus {
   --tw-ring-color: rgb(99 102 241 / 0.4);
+}
+
+.focus\:ring-primary-500\/50:focus {
+  --tw-ring-color: rgb(99 102 241 / 0.5);
 }
 
 .focus\:ring-red-400:focus {
@@ -5827,6 +5847,10 @@ p {
 
   .sm\:w-48 {
     width: 12rem;
+  }
+
+  .sm\:w-52 {
+    width: 13rem;
   }
 
   .sm\:w-60 {

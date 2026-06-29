@@ -27,6 +27,14 @@ urlpatterns = [
          notes_views.notes_add_column,
          name='add-column'),
 
+    # ── Renommer une évaluation · Remplir une colonne ──────────────
+    path('<int:class_id>/<int:period_id>/<int:subject_id>/rename-column/<int:position>/',
+         notes_views.notes_rename_column,
+         name='rename-column'),
+    path('<int:class_id>/<int:period_id>/<int:subject_id>/fill-column/<int:position>/',
+         notes_views.notes_fill_column,
+         name='fill-column'),
+
     # ── HTMX : sauvegarder une note (upsert) ──────────────────────
     path('note/save/',
          notes_views.note_save,

@@ -1,21 +1,8 @@
 {% extends "base.html" %}
 {% comment %}
-Page de saisie des notes pour une classe et une période.
-Contexte attendu :
-  - school            : School
-  - school_class      : SchoolClass
-  - period            : Period
-  - class_subjects    : list[ClassSubject]
-  - active_cs         : ClassSubject | None
-  - can_enter         : bool
-  - reason            : str | None
-  - positions         : list[int]
-  - rows              : list[dict]
-  - class_stats       : dict
-  - mobile_students   : list[dict]
-  - mobile_existing   : dict
-  - mobile_position   : int
-  - active_section    : str
+Espace-classe — onglet Saisie des notes (classe + période).
+Contexte : school_class, period, class_subjects, subjects_status, active_cs, can_enter,
+           reason, positions, columns, rows, class_stats, mobile_students, mobile_existing, mobile_position
 {% endcomment %}
 {% load i18n %}
 
@@ -45,11 +32,7 @@ function mobileNoteInput(students, existingNotes) {
     get isLast()      { return this.currentIndex >= this.students.length - 1; },
     get progress()    { return (this.currentIndex + 1) + ' / ' + this.students.length; },
     get notedCount()  { return Object.values(this.notes).filter(function(v){ return v !== ''; }).length; },
-    get progressPct() {
-      return this.students.length
-        ? Math.round(this.notedCount / this.students.length * 100)
-        : 0;
-    },
+    get progressPct() { return this.students.length ? Math.round(this.notedCount / this.students.length * 100) : 0; },
 
     pressKey: function(key) {
       this.error = '';
@@ -69,16 +52,10 @@ function mobileNoteInput(students, existingNotes) {
           return;
         }
         this.notes[String(this.current.id)] = val;
+        if (navigator.vibrate) navigator.vibrate(15);
         htmx.ajax('POST', _saveUrl, {
-          source: document.body,
-          swap: 'none',
-          values: {
-            student_id:       this.current.id,
-            class_subject_id: _csId,
-            value:            val,
-            position:         _pos,
-            period_id:        _pid,
-          },
+          source: document.body, swap: 'none',
+          values: { student_id: this.current.id, class_subject_id: _csId, value: val, position: _pos, period_id: _pid },
         });
       }
       this.error = '';
@@ -86,12 +63,17 @@ function mobileNoteInput(students, existingNotes) {
         this.currentIndex++;
         this.inputValue = this.notes[String(this.current.id)] || '';
       } else {
-        // ── Dernier élève : fin de saisie → toast + retour à la page classe
-        //    (recharge → moyennes recalculées côté serveur) ──
-        window.dispatchEvent(new CustomEvent('show-toast', {
-          detail: { message: 'Saisie terminée ✓', type: 'success' },
-        }));
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Saisie terminée ✓', type: 'success' } }));
         setTimeout(function () { window.location.href = _classUrl; }, 700);
+      }
+    },
+
+    nextUngraded: function() {
+      for (var i = this.currentIndex + 1; i < this.students.length; i++) {
+        if (!this.notes[String(this.students[i].id)]) { this.goTo(i); return; }
+      }
+      for (var j = 0; j < this.students.length; j++) {
+        if (!this.notes[String(this.students[j].id)]) { this.goTo(j); return; }
       }
     },
 
@@ -105,16 +87,11 @@ function mobileNoteInput(students, existingNotes) {
     next: function() { this.goTo(this.currentIndex + 1); },
 
     _tx: 0, _ty: 0,
-    touchStart: function(e) {
-      this._tx = e.touches[0].clientX;
-      this._ty = e.touches[0].clientY;
-    },
+    touchStart: function(e) { this._tx = e.touches[0].clientX; this._ty = e.touches[0].clientY; },
     touchEnd: function(e) {
       var dx = e.changedTouches[0].clientX - this._tx;
       var dy = Math.abs(e.changedTouches[0].clientY - this._ty);
-      if (Math.abs(dx) > 50 && dy < 40) {
-        if (dx < 0) { this.next(); } else { this.prev(); }
-      }
+      if (Math.abs(dx) > 50 && dy < 40) { if (dx < 0) { this.next(); } else { this.prev(); } }
     },
   };
 }
@@ -124,14 +101,10 @@ function mobileNoteInput(students, existingNotes) {
 
 {% block page_title %}
   <div class="flex items-center gap-3 flex-wrap">
-    <a href="{% url 'notes:dashboard' %}?year={{ period.school_year.pk }}&period={{ period.pk }}"
-       class="text-gray-400 hover:text-primary-600 transition"
-       title="{% trans 'Retour au tableau de bord' %}">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
+    <a href="{% url 'notes:dashboard' %}?period={{ period.pk }}" class="text-gray-400 hover:text-primary-600 transition" title="{% trans 'Retour aux notes' %}">
+      <i data-lucide="arrow-left" class="w-5 h-5"></i>
     </a>
-    <span class="text-primary-700">{{ school_class.name }}</span>
+    <span class="text-gray-900">{{ school_class.name }}</span>
     <span class="text-gray-300">·</span>
     <span class="text-gray-500 font-normal text-sm">{{ period.name }}</span>
   </div>
@@ -139,110 +112,85 @@ function mobileNoteInput(students, existingNotes) {
 
 {% block header_actions %}
   {% if period.is_notes_open %}
-    <span class="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
-      <span class="w-2 h-2 rounded-full bg-green-400"></span>
-      {% trans "Saisie ouverte" %}
-    </span>
+    <span class="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full"><span class="w-2 h-2 rounded-full bg-green-400"></span> {% trans "Saisie ouverte" %}</span>
   {% else %}
-    <span class="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 px-2.5 py-1 rounded-full">
-      <span class="w-2 h-2 rounded-full bg-red-400"></span>
-      {% trans "Saisie fermée" %}
-    </span>
+    <span class="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 px-2.5 py-1 rounded-full"><span class="w-2 h-2 rounded-full bg-red-400"></span> {% trans "Saisie fermée" %}</span>
   {% endif %}
 {% endblock %}
 
 {% block content %}
 
-{# ── Fil d'Ariane période (desktop uniquement, mobile a le contexte dans le partial) ── #}
-<div class="hidden sm:flex items-center gap-2 text-sm text-gray-500 mb-4">
-  <span>{{ period.school_year.name }}</span>
-  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-  </svg>
-  <span class="text-gray-700 font-medium">{{ period.name }}</span>
-  <span class="text-xs text-gray-400 ml-1">
-    {{ period.start_date|date:"j M" }} – {{ period.end_date|date:"j M Y" }}
-  </span>
-</div>
+{% if not class_subjects %}
+  <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4"><i data-lucide="layers" class="w-7 h-7 text-gray-400"></i></div>
+    <h3 class="text-sm font-semibold text-gray-900 mb-1">{% trans "Aucune matière assignée" %}</h3>
+    <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">{% trans "Cette classe n'a aucune matière configurée." %}</p>
+    <a href="{% url 'settings:subjects' %}" class="btn-primary text-sm"><i data-lucide="settings" class="w-4 h-4"></i> {% trans "Configurer les matières" %}</a>
+  </div>
 
-{# ══════════════════════════════════════════════════════════════════ #}
-{# MOBILE — Mode saisie rapide (clavier numérique, un élève à la fois) #}
-{# ══════════════════════════════════════════════════════════════════ #}
-<div class="block sm:hidden">
-  {% if active_cs %}
-    {% if can_enter and rows %}
-      {% include "notes/partials/notes_mobile_input.html" %}
-    {% elif not can_enter %}
-      <div class="bg-white rounded-xl border border-amber-200 p-8 text-center">
-        <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
-          <i data-lucide="lock" class="w-6 h-6 text-amber-500"></i>
+{% else %}
+
+  {# ════ MOBILE : sélecteur matière + flashcard ════ #}
+  <div class="block sm:hidden">
+    {% if active_cs %}
+      <div x-data="{ open: false }" @click.outside="open = false" class="relative mb-3">
+        <button type="button" @click="open = !open" class="w-full flex items-center justify-between h-11 px-4 border border-gray-200 rounded-xl bg-white text-sm">
+          <span class="font-medium text-gray-800 truncate">{{ active_cs.subject.name }}</span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 shrink-0"></i>
+        </button>
+        <div x-show="open" x-cloak class="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-30 max-h-72 overflow-y-auto">
+          {% for s in subjects_status %}
+            <a href="?subject={{ s.cs.pk }}" class="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 {% if active_cs and s.cs.pk == active_cs.pk %}bg-primary-50{% endif %}">
+              <span class="w-2 h-2 rounded-full shrink-0 {% if s.status == 'complete' %}bg-green-500{% elif s.status == 'in_progress' %}bg-amber-400{% else %}bg-red-400{% endif %}"></span>
+              <span class="flex-1 truncate text-gray-700">{{ s.cs.subject.name }}</span>
+            </a>
+          {% endfor %}
         </div>
-        <p class="text-sm font-medium text-gray-700 mb-1">Saisie non disponible</p>
-        <p class="text-xs text-gray-400">{{ reason|default:"Votre rôle ne permet pas la saisie des notes." }}</p>
       </div>
-    {% else %}
-      <div class="card p-8 text-center">
-        <i data-lucide="users" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i>
-        <p class="text-sm font-medium text-gray-500">Aucun élève dans cette classe</p>
+
+      {% if can_enter and rows %}
+        {% include "notes/partials/notes_mobile_input.html" %}
+      {% elif not can_enter %}
+        <div class="bg-white rounded-xl border border-amber-200 p-8 text-center">
+          <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3"><i data-lucide="lock" class="w-6 h-6 text-amber-500"></i></div>
+          <p class="text-sm font-medium text-gray-700 mb-1">Saisie non disponible</p>
+          <p class="text-xs text-gray-400">{{ reason|default:"Votre rôle ne permet pas la saisie des notes." }}</p>
+        </div>
+      {% else %}
+        <div class="card p-8 text-center"><i data-lucide="users" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i><p class="text-sm font-medium text-gray-500">Aucun élève dans cette classe</p></div>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  {# ════ DESKTOP : sélecteur matière déroulant + tableau ════ #}
+  <div class="hidden sm:block">
+    {% if active_cs %}
+      <div x-data="{ open: false, name: '{{ active_cs.subject.name|escapejs }}' }" @click.outside="open = false" class="relative inline-block mb-4">
+        <button type="button" @click="open = !open" class="flex items-center gap-2 h-10 px-3.5 border border-gray-200 rounded-lg bg-white hover:border-gray-300 text-sm min-w-[240px] justify-between">
+          <span class="flex items-center gap-2 truncate"><span class="text-gray-400 text-xs">{% trans "Matière" %}</span><span class="font-medium text-gray-800 truncate" x-text="name"></span></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 shrink-0"></i>
+        </button>
+        <div x-show="open" x-cloak class="absolute left-0 top-full mt-1 w-72 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-30 max-h-80 overflow-y-auto">
+          <div class="px-3 py-1.5 text-[11px] text-gray-400">{{ subjects_status|length }} matière{{ subjects_status|length|pluralize }}</div>
+          {% for s in subjects_status %}
+            <button type="button"
+                    hx-get="{% url 'notes:subject-table' school_class.pk period.pk s.cs.pk %}" hx-target="#notes-table-container" hx-swap="innerHTML" hx-push-url="?subject={{ s.cs.pk }}"
+                    @click="name = '{{ s.cs.subject.name|escapejs }}'; open = false"
+                    class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 {% if active_cs and s.cs.pk == active_cs.pk %}bg-primary-50{% endif %}">
+              <span class="w-2 h-2 rounded-full shrink-0 {% if s.status == 'complete' %}bg-green-500{% elif s.status == 'in_progress' %}bg-amber-400{% else %}bg-red-400{% endif %}"></span>
+              <span class="flex-1 truncate text-gray-700">{{ s.cs.subject.name }}</span>
+              <span class="text-[10px] text-gray-400">{% if s.status == 'complete' %}{% trans "complet" %}{% elif s.status == 'in_progress' %}{% trans "en cours" %}{% else %}{% trans "vide" %}{% endif %}</span>
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div id="notes-table-container">
+        {% include "notes/partials/notes_table.html" with cs=active_cs period=period school_class=school_class positions=positions columns=columns rows=rows class_stats=class_stats can_enter=can_enter reason=reason %}
       </div>
     {% endif %}
-  {% else %}
-    <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
-      <i data-lucide="layers" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i>
-      <p class="text-sm font-medium text-gray-500">Aucune matière assignée</p>
-    </div>
-  {% endif %}
-</div>
+  </div>
 
-{# ══════════════════════════════════════════════════════════════════ #}
-{# DESKTOP — Tableau de saisie classique                            #}
-{# ══════════════════════════════════════════════════════════════════ #}
-<div class="hidden sm:block">
-
-  {% if class_subjects %}
-    <div x-data="{ activeTab: '{{ active_cs.pk|default:'' }}' }"
-         class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 overflow-x-auto mb-6">
-      {% for cs in class_subjects %}
-        <button type="button"
-                x-on:click="activeTab = '{{ cs.pk }}'"
-                x-bind:class="activeTab === '{{ cs.pk }}'
-                  ? 'bg-white shadow-sm text-gray-900 font-medium'
-                  : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
-                class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all whitespace-nowrap"
-                hx-get="{% url 'notes:subject-table' school_class.pk period.pk cs.pk %}"
-                hx-target="#notes-table-container"
-                hx-swap="innerHTML"
-                hx-push-url="?subject={{ cs.pk }}">
-          <span class="w-2 h-2 rounded-full flex-shrink-0"
-                style="background-color: {{ cs.subject.color }}"></span>
-          <span>{{ cs.subject.short_name|default:cs.subject.name }}</span>
-          <span class="text-[10px] opacity-60 ml-0.5">coeff.{{ cs.coefficient|floatformat:'1' }}</span>
-        </button>
-      {% endfor %}
-    </div>
-
-    <div id="notes-table-container">
-      {% if active_cs %}
-        {% include "notes/partials/notes_table.html" with cs=active_cs period=period school_class=school_class positions=positions rows=rows class_stats=class_stats can_enter=can_enter reason=reason %}
-      {% endif %}
-    </div>
-
-  {% else %}
-    <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
-      <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-        <i data-lucide="layers" class="w-7 h-7 text-gray-400"></i>
-      </div>
-      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucune matière assignée</h3>
-      <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
-        Cette classe n'a aucune matière configurée pour la saisie des notes.
-      </p>
-      <a href="{% url 'settings:subjects' %}" class="btn-primary text-sm">
-        <i data-lucide="settings" class="w-4 h-4"></i>
-        Configurer les matières
-      </a>
-    </div>
-  {% endif %}
-
-</div>
+{% endif %}
 
 {% endblock %}
