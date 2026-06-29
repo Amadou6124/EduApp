@@ -19,21 +19,21 @@ class SchoolClassForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={
                 'placeholder': _('Ex : 6ème A, CP1, Terminale S'),
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-gray-800',
+                'class': 'input-field',
                 'autofocus': True,
             }),
             'level': forms.Select(attrs={
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-gray-800 bg-white',
+                'class': 'input-field bg-white cursor-pointer',
             }),
             'annual_fee': forms.NumberInput(attrs={
                 'placeholder': _('Ex : 150000'),
                 'min': '0',
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-gray-800',
+                'class': 'input-field pr-14',
             }),
             'max_capacity': forms.NumberInput(attrs={
                 'placeholder': _('Optionnel'),
                 'min': '1',
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-gray-800',
+                'class': 'input-field',
             }),
         }
         labels = {
