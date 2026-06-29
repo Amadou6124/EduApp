@@ -41,13 +41,13 @@ logger = logging.getLogger(__name__)
 
 
 
-def _students_qs(school, filter_type='all', class_id=None):
+def _students_qs(school, status='all', class_id=None, no_parent=False):
     """
     Queryset de la liste élèves, annoté par le helper CENTRAL (nouveau modèle) :
     chaque élève porte fee_status / fee_due / fee_paid / fee_balance / has_fee_account.
     Les élèves SANS fiche ont fee_status='no_fee' (badge neutre, jamais rouge).
-    Filtres Impayés/Partiel/Soldés = notion de FICHE → les sans-fiche en sont EXCLUS,
-    mais restent visibles dans « Tous ».
+    Filtres COMBINABLES (axes indépendants) : statut paiement × classe × sans-parent.
+    `status` ∈ {paid,partial,unpaid,no_fee} ; 'all' = pas de filtre statut.
     """
     from apps.finance.services import annotate_students_with_fees
     qs = (
@@ -57,13 +57,12 @@ def _students_qs(school, filter_type='all', class_id=None):
         .order_by('full_name')
     )
     qs = annotate_students_with_fees(qs)
-    if filter_type == 'no_parent':
-        qs = qs.filter(parent_phone_number='')
-    elif filter_type in ('unpaid', 'partial', 'paid'):
-        # fee_status ∈ {paid,partial,unpaid,no_fee} → filtrer dessus exclut no_fee.
-        qs = qs.filter(fee_status=filter_type)
-    elif filter_type == 'class' and class_id:
+    if status in ('unpaid', 'partial', 'paid', 'no_fee'):
+        qs = qs.filter(fee_status=status)
+    if class_id:
         qs = qs.filter(school_class_id=class_id)
+    if no_parent:
+        qs = qs.filter(parent_phone_number='')
     return qs
 
 
@@ -87,6 +86,39 @@ def compute_student_stats(school):
     }
 
 
+def _student_list_page(request, school):
+    """Lit les filtres combinables (statut × classe × sans-parent × recherche) dans la
+    query-string et renvoie le contexte PAGINÉ partagé par la page complète et le
+    rafraîchissement HTMX (#student-list-area). 30 élèves / page."""
+    status    = request.GET.get('status', 'all')
+    class_id  = request.GET.get('class_id') or None
+    no_parent = request.GET.get('no_parent') in ('1', 'true', 'on')
+    query     = request.GET.get('q', '').strip()
+
+    qs = _students_qs(school, status, class_id, no_parent)
+    if query:
+        # Recherche insensible casse + accents (normalisation Python). Échelle école.
+        nq = norm_name(query)
+        items = [
+            s for s in qs
+            if nq in norm_name(s.full_name)
+            or nq in norm_name(s.school_class.name if s.school_class else '')
+            or nq in norm_name(s.access_code)
+        ]
+    else:
+        items = list(qs)
+
+    page = Paginator(items, 30).get_page(request.GET.get('page'))
+    return {
+        'students':  page,
+        'page_obj':  page,
+        'status':    status,
+        'class_id':  class_id,
+        'no_parent': no_parent,
+        'q':         query,
+    }
+
+
 # ── Vues principales ──────────────────────────────────────────────────────────
 
 @login_required
@@ -94,11 +126,9 @@ def student_list(request):
     if request.user.role == UserRole.TEACHER:
         return redirect('teacher:dashboard')
     school = get_school(request)
-    filter_type = request.GET.get('filter', 'all')
-    class_id    = request.GET.get('class_id')
-    students    = list(_students_qs(school, filter_type, class_id))
-    stats       = compute_student_stats(school)
-    classes     = SchoolClass.objects.filter(school=school, is_active=True).order_by('level', 'name')
+    ctx = _student_list_page(request, school)
+
+    classes = SchoolClass.objects.filter(school=school, is_active=True).order_by('level', 'name')
     # ── Données pour Alpine — passées comme OBJETS Python ──────────────────────
     # IMPORTANT : on laisse {% … json_script %} encoder UNE seule fois côté template.
     # Surtout PAS de json.dumps ici, sinon double encodage → JSON.parse renvoie une
@@ -107,14 +137,11 @@ def student_list(request):
         {'id': c.id, 'name': c.name, 'annual_fee': int(c.annual_fee), 'level': c.level}
         for c in classes
     ]
-    nb_classes = len(classes)  # queryset évalué par classes_data — pas de SQL supplémentaire
-
     # Catalogue de frais + gabarits pour le panneau enrichi (lot 4a).
     fees_data, schedule_data, default_template_count = _enrollment_catalog_data(school)
 
-    return render(request, 'students/student_list.html', {
-        'students':      students,
-        'stats':         stats,
+    ctx.update({
+        'stats':         compute_student_stats(school),
         'form':          StudentCreateForm(school=school),
         'classes':       classes,
         'classes_data':  classes_data,
@@ -122,9 +149,12 @@ def student_list(request):
         'schedule_data': schedule_data,
         'default_template_count': default_template_count,
         'school':        school,
-        'filter_type':   filter_type,
-        'page_subtitle': f"{stats['total']} élève{'s' if stats['total'] != 1 else ''} · {nb_classes} classe{'s' if nb_classes != 1 else ''}",
+        'status_pills': [
+            ('all', 'Tous'), ('paid', 'Soldé'), ('partial', 'Partiel'),
+            ('unpaid', 'Impayé'), ('no_fee', 'Sans fiche'),
+        ],
     })
+    return render(request, 'students/student_list.html', ctx)
 
 
 def _enrollment_catalog_data(school):
@@ -267,13 +297,10 @@ def student_create(request):
             logger.info('[SMS] Notification parent à envoyer — élève : %s', student.full_name)
 
         if request.htmx:
-            students = list(_students_qs(school))
-            stats    = compute_student_stats(school)
-            response = render(request, 'students/partials/student_list_refresh.html', {
-                'students':        students,
-                'stats':           stats,
-                'success_message': f'{student.full_name} inscrit(e) — Code : {student.access_code}',
-            })
+            ctx = _student_list_page(request, school)
+            ctx['stats'] = compute_student_stats(school)
+            ctx['success_message'] = f'{student.full_name} inscrit(e) — Code : {student.access_code}'
+            response = render(request, 'students/partials/student_list_refresh.html', ctx)
             response['HX-Trigger'] = json.dumps({
                 'close-panel': True,
                 'showToast':   {'message': 'Élève inscrit avec succès.', 'type': 'success'},
@@ -577,27 +604,8 @@ def student_withdraw(request, student_id):
 @login_required
 def student_search(request):
     school = get_school(request)
-    query       = request.GET.get('q', '').strip()
-    filter_type = request.GET.get('filter', 'all')
-    class_id    = request.GET.get('class_id')
-    qs          = _students_qs(school, filter_type, class_id)
-
-    if query:
-        # Recherche insensible casse + accents (normalisation Python, sans
-        # extension PostgreSQL). Échelle école → filtrage en mémoire acceptable.
-        nq = norm_name(query)
-        students = [
-            s for s in qs
-            if nq in norm_name(s.full_name)
-            or nq in norm_name(s.school_class.name if s.school_class else '')
-            or nq in norm_name(s.access_code)
-        ]
-    else:
-        students = list(qs)
-
-    return render(request, 'students/partials/student_table_body.html', {
-        'students': students,
-    })
+    ctx = _student_list_page(request, school)
+    return render(request, 'students/partials/student_table_body.html', ctx)
 
 
 # ── Import Excel ──────────────────────────────────────────────────────────────
@@ -914,13 +922,10 @@ def student_import_confirm(request):
     build_fee_accounts_bulk(enrollments)
 
     if request.htmx:
-        students = list(_students_qs(school))
-        stats    = compute_student_stats(school)
-        response = render(request, 'students/partials/student_list_refresh.html', {
-            'students':        students,
-            'stats':           stats,
-            'success_message': f'{len(created)} élève(s) importé(s), {skipped} ignoré(s).',
-        })
+        ctx = _student_list_page(request, school)
+        ctx['stats'] = compute_student_stats(school)
+        ctx['success_message'] = f'{len(created)} élève(s) importé(s), {skipped} ignoré(s).'
+        response = render(request, 'students/partials/student_list_refresh.html', ctx)
         response['HX-Trigger'] = json.dumps({
             'close-import-modal': True,
             'showToast': {'message': f'{len(created)} élève(s) importé(s).', 'type': 'success'},
