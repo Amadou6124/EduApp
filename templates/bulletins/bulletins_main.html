@@ -42,11 +42,15 @@ Contexte :
     </a>
   </div>
 
-{% elif not active_class %}
+{% elif not active_period %}
   <div class="text-center py-24 text-gray-400">
-    <i data-lucide="users" class="w-10 h-10 mx-auto mb-3 opacity-25"></i>
-    <p class="text-sm">Sélectionnez une classe pour afficher les bulletins.</p>
+    <i data-lucide="calendar-x" class="w-10 h-10 mx-auto mb-3 opacity-25"></i>
+    <p class="text-sm">Aucune période configurée pour cette année.</p>
   </div>
+
+{% elif not active_class %}
+  {# Vue école : toutes les classes en un coup d'œil + génération/publication groupées #}
+  {% include "bulletins/partials/overview.html" %}
 
 {% else %}
 

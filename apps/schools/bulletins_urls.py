@@ -31,6 +31,14 @@ urlpatterns = [
          bulletins_views.generate_student_bulletin,
          name='generate-student'),
 
+    # ── Génération / publication groupées (vue école) ───────────
+    path('generate-all/<int:period_id>/',
+         bulletins_views.generate_all_classes,
+         name='generate-all'),
+    path('publish-all/<int:period_id>/',
+         bulletins_views.publish_all_classes,
+         name='publish-all'),
+
     # ── Actions ──────────────────────────────────────────────────
     path('preview/<int:bulletin_id>/',
          bulletins_views.bulletin_preview,
