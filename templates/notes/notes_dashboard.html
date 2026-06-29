@@ -2,15 +2,12 @@
 {% load i18n %}
 
 {% block title %}Notes{% endblock %}
-
-{% block page_title %}
-  Notes et évaluations
-{% endblock %}
+{% block page_title %}Notes{% endblock %}
 
 {% block content %}
 
 {% if no_year %}
-  <!-- État vide : aucune année scolaire configurée -->
+  {# État vide : aucune année scolaire #}
   <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
     <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
       <i data-lucide="calendar" class="w-7 h-7 text-gray-400"></i>
@@ -20,120 +17,22 @@
       Configurez d'abord une année scolaire et ses périodes dans les paramètres.
     </p>
     <a href="{% url 'settings:school-years' %}" class="btn-primary text-sm">
-      <i data-lucide="settings" class="w-4 h-4"></i>
-      Configurer les années scolaires
+      <i data-lucide="settings" class="w-4 h-4"></i> Configurer les années scolaires
     </a>
   </div>
-{% else %}
 
-<!-- ── En-tête : sélecteur année ───────────────────────────────── -->
-<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-  <div>
-    <p class="text-sm text-gray-500">Année scolaire</p>
-    <div class="flex items-center gap-2 mt-1">
-      <form method="get" class="flex items-center gap-2">
-        {% if active_period %}<input type="hidden" name="period" value="{{ active_period.pk }}">{% endif %}
-        <select name="year"
-                onchange="this.form.submit()"
-                class="input-field">
-          {% for y in years %}
-            <option value="{{ y.pk }}" {% if y.pk == active_year.pk %}selected{% endif %}>
-              {{ y.name }}{% if y.is_active %} (active){% endif %}
-            </option>
-          {% endfor %}
-        </select>
-      </form>
+{% else %}
+  <div class="relative">
+    {% include "notes/partials/dashboard_body.html" %}
+    {# Skeleton de chargement (changement de période HTMX) #}
+    <div id="notes-skel" class="htmx-indicator pointer-events-none absolute inset-0 z-10 bg-white/70 backdrop-blur-[1px] flex flex-col gap-3 pt-12">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {% for _ in "1234" %}<div class="skeleton h-16 rounded-xl"></div>{% endfor %}
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-3">
+        {% for _ in "123456" %}<div class="skeleton h-40 rounded-xl"></div>{% endfor %}
+      </div>
     </div>
   </div>
-</div>
-
-<!-- ── 4 Stats ─────────────────────────────────────────────────── -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-
-  <div class="card p-4">
-    <p class="text-xs text-gray-500 mb-1">Périodes ouvertes</p>
-    <p class="text-2xl font-bold {% if stats.open_periods > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
-      {{ stats.open_periods }}
-    </p>
-    <p class="text-xs text-gray-400 mt-1">sur {{ periods|length }} période{{ periods|length|pluralize }}</p>
-  </div>
-
-  <div class="card p-4">
-    <p class="text-xs text-gray-500 mb-1">Matières sans notes</p>
-    <p class="text-2xl font-bold {% if stats.subjects_without_notes > 0 %}text-amber-500{% else %}text-gray-400{% endif %}">
-      {{ stats.subjects_without_notes }}
-    </p>
-    <p class="text-xs text-gray-400 mt-1">pour la période sélectionnée</p>
-  </div>
-
-  <div class="card p-4">
-    <p class="text-xs text-gray-500 mb-1">Classes complètes</p>
-    <p class="text-2xl font-bold text-primary-600">{{ stats.complete_classes }}</p>
-    <p class="text-xs text-gray-400 mt-1">toutes notes saisies</p>
-  </div>
-
-  <div class="card p-4">
-    <p class="text-xs text-gray-500 mb-1">Moyenne générale école</p>
-    <p class="text-2xl font-bold text-gray-700">
-      {% if stats.avg_overall %}{{ stats.avg_overall }}/{{ 20 }}{% else %}—{% endif %}
-    </p>
-    <p class="text-xs text-gray-400 mt-1">toutes matières confondues</p>
-  </div>
-
-</div>
-
-<!-- ── Onglets périodes ────────────────────────────────────────── -->
-{% if periods %}
-<div class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 overflow-x-auto mb-6">
-  {% for p in periods %}
-    <a href="?year={{ active_year.pk }}&period={{ p.pk }}"
-       class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all whitespace-nowrap
-              {% if active_period and p.pk == active_period.pk %}
-                bg-white shadow-sm text-gray-900 font-medium
-              {% else %}
-                text-gray-600 hover:bg-white/60 hover:text-gray-900
-              {% endif %}">
-      <span class="w-2 h-2 rounded-full flex-shrink-0
-                   {% if p.is_notes_open %}bg-green-400{% else %}bg-red-400{% endif %}"></span>
-      {{ p.name }}
-    </a>
-  {% endfor %}
-</div>
-
-<!-- ── Grille des classes ──────────────────────────────────────── -->
-{% if class_progress %}
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-    {% for item in class_progress %}
-      {% include "notes/partials/class_progress_card.html" with item=item period=active_period %}
-    {% endfor %}
-  </div>
-{% else %}
-  <div class="flex flex-col items-center justify-center py-12 px-8 text-center">
-    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-      <i data-lucide="school" class="w-7 h-7 text-gray-400"></i>
-    </div>
-    <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucune classe active</h3>
-    <p class="text-sm text-gray-500 max-w-xs leading-relaxed">
-      Aucune classe active dans cette école.
-    </p>
-  </div>
-{% endif %}
-
-{% else %}
-<div class="flex flex-col items-center justify-center py-12 px-8 text-center">
-  <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-    <i data-lucide="layers" class="w-7 h-7 text-gray-400"></i>
-  </div>
-  <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucune période configurée</h3>
-  <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
-    Aucune période configurée pour l'année {{ active_year.name }}.
-  </p>
-  <a href="{% url 'settings:school-year-periods' active_year.pk %}" class="btn-primary text-sm">
-    <i data-lucide="settings" class="w-4 h-4"></i>
-    Configurer les périodes
-  </a>
-</div>
-{% endif %}
-
 {% endif %}
 {% endblock %}

@@ -2052,6 +2052,10 @@ p {
   height: 1rem;
 }
 
+.h-40 {
+  height: 10rem;
+}
+
 .h-48 {
   height: 12rem;
 }
@@ -2671,6 +2675,16 @@ p {
 
 .resize {
   resize: both;
+}
+
+.columns-1 {
+  -moz-columns: 1;
+       columns: 1;
+}
+
+.break-inside-avoid {
+  -moz-column-break-inside: avoid;
+       break-inside: avoid;
 }
 
 .grid-cols-1 {
@@ -3523,6 +3537,10 @@ p {
 
 .bg-red-50\/50 {
   background-color: rgb(254 242 242 / 0.5);
+}
+
+.bg-red-50\/60 {
+  background-color: rgb(254 242 242 / 0.6);
 }
 
 .bg-red-500 {
@@ -5767,10 +5785,6 @@ p {
     display: block;
   }
 
-  .sm\:inline-block {
-    display: inline-block;
-  }
-
   .sm\:inline {
     display: inline;
   }
@@ -5955,6 +5969,11 @@ p {
 @media (min-width: 768px) {
   .md\:table-cell {
     display: table-cell;
+  }
+
+  .md\:columns-2 {
+    -moz-columns: 2;
+         columns: 2;
   }
 
   .md\:grid-cols-2 {
@@ -6170,6 +6189,11 @@ p {
 @media (min-width: 1280px) {
   .xl\:block {
     display: block;
+  }
+
+  .xl\:columns-3 {
+    -moz-columns: 3;
+         columns: 3;
   }
 
   .xl\:grid-cols-3 {

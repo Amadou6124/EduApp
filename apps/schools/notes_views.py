@@ -14,7 +14,8 @@ from django.db.models import Prefetch
 
 from apps.accounts.models import UserRole
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from apps.core.mixins import get_school
@@ -193,8 +194,9 @@ def notes_dashboard(request):
     if teacher_class_ids is not None:
         classes_qs = classes_qs.filter(pk__in=teacher_class_ids)
 
-    # Toutes les notes de la période active — 1 seule requête
-    notes_meta  = {}   # {cs_id: set(student_id)}
+    # Notes de la période : maps (cs, position) → élèves notés + valeurs — 1 requête.
+    noted_by_cs_pos = defaultdict(set)   # (cs_id, position) -> {student_id}
+    positions_by_cs = defaultdict(set)   # cs_id -> {position}
     note_values = []
     if active_period:
         notes_filter = dict(
@@ -205,10 +207,13 @@ def notes_dashboard(request):
         if teacher_class_ids is not None:
             notes_filter['class_subject__school_class_id__in'] = teacher_class_ids
         for row in Note.objects.filter(**notes_filter).values(
-            'class_subject_id', 'student_id', 'value'
+            'class_subject_id', 'position', 'student_id', 'value', 'class_subject__max_grade'
         ):
-            notes_meta.setdefault(row['class_subject_id'], set()).add(row['student_id'])
-            note_values.append(float(row['value']))
+            noted_by_cs_pos[(row['class_subject_id'], row['position'])].add(row['student_id'])
+            positions_by_cs[row['class_subject_id']].add(row['position'])
+            mg = float(row['class_subject__max_grade'] or 20)
+            if mg:
+                note_values.append(float(row['value']) / mg * 20)   # normalisé /20
 
     # Classes + matières + élèves — 3 requêtes prefetch
     classes = list(
@@ -229,39 +234,59 @@ def notes_dashboard(request):
         .order_by('level', 'name')
     )
 
-    class_progress        = []
-    subjects_without_notes = 0
-    complete_classes       = 0
+    def _cs_status(cs, student_count):
+        """non_started | in_progress | complete.
+
+        « complete » n'est revendiqué que si c'est vérifiable : devoir+compo saisis
+        pour tous, ou (moyenne simple) toutes les colonnes existantes remplies pour tous.
+        Sinon « in_progress » — le vrai « terminé » reste la fermeture de la période.
+        """
+        if student_count == 0:
+            return 'in_progress'
+        if cs.pk not in positions_by_cs:
+            return 'non_started'
+        if cs.note_system == NoteSystem.DEVOIRS_COMPO:
+            full = (len(noted_by_cs_pos.get((cs.pk, 1), ())) == student_count
+                    and len(noted_by_cs_pos.get((cs.pk, 2), ())) == student_count)
+        else:
+            full = all(
+                len(noted_by_cs_pos.get((cs.pk, p), ())) == student_count
+                for p in positions_by_cs[cs.pk]
+            )
+        return 'complete' if full else 'in_progress'
+
+    class_progress = []
+    n_non_started  = n_in_progress = n_complete = 0
 
     for sc in classes:
         student_count = len(sc.active_students)
         subject_data  = []
-        all_complete  = student_count > 0
-
+        c_started = c_complete = c_non_started = 0
         for cs in sc.active_subjects:
-            noted = len(notes_meta.get(cs.pk, set()))
-            pct   = int(noted / student_count * 100) if student_count else 0
-            done  = (pct == 100 and student_count > 0)
-            if not done:
-                all_complete = False
-            if noted == 0 and student_count > 0:
-                subjects_without_notes += 1
-            subject_data.append({
-                'cs':    cs,
-                'noted': noted,
-                'total': student_count,
-                'pct':   pct,
-                'done':  done,
-            })
-
-        if all_complete and subject_data:
-            complete_classes += 1
-
+            status = _cs_status(cs, student_count)
+            subject_data.append({'cs': cs, 'status': status})
+            if student_count == 0:
+                continue
+            if status == 'non_started':
+                n_non_started += 1
+                c_non_started += 1
+            elif status == 'complete':
+                n_complete += 1
+                c_complete += 1
+                c_started += 1
+            else:
+                n_in_progress += 1
+                c_started += 1
+        total_subjects = len(subject_data)
         class_progress.append({
-            'class':         sc,
-            'subjects':      subject_data,
-            'student_count': student_count,
-            'all_complete':  all_complete and bool(subject_data),
+            'class':          sc,
+            'subjects':       subject_data,
+            'student_count':  student_count,
+            'total_subjects': total_subjects,
+            'started':        c_started,
+            'complete':       c_complete,
+            'non_started':    c_non_started,
+            'all_complete':   total_subjects > 0 and c_complete == total_subjects,
         })
 
     avg_overall = (
@@ -269,21 +294,33 @@ def notes_dashboard(request):
         if note_values else None
     )
 
-    return render(request, 'notes/notes_dashboard.html', {
+    can_manage = (
+        request.user.is_superuser
+        or request.role in (UserRole.DIRECTOR, UserRole.STAFF)
+    )
+    ctx = {
         'school':         school,
         'active_year':    active_year,
         'years':          years,
         'periods':        periods,
         'active_period':  active_period,
         'class_progress': class_progress,
+        'can_manage':     can_manage,
         'stats': {
-            'open_periods':            open_periods_count,
-            'subjects_without_notes':  subjects_without_notes,
-            'complete_classes':        complete_classes,
-            'avg_overall':             avg_overall,
+            'open_periods':  open_periods_count,
+            'non_started':   n_non_started,
+            'in_progress':   n_in_progress,
+            'complete':      n_complete,
+            'avg_overall':   avg_overall,
         },
         'active_section': 'notes',
-    })
+    }
+    # Onglets périodes en HTMX → on ne renvoie que le corps (swap instantané).
+    template = (
+        'notes/partials/dashboard_body.html'
+        if request.htmx and periods else 'notes/notes_dashboard.html'
+    )
+    return render(request, template, ctx)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -661,3 +698,25 @@ def notes_add_column(request, class_id, period_id, subject_id):
         'can_enter':    can_enter,
         'reason':       reason,
     })
+
+
+# ─────────────────────────────────────────────────────────────
+# Vue 7 : Ouvrir/fermer la saisie d'une période (directeur/staff)
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+@require_http_methods(['POST'])
+def notes_period_toggle(request, period_id):
+    """
+    Ouvre ou ferme la saisie des notes pour une période, puis recharge le dashboard.
+    POST /notes/period/<period_id>/toggle/  — réservé directeur / staff.
+    """
+    school = get_school(request)
+    if not (request.user.is_superuser or request.role in (UserRole.DIRECTOR, UserRole.STAFF)):
+        return HttpResponse(status=403)
+
+    period = get_object_or_404(Period, pk=period_id, school_year__school=school)
+    period.is_notes_open = not period.is_notes_open
+    period.save(update_fields=['is_notes_open'])
+
+    return redirect(f"{reverse('notes:dashboard')}?period={period.pk}")

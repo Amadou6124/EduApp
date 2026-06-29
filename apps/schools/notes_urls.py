@@ -36,4 +36,9 @@ urlpatterns = [
     path('note/<int:note_id>/cancel/',
          notes_views.note_cancel,
          name='note-cancel'),
+
+    # ── Ouvrir/fermer la saisie d'une période (directeur/staff) ───
+    path('period/<int:period_id>/toggle/',
+         notes_views.notes_period_toggle,
+         name='period-toggle'),
 ]
