@@ -14,7 +14,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 
 from apps.accounts.models import UserRole
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Max
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.template.loader import render_to_string
@@ -191,6 +191,7 @@ def bulletins_tab(request):
 
     generated_count = len(existing)
     total_count     = len(students)
+    stale_count     = _annotate_stale(rows, active_class, active_period)
     return render(request, 'bulletins/partials/bulletins_tab.html', {
         'rows':            rows,
         'school_class':    active_class,
@@ -200,6 +201,7 @@ def bulletins_tab(request):
         'total_count':     total_count,
         'pending_count':   total_count - generated_count,
         'generated_pct':   int(generated_count / total_count * 100) if total_count > 0 else 0,
+        'stale_count':     stale_count,
     })
 
 
@@ -254,6 +256,13 @@ def generate_class_bulletins(request, class_id, period_id):
         Period, pk=period_id, school_year__school=school,
     )
 
+    # Conserver l'état publié : la régénération recrée des bulletins non publiés,
+    # sinon « Régénérer » ferait perdre l'accès aux parents.
+    published_ids = set(
+        Bulletin.objects.filter(
+            school_class=school_class, period=period, is_published=True, is_cancelled=False,
+        ).values_list('student_id', flat=True)
+    )
     try:
         bulletins = calculator.generate_class_bulletins(
             school_class, period, request.user,
@@ -264,6 +273,13 @@ def generate_class_bulletins(request, class_id, period_id):
             'showToast': {'message': f'Erreur de génération : {e}', 'type': 'error'},
         })
         return resp
+
+    if published_ids:
+        from django.utils import timezone
+        Bulletin.objects.filter(
+            school_class=school_class, period=period,
+            student_id__in=published_ids, is_cancelled=False,
+        ).update(is_published=True, published_at=timezone.now())
 
     # Re-rendre l'onglet bulletins avec les nouveaux bulletins
     students = list(
@@ -291,6 +307,7 @@ def generate_class_bulletins(request, class_id, period_id):
 
     generated_count = len(existing)
     total_count     = len(students)
+    stale_count     = _annotate_stale(rows, school_class, period)
     tab_html = render_to_string('bulletins/partials/bulletins_tab.html', {
         'rows':            rows,
         'school_class':    school_class,
@@ -300,6 +317,7 @@ def generate_class_bulletins(request, class_id, period_id):
         'total_count':     total_count,
         'pending_count':   total_count - generated_count,
         'generated_pct':   int(generated_count / total_count * 100) if total_count > 0 else 0,
+        'stale_count':     stale_count,
     }, request=request)
     # OOB : met à jour le badge compteur X/Y de l'en-tête (hors zone swappée).
     badge_html = render_to_string('bulletins/partials/_bulletins_badge.html', {
@@ -679,6 +697,26 @@ def _students_with_notes(period, school_class):
         .filter(distinct_subjects__gte=cs_count)
     )
     return {row['student_id'] for row in rows}
+
+
+def _annotate_stale(rows, school_class, period):
+    """Marque `row['is_stale']` = une note a été modifiée APRÈS la génération du bulletin
+    → le bulletin (et son PDF/ce que voit le parent) est périmé. Renvoie le nb de périmés."""
+    latest = dict(
+        Note.objects.filter(class_subject__school_class=school_class, period=period)
+        .values('student_id')
+        .annotate(m=Max('modified_at'))
+        .values_list('student_id', 'm')
+    )
+    stale = 0
+    for row in rows:
+        b = row.get('bulletin')
+        last = latest.get(b.student_id) if b else None
+        is_stale = bool(b) and last is not None and last > b.generated_at
+        row['is_stale'] = is_stale
+        if is_stale:
+            stale += 1
+    return stale
 
 
 def _get_class_stats(school_class, period, school):

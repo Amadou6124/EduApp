@@ -13,65 +13,21 @@ Contexte :
 
 {% block content %}
 
-{# ── Sélecteurs en cartes ──────────────────────────────────────── #}
-<form method="get" id="selectors-form">
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-
-    {# Année scolaire #}
-    <div class="card p-4">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="calendar" class="w-4 h-4 text-primary-600/60"></i>
-        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Année scolaire</span>
-      </div>
-      <select name="year" onchange="this.form.submit()"
-              class="w-full text-sm font-semibold text-gray-800 bg-transparent border-0 p-0 focus:ring-0 cursor-pointer">
-        {% for y in years %}
-          <option value="{{ y.pk }}" {% if active_year and y.pk == active_year.pk %}selected{% endif %}>
-            {{ y.name }}{% if y.is_active %} ·  actuelle{% endif %}
-          </option>
-        {% empty %}
-          <option value="">—</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    {# Période #}
-    <div class="card p-4">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="clock" class="w-4 h-4 text-primary-600/60"></i>
-        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Période</span>
-      </div>
-      <select name="period" onchange="this.form.submit()"
-              class="w-full text-sm font-semibold text-gray-800 bg-transparent border-0 p-0 focus:ring-0 cursor-pointer"
-              {% if not periods %}disabled{% endif %}>
-        {% for p in periods %}
-          <option value="{{ p.pk }}" {% if active_period and p.pk == active_period.pk %}selected{% endif %}>
-            {{ p.name }}
-          </option>
-        {% empty %}
-          <option value="">— Aucune période —</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    {# Classe #}
-    <div class="card p-4">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="school" class="w-4 h-4 text-primary-600/60"></i>
-        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Classe</span>
-      </div>
-      <select name="class" onchange="this.form.submit()"
-              class="w-full text-sm font-semibold text-gray-800 bg-transparent border-0 p-0 focus:ring-0 cursor-pointer">
-        <option value="">— Toutes les classes —</option>
-        {% for c in classes %}
-          <option value="{{ c.pk }}" {% if active_class and c.pk == active_class.pk %}selected{% endif %}>
-            {{ c.name }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-
-  </div>
+{# ── Sélecteurs (période · classe) ─────────────────────────────── #}
+<form method="get" id="selectors-form" class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+  <select name="period" onchange="this.form.submit()" class="input-field w-full sm:w-56" {% if not periods %}disabled{% endif %}>
+    {% for p in periods %}
+      <option value="{{ p.pk }}" {% if active_period and p.pk == active_period.pk %}selected{% endif %}>{{ p.name }}</option>
+    {% empty %}
+      <option value="">— Aucune période —</option>
+    {% endfor %}
+  </select>
+  <select name="class" onchange="this.form.submit()" class="input-field w-full sm:w-64">
+    <option value="">— Toutes les classes —</option>
+    {% for c in classes %}
+      <option value="{{ c.pk }}" {% if active_class and c.pk == active_class.pk %}selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
   <input type="hidden" name="tab" value="{{ active_tab }}">
 </form>
 
@@ -99,11 +55,6 @@ Contexte :
 
     {# Gauche : badge niveau + nom classe + stats rapides #}
     <div class="flex items-center gap-3 min-w-0">
-      {% if active_class_badge %}
-        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border flex-shrink-0 {{ active_class_badge.1 }}">
-          {{ active_class_badge.0 }}
-        </span>
-      {% endif %}
       <span class="font-semibold text-gray-800 truncate">{{ active_class.name }}</span>
       <span class="text-sm text-gray-400 flex-shrink-0">
         {{ student_count|default:'?' }} élève{{ student_count|pluralize }}

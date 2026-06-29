@@ -11,6 +11,24 @@ Contexte : rows, school_class, period, can_generate,
   });
 </script>
 
+{# ── Bannière péremption : notes modifiées après génération ──── #}
+{% if stale_count %}
+<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 mb-4">
+  <span class="text-sm font-medium text-amber-800 flex items-center gap-2 min-w-0">
+    <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
+    <span>{{ stale_count }} bulletin{{ stale_count|pluralize }} à régénérer — des notes ont changé depuis la génération.</span>
+  </span>
+  {% if can_generate %}
+  <button type="button"
+          hx-post="{% url 'bulletins:generate-class' school_class.pk period.pk %}"
+          hx-target="#tab-content" hx-swap="innerHTML"
+          class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition">
+    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Régénérer tout
+  </button>
+  {% endif %}
+</div>
+{% endif %}
+
 {# ── Compteurs + indicateur génération ─────────────────────── #}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
   <div class="flex items-center gap-2">
@@ -97,7 +115,12 @@ Contexte : rows, school_class, period, can_generate,
           </td>
 
           <td class="px-4 py-2.5 text-center">
-            {% if row.bulletin and row.bulletin.is_published %}
+            {% if row.is_stale %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                <i data-lucide="alert-triangle" class="w-3 h-3"></i> À régénérer
+              </span>
+              {% if row.bulletin.is_published %}<div class="text-[10px] text-red-500 mt-0.5">publié · périmé</div>{% endif %}
+            {% elif row.bulletin and row.bulletin.is_published %}
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
                 <i data-lucide="check-circle" class="w-3 h-3"></i> Publié
               </span>
