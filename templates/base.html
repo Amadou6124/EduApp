@@ -1092,6 +1092,46 @@
     document.addEventListener('htmx:afterSwap', () => lucide.createIcons());
   </script>
 
+  {# ── Garde-fou global anti double-soumission HTMX (requêtes mutantes) ── #}
+  {# Verrouille l'élément déclencheur (form→ses submits, ou le bouton/lien lui-même) #}
+  {# pendant la requête → pas de doublon au double-clic. Ignore les boutons pilotés #}
+  {# par Alpine (:disabled), qui gèrent leur propre verrou (encaissement, inscription). #}
+  <script>
+    (function () {
+      function alpineBound(b) { return b.hasAttribute(':disabled') || b.hasAttribute('x-bind:disabled'); }
+      function lock(b)   { b.disabled = true;  b.style.pointerEvents = 'none'; b.style.opacity = '0.6'; }
+      function unlock(b) { b.disabled = false; b.style.pointerEvents = '';     b.style.opacity = ''; }
+      function targets(elt) {
+        if (!elt || !elt.tagName) return [];
+        var sel = 'button[type=submit], button:not([type]), input[type=submit]';
+        var list;
+        if (elt.tagName === 'FORM') {
+          list = Array.prototype.slice.call(elt.querySelectorAll(sel));
+          if (elt.id) list = list.concat(Array.prototype.slice.call(document.querySelectorAll('[form="' + elt.id + '"]')));
+        } else if (elt.matches && elt.matches('button, input[type=submit], input[type=button], a, [role=button]')) {
+          list = [elt];   // déclencheur direct (hx-post sur un bouton/lien, même type=button)
+        } else {
+          list = [];
+        }
+        return list.filter(function (b) { return !b.disabled && !alpineBound(b); });
+      }
+      document.addEventListener('htmx:beforeRequest', function (e) {
+        var cfg = e.detail.requestConfig || {};
+        if ((cfg.verb || 'get').toLowerCase() === 'get') return;   // seulement POST/PUT/PATCH/DELETE
+        var t = targets(e.detail.elt);
+        t.forEach(lock);
+        e.detail.elt.__locked = t;
+      });
+      function release(e) {
+        var t = e.detail.elt && e.detail.elt.__locked;
+        if (t) { t.forEach(unlock); e.detail.elt.__locked = null; }
+      }
+      ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError', 'htmx:timeout'].forEach(function (ev) {
+        document.addEventListener(ev, release);
+      });
+    })();
+  </script>
+
   {# ── Alpine stores ── #}
   <script>
     document.addEventListener('alpine:init', function () {
