@@ -2881,10 +2881,6 @@ p {
   white-space: nowrap;
 }
 
-.whitespace-pre-wrap {
-  white-space: pre-wrap;
-}
-
 .rounded {
   border-radius: 0.25rem;
 }
@@ -4968,10 +4964,6 @@ p {
 }
 
 /* Slide depuis droite (panels) */
-
-.animate-slide-in-right {
-  animation: slideInRight 0.3s cubic-bezier(0.16,1,0.3,1) forwards;
-}
 
 /* Slide depuis le bas (mobile) */
 

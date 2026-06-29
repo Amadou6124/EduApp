@@ -38,6 +38,7 @@
   function studentsPageData() {
     return {
       showPanel: false,
+      submitting: false,
       showImportModal: false,
       showParent: false,
       showPayment: false,
@@ -223,45 +224,38 @@
   {# ── Panel latéral inscription (slide from right) ── #}
   {# ════════════════════════════════════════════════════════ #}
 
-  {# Overlay #}
-  {# Overlay #}
-  <div x-show="showPanel" x-cloak
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40"
-       @click="showPanel = false">
-  </div>
+  {# Overlay + panneau téléportés hors de <main> → au-dessus du nav, scope Alpine conservé #}
+  <template x-teleport="body">
+  <div>
+    <div x-show="showPanel" x-cloak @click="showPanel = false"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[55]"></div>
 
-  {# Panel #}
-  <div x-show="showPanel" x-cloak
-       class="fixed top-0 right-0 h-full w-full sm:w-[520px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col animate-slide-in-right"
-       x-transition:enter="transition ease-out duration-300"
-       x-transition:enter-start="translate-x-full"
-       x-transition:enter-end="translate-x-0"
-       x-transition:leave="transition ease-in duration-200"
-       x-transition:leave-start="translate-x-0"
-       x-transition:leave-end="translate-x-full">
+    <div x-show="showPanel" x-cloak
+         x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+         class="fixed top-0 right-0 h-full w-full sm:w-[520px] bg-white shadow-2xl border-l border-gray-200 z-[60] flex flex-col">
 
-    {# Header du panel #}
-    <div class="sticky top-0 bg-white z-10 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-      <h2 class="text-base font-semibold text-gray-900">Inscrire un élève</h2>
-      <button @click="showPanel = false"
-              class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-        <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
-      </button>
-    </div>
+      {# Header #}
+      <div class="shrink-0 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-gray-900">Inscrire un élève</h2>
+        <button type="button" @click="showPanel = false" class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+          <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
+        </button>
+      </div>
 
-    {# ── Inscription individuelle (seul flux du panneau depuis la suppression du mode Groupe) ── #}
-    <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+      {# Form : corps défilant + pied collant (récap + actions) #}
       <form hx-post="{% url 'students:create' %}"
             hx-target="#student-list-area"
             hx-swap="outerHTML"
-            x-init="$nextTick(() => $el.querySelector('[name=full_name]')?.focus())">
+            hx-sync="this:drop"
+            @submit="submitting = true"
+            @htmx:after-request="if (!$event.detail.successful) submitting = false"
+            x-init="$nextTick(() => $el.querySelector('[name=full_name]')?.focus())"
+            class="flex-1 flex flex-col min-h-0">
         {% csrf_token %}
+        <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
         {% comment %}
           Bandeau d'info — école sans catalogue de frais (lot 4a, robustesse).
@@ -522,14 +516,15 @@
           </div>
         </div>
 
-        {# ── Récap LIVE « à la rentrée » (lot 4a) ── #}
-        <div class="border-t border-gray-100 pt-4" x-show="selectedClassId">
-          <div class="rounded-xl bg-primary-50 border border-primary-100 p-3">
+        </div>{# fin corps défilant #}
+
+        {# ── Pied collant : récap live + actions (toujours visibles) ── #}
+        <div class="shrink-0 border-t border-gray-100 bg-white px-6 py-4 space-y-3">
+          <div x-show="selectedClassId" x-cloak class="rounded-xl bg-primary-50 border border-primary-100 p-3">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-primary-800">À régler à la rentrée</span>
               <span class="text-lg font-bold text-primary-700"><span x-text="fmt(recapTotal)"></span> F</span>
             </div>
-            {# Détail replié #}
             <button type="button" @click="showRecapDetail = !showRecapDetail"
                     class="text-xs text-primary-600 hover:underline mt-1">
               <span x-text="showRecapDetail ? 'masquer le détail' : 'voir le détail'"></span>
@@ -548,41 +543,36 @@
                 </div>
               </template>
             </div>
-            {# Abonnements (mensuels) — hors total rentrée #}
             <p x-show="selectedSubscriptions.length" class="text-xs text-primary-700/70 mt-2 pt-2 border-t border-primary-100">
               + <template x-for="(s, i) in selectedSubscriptions" :key="s.id"><span><span x-show="i > 0">, </span><span x-text="s.name.toLowerCase()"></span></span></template>
               <span> à régler mensuellement (hors rentrée)</span>
             </p>
           </div>
-        </div>
 
-        {# Boutons #}
-        <div class="flex gap-3 pt-2">
-          <button type="button" @click="showPanel = false"
-                  class="btn-secondary flex-1">
-            Annuler
-          </button>
-          <button type="submit"
-                  :disabled="!canSubmit"
-                  :class="!canSubmit && 'opacity-50 cursor-not-allowed'"
-                  class="btn-primary flex-1 min-h-[44px]">
-            <svg class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
-            <span x-text="!gender ? 'Choisir le genre' : 'Inscrire'"></span>
-          </button>
+          <div class="flex gap-3">
+            <button type="button" @click="showPanel = false" class="btn-secondary flex-1">Annuler</button>
+            <button type="submit" :disabled="!canSubmit || submitting"
+                    :class="(!canSubmit || submitting) && 'opacity-50 cursor-not-allowed'"
+                    class="btn-primary flex-1 min-h-[44px]">
+              <svg class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              <span x-text="submitting ? 'Inscription…' : (!gender ? 'Choisir le genre' : 'Inscrire')"></span>
+            </button>
+          </div>
         </div>
       </form>
     </div>
-
-  </div>{# fin panel #}
+  </div>
+  </template>{# fin panneau inscription #}
 
   {# ════════════════════════════════════════════════════════ #}
   {# ── Modal import Excel ── #}
   {# ════════════════════════════════════════════════════════ #}
 
-  <!-- ── Modal import Excel ── -->
+  {# ── Modal import Excel (téléportée → au-dessus du nav) ── #}
+  <template x-teleport="body">
   <div x-show="showImportModal" x-cloak
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
@@ -590,7 +580,7 @@
        x-transition:leave="transition ease-in duration-150"
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+       class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center p-4"
        @click.self="showImportModal = false">
     <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
          @click.stop
@@ -616,7 +606,7 @@
           <div class="text-sm text-primary-700">
             <p class="font-medium mb-1">Format attendu (Excel ou CSV)</p>
             <p class="text-primary-600 text-xs font-semibold">Obligatoires : Nom complet · Classe</p>
-            <p class="text-primary-500 text-xs mt-0.5">Optionnelles : Téléphone parent · Téléphone élève · Date de naissance · Lien parenté</p>
+            <p class="text-primary-500 text-xs mt-0.5">Optionnelles : Téléphone parent · Téléphone élève · Date de naissance · Lien parenté · Genre (G/F)</p>
             <p class="text-gray-400 text-xs mt-1 italic">Les paiements se gèrent dans l'application, pas à l'import.</p>
           </div>
         </div>
@@ -657,6 +647,7 @@
       </div>
     </div>
   </div>
+  </template>
 
 </div>{# fin x-data #}
 {% endblock %}

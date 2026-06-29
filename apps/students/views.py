@@ -699,12 +699,12 @@ def student_import_template(request):
     ws = wb.active
     ws.title = 'Élèves'
 
-    NUM_COLS = 6
+    NUM_COLS = 7
 
     # ── Ligne 1 : instructions ────────────────────────────────────────
     ws.append([
         'OBLIGATOIRES : Nom complet, Classe  |  OPTIONNELLES : Téléphone parent, '
-        'Téléphone élève, Date de naissance, Lien parenté  |  '
+        'Téléphone élève, Date de naissance, Lien parenté, Genre (G/F)  |  '
         'Les paiements se gèrent directement dans l\'application.'
     ])
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=NUM_COLS)
