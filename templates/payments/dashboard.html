@@ -12,9 +12,7 @@ document.addEventListener('alpine:init', () => {
 
 function paymentsPageData() {
   return {
-    viewMode: window.innerWidth < 640 ? 'cards' : (localStorage.getItem('paymentsView') || (window.innerWidth < 1024 ? 'cards' : 'table')),
-    currentStatus: new URLSearchParams(window.location.search).get('status') || 'unpaid',
-    setView(m) { this.viewMode = m; localStorage.setItem('paymentsView', m); },
+    currentStatus: new URLSearchParams(window.location.search).get('status') || 'overdue',
     setStatus(s) {
       this.currentStatus = s;
       const inp = document.querySelector('[name=status]');
@@ -40,91 +38,67 @@ function paymentsPageData() {
     {% include "payments/partials/payment_stats.html" %}
   </div>
 
-  <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+  {# Filtres : recherche en haut (pleine largeur), puis onglets + classe au même niveau (comme la liste élèves) #}
+  <form hx-get="{% url 'payments:dashboard' %}"
+        hx-target="#payment-list-area" hx-swap="outerHTML"
+        hx-trigger="change, keyup changed delay:300ms from:[name=q]"
+        hx-push-url="true" hx-indicator="#pay-skel"
+        class="mb-5">
 
-    <form hx-get="{% url 'payments:dashboard' %}"
-          hx-target="#payment-list-area"
-          hx-swap="outerHTML"
-          hx-trigger="change, keyup changed delay:300ms from:[name=q]"
-          hx-push-url="true"
-          class="flex flex-1 items-center gap-3 flex-wrap">
+    <div class="relative mb-3">
+      <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="Rechercher un élève…" class="input-field w-full pl-10">
+    </div>
 
-      <input type="text" name="q" value="{{ q }}"
-             class="input-field w-full sm:min-w-[200px]"
-             placeholder="Rechercher un élève…">
-
-      <select name="class_id"
-              class="input-field flex-1">
-        <option value="">Toutes les classes</option>
-        {% for cls in classes %}
-          <option value="{{ cls.id }}" {% if class_id == cls.id|stringformat:"s" %}selected{% endif %}>{{ cls.name }}</option>
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="bg-gray-100 rounded-lg p-1 flex gap-1 overflow-x-auto scrollbar-hide">
+        {% for s_val, s_label in tab_list %}
+        <button type="button"
+                hx-get="{% url 'payments:dashboard' %}?status={{ s_val }}&q={{ q }}&class_id={{ class_id }}"
+                hx-target="#payment-list-area" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#pay-skel"
+                @click="setStatus('{{ s_val }}')"
+                :class="currentStatus === '{{ s_val }}' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
+                class="px-4 py-2 rounded-md text-sm transition-all whitespace-nowrap">{{ s_label }}</button>
         {% endfor %}
+      </div>
+      <select name="class_id" class="input-field sm:ml-auto sm:w-48 shrink-0">
+        <option value="">Toutes les classes</option>
+        {% for cls in classes %}<option value="{{ cls.id }}" {% if class_id == cls.id|stringformat:"s" %}selected{% endif %}>{{ cls.name }}</option>{% endfor %}
       </select>
+    </div>
 
-      <input type="hidden" name="status" value="{{ status }}">
-    </form>
+    <input type="hidden" name="status" value="{{ status }}">
+  </form>
 
-    <div class="hidden sm:flex self-start items-center gap-1">
-      <button @click="setView('cards')"
-              :class="viewMode === 'cards' ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
-              class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-        </svg>
-      </button>
-      <button @click="setView('table')"
-              :class="viewMode === 'table' ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
-              class="p-2 rounded-lg border border-gray-200 transition" title="Vue tableau">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
-        </svg>
-      </button>
+  <div class="relative">
+    <div id="payment-list-area">
+      {% include "payments/partials/payment_list_body.html" %}
+    </div>
+    {# Skeleton de chargement (hx-indicator), masqué hors requête. #}
+    <div id="pay-skel" class="htmx-indicator pointer-events-none absolute inset-0 z-10 bg-white/70 backdrop-blur-[1px] flex flex-col gap-2.5 pt-1">
+      {% for _ in "12345678" %}<div class="skeleton h-14 rounded-xl"></div>{% endfor %}
     </div>
   </div>
 
-  <div class="bg-gray-100 rounded-lg p-1 flex gap-1 overflow-x-auto mb-5">
-    {% for s_val, s_label in tab_list %}
-    <button type="button"
-            hx-get="{% url 'payments:dashboard' %}?status={{ s_val }}&q={{ q }}&class_id={{ class_id }}"
-            hx-target="#payment-list-area"
-            hx-swap="outerHTML"
-            hx-push-url="true"
-            @click="setStatus('{{ s_val }}')"
-            :class="currentStatus === '{{ s_val }}' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'"
-            class="px-4 py-2 rounded-md text-sm transition-all whitespace-nowrap">
-      {{ s_label }}
-    </button>
-    {% endfor %}
+  {# Panneau d'encaissement (finance:collect-panel) — téléporté → au-dessus du nav mobile. #}
+  <template x-teleport="body">
+  <div>
+    <div x-show="$store.payments.showPanel" x-cloak
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[55]"
+         @click="$store.payments.showPanel = false"></div>
+    <div x-show="$store.payments.showPanel" x-cloak
+         class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-[60] flex flex-col"
+         x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+      <div id="collect-panel-body" class="h-full flex flex-col"></div>
+    </div>
   </div>
+  </template>
 
-  <div id="payment-list-area">
-    {% include "payments/partials/payment_list_body.html" %}
-  </div>
-
-  <div x-show="$store.payments.showPanel" x-cloak
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40"
-       @click="$store.payments.showPanel = false">
-  </div>
-
-  {% comment %}Panneau d'encaissement = panneau d'ALLOCATION du lot 5 (finance:collect-panel),
-     chargé par HTMX dans #collect-panel-body. Plus aucun ancien panneau non-alloué.{% endcomment %}
-  <div x-show="$store.payments.showPanel" x-cloak
-       class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col"
-       x-transition:enter="transition ease-out duration-300"
-       x-transition:enter-start="translate-x-full"
-       x-transition:enter-end="translate-x-0"
-       x-transition:leave="transition ease-in duration-200"
-       x-transition:leave-start="translate-x-0"
-       x-transition:leave-end="translate-x-full">
-    <div id="collect-panel-body" class="h-full flex flex-col"></div>
-  </div>
-
+  {# Modale historique — téléportée #}
+  <template x-teleport="body">
   <div x-show="$store.payments.showHistory" x-cloak
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
@@ -132,7 +106,7 @@ function paymentsPageData() {
        x-transition:leave="transition ease-in duration-150"
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+       class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center p-4"
        @click.self="$store.payments.showHistory = false">
     <div id="payment-history-modal"
          class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-xl max-h-[85vh] overflow-y-auto"
@@ -145,7 +119,11 @@ function paymentsPageData() {
          x-transition:leave-end="opacity-0 scale-95 translate-y-2">
     </div>
   </div>
+  </template>
 
+  {# Panneau reçu (overlay + panel + footer bar) — téléporté → au-dessus du nav #}
+  <template x-teleport="body">
+  <div>
   <!-- ── Receipt panel overlay ─────────────────────────────────── -->
   <div x-show="$store.payments.showReceiptPanel" x-cloak
        x-transition:enter="transition ease-out duration-200"
@@ -180,6 +158,8 @@ function paymentsPageData() {
        class="fixed bottom-0 left-0 right-0 lg:left-16 z-[80] bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between">
     <!-- contenu injecté par HTMX OOB depuis receipt_preview_panel.html -->
   </div>
+  </div>
+  </template>
 
 </div>
 {% endblock %}
