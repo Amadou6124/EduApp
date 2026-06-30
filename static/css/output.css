@@ -5846,10 +5846,6 @@ p {
     height: 16rem;
   }
 
-  .sm\:min-h-0 {
-    min-height: 0px;
-  }
-
   .sm\:min-h-\[56px\] {
     min-height: 56px;
   }

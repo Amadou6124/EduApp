@@ -1,84 +1,53 @@
-<div id="announcement-{{ ann.pk }}"
-     class="bg-white rounded-xl border border-gray-200 shadow-sm p-4
-            flex items-start gap-4 animate-fade-in">
+{% load humanize %}
+{# Carte annonce — accusés de lecture (publiée) ou actions (brouillon). Contexte : ann (+ reach/read_count/read_pct). #}
+<div id="announcement-{{ ann.pk }}" class="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-3 animate-fade-in">
 
-  {# Icône statut #}
-  <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5
-              {% if ann.is_published %}bg-green-50{% else %}bg-gray-100{% endif %}">
-    {% if ann.is_published %}
-    <i data-lucide="send" class="w-5 h-5 text-green-600"></i>
-    {% else %}
-    <i data-lucide="file-edit" class="w-5 h-5 text-gray-500"></i>
-    {% endif %}
+  <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 {% if ann.is_published %}bg-green-50{% else %}bg-gray-100{% endif %}">
+    <i data-lucide="{% if ann.is_published %}send{% else %}file-edit{% endif %}" class="w-4 h-4 {% if ann.is_published %}text-green-600{% else %}text-gray-500{% endif %}"></i>
   </div>
 
-  {# Corps #}
   <div class="flex-1 min-w-0">
-
-    {# Badges #}
+    {# Badges statut + audience #}
     <div class="flex items-center gap-2 flex-wrap mb-1.5">
-      {% if ann.is_published %}
-      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700">
-        Publiée
-      </span>
-      {% else %}
-      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">
-        Brouillon
-      </span>
-      {% endif %}
-
-      {% if ann.audience == 'school' %}
-      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-100 text-primary-700">
-        <i data-lucide="users" class="w-2.5 h-2.5 inline-block -mt-0.5"></i> Tous les parents
-      </span>
-      {% elif ann.audience == 'class' %}
-      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100 text-indigo-700">
-        <i data-lucide="graduation-cap" class="w-2.5 h-2.5 inline-block -mt-0.5"></i>
-        {{ ann.target_class.name|default:"Classe" }}
-      </span>
-      {% elif ann.audience == 'student' %}
-      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700">
-        <i data-lucide="user" class="w-2.5 h-2.5 inline-block -mt-0.5"></i>
-        {{ ann.target_student.full_name|default:"Élève" }}
-      </span>
-      {% endif %}
+      {% if ann.is_published %}<span class="badge-success">Publiée</span>{% else %}<span class="badge-neutral">Brouillon</span>{% endif %}
+      {% if ann.audience == 'school' %}<span class="badge-info"><i data-lucide="users" class="w-2.5 h-2.5 inline-block -mt-0.5"></i> Tous les parents</span>
+      {% elif ann.audience == 'class' %}<span class="badge-purple"><i data-lucide="school" class="w-2.5 h-2.5 inline-block -mt-0.5"></i> Parents · {{ ann.target_class.name|default:"classe" }}</span>
+      {% elif ann.audience == 'student' %}<span class="badge-warning"><i data-lucide="user" class="w-2.5 h-2.5 inline-block -mt-0.5"></i> Parents · {{ ann.target_student.full_name|default:"élève" }}</span>{% endif %}
     </div>
 
-    {# Titre + corps #}
     <p class="font-semibold text-gray-900 truncate">{{ ann.title }}</p>
     <p class="text-sm text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{{ ann.body }}</p>
 
-    {# Meta #}
-    <p class="text-xs text-gray-400 mt-2">
-      {{ ann.author.full_name }} · {{ ann.created_at|date:"j N Y" }}
-      {% if ann.is_published and ann.published_at %}
-      · <span class="text-green-600">Publiée le {{ ann.published_at|date:"j N Y" }}</span>
+    {% if ann.is_published %}
+      {# Accusés de lecture #}
+      <div class="flex items-center gap-4 mt-2.5 text-xs flex-wrap">
+        <span class="text-gray-600 flex items-center gap-1.5"><i data-lucide="send" class="w-3.5 h-3.5"></i> Envoyée à <span class="font-semibold text-gray-800">{{ ann.reach }}</span></span>
+        <span class="{% if ann.reach %}text-green-600{% else %}text-gray-400{% endif %} flex items-center gap-1.5"><i data-lucide="eye" class="w-3.5 h-3.5"></i> Lue par <span class="font-semibold">{{ ann.read_count }}</span>{% if ann.reach %} · {{ ann.read_pct }}%{% endif %}</span>
+        <span class="ml-auto text-gray-400">{{ ann.author.full_name }} · {{ ann.published_at|date:"j N" }}</span>
+      </div>
+      {% if ann.reach %}
+        <div class="h-1 rounded-full bg-gray-100 overflow-hidden mt-1.5"><div class="h-full rounded-full bg-green-500" style="width:{{ ann.read_pct }}%"></div></div>
       {% endif %}
-    </p>
-
+    {% else %}
+      <p class="text-xs text-gray-400 mt-2">{{ ann.author.full_name }} · {{ ann.created_at|date:"j N Y" }}</p>
+      <div class="flex items-center gap-2 mt-2.5">
+        <button type="button"
+                onclick="confirmPublish('{% url 'schools:announcement-publish' ann.pk %}', '#announcement-{{ ann.pk }}', '{{ ann.title|escapejs }}')"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition">
+          <i data-lucide="send" class="w-3.5 h-3.5"></i> Publier
+        </button>
+        <button type="button"
+                hx-get="{% url 'schools:announcement-form' %}?id={{ ann.pk }}" hx-target="#ann-form-body" hx-swap="innerHTML"
+                hx-on::after-request="if(event.detail.successful) window.dispatchEvent(new CustomEvent('open-announcement-panel'))"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-xs font-medium transition">
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Modifier
+        </button>
+        <button type="button"
+                onclick="confirmDeleteAnnouncement('{% url 'schools:announcement-delete' ann.pk %}', '#announcement-{{ ann.pk }}')"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 text-xs font-medium transition">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Supprimer
+        </button>
+      </div>
+    {% endif %}
   </div>
-
-  {# Actions (brouillon uniquement) #}
-  {% if not ann.is_published %}
-  <div class="flex flex-col gap-2 shrink-0">
-    <button type="button"
-            onclick="confirmPublish('{% url 'schools:announcement-publish' ann.pk %}', '#announcement-{{ ann.pk }}', '{{ ann.title|escapejs }}')"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                   bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold
-                   transition-colors min-h-[44px] sm:min-h-0">
-      <i data-lucide="send" class="w-3.5 h-3.5"></i>
-      Publier
-    </button>
-    <button type="button"
-            onclick="confirmDeleteAnnouncement('{% url 'schools:announcement-delete' ann.pk %}', '#announcement-{{ ann.pk }}')"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                   bg-white border border-gray-200 hover:bg-red-50 hover:border-red-200
-                   text-gray-500 hover:text-red-600 text-xs font-medium
-                   transition-colors min-h-[44px] sm:min-h-0">
-      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-      Supprimer
-    </button>
-  </div>
-  {% endif %}
-
 </div>
