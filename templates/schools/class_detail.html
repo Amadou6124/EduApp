@@ -6,6 +6,11 @@
 
 {% block header_actions %}
   <div class="flex items-center gap-2">
+    <a href="{% url 'bulletins:main' %}?class={{ school_class.id }}"
+       class="flex items-center gap-2 px-4 h-10 bg-white border border-gray-200 text-gray-600 hover:border-primary-600 hover:text-primary-600 text-sm font-medium rounded-lg transition"
+       title="{% trans 'Bilan officiel : bulletins, moyenne générale pondérée, classement' %}">
+      <i data-lucide="file-text" class="w-4 h-4 shrink-0"></i><span class="hidden sm:inline">{% trans "Bulletins" %}</span>
+    </a>
     <a href="{% url 'students:list' %}?class_id={{ school_class.id }}"
        class="flex items-center gap-2 px-4 h-10 bg-white border border-gray-200 text-gray-600 hover:border-primary-600 hover:text-primary-600 text-sm font-medium rounded-lg transition">
       <i data-lucide="users" class="w-4 h-4 shrink-0"></i><span class="hidden sm:inline">{% trans "Voir élèves" %}</span>
@@ -64,12 +69,12 @@
         </div>
       </div>
     </div>
-    <div class="kpi">
+    <div class="kpi" title="{% trans 'Moyenne simple, toutes périodes confondues (indicative). La moyenne générale officielle (pondérée par coefficients) est dans les bulletins.' %}">
       <div class="flex items-center gap-3">
         <div class="kpi-icon bg-gray-50 text-gray-600 shrink-0"><i data-lucide="book-open" class="w-5 h-5"></i></div>
         <div class="min-w-0">
           <p class="kpi-value {% if k.moyenne == None %}{% elif k.moyenne < 10 %}text-red-600{% elif k.moyenne < 12 %}text-amber-600{% else %}text-green-600{% endif %}">{% if k.moyenne != None %}{{ k.moyenne }}<span class="text-sm text-gray-400">/20</span>{% else %}—{% endif %}</p>
-          <p class="kpi-label">{% trans "Moyenne" %}</p>
+          <p class="kpi-label">{% trans "Moy. indicative" %}</p>
         </div>
       </div>
     </div>
@@ -116,9 +121,12 @@
       {% endif %}
     </div>
 
-    {# Moyenne par matière #}
+    {# Moyenne par matière (indicative, toutes périodes) #}
     <div class="card p-5">
-      <div class="text-sm font-semibold text-gray-900 mb-3">{% trans "Moyenne par matière" %}</div>
+      <div class="mb-3">
+        <span class="text-sm font-semibold text-gray-900">{% trans "Moyenne par matière" %}</span>
+        <span class="text-xs text-gray-400 font-normal ml-1">· {% trans "indicative" %}</span>
+      </div>
       {% if cockpit.subjects_avg %}
         <div class="flex flex-col gap-2.5">
           {% for s in cockpit.subjects_avg %}
