@@ -1639,6 +1639,10 @@ p {
   left: 50%;
 }
 
+.left-2\.5 {
+  left: 0.625rem;
+}
+
 .left-3 {
   left: 0.75rem;
 }
@@ -1924,6 +1928,10 @@ p {
 
 .mr-0\.5 {
   margin-right: 0.125rem;
+}
+
+.mr-1 {
+  margin-right: 0.25rem;
 }
 
 .mt-0\.5 {
@@ -2757,6 +2765,10 @@ p {
        break-inside: avoid;
 }
 
+.grid-flow-row-dense {
+  grid-auto-flow: row dense;
+}
+
 .grid-cols-1 {
   grid-template-columns: repeat(1, minmax(0, 1fr));
 }
@@ -3182,6 +3194,11 @@ p {
   border-color: rgb(129 140 248 / var(--tw-border-opacity, 1));
 }
 
+.border-indigo-500 {
+  --tw-border-opacity: 1;
+  border-color: rgb(99 102 241 / var(--tw-border-opacity, 1));
+}
+
 .border-orange-200 {
   --tw-border-opacity: 1;
   border-color: rgb(254 215 170 / var(--tw-border-opacity, 1));
@@ -3487,6 +3504,11 @@ p {
 .bg-indigo-50 {
   --tw-bg-opacity: 1;
   background-color: rgb(238 242 255 / var(--tw-bg-opacity, 1));
+}
+
+.bg-indigo-500 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(99 102 241 / var(--tw-bg-opacity, 1));
 }
 
 .bg-orange-100 {
@@ -4139,6 +4161,10 @@ p {
 
 .pr-14 {
   padding-right: 3.5rem;
+}
+
+.pr-2 {
+  padding-right: 0.5rem;
 }
 
 .pr-3 {
@@ -5198,6 +5224,11 @@ p {
   border-color: rgb(134 239 172 / var(--tw-border-opacity, 1));
 }
 
+.hover\:border-indigo-300:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(165 180 252 / var(--tw-border-opacity, 1));
+}
+
 .hover\:border-primary-200:hover {
   --tw-border-opacity: 1;
   border-color: rgb(199 210 254 / var(--tw-border-opacity, 1));
@@ -5550,9 +5581,14 @@ p {
   --tw-ring-color: rgb(30 58 95 / 0.2);
 }
 
-.focus\:ring-amber-300:focus {
+.focus\:ring-indigo-300:focus {
   --tw-ring-opacity: 1;
-  --tw-ring-color: rgb(252 211 77 / var(--tw-ring-opacity, 1));
+  --tw-ring-color: rgb(165 180 252 / var(--tw-ring-opacity, 1));
+}
+
+.focus\:ring-primary-400:focus {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(129 140 248 / var(--tw-ring-opacity, 1));
 }
 
 .focus\:ring-primary-500:focus {
@@ -6140,6 +6176,10 @@ p {
 
   .lg\:col-span-1 {
     grid-column: span 1 / span 1;
+  }
+
+  .lg\:col-span-2 {
+    grid-column: span 2 / span 2;
   }
 
   .lg\:-mx-8 {

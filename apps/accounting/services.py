@@ -2,6 +2,7 @@
 from decimal import Decimal
 
 from django.db.models import Case, DecimalField, F, Sum, When
+from django.db.models.functions import Coalesce
 
 from apps.accounts.models import UserRole
 
@@ -14,9 +15,14 @@ def compute_teacher_hours(school, year, month):
     """
     from .models import TeacherAttendance
 
-    weighted = Case(
-        When(session='full', then=F('class_subject__duration_hours') * 2),
-        default=F('class_subject__duration_hours'),
+    # Heures réelles si saisies (« partiel »), sinon durée prévue (×2 si journée).
+    weighted = Coalesce(
+        F('hours'),
+        Case(
+            When(session='full', then=F('class_subject__duration_hours') * 2),
+            default=F('class_subject__duration_hours'),
+            output_field=DecimalField(max_digits=8, decimal_places=1),
+        ),
         output_field=DecimalField(max_digits=8, decimal_places=1),
     )
     hours = {}

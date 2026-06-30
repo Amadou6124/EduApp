@@ -206,14 +206,29 @@ _LEVEL_BADGE = {
 _SESSIONS = ['morning', 'afternoon', 'full']
 
 
+def _hour_presets(duration):
+    """4 raccourcis d'heures se terminant sur la durée prévue (ex. 2h → 0,5/1/1,5/2 ;
+    3h → 1,5/2/2,5/3). Le « partiel » exact reste possible en saisie libre."""
+    d = float(duration or 2)
+    vals = [round(d - 1.5, 1), round(d - 1.0, 1), round(d - 0.5, 1), round(d, 1)]
+    out = []
+    for v in vals:
+        if v >= 0.5:
+            s = ('%g' % v)  # 1.5 / 2
+            out.append({'v': s, 'label': s.replace('.', ',')})
+    return out
+
+
 @login_required
 @director_or_emargement_required
 def emargement_dashboard(request):
-    """Émargement du jour, cours groupés par classe. 3 requêtes, zéro N+1."""
+    """Émargement « carnet » : séances vacataires à émarger (heures réelles +
+    tarif) + permanents présumés présents (on signale les exceptions). Honnête :
+    pas de planning → on enregistre ce qui a eu lieu, le résumé compte le réel."""
     from datetime import datetime as _dt, date as _date, timedelta
     from collections import OrderedDict
     from apps.schools.models import ClassSubject
-    from .models import TeacherAttendance
+    from .models import TeacherAttendance, EmployeeProfile, EmploymentType, VacataireRate
 
     school = get_school(request)
     if not school.accounting_enabled:
@@ -225,41 +240,78 @@ def emargement_dashboard(request):
     except (ValueError, TypeError):
         selected_date = today
 
-    cs_list = (
+    # Qui est vacataire (école, actif) → quels cours sont « à émarger ».
+    vac_user_ids = set(
+        EmployeeProfile.objects.filter(
+            membership__school=school, membership__is_active=True,
+            employment_type=EmploymentType.VACATAIRE, is_active=True,
+        ).values_list('membership__user_id', flat=True)
+    )
+
+    cs_list = list(
         ClassSubject.objects
         .filter(school_class__school=school, school_class__is_active=True,
                 is_active=True, teacher__isnull=False)
         .select_related('subject', 'teacher', 'school_class')
-        .order_by('school_class__level', 'school_class__name', 'order', 'subject__name')
+        .order_by('teacher__full_name', 'subject__name', 'school_class__name')
     )
+    vac_ids = [cs.id for cs in cs_list if cs.teacher_id in vac_user_ids]
+    rates = {
+        vr.class_subject_id: vr.hourly_rate
+        for vr in VacataireRate.objects.filter(class_subject_id__in=vac_ids)
+    }
     att_map = {
-        (a.class_subject_id, a.session): a
-        for a in TeacherAttendance.objects.filter(school=school, date=selected_date).select_related('substitute')
+        a.class_subject_id: a
+        for a in TeacherAttendance.objects
+        .filter(school=school, date=selected_date, session='morning')
+        .select_related('substitute')
     }
 
-    by_class = OrderedDict()
-    init_state = {}
-    for cs in cs_list:
-        by_class.setdefault(cs.school_class_id, {'sc': cs.school_class, 'courses': []})
-        sessions = {}
-        for s in _SESSIONS:
-            a = att_map.get((cs.id, s))
-            sessions[s] = {
-                'status':   a.status if a else '',
-                'sub_id':   str(a.substitute_id) if a and a.substitute_id else '',
-                'sub_name': a.substitute.full_name if a and a.substitute else '',
-            }
-        init_state[str(cs.id)] = sessions
-        by_class[cs.school_class_id]['courses'].append({
-            'cs': cs,
-            'is_self': cs.teacher_id == request.user.id,   # anti-fraude UI
-        })
+    init_state, vac_groups, perm_by_class = {}, OrderedDict(), OrderedDict()
+    sessions_done, day_amount, absences = 0, 0, 0
+    perm_teacher_ids = set()
 
-    classes_data = [{
-        'school_class': e['sc'], 'courses': e['courses'], 'total': len(e['courses']),
-        'level_badge': _LEVEL_BADGE.get(e['sc'].level, 'bg-gray-100 text-gray-600'),
-        'course_ids': [c['cs'].id for c in e['courses']],
-    } for e in by_class.values()]
+    for cs in cs_list:
+        a = att_map.get(cs.id)
+        status = a.status if a else ''
+        actual = a.hours if (a and a.hours is not None) else None
+        init_state[str(cs.id)] = {
+            'status':   status,
+            'hours':    (str(actual) if actual is not None else ''),
+            'sub_id':   str(a.substitute_id) if a and a.substitute_id else '',
+            'sub_name': a.substitute.full_name if a and a.substitute else '',
+        }
+        if status == 'absent':
+            absences += 1
+
+        if cs.teacher_id in vac_user_ids:
+            rate = rates.get(cs.id)
+            eff = actual if actual is not None else cs.duration_hours
+            if status in ('present', 'replaced'):
+                sessions_done += 1
+            if status == 'present' and rate:
+                day_amount += rate * eff
+            g = vac_groups.setdefault(cs.teacher_id, {'teacher': cs.teacher, 'courses': []})
+            g['courses'].append({
+                'cs': cs, 'rate': rate, 'duration': cs.duration_hours,
+                'presets': _hour_presets(cs.duration_hours),
+            })
+        else:
+            perm_teacher_ids.add(cs.teacher_id)
+            g = perm_by_class.setdefault(cs.school_class_id, {'sc': cs.school_class, 'courses': []})
+            g['courses'].append({'cs': cs})
+
+    vac_groups = [{
+        'teacher': g['teacher'], 'courses': g['courses'],
+        'course_ids': [c['cs'].id for c in g['courses']],
+    } for g in vac_groups.values()]
+    perm_groups = []
+    for e in perm_by_class.values():
+        teachers = ' '.join(sorted({c['cs'].teacher.full_name for c in e['courses']}))
+        perm_groups.append({
+            'school_class': e['sc'], 'courses': e['courses'],
+            'search': f"{e['sc'].name} {teachers}".lower(),
+        })
 
     return render(request, 'accounting/emargement.html', {
         'school': school,
@@ -267,8 +319,12 @@ def emargement_dashboard(request):
         'today': today,
         'prev_date': selected_date - timedelta(days=1),
         'next_date': selected_date + timedelta(days=1),
-        'classes_data': classes_data,
-        'total_courses': sum(c['total'] for c in classes_data),
+        'vac_groups': vac_groups,
+        'vac_teacher_count': len(vac_groups),
+        'perm_groups': perm_groups,
+        'perm_total': sum(len(g['courses']) for g in perm_groups),
+        'perm_teacher_count': len(perm_teacher_ids),
+        'summary': {'sessions_done': sessions_done, 'day_amount': day_amount, 'absences': absences},
         'init_state': init_state,
     })
 
@@ -307,7 +363,14 @@ def emargement_save(request):
     session = request.POST.get('session', 'morning')
     if session not in {c[0] for c in SessionType.choices}:
         session = 'morning'
+
     status = request.POST.get('status', '')
+    # Statut vide → dé-marquage : on supprime l'émargement éventuel.
+    if status == '':
+        TeacherAttendance.objects.filter(
+            class_subject=cs, date=d, session=session,
+        ).delete()
+        return HttpResponse(status=204)
     if status not in {c[0] for c in TeacherAttendanceStatus.choices}:
         return HttpResponse(status=400)
 
@@ -319,11 +382,18 @@ def emargement_save(request):
                 pk=sub_id, memberships__school=school, memberships__role=UserRole.TEACHER,
             ).first()
 
+    # Heures réelles (« partiel ») : uniquement pour un cours assuré (présent).
+    hours = None
+    if status == 'present':
+        hours = _parse_money(request.POST.get('hours'))  # accepte décimaux via parse
+        if hours is not None and hours <= 0:
+            hours = None
+
     TeacherAttendance.objects.update_or_create(
         class_subject=cs, date=d, session=session,
         defaults={
             'teacher': cs.teacher, 'school': school, 'status': status,
-            'substitute': substitute, 'recorded_by': request.user,
+            'hours': hours, 'substitute': substitute, 'recorded_by': request.user,
             'note': request.POST.get('note', '').strip()[:200],
         },
     )

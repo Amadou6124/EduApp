@@ -1,103 +1,194 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}Émargement{% endblock %}
-{% block page_title %}Émargement du jour{% endblock %}
+{% block page_title %}Émargement{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto" x-data="emargement()">
+<div class="max-w-5xl mx-auto" x-data="emargement()">
 
-  {# ── Navigation date ── #}
+  {# ── Navigation date : ‹ ›, date cliquable (calendrier), Aujourd'hui ── #}
   <div class="flex items-center justify-center gap-2 mb-5">
-    <a href="?date={{ prev_date|date:'Y-m-d' }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50" title="Jour précédent"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
-    <div class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-800 min-w-[180px] text-center">{{ selected_date|date:"l j F Y"|capfirst }}</div>
-    <a href="?date={{ next_date|date:'Y-m-d' }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50" title="Jour suivant"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
+    <a href="?date={{ prev_date|date:'Y-m-d' }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50" aria-label="Jour précédent"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
+    <label class="relative">
+      <span class="block px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-800 min-w-[180px] text-center cursor-pointer">{{ selected_date|date:"l j F"|capfirst }}</span>
+      <input type="date" value="{{ selected_date|date:'Y-m-d' }}"
+             onchange="if(this.value)window.location.href='?date='+this.value"
+             class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" aria-label="Choisir une date">
+    </label>
+    <a href="?date={{ next_date|date:'Y-m-d' }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50" aria-label="Jour suivant"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
     {% if selected_date != today %}<a href="{% url 'accounting:emargement' %}" class="px-3 py-2 rounded-lg bg-primary-600 text-white text-xs font-medium">Aujourd'hui</a>{% endif %}
   </div>
 
-  {# ── Stats ── #}
-  <div class="flex items-center justify-center gap-3 mb-6 flex-wrap">
-    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-sm font-semibold"><i data-lucide="check-circle" class="w-4 h-4"></i> <span x-text="statEmarged()"></span> émargés</span>
-    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 text-sm font-semibold"><i data-lucide="clock" class="w-4 h-4"></i> <span x-text="statPending()"></span> en attente</span>
-    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-100 text-red-700 text-sm font-semibold"><i data-lucide="x-circle" class="w-4 h-4"></i> <span x-text="statAbsent()"></span> absents</span>
+  {# ── Résumé réel du jour ── #}
+  <div class="flex items-center justify-center gap-2 mb-6 flex-wrap">
+    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-sm font-medium"><i data-lucide="circle-check" class="w-4 h-4"></i> {{ summary.sessions_done }} séance{{ summary.sessions_done|pluralize }} émargée{{ summary.sessions_done|pluralize }}</span>
+    {% if vac_groups %}<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-sm font-medium"><i data-lucide="banknote" class="w-4 h-4"></i> {{ summary.day_amount|floatformat:0|intcomma }} FCFA</span>{% endif %}
+    {% if summary.absences %}<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-sm font-medium"><i data-lucide="alert-triangle" class="w-4 h-4"></i> {{ summary.absences }} absence{{ summary.absences|pluralize }}</span>{% endif %}
   </div>
 
-  {% if classes_data %}
-  <div class="space-y-3">
-    {% for c in classes_data %}
-    <div class="card overflow-hidden">
-      {# En-tête classe (accordéon) #}
-      <button @click="toggle('{{ c.school_class.id }}')" class="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 transition text-left">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold {{ c.level_badge }}">{{ c.school_class.get_level_display }}</span>
-          <span class="text-sm font-semibold text-gray-800 truncate">{{ c.school_class.name }}</span>
-          <span class="text-xs text-gray-400">· {{ c.total }} cours</span>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <span class="text-xs font-semibold text-gray-500"><span x-text="classEmarged({{ c.course_ids }})"></span>/{{ c.total }}</span>
-          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="isOpen('{{ c.school_class.id }}') ? 'rotate-180' : ''"></i>
-        </div>
-      </button>
+  {# ── Onglets Vacataires / Permanents ── #}
+  {% if vac_groups and perm_groups %}
+  <div class="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl max-w-md mx-auto">
+    <button type="button" @click="tab='vac'" :class="tab==='vac' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition">Vacataires <span class="opacity-60">· {{ vac_teacher_count }}</span></button>
+    <button type="button" @click="tab='perm'" :class="tab==='perm' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition">Permanents <span class="opacity-60">· {{ perm_teacher_count }}</span></button>
+  </div>
+  {% endif %}
 
-      {# Cours #}
-      <div x-show="isOpen('{{ c.school_class.id }}')" x-cloak class="border-t border-gray-100 divide-y divide-gray-50">
-        {% for course in c.courses %}
-        {% with cs=course.cs csid=course.cs.id|stringformat:'s' %}
+  {# ── Vacataires · séances du jour ── #}
+  {% if vac_groups %}
+  <div x-show="tab==='vac'" x-cloak>
+  <div class="flex items-center justify-between gap-3 mb-2">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Vacataires · séances du jour</p>
+    <div class="relative w-full max-w-[220px]">
+      <i data-lucide="search" class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+      <input x-model="q" type="text" placeholder="Rechercher un enseignant…"
+             class="w-full border border-gray-200 rounded-lg pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400">
+    </div>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-2.5 items-start grid-flow-row-dense mb-6">
+    {% for g in vac_groups %}
+    <div x-show="q === '' || '{{ g.teacher.full_name|lower|escapejs }}'.includes(q.toLowerCase().trim())"
+         :class="openTeacher[{{ g.teacher.id }}] ? 'lg:col-span-2' : ''"
+         class="card p-0 overflow-hidden">
+      <button type="button" @click="openTeacher[{{ g.teacher.id }}] = !openTeacher[{{ g.teacher.id }}]"
+              class="w-full flex items-center justify-between gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition text-left">
+        <span class="flex items-center gap-2 min-w-0">
+          <i data-lucide="user" class="w-3.5 h-3.5 text-gray-400 shrink-0"></i>
+          <span class="text-sm font-semibold text-gray-700 truncate">{{ g.teacher.full_name }}</span>
+          <span class="text-xs text-gray-400">· {{ g.courses|length }} cours</span>
+        </span>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="text-xs font-medium px-2 py-0.5 rounded-full"
+                :class="teacherDone({{ g.course_ids }}) > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
+            <span x-text="teacherDone({{ g.course_ids }})"></span>/{{ g.courses|length }}
+          </span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="openTeacher[{{ g.teacher.id }}] ? 'rotate-180' : ''"></i>
+        </span>
+      </button>
+      <div x-show="openTeacher[{{ g.teacher.id }}]" x-cloak class="divide-y divide-gray-50 border-t border-gray-100">
+        {% for c in g.courses %}{% with cs=c.cs id=c.cs.id|stringformat:'s' %}
         <div class="px-4 py-3">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ cs.subject.color }}"></span>
+          <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ cs.subject.color|default:'#94a3b8' }}"></span>
             <span class="text-sm font-medium text-gray-900">{{ cs.subject.name }}</span>
-            <span class="text-xs text-gray-400">· {{ cs.teacher.full_name }} · {{ cs.duration_hours|floatformat:"-1" }}h</span>
+            <span class="text-xs text-gray-400">· {{ cs.school_class.name }} · prévu {{ c.duration|floatformat:'-1' }}h{% if c.rate %} · {{ c.rate|floatformat:0|intcomma }}/h{% endif %}</span>
+            <span x-show="cur('{{ id }}').status==='present' && {{ c.rate|default:0 }}" x-cloak class="ml-auto text-sm font-semibold text-gray-900" x-text="amount('{{ id }}', {{ c.rate|default:0 }}, {{ c.duration|stringformat:'s' }})+' FCFA'"></span>
           </div>
 
-          {% if course.is_self %}
-          <p class="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-3 py-2">Vous ne pouvez pas émarger votre propre cours.</p>
-          {% else %}
-          <div class="flex flex-wrap items-center gap-2">
-            {# Session #}
-            <select @change="setSession('{{ csid }}', $event.target.value)"
-                    class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
-              <option value="morning">Matin</option>
-              <option value="afternoon">Après-midi</option>
-              <option value="full">Journée</option>
-            </select>
+          {% if not c.rate %}
+          <p class="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-2.5 py-1.5 mb-2">Aucun tarif défini pour ce cours — <a href="{% url 'team:detail' cs.teacher_id %}" class="underline">configurer</a>.</p>
+          {% endif %}
 
-            {# Statut (toggle exclusif, optimiste) #}
-            <button type="button" @click="mark('{{ csid }}','present')"
-                    :class="cur('{{ csid }}').status==='present' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'"
+          {# Statuts #}
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button type="button" @click="mark('{{ id }}','present')"
+                    :class="isPresent('{{ id }}') ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'"
                     class="px-3 py-1.5 rounded-lg border text-xs font-medium transition flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5"></i> Présent</button>
-            <button type="button" @click="mark('{{ csid }}','absent')"
-                    :class="cur('{{ csid }}').status==='absent' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200 hover:border-red-300'"
+            <button type="button" @click="openPartial('{{ id }}')"
+                    :class="isPartial('{{ id }}') ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-600 border-gray-200 hover:border-amber-300'"
+                    class="px-3 py-1.5 rounded-lg border text-xs font-medium transition flex items-center gap-1"><i data-lucide="hourglass" class="w-3.5 h-3.5"></i> Partiel</button>
+            <button type="button" @click="mark('{{ id }}','absent')"
+                    :class="is('{{ id }}','absent') ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200 hover:border-red-300'"
                     class="px-3 py-1.5 rounded-lg border text-xs font-medium transition flex items-center gap-1"><i data-lucide="x" class="w-3.5 h-3.5"></i> Absent</button>
-            <button type="button" @click="mark('{{ csid }}','replaced')"
-                    :class="cur('{{ csid }}').status==='replaced' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-600 border-gray-200 hover:border-amber-300'"
+            <button type="button" @click="mark('{{ id }}','replaced')"
+                    :class="is('{{ id }}','replaced') ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'"
                     class="px-3 py-1.5 rounded-lg border text-xs font-medium transition flex items-center gap-1"><i data-lucide="repeat" class="w-3.5 h-3.5"></i> Remplacé</button>
           </div>
 
-          {# Remplaçant (si replaced) #}
-          <div x-show="cur('{{ csid }}').status==='replaced'" x-cloak class="mt-2">
-            <div x-show="cur('{{ csid }}').sub_name" class="text-xs text-amber-700 mb-1">Remplaçant : <span class="font-semibold" x-text="cur('{{ csid }}').sub_name"></span></div>
-            <input type="text" name="q" placeholder="Rechercher un remplaçant…"
-                   hx-get="{% url 'accounting:emargement-substitute' %}"
-                   hx-trigger="keyup changed delay:300ms"
-                   hx-target="#sub-results-{{ csid }}"
-                   hx-vals='{"cs": "{{ csid }}"}'
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300">
-            <div id="sub-results-{{ csid }}"></div>
+          {# Heures (partiel) : presets adaptatifs + saisie libre #}
+          <div x-show="partial['{{ id }}'] || isPartial('{{ id }}')" x-cloak class="flex flex-wrap items-center gap-1.5 mt-2">
+            <span class="text-xs text-gray-400 mr-1">Heures</span>
+            {% for p in c.presets %}
+            <button type="button" @click="setHours('{{ id }}','{{ p.v }}')"
+                    :class="cur('{{ id }}').hours==='{{ p.v }}' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300'"
+                    class="px-2.5 py-1 rounded-lg border text-xs font-medium transition">{{ p.label }}</button>
+            {% endfor %}
+            <input type="number" min="0.5" step="0.5" placeholder="autre"
+                   @change="setHoursFree('{{ id }}', $event)"
+                   class="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-primary-400">
           </div>
-          {% endif %}
+
+          {# Remplaçant #}
+          <div x-show="is('{{ id }}','replaced')" x-cloak class="mt-2">
+            <div x-show="cur('{{ id }}').sub_name" class="text-xs text-indigo-700 mb-1">Remplaçant : <span class="font-semibold" x-text="cur('{{ id }}').sub_name"></span></div>
+            <input type="text" name="q" placeholder="Rechercher un remplaçant…"
+                   hx-get="{% url 'accounting:emargement-substitute' %}" hx-trigger="keyup changed delay:300ms"
+                   hx-target="#sub-{{ id }}" hx-vals='{"cs": "{{ id }}"}'
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <div id="sub-{{ id }}"></div>
+          </div>
         </div>
-        {% endwith %}
-        {% endfor %}
+        {% endwith %}{% endfor %}
       </div>
     </div>
     {% endfor %}
   </div>
-  {% else %}
+  </div>
+  {% endif %}
+
+  {# ── Permanents · présumés présents (onglet) ── #}
+  {% if perm_groups %}
+  <div x-show="tab==='perm'" x-cloak>
+    {% if not vac_groups %}<p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Permanents · présumés présents</p>{% endif %}
+    <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+      <p class="text-xs text-gray-400">Tous présumés présents — signalez seulement les absences ou remplacements.</p>
+      <div class="relative w-full max-w-[220px]">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+        <input x-model="pq" type="text" placeholder="Classe ou enseignant…"
+               class="w-full border border-gray-200 rounded-lg pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400">
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-2.5 items-start grid-flow-row-dense">
+      {% for g in perm_groups %}
+      <div x-show="pq === '' || '{{ g.search|escapejs }}'.includes(pq.toLowerCase().trim())"
+           :class="openClass[{{ g.school_class.id }}] ? 'lg:col-span-2' : ''" class="card p-0 overflow-hidden">
+        <button type="button" @click="openClass[{{ g.school_class.id }}] = !openClass[{{ g.school_class.id }}]" class="w-full flex items-center justify-between gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition text-left">
+          <span class="flex items-center gap-2 min-w-0">
+            <i data-lucide="layout-grid" class="w-3.5 h-3.5 text-gray-400 shrink-0"></i>
+            <span class="text-sm font-semibold text-gray-700 truncate">{{ g.school_class.name }}</span>
+            <span class="text-xs text-gray-400">· {{ g.courses|length }} cours</span>
+          </span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="openClass[{{ g.school_class.id }}] ? 'rotate-180' : ''"></i>
+        </button>
+        <div x-show="openClass[{{ g.school_class.id }}]" x-cloak class="divide-y divide-gray-50 border-t border-gray-100">
+          {% for c in g.courses %}{% with cs=c.cs id=c.cs.id|stringformat:'s' %}
+          <div class="px-4 py-2.5 flex items-center gap-2 flex-wrap">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background:{{ cs.subject.color|default:'#94a3b8' }}"></span>
+            <span class="text-sm text-gray-800">{{ cs.subject.name }}</span>
+            <span class="text-xs text-gray-400">· {{ cs.teacher.full_name }}</span>
+            <span class="ml-auto flex items-center gap-1.5">
+              <button type="button" @click="mark('{{ id }}','absent')"
+                      :class="is('{{ id }}','absent') ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-500 border-gray-200 hover:border-red-300'"
+                      class="px-2.5 py-1 rounded-lg border text-xs font-medium transition">Absent</button>
+              <button type="button" @click="mark('{{ id }}','replaced')"
+                      :class="is('{{ id }}','replaced') ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'"
+                      class="px-2.5 py-1 rounded-lg border text-xs font-medium transition">Remplacé</button>
+            </span>
+            <div x-show="is('{{ id }}','replaced')" x-cloak class="w-full mt-1.5">
+              <div x-show="cur('{{ id }}').sub_name" class="text-xs text-indigo-700 mb-1">Remplaçant : <span class="font-semibold" x-text="cur('{{ id }}').sub_name"></span></div>
+              <input type="text" name="q" placeholder="Rechercher un remplaçant…"
+                     hx-get="{% url 'accounting:emargement-substitute' %}" hx-trigger="keyup changed delay:300ms"
+                     hx-target="#sub-{{ id }}" hx-vals='{"cs": "{{ id }}"}'
+                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              <div id="sub-{{ id }}"></div>
+            </div>
+          </div>
+          {% endwith %}{% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not vac_groups and not perm_groups %}
   <div class="card p-10 text-center">
     <i data-lucide="clipboard-list" class="w-12 h-12 mx-auto text-gray-300 mb-3"></i>
     <p class="text-sm text-gray-400">Aucun cours avec enseignant assigné.</p>
   </div>
   {% endif %}
+
 </div>
 
 {{ init_state|json_script:"initState" }}
@@ -105,53 +196,70 @@
   function emargement() {
     return {
       state: JSON.parse(document.getElementById('initState').textContent),
-      open: {},
-      session: {},
       csrf: '{{ csrf_token }}',
       date: '{{ selected_date|date:"Y-m-d" }}',
+      q: '', pq: '', tab: '{{ vac_groups|yesno:"vac,perm" }}', partial: {}, openClass: {}, openTeacher: {}, permOpen: false,
 
-      isOpen(id){ return this.open[id] !== false; },          // ouvert par défaut
-      toggle(id){ this.open[id] = !this.isOpen(id); },
-      curSession(id){ return this.session[id] || 'morning'; },
-      cur(id){ return this.state[id][this.curSession(id)]; },
-      setSession(id, s){ this.session[id] = s; },
+      cur(id){ return this.state[id]; },
+      teacherDone(ids){ return ids.filter(i => ['present', 'replaced'].includes(this.state[String(i)].status)).length; },
+      is(id, s){ return this.state[id].status === s; },
+      isPresent(id){ const c = this.state[id]; return c.status === 'present' && !c.hours; },
+      isPartial(id){ const c = this.state[id]; return c.status === 'present' && !!c.hours; },
+      haptic(){ try { navigator.vibrate && navigator.vibrate(8); } catch(e){} },
 
       mark(id, status){
-        const cell = this.state[id][this.curSession(id)];
-        cell.status = status;
-        if (status !== 'replaced'){ cell.sub_id=''; cell.sub_name=''; }
-        this.persist(id);
+        const c = this.state[id];
+        const prev = { status: c.status, hours: c.hours, sub_id: c.sub_id, sub_name: c.sub_name };
+        if (status === 'present') {
+          if (c.status === 'present' && !c.hours) { c.status = ''; }
+          else { c.status = 'present'; c.hours = ''; this.partial[id] = false; }
+        } else {
+          c.status = (c.status === status) ? '' : status;
+          c.hours = ''; this.partial[id] = false;
+        }
+        if (c.status !== 'replaced') { c.sub_id = ''; c.sub_name = ''; }
+        this.persist(id, prev); this.haptic();
       },
-      pickSub(id, subId, subName){
-        const cell = this.state[id][this.curSession(id)];
-        cell.status='replaced'; cell.sub_id=subId; cell.sub_name=subName;
-        this.persist(id);
+      openPartial(id){ this.partial[id] = true; },
+      setHours(id, h){
+        const c = this.state[id];
+        const prev = { status: c.status, hours: c.hours, sub_id: c.sub_id, sub_name: c.sub_name };
+        c.status = 'present'; c.hours = String(h); this.partial[id] = true;
+        this.persist(id, prev); this.haptic();
       },
-      persist(id){
-        const cell = this.state[id][this.curSession(id)];
+      setHoursFree(id, e){ const v = e.target.value; if (v && parseFloat(v) >= 0.5) this.setHours(id, v); },
+      pickSub(id, sid, name){
+        const c = this.state[id];
+        const prev = { status: c.status, hours: c.hours, sub_id: c.sub_id, sub_name: c.sub_name };
+        c.status = 'replaced'; c.sub_id = sid; c.sub_name = name;
+        this.persist(id, prev); this.haptic();
+      },
+      amount(id, rate, dur){
+        const c = this.state[id];
+        if (c.status !== 'present' || !rate) return '';
+        const h = parseFloat(c.hours || dur);
+        return new Intl.NumberFormat('fr-FR').format(Math.round(h * rate));
+      },
+      persist(id, prev){
+        const c = this.state[id];
         const body = new URLSearchParams({
-          class_subject_id: id, date: this.date, session: this.curSession(id),
-          status: cell.status, substitute_id: cell.sub_id || '',
+          class_subject_id: id, date: this.date, session: 'morning',
+          status: c.status, substitute_id: c.sub_id || '', hours: c.hours || '',
         });
         fetch("{% url 'accounting:emargement-save' %}", {
-          method:'POST',
-          headers:{'X-CSRFToken': this.csrf, 'Content-Type':'application/x-www-form-urlencoded'},
+          method: 'POST',
+          headers: { 'X-CSRFToken': this.csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
           body,
         }).then(r => {
           if (!r.ok) {
-            document.dispatchEvent(new CustomEvent('showToast', {detail:{message:"Échec de l'enregistrement.", type:'error'}}));
+            if (prev) Object.assign(this.state[id], prev);
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: "Échec de l'enregistrement.", type: 'error' } }));
           }
         }).catch(() => {
-          document.dispatchEvent(new CustomEvent('showToast', {detail:{message:'Réseau indisponible.', type:'error'}}));
+          if (prev) Object.assign(this.state[id], prev);
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Réseau indisponible.', type: 'error' } }));
         });
       },
-
-      marked(id){ return Object.values(this.state[id]).some(c => c.status); },
-      hasAbsent(id){ return Object.values(this.state[id]).some(c => c.status==='absent'); },
-      statEmarged(){ return Object.keys(this.state).filter(id => this.marked(id)).length; },
-      statPending(){ return Object.keys(this.state).length - this.statEmarged(); },
-      statAbsent(){ return Object.keys(this.state).filter(id => this.hasAbsent(id)).length; },
-      classEmarged(ids){ return ids.filter(id => this.marked(String(id))).length; },
     };
   }
   document.body.addEventListener('htmx:afterSwap', () => { if (window.lucide) lucide.createIcons(); });

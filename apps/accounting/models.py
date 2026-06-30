@@ -127,6 +127,11 @@ class TeacherAttendance(models.Model):
         choices=TeacherAttendanceStatus.choices,
         default=TeacherAttendanceStatus.PRESENT,
     )
+    hours = models.DecimalField(
+        _('heures réelles'), max_digits=4, decimal_places=1,
+        null=True, blank=True, validators=[MinValueValidator(Decimal('0.5'))],
+        help_text=_("Si vide, la durée prévue du cours est utilisée. Permet le « partiel »."),
+    )
     substitute = models.ForeignKey(
         'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='substitute_attendances', verbose_name=_('remplaçant'),
