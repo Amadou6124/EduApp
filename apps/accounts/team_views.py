@@ -1,7 +1,9 @@
 import json
+from collections import defaultdict
 from functools import wraps
 
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404
@@ -115,45 +117,71 @@ def _inactive_qs(school):
 
 @login_required
 def team_list(request):
-    school   = get_school(request)
-    teachers = _teachers_qs(school)
-    staff    = _staff_qs(school)
-    inactive = _inactive_qs(school)
+    """Annuaire unifié : directeur + staff + enseignants, recherche/filtre/pagination."""
+    school = get_school(request)
+    role_f = request.GET.get('role', 'all')
+    q      = request.GET.get('q', '').strip()
 
-    # Nombre de classes par enseignant (annotation distincte)
-    teacher_class_counts = (
-        ClassSubject.objects
-        .filter(school_class__school=school, teacher__role=UserRole.TEACHER, is_active=True)
-        .values('teacher_id')
-        .annotate(class_count=Count('school_class', distinct=True))
-    )
-    counts_by_teacher = {row['teacher_id']: row['class_count'] for row in teacher_class_counts}
+    team_roles = [UserRole.DIRECTOR, UserRole.STAFF, UserRole.TEACHER]
+    mqs = Membership.objects.filter(school=school, role__in=team_roles).select_related('user')
+    if role_f == 'inactive':
+        mqs = mqs.filter(is_active=False, role__in=[UserRole.TEACHER, UserRole.STAFF])
+    else:
+        mqs = mqs.filter(is_active=True)
+        if role_f in (UserRole.TEACHER, UserRole.STAFF, UserRole.DIRECTOR):
+            mqs = mqs.filter(role=role_f)
+    if q:
+        mqs = mqs.filter(Q(user__full_name__icontains=q) | Q(user__phone_number__icontains=q))
+    mqs = mqs.order_by('user__full_name')
 
-    # Enrichit chaque enseignant avec son nombre de classes (pas de N+1)
-    teachers_data = [
-        {'user': t, 'class_count': counts_by_teacher.get(t.pk, 0)}
-        for t in teachers
-    ]
+    page = Paginator(mqs, 30).get_page(request.GET.get('page'))
+    memberships = list(page)
 
-    total_active = teachers.count() + staff.count()
+    # Enrichissement batch (zéro N+1) : matières/classes des profs, permissions du staff.
+    teacher_ids = [m.user_id for m in memberships if m.role == UserRole.TEACHER]
+    staff_ids   = [m.user_id for m in memberships if m.role == UserRole.STAFF]
+    subj_by_teacher = defaultdict(list)
+    cls_by_teacher  = defaultdict(set)
+    if teacher_ids:
+        for cs in (ClassSubject.objects
+                   .filter(teacher_id__in=teacher_ids, is_active=True)
+                   .select_related('subject', 'school_class')
+                   .order_by('school_class__name', 'subject__name')):
+            subj_by_teacher[cs.teacher_id].append(cs)
+            cls_by_teacher[cs.teacher_id].add(cs.school_class_id)
+    perms = ({p.user_id: p for p in StaffPermission.objects.filter(user_id__in=staff_ids)}
+             if staff_ids else {})
 
-    t = teachers.count()
-    s = staff.count()
-    return render(request, 'team/team_list.html', {
-        'school':           school,
-        'teachers_data':    teachers_data,
-        'staff_members':    staff,
-        'inactive_members': inactive,
-        'stats': {
-            'total':    total_active,
-            'teachers': t,
-            'staff':    s,
-        },
-        'is_director':   request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
-        'perm_form':     StaffPermissionForm(),
-        'presets':       _PRESETS,
-        'page_subtitle': f"{t} enseignant{'s' if t != 1 else ''} · {s} staff",
-    })
+    rows = [{
+        'user':        m.user,
+        'role':        m.role,
+        'is_active':   m.is_active,
+        'subjects':    subj_by_teacher.get(m.user_id, []),
+        'class_count': len(cls_by_teacher.get(m.user_id, ())),
+        'perm':        perms.get(m.user_id),
+    } for m in memberships]
+
+    base = Membership.objects.filter(school=school, is_active=True)
+    t = base.filter(role=UserRole.TEACHER).count()
+    s = base.filter(role=UserRole.STAFF).count()
+    inactive_count = Membership.objects.filter(
+        school=school, is_active=False, role__in=[UserRole.TEACHER, UserRole.STAFF],
+    ).count()
+
+    ctx = {
+        'school':       school,
+        'rows':         rows,
+        'page_obj':     page,
+        'role_filter':  role_f,
+        'q':            q,
+        'stats':        {'total': t + s, 'teachers': t, 'staff': s, 'inactive': inactive_count},
+        'is_director':  request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
+        'perm_form':    StaffPermissionForm(),
+        'presets':      _PRESETS,
+    }
+    if request.htmx:
+        return render(request, 'team/partials/team_list_body.html', ctx)
+    return render(request, 'team/team_list.html', ctx)
 
 
 @login_required
@@ -183,6 +211,7 @@ def team_member_create(request):
         response = HttpResponse('')
         response['HX-Trigger'] = json.dumps({
             'close-panel': True,
+            'team-changed': True,
             'team-member-added': {
                 'phone_number': user.phone_number,
                 'temp_pwd':     form.cleaned_data['password'],
@@ -234,12 +263,13 @@ def _link_existing_member(request, school, link_user_id):
         response['HX-Redirect'] = reverse('team:detail', args=[user.pk]) + '?linked_staff=1'
         return response
 
-    # Enseignant lié → retour liste avec toast (rien à configurer).
+    # Enseignant lié → ferme le panneau + rafraîchit la liste (pas de reload complet).
     response = HttpResponse('')
     response['HX-Trigger'] = json.dumps({
+        'close-panel': True,
+        'team-changed': True,
         'showToast': {'message': f"{user.full_name} ajouté à l'équipe.", 'type': 'success'},
     })
-    response['HX-Refresh'] = 'true'
     return response
 
 
@@ -315,6 +345,7 @@ def team_member_edit(request, user_id):
             response = HttpResponse('')
             response['HX-Trigger'] = json.dumps({
                 'close-edit-panel': True,
+                'team-changed': True,
                 'showToast': {'message': 'Fiche mise à jour.', 'type': 'success'},
                 'team-member-updated': {'user_id': member.pk},
             })
@@ -380,36 +411,21 @@ def team_member_deactivate(request, user_id):
 
     # Empêche l'auto-désactivation du directeur connecté
     if member.pk == request.user.pk:
-        response = render(request, 'team/partials/member_card_refresh.html', {
-            'school':      school,
-            'member':      member,
-            'is_director': True,
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({
+            'showToast': {'message': 'Vous ne pouvez pas désactiver votre propre compte.', 'type': 'error'},
         })
-        response['HX-Trigger'] = json.dumps({
-            'showToast': {
-                'message': 'Vous ne pouvez pas désactiver votre propre compte.',
-                'type':    'error',
-            },
-        })
-        return response
+        return resp
 
-    # Désactivation PER-ÉCOLE : on retire le membre de l'école courante
-    # (Membership.is_active=False) sans toucher au compte global ni à ses
-    # rattachements dans d'autres écoles.
+    # Désactivation PER-ÉCOLE : Membership.is_active=False (compte global intact).
     Membership.objects.filter(user=member, school=school).update(is_active=False)
 
-    response = render(request, 'team/partials/member_card_deactivated.html', {
-        'school': school,
-        'member': member,
-        'is_director': True,
+    resp = HttpResponse(status=204)
+    resp['HX-Trigger'] = json.dumps({
+        'team-changed': True,
+        'showToast': {'message': f'{member.full_name} a été désactivé(e).', 'type': 'info'},
     })
-    response['HX-Trigger'] = json.dumps({
-        'showToast': {
-            'message': f'{member.full_name} a été désactivé(e).',
-            'type':    'info',
-        },
-    })
-    return response
+    return resp
 
 
 @login_required
@@ -427,9 +443,9 @@ def team_member_reactivate(request, user_id):
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = json.dumps({
+        'team-changed': True,
         'showToast': {'message': f'{member.full_name} réactivé(e).', 'type': 'success'},
     })
-    response['HX-Refresh'] = 'true'
     return response
 
 

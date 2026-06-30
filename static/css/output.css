@@ -1428,6 +1428,27 @@ p {
   color: rgb(126 34 206 / var(--tw-text-opacity, 1));
 }
 
+.badge-emerald {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border-width: 1px;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  letter-spacing: 0.01em;
+  font-weight: 500;
+  --tw-border-opacity: 1;
+  border-color: rgb(167 243 208 / var(--tw-border-opacity, 1));
+  --tw-bg-opacity: 1;
+  background-color: rgb(236 253 245 / var(--tw-bg-opacity, 1));
+  --tw-text-opacity: 1;
+  color: rgb(4 120 87 / var(--tw-text-opacity, 1));
+}
+
 /* ─────────────── TOAST (bottom-center, fond sombre) ─────────────── */
 
 /* Conteneur empilé, positionné en bas-centre */
@@ -3811,6 +3832,10 @@ p {
      object-fit: cover;
 }
 
+.\!p-3 {
+  padding: 0.75rem !important;
+}
+
 .p-0 {
   padding: 0px;
 }
@@ -5281,6 +5306,11 @@ p {
   background-color: rgb(21 128 61 / var(--tw-bg-opacity, 1));
 }
 
+.hover\:bg-orange-50:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 247 237 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:bg-orange-50\/60:hover {
   background-color: rgb(255 247 237 / 0.6);
 }
@@ -5942,8 +5972,16 @@ p {
     justify-content: flex-end;
   }
 
+  .sm\:gap-3 {
+    gap: 0.75rem;
+  }
+
   .sm\:rounded-2xl {
     border-radius: 1rem;
+  }
+
+  .sm\:\!p-5 {
+    padding: 1.25rem !important;
   }
 
   .sm\:p-10 {
@@ -5994,6 +6032,12 @@ p {
     letter-spacing: -0.02em;
   }
 
+  .sm\:text-3xl {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    letter-spacing: -0.02em;
+  }
+
   .sm\:text-4xl {
     font-size: 2.25rem;
     line-height: 2.5rem;
@@ -6002,6 +6046,12 @@ p {
   .sm\:text-9xl {
     font-size: 8rem;
     line-height: 1;
+  }
+
+  .sm\:text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    letter-spacing: 0.01em;
   }
 
   .sm\:shadow-none {

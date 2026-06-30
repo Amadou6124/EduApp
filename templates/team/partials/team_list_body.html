@@ -1,0 +1,41 @@
+{% load i18n %}
+{# Annuaire équipe — table dense (desktop) / cards (mobile) + pagination. #}
+<div id="team-list-area">
+{% if not rows %}
+  <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4"><i data-lucide="users-round" class="w-7 h-7 text-gray-400"></i></div>
+    {% if q or role_filter != 'all' %}
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun membre</h3>
+      <p class="text-sm text-gray-500">Aucun membre ne correspond à ce filtre.</p>
+    {% else %}
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun membre</h3>
+      <p class="text-sm text-gray-500">Ajoutez le premier membre de votre équipe.</p>
+    {% endif %}
+  </div>
+{% else %}
+  {# Desktop : table #}
+  <div class="hidden lg:block table-card">
+    <table class="data-table">
+      <thead><tr><th>Membre</th><th>Rôle</th><th>Affectation</th><th class="text-center">Statut</th><th class="w-8"></th></tr></thead>
+      <tbody>{% for r in rows %}{% include "team/partials/team_member_row.html" %}{% endfor %}</tbody>
+    </table>
+  </div>
+  {# Mobile : cards #}
+  <div class="lg:hidden space-y-2.5">{% for r in rows %}{% include "team/partials/team_member_mobile_card.html" %}{% endfor %}</div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+    <span>{{ page_obj.start_index }}–{{ page_obj.end_index }} sur {{ page_obj.paginator.count }}</span>
+    <div class="flex items-center gap-1">
+      {% if page_obj.has_previous %}
+        <button type="button" hx-get="{% url 'team:list' %}?role={{ role_filter }}&q={{ q|urlencode }}&page={{ page_obj.previous_page_number }}" hx-target="#team-list-area" hx-swap="outerHTML" hx-indicator="#team-skel" class="px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-gray-50">‹</button>
+      {% endif %}
+      <span class="px-2.5 py-1 text-gray-600">Page {{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <button type="button" hx-get="{% url 'team:list' %}?role={{ role_filter }}&q={{ q|urlencode }}&page={{ page_obj.next_page_number }}" hx-target="#team-list-area" hx-swap="outerHTML" hx-indicator="#team-skel" class="px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-gray-50">›</button>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+</div>
