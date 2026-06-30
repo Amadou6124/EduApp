@@ -39,8 +39,7 @@
            confirmClass: 'bg-orange-600 hover:bg-orange-700 text-white',
            onConfirm: () => {
              htmx.ajax('POST', '{% url 'team:deactivate' member.pk %}', {
-               target:  '#member-detail-header',
-               swap:    'outerHTML',
+               swap:    'none',
                headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' },
              })
            },
@@ -50,6 +49,7 @@
      {% if request.GET.linked_staff %}x-init="$nextTick(() => window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Configurez les permissions de ce membre.', type: 'info' } })))"{% endif %}
      @close-edit-panel.window="showEditPanel = false"
      @team-member-updated.window="window.location.reload()"
+     @team-changed.window="window.location.href='{% url 'team:list' %}'"
      class="max-w-4xl mx-auto space-y-6">
 
   <div id="member-detail-header" class="card p-6">
