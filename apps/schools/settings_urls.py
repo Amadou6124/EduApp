@@ -6,8 +6,8 @@ from . import settings_views
 app_name = 'settings'
 
 urlpatterns = [
-    # Redirection par défaut → Général
-    path('', RedirectView.as_view(pattern_name='settings:general', permanent=False), name='settings-home'),
+    # Index paramètres (drill-in mobile ; desktop = repère)
+    path('', settings_views.settings_home, name='settings-home'),
 
     # ── ÉCOLE ─────────────────────────────────────────────────────────
     path('general/',    settings_views.general,    name='general'),

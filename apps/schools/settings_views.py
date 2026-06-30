@@ -78,6 +78,16 @@ def _receipt_ctx(school, **extra):
 
 @login_required
 @director_or_staff_required
+def settings_home(request):
+    """Index des paramètres — liste drill-in sur mobile, repère sur desktop."""
+    school = get_school(request)
+    return render(request, 'settings/index.html', {
+        'school': school, 'active_section': 'home',
+    })
+
+
+@login_required
+@director_or_staff_required
 def general(request):
     school = get_school(request)
     if request.method == 'POST':

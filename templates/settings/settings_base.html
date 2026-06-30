@@ -3,95 +3,55 @@
 {% block sidebar %}{% endblock %}
 {% block sidebar_margin %}{% endblock %}
 {% block page_header %}{% endblock %}
-
 {% block page_title %}Paramètres{% endblock %}
-
-{% block page_subtitle %}
-<p class="text-sm text-gray-500 mt-0.5 truncate animate-fade-in">
-  {% if active_section == 'general' %}Général
-  {% elif active_section == 'appearance' %}Apparence
-  {% elif active_section == 'subjects' %}Matières & Classes
-  {% elif active_section == 'school-years' %}Années scolaires
-  {% elif active_section == 'bulletin' %}Modèle de bulletin
-  {% elif active_section == 'receipt' %}Modèle de reçu
-  {% elif active_section == 'fees' %}Frais & tranches
-  {% endif %}
-</p>
-{% endblock %}
+{% block page_subtitle %}{% endblock %}
 
 {% block content %}
-<div class="-mx-6 lg:-mx-8 -my-6 flex min-h-[calc(100vh-4rem)]">
+<div class="-mx-6 lg:-mx-8 -my-6 flex min-h-[calc(100vh-4rem)]" x-data="{ q: '' }">
 
-  <!-- ── Sidebar settings (desktop) ──────────────────────────── -->
-  <aside class="w-56 shrink-0 border-r border-gray-200 bg-white py-6 px-3 hidden sm:block">
+  {# ── Sidebar paramètres (desktop) — fixe sous le header ── #}
+  <aside class="w-60 shrink-0 border-r border-gray-200 bg-white py-5 px-3 hidden sm:flex flex-col sticky top-14 self-start h-[calc(100vh-3.5rem)]">
+    <a href="{% url 'dashboard:main' %}" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors group px-1 mb-4">
+      <i data-lucide="arrow-left" class="w-4 h-4 shrink-0 group-hover:-translate-x-0.5 transition-transform"></i> Retour à l'app
+    </a>
 
-    <!-- Retour -->
-    <div class="mb-5 px-1">
-      <a href="{% url 'schools:class-list' %}"
-         class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors group">
-        <i data-lucide="arrow-left" class="w-4 h-4 shrink-0 group-hover:-translate-x-0.5 transition-transform duration-150"></i>
-        <span>Retour</span>
-      </a>
+    <div class="relative mb-4">
+      <i data-lucide="search" class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+      <input x-model="q" type="text" placeholder="Rechercher un réglage…"
+             class="w-full border border-gray-200 rounded-lg pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400">
     </div>
 
-    <div class="space-y-6">
-
-      <!-- École -->
+    <nav class="space-y-5 overflow-y-auto flex-1">
       <div>
         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-1">École</p>
-        {% include "settings/partials/nav_item.html" with section="general"    label="Général"   icon="settings" available=True %}
-        {% include "settings/partials/nav_item.html" with section="appearance" label="Apparence" icon="palette"  available=True %}
+        {% include "settings/partials/nav_item.html" with section="general" label="Général" icon="settings" available=True value=request.school.short_name|default:request.school.name %}
+        {% include "settings/partials/nav_item.html" with section="appearance" label="Apparence" icon="palette" available=True %}
       </div>
-
-      <!-- Pédagogie -->
       <div>
         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-1">Pédagogie</p>
-        {% include "settings/partials/nav_item.html" with section="subjects"     label="Matières"         icon="book-open" available=True %}
-        {% include "settings/partials/nav_item.html" with section="school-years" label="Années scolaires" icon="calendar"  available=True %}
-        {% include "settings/partials/nav_item.html" with section="bulletin"     label="Modèle bulletin"  icon="file-text" available=True %}
+        {% include "settings/partials/nav_item.html" with section="subjects" label="Matières" icon="book-open" available=True value=request.school.subjects.count value_unit="matières" %}
+        {% include "settings/partials/nav_item.html" with section="school-years" label="Années scolaires" icon="calendar" available=True value=request.school.school_years.count value_unit="année(s)" %}
+        {% include "settings/partials/nav_item.html" with section="bulletin" label="Modèle bulletin" icon="file-text" available=True %}
       </div>
-
-      <!-- Finance -->
       <div>
         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-1">Finance</p>
-        {% include "settings/partials/nav_item.html" with section="fees"    label="Frais & tranches" icon="wallet"  available=True %}
-        {% include "settings/partials/nav_item.html" with section="receipt" label="Modèle de reçu"    icon="receipt" available=True %}
+        {% include "settings/partials/nav_item.html" with section="fees" label="Frais & tranches" icon="wallet" available=True %}
+        {% include "settings/partials/nav_item.html" with section="receipt" label="Modèle de reçu" icon="receipt" available=True %}
       </div>
-
-    </div>
+    </nav>
   </aside>
 
-  <!-- ── Zone principale ─────────────────────────────────────── -->
+  {# ── Zone principale ── #}
   <div class="flex-1 min-w-0 flex flex-col">
-
-    <!-- Nav sections (mobile uniquement) — pills défilables -->
-    <div class="sm:hidden border-b border-gray-200 bg-white shrink-0">
-      <div class="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
-        <a href="{% url 'settings:general' %}"      class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'general' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Général</a>
-        <a href="{% url 'settings:appearance' %}"   class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'appearance' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Apparence</a>
-        <a href="{% url 'settings:subjects' %}"     class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'subjects' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Matières</a>
-        <a href="{% url 'settings:school-years' %}" class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'school-years' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Années</a>
-        <a href="{% url 'settings:bulletin' %}"     class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'bulletin' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Bulletin</a>
-        <a href="{% url 'settings:fees' %}"         class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'fees' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Frais</a>
-        <a href="{% url 'settings:receipt' %}"      class="shrink-0 px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors {% if active_section == 'receipt' %}bg-primary-600 text-white font-medium{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Reçu</a>
-      </div>
+    {# Retour mobile vers l'index (pas sur l'index lui-même) #}
+    {% if active_section != 'home' %}
+    <div class="sm:hidden border-b border-gray-100 bg-white px-4 py-3">
+      <a href="{% url 'settings:settings-home' %}" class="flex items-center gap-1.5 text-sm text-gray-500"><i data-lucide="arrow-left" class="w-4 h-4"></i> Paramètres</a>
     </div>
-
-    <!-- Contenu section -->
-    <div class="py-8 px-6 lg:px-8 max-w-3xl w-full">
-      <h1 class="text-xl font-semibold text-gray-900 mb-6">
-        {% if active_section == 'general' %}Général
-        {% elif active_section == 'appearance' %}Apparence
-        {% elif active_section == 'subjects' %}Matières & Classes
-        {% elif active_section == 'school-years' %}Années scolaires
-        {% elif active_section == 'bulletin' %}Modèle de bulletin
-        {% elif active_section == 'receipt' %}Modèle de reçu
-        {% elif active_section == 'fees' %}Frais & tranches
-        {% else %}Paramètres{% endif %}
-      </h1>
+    {% endif %}
+    <div class="py-7 px-6 lg:px-8 max-w-3xl w-full">
       {% block settings_content %}{% endblock %}
     </div>
-
   </div>
 
 </div>

@@ -946,7 +946,7 @@
           {% endif %}
           <a href="{% url 'team:list' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
             <i data-lucide="users-round" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Équipe</span></a>
-          <a href="{% url 'settings:general' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+          <a href="{% url 'settings:settings-home' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
             <i data-lucide="settings" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Réglages</span></a>
         </div>
       </div>

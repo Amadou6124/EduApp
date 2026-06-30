@@ -1970,13 +1970,6 @@ p {
   margin-top: auto;
 }
 
-.line-clamp-1 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
-}
-
 .line-clamp-2 {
   overflow: hidden;
   display: -webkit-box;
@@ -2156,6 +2149,10 @@ p {
 
 .h-\[76px\] {
   height: 76px;
+}
+
+.h-\[calc\(100vh-3\.5rem\)\] {
+  height: calc(100vh - 3.5rem);
 }
 
 .h-full {
@@ -2356,6 +2353,10 @@ p {
 
 .w-6 {
   width: 1.5rem;
+}
+
+.w-60 {
+  width: 15rem;
 }
 
 .w-64 {
@@ -2957,6 +2958,10 @@ p {
   border-color: rgb(249 250 251 / var(--tw-divide-opacity, 1));
 }
 
+.self-start {
+  align-self: flex-start;
+}
+
 .overflow-auto {
   overflow: auto;
 }
@@ -3390,11 +3395,6 @@ p {
 .bg-emerald-50 {
   --tw-bg-opacity: 1;
   background-color: rgb(236 253 245 / var(--tw-bg-opacity, 1));
-}
-
-.bg-gold-50 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(255 251 235 / var(--tw-bg-opacity, 1));
 }
 
 .bg-gold-500 {
@@ -4059,6 +4059,11 @@ p {
 .py-6 {
   padding-top: 1.5rem;
   padding-bottom: 1.5rem;
+}
+
+.py-7 {
+  padding-top: 1.75rem;
+  padding-bottom: 1.75rem;
 }
 
 .py-8 {
@@ -5514,11 +5519,6 @@ p {
 .hover\:text-red-600:hover {
   --tw-text-opacity: 1;
   color: rgb(220 38 38 / var(--tw-text-opacity, 1));
-}
-
-.hover\:text-red-700:hover {
-  --tw-text-opacity: 1;
-  color: rgb(185 28 28 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-white:hover {

@@ -1,0 +1,66 @@
+{% extends "settings/settings_base.html" %}
+{% block settings_content %}
+
+{# ── Mobile : index drill-in ── #}
+<div class="sm:hidden space-y-5">
+  <div>
+    <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-widest px-1 mb-2">École</p>
+    <div class="card p-0 overflow-hidden divide-y divide-gray-50">
+      <a href="{% url 'settings:general' %}" class="flex items-center gap-3 px-4 py-3.5">
+        <i data-lucide="settings" class="w-5 h-5 text-primary-600 shrink-0"></i>
+        <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-gray-800">Général</span><span class="block text-xs text-gray-400 truncate">{{ school.short_name|default:school.name }}</span></span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+      </a>
+      <a href="{% url 'settings:appearance' %}" class="flex items-center gap-3 px-4 py-3.5">
+        <i data-lucide="palette" class="w-5 h-5 text-gray-400 shrink-0"></i>
+        <span class="flex-1 text-sm font-medium text-gray-800">Apparence</span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+      </a>
+    </div>
+  </div>
+
+  <div>
+    <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-widest px-1 mb-2">Pédagogie</p>
+    <div class="card p-0 overflow-hidden divide-y divide-gray-50">
+      <a href="{% url 'settings:subjects' %}" class="flex items-center gap-3 px-4 py-3.5">
+        <i data-lucide="book-open" class="w-5 h-5 text-gray-400 shrink-0"></i>
+        <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-gray-800">Matières</span><span class="block text-xs text-gray-400">{{ school.subjects.count }} matières</span></span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+      </a>
+      <a href="{% url 'settings:school-years' %}" class="flex items-center gap-3 px-4 py-3.5">
+        <i data-lucide="calendar" class="w-5 h-5 text-gray-400 shrink-0"></i>
+        <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-gray-800">Années scolaires</span><span class="block text-xs text-gray-400">{{ school.school_years.count }} année(s)</span></span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+      </a>
+      <a href="{% url 'settings:bulletin' %}" class="flex items-center gap-3 px-4 py-3.5">
+        <i data-lucide="file-text" class="w-5 h-5 text-gray-400 shrink-0"></i>
+        <span class="flex-1 text-sm font-medium text-gray-800">Modèle bulletin</span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+      </a>
+    </div>
+  </div>
+
+  <div>
+    <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-widest px-1 mb-2">Finance</p>
+    <div class="card p-0 overflow-hidden divide-y divide-gray-50">
+      <a href="{% url 'settings:fees' %}" class="flex items-center gap-3 px-4 py-3.5">
+        <i data-lucide="wallet" class="w-5 h-5 text-gray-400 shrink-0"></i>
+        <span class="flex-1 text-sm font-medium text-gray-800">Frais &amp; tranches</span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+      </a>
+      <a href="{% url 'settings:receipt' %}" class="flex items-center gap-3 px-4 py-3.5">
+        <i data-lucide="receipt" class="w-5 h-5 text-gray-400 shrink-0"></i>
+        <span class="flex-1 text-sm font-medium text-gray-800">Modèle de reçu</span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+      </a>
+    </div>
+  </div>
+</div>
+
+{# ── Desktop : repère (la sidebar fait l'index) ── #}
+<div class="hidden sm:flex flex-col items-center justify-center py-24 text-center">
+  <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4"><i data-lucide="settings-2" class="w-7 h-7 text-gray-400"></i></div>
+  <p class="text-sm text-gray-500">Sélectionnez un réglage dans le menu de gauche.</p>
+</div>
+
+{% endblock %}
