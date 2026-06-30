@@ -484,7 +484,7 @@ def salary_pay(request):
     from apps.accounts.models import Membership
     from apps.payments.models import PaymentMethod
     from .models import SalaryPayment, EmploymentType
-    from .services import compute_teacher_hours
+    from .services import compute_vacataire_pay
 
     school = get_school(request)
     if not school.accounting_enabled:
@@ -511,9 +511,10 @@ def salary_pay(request):
     if profile.employment_type == EmploymentType.PERMANENT:
         amount, hours, rate = (profile.monthly_salary or Decimal('0')), None, None
     else:
-        hours = compute_teacher_hours(school, year, month).get(m.user_id, Decimal('0'))
-        rate = profile.hourly_rate or Decimal('0')
-        amount = hours * rate
+        v = compute_vacataire_pay(school, year, month).get(m.user_id) or {}
+        hours = v.get('hours', Decimal('0'))
+        amount = v.get('amount', Decimal('0'))
+        rate = None  # tarif par cours (plus de taux unique)
 
     method = request.POST.get('payment_method', 'cash')
     if method not in {c[0] for c in PaymentMethod.choices}:

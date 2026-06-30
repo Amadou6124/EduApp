@@ -38,7 +38,7 @@
     {% if p.hours is not None %}
     <div class="block">
       <div class="row"><span class="label">Heures effectuées</span><span class="val">{{ p.hours|floatformat:"-1" }} h</span></div>
-      <div class="row"><span class="label">Taux horaire</span><span class="val">{{ p.hourly_rate|default:0|intcomma }} FCFA/h</span></div>
+      <div class="row"><span class="label">Calcul</span><span class="val">Tarif par cours</span></div>
     </div>
     {% endif %}
 

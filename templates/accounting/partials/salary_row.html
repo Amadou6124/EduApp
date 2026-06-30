@@ -18,7 +18,8 @@
   <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
     {% if row.computed_hours is not None %}
       {% if row.computed_hours %}
-        {{ row.computed_hours|floatformat:"-1" }}h × {{ row.profile.hourly_rate|default:0|intcomma }} FCFA/h
+        {{ row.computed_hours|floatformat:"-1" }} h · {{ row.courses }} cours
+        {% if row.unrated_hours %}<span class="text-amber-600" title="Heures sur des cours sans tarif défini">· {{ row.unrated_hours|floatformat:"-1" }} h non tarifées</span>{% endif %}
       {% else %}
         <span class="text-amber-600">Aucun émargement ce mois</span>
       {% endif %}
