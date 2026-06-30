@@ -14,6 +14,17 @@
     <a href="?year={{ next_y }}&month={{ next_m }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
   </div>
 
+  {# Retenue par absence — politique d'école (permanents) #}
+  <form method="post" action="{% url 'accounting:salary-settings' %}" class="flex items-center justify-center gap-2 mb-5 text-sm flex-wrap">
+    {% csrf_token %}
+    <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
+    <span class="text-gray-500 flex items-center gap-1.5"><i data-lucide="gavel" class="w-3.5 h-3.5 text-gray-400"></i> Retenue par absence (permanent)</span>
+    <input type="number" name="absence_deduction" value="{{ school.absence_deduction|floatformat:0 }}" min="0" step="100"
+           class="w-24 border border-gray-200 rounded-lg px-2 py-1 text-right focus:outline-none focus:ring-1 focus:ring-primary-400">
+    <span class="text-gray-400 text-xs">FCFA / cours</span>
+    <button type="submit" class="text-xs px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium">Enregistrer</button>
+  </form>
+
   {# Résumé #}
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
     <div class="card p-4">

@@ -24,7 +24,7 @@
         <span class="text-amber-600">Aucun émargement ce mois</span>
       {% endif %}
     {% else %}
-      Salaire fixe
+      Salaire fixe{% if row.absences %} <span class="text-amber-600" title="{{ row.absences }} cours absent(s)">· −{{ row.deduction|floatformat:0|intcomma }} ({{ row.absences }} abs.)</span>{% endif %}
     {% endif %}
   </td>
 

@@ -464,6 +464,27 @@ def salary_dashboard(request):
     })
 
 
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def salary_settings_save(request):
+    """Règle la retenue par absence (politique d'école) puis recharge la paie."""
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.urls import reverse
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    val = _parse_money(request.POST.get('absence_deduction'))
+    school.absence_deduction = val if val is not None else 0
+    school.save(update_fields=['absence_deduction'])
+    messages.success(request, 'Retenue par absence mise à jour.')
+    return redirect(f"{reverse('accounting:salaires')}?year={year}&month={month}")
+
+
 def _render_salary_row(request, membership, year, month, toast=None, toast_type='success'):
     from .services import salary_row
     resp = render(request, 'accounting/partials/salary_row.html', {
@@ -484,7 +505,7 @@ def salary_pay(request):
     from apps.accounts.models import Membership
     from apps.payments.models import PaymentMethod
     from .models import SalaryPayment, EmploymentType
-    from .services import compute_vacataire_pay
+    from .services import compute_vacataire_pay, compute_permanent_deductions
 
     school = get_school(request)
     if not school.accounting_enabled:
@@ -508,8 +529,16 @@ def salary_pay(request):
         return _toast_error(f'{m.user.full_name} a déjà une paie pour ce mois.')
 
     # Montant + snapshots recalculés SERVEUR (jamais le client)
+    deduction, absence_count = Decimal('0'), 0
     if profile.employment_type == EmploymentType.PERMANENT:
-        amount, hours, rate = (profile.monthly_salary or Decimal('0')), None, None
+        gross = profile.monthly_salary or Decimal('0')
+        d = compute_permanent_deductions(school, year, month).get(m.user_id) or {}
+        deduction = d.get('deduction', Decimal('0'))
+        absence_count = d.get('absences', 0)
+        amount = gross - deduction
+        if amount < 0:
+            amount = Decimal('0')
+        hours, rate = None, None
     else:
         v = compute_vacataire_pay(school, year, month).get(m.user_id) or {}
         hours = v.get('hours', Decimal('0'))
@@ -524,6 +553,7 @@ def salary_pay(request):
         SalaryPayment.objects.create(
             employee=m, school=school, year=year, month=month,
             amount=amount, hours=hours, hourly_rate=rate,
+            deduction=deduction, absence_count=absence_count,
             status='pending', payment_method=method,
             employee_name=m.user.full_name,
         )

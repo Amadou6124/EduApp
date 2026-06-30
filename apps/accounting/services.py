@@ -90,7 +90,35 @@ def compute_vacataire_pay(school, year, month):
     }
 
 
-def _row(membership, profile, vac_map, existing):
+def compute_permanent_deductions(school, year, month):
+    """Retenue des permanents : nb de cours absents × school.absence_deduction.
+
+    Retourne {user_id: {absences, deduction}}. Vide si absence_deduction = 0.
+    """
+    from django.db.models import Count
+    from .models import TeacherAttendance, EmployeeProfile, EmploymentType
+
+    per_abs = school.absence_deduction or Decimal('0')
+    perm_ids = set(
+        EmployeeProfile.objects.filter(
+            membership__school=school, employment_type=EmploymentType.PERMANENT, is_active=True,
+        ).values_list('membership__user_id', flat=True)
+    )
+    if not perm_ids:
+        return {}
+    rows = (
+        TeacherAttendance.objects
+        .filter(school=school, date__year=year, date__month=month,
+                status='absent', teacher_id__in=perm_ids)
+        .values('teacher_id').annotate(n=Count('id'))
+    )
+    return {
+        r['teacher_id']: {'absences': r['n'], 'deduction': per_abs * r['n']}
+        for r in rows
+    }
+
+
+def _row(membership, profile, vac_map, ded_map, existing):
     """Construit une ligne de paie (commun preview + re-render après action)."""
     from .models import EmploymentType
 
@@ -99,20 +127,30 @@ def _row(membership, profile, vac_map, existing):
             'membership': membership, 'profile': profile,
             'computed_hours': None, 'computed_amount': Decimal('0'),
             'courses': 0, 'unrated_hours': Decimal('0'),
+            'gross': Decimal('0'), 'deduction': Decimal('0'), 'absences': 0,
             'existing_payment': existing, 'status': 'not_configured',
         }
     if profile.employment_type == EmploymentType.PERMANENT:
-        amount, hrs, courses, unrated = (profile.monthly_salary or Decimal('0')), None, 0, Decimal('0')
+        gross = profile.monthly_salary or Decimal('0')
+        d = ded_map.get(membership.user_id) or {}
+        deduction = d.get('deduction', Decimal('0'))
+        absences = d.get('absences', 0)
+        amount = gross - deduction
+        if amount < 0:
+            amount = Decimal('0')
+        hrs, courses, unrated = None, 0, Decimal('0')
     else:
         v = vac_map.get(membership.user_id) or {}
         hrs = v.get('hours', Decimal('0'))
         amount = v.get('amount', Decimal('0'))
         courses = v.get('courses', 0)
         unrated = v.get('unrated_hours', Decimal('0'))
+        gross, deduction, absences = amount, Decimal('0'), 0
     return {
         'membership': membership, 'profile': profile,
         'computed_hours': hrs, 'computed_amount': amount,
         'courses': courses, 'unrated_hours': unrated,
+        'gross': gross, 'deduction': deduction, 'absences': absences,
         'existing_payment': existing,
         'status': existing.status if existing else 'unpaid',
     }
@@ -133,6 +171,7 @@ def compute_monthly_salary_preview(school, year, month):
         .order_by('user__full_name')
     )
     vac_map = compute_vacataire_pay(school, year, month)
+    ded_map = compute_permanent_deductions(school, year, month)
     pay_map = {
         p.employee_id: p
         for p in SalaryPayment.objects.filter(
@@ -143,7 +182,7 @@ def compute_monthly_salary_preview(school, year, month):
     permanents, vacataires, not_configured = [], [], []
     for m in memberships:
         profile = getattr(m, 'employee_profile', None)
-        row = _row(m, profile, vac_map, pay_map.get(m.id))
+        row = _row(m, profile, vac_map, ded_map, pay_map.get(m.id))
         if row['status'] == 'not_configured':
             not_configured.append(row)
         elif profile.employment_type == EmploymentType.PERMANENT:
@@ -171,10 +210,11 @@ def salary_row(school, membership, year, month):
 
     profile = getattr(membership, 'employee_profile', None)
     vac_map = compute_vacataire_pay(school, year, month)
+    ded_map = compute_permanent_deductions(school, year, month)
     existing = SalaryPayment.objects.filter(
         employee=membership, year=year, month=month, is_cancelled=False,
     ).first()
-    return _row(membership, profile, vac_map, existing)
+    return _row(membership, profile, vac_map, ded_map, existing)
 
 
 def compute_monthly_balance(school, year, month):
@@ -264,5 +304,6 @@ def generate_payslip_pdf(payment):
     html = render_to_string('accounting/pdf/payslip.html', {
         'p': payment,
         'school': payment.school,
+        'gross': (payment.amount or Decimal('0')) + (payment.deduction or Decimal('0')),
     })
     return HTML(string=html).write_pdf()

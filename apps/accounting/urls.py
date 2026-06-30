@@ -22,6 +22,7 @@ urlpatterns = [
 
     # ── Phase 4 — Paie mensuelle ─────────────────────────────────
     path('salaires/', views.salary_dashboard, name='salaires'),
+    path('salaires/parametres/', views.salary_settings_save, name='salary-settings'),
     path('salaires/pay/', views.salary_pay, name='salary-pay'),
     path('salaires/<int:payment_id>/confirm/', views.salary_confirm, name='salary-confirm'),
     path('salaires/<int:payment_id>/cancel/', views.salary_cancel, name='salary-cancel'),

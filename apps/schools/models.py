@@ -106,6 +106,11 @@ class School(models.Model):
     accounting_enabled = models.BooleanField(
         _('module comptabilité activé'), default=False,
     )
+    absence_deduction = models.DecimalField(
+        _('retenue par absence (FCFA)'), max_digits=12, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+        help_text=_("Montant déduit du salaire d'un permanent par cours absent (0 = aucune retenue)."),
+    )
 
     # ── Métadonnées ────────────────────────────────────────────────
     is_active  = models.BooleanField(_('active'), default=True)

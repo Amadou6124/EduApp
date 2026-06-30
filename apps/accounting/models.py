@@ -262,6 +262,11 @@ class SalaryPayment(models.Model):
     hourly_rate = models.DecimalField(
         _('taux horaire (FCFA)'), max_digits=12, decimal_places=0, null=True, blank=True,
     )
+    # Retenue sur absence (permanents) — snapshots figés au paiement.
+    deduction = models.DecimalField(
+        _('retenue (FCFA)'), max_digits=12, decimal_places=0, default=0,
+    )
+    absence_count = models.PositiveSmallIntegerField(_("absences retenues"), default=0)
     status = models.CharField(
         _('statut'), max_length=10,
         choices=SalaryStatus.choices, default=SalaryStatus.PENDING,
