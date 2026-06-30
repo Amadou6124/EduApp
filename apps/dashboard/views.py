@@ -31,9 +31,9 @@ def invalidate_dashboard_cache(school):
     from apps.schools.models import SchoolYear
     for year in SchoolYear.objects.filter(school=school).prefetch_related('periods'):
         for period in year.periods.all():
-            cache.delete(f'dashboard_{school.id}_{year.id}_{period.id}')
-        cache.delete(f'dashboard_{school.id}_{year.id}_none')
-    cache.delete(f'dashboard_{school.id}_none_none')
+            cache.delete(f'dashboard_v2_{school.id}_{year.id}_{period.id}')
+        cache.delete(f'dashboard_v2_{school.id}_{year.id}_none')
+    cache.delete(f'dashboard_v2_{school.id}_none_none')
 
 
 @login_required
@@ -60,18 +60,22 @@ def dashboard_view(request):
 
     period_id = active_period.id if active_period else 'none'
     year_id   = active_year.id   if active_year   else 'none'
-    cache_key = f'dashboard_{school.id}_{year_id}_{period_id}'
+    cache_key = f'dashboard_v2_{school.id}_{year_id}_{period_id}'
 
     computed = cache.get(cache_key)
     if computed is None:
         kpis         = _compute_kpis(school, active_period)
-        alerts       = _compute_alerts(school, active_period, kpis['unpaid_count'])
-        charts       = _compute_charts(school, active_year)
         class_health = _compute_class_health(school, active_period)
-        activity     = _compute_activity(school)
+        health_sum   = _compute_health_summary(class_health)
+        todo         = _compute_todo(school, active_period, kpis)
         computed = {
-            'kpis': kpis, 'alerts': alerts, 'charts': charts,
-            'class_health': class_health, 'activity': activity,
+            'kpis': kpis, 'todo': todo,
+            'pulse': _compute_pulse(school, date.today()),
+            'health_summary': health_sum,
+            'deltas': _compute_deltas(school, active_year, active_period),
+            'charts': _compute_charts(school, active_year),
+            'activity': _compute_activity(school),
+            'summary': _summary_phrase(kpis, health_sum, todo),
         }
         cache.set(cache_key, computed, 60 * 5)
 
@@ -86,24 +90,28 @@ def dashboard_view(request):
     # Redaction PER-REQUÊTE (hors cache partagé école) — ne jamais envoyer au
     # client une donnée que ce staff n'a pas le droit de voir.
     kpis   = dict(computed['kpis'])
-    alerts = list(computed['alerts'])
+    todo   = list(computed['todo'])
     charts = dict(computed['charts'])
     if not can_pay:
-        kpis['total_collected']  = None
-        kpis['unpaid_count']     = None
-        alerts = [a for a in alerts if a.get('category') != 'payments']
+        kpis['total_collected'] = None
+        kpis['unpaid_count']    = None
+        kpis['payment_rate']    = None
+        kpis['solde_du']        = None
+        todo = [t for t in todo if t['key'] not in ('payments', 'salaries')]
         charts['revenue_data']   = []
         charts['revenue_months'] = []
     if not can_stu:
-        kpis['student_count']      = None
+        kpis['student_count']       = None
         charts['enrollment_data']   = []
         charts['enrollment_months'] = []
 
     return render(request, 'dashboard/dashboard.html', {
         'school': school, 'active_year': active_year, 'active_period': active_period,
         'today': date.today(), 'active_section': 'dashboard', 'no_access': False,
-        'kpis': kpis, 'alerts': alerts, 'charts': charts,
-        'class_health': computed['class_health'], 'activity': computed['activity'],
+        'kpis': kpis, 'todo': todo, 'charts': charts,
+        'pulse': computed['pulse'], 'health_summary': computed['health_summary'],
+        'deltas': computed['deltas'], 'activity': computed['activity'],
+        'summary': computed['summary'],
         'perms': {'can_view_payments': can_pay, 'can_view_students': can_stu},
     })
 
@@ -126,7 +134,14 @@ def _compute_kpis(school, active_period):
     # (« inconnus », pas « impayés »). Le sous-ensemble URGENT = la liste rouge du lot 6
     # (tranches échues) ; ici on compte tout solde dû, cohérent avec le libellé « solde impayé ».
     from apps.finance.services import fee_accounts_annotated
-    unpaid_count = fee_accounts_annotated(school=school).filter(balance__gt=0).count()
+    accounts = fee_accounts_annotated(school=school)
+    unpaid_count = accounts.filter(balance__gt=0).count()
+    # Taux de paiement global (versé / dû) sur la même population (les fiches).
+    tot = accounts.aggregate(due_sum=Sum('due'), paid_sum=Sum('paid'))
+    due_total = tot['due_sum'] or 0
+    paid_total = tot['paid_sum'] or 0
+    payment_rate = round(float(paid_total) / float(due_total) * 100) if due_total else None
+    solde_du = float(due_total) - float(paid_total)
     school_avg = None
     if active_period:
         result = Note.objects.filter(
@@ -139,49 +154,10 @@ def _compute_kpis(school, active_period):
         'student_count': student_count, 'class_count': class_count,
         'teacher_count': teacher_count, 'total_collected': total_collected,
         'unpaid_count': unpaid_count, 'school_avg': school_avg,
+        'payment_rate': payment_rate, 'solde_du': solde_du,
     }
 
 
-def _compute_alerts(school, active_period, unpaid_count=0):
-    alerts = []
-    if not active_period:
-        return alerts
-    if unpaid_count > 0:
-        alerts.append({
-            'level': 'critical', 'icon': 'alert-circle', 'category': 'payments',
-            'title': f'{unpaid_count} eleve{"s" if unpaid_count > 1 else ""} avec solde impaye',
-            'text': 'Ces eleves ont un solde impaye.',
-            'action_url': reverse('payments:dashboard'), 'action_text': 'Voir les paiements >',
-        })
-    # Attention : moyenne < 8
-    low = Bulletin.objects.filter(
-        period=active_period, school_class__school=school,
-        is_cancelled=False, general_average__lt=8,
-    ).count()
-    if low > 0:
-        alerts.append({
-            'level': 'warning', 'icon': 'alert-triangle',
-            'title': f'{low} eleve{"s" if low > 1 else ""} en grande difficulte',
-            'text': 'Moyenne generale < 8/20.',
-            'action_url': reverse('bulletins:main'), 'action_text': 'Voir les bulletins >',
-        })
-    # Info : bulletins prets
-    ready = 0
-    for sc in school.classes.filter(is_active=True):
-        n_students = sc.students.filter(is_active=True, school=school).count()
-        existing = Bulletin.objects.filter(
-            period=active_period, school_class=sc, is_cancelled=False,
-        ).count()
-        if n_students > existing:
-            ready += n_students - existing
-    if ready > 0:
-        alerts.append({
-            'level': 'info', 'icon': 'info',
-            'title': f'{ready} bulletin{"s" if ready > 1 else ""} a generer',
-            'text': 'Generation des bulletins pour cette periode.',
-            'action_url': reverse('bulletins:main'), 'action_text': 'Generer >',
-        })
-    return alerts
 
 
 from calendar import monthrange
@@ -417,3 +393,110 @@ def _compute_activity(school):
         return datetime(val.year, val.month, val.day, tzinfo=aware_tz)
     activity.sort(key=_sort_key, reverse=True)
     return activity[:10]
+
+
+def _compute_pulse(school, today):
+    """Compteurs honnêtes du jour (aucun dénominateur inventé)."""
+    from apps.teachers.models import Attendance, AttendanceStatus
+    from apps.accounting.models import TeacherAttendance
+    return {
+        'absences': Attendance.objects.filter(school=school, date=today, status=AttendanceStatus.ABSENT).count(),
+        'retards':  Attendance.objects.filter(school=school, date=today, status=AttendanceStatus.LATE).count(),
+        'emarges':  TeacherAttendance.objects.filter(school=school, date=today).count(),
+        'non_assures': TeacherAttendance.objects.filter(
+            school=school, date=today, status__in=['absent', 'replaced']).count(),
+    }
+
+
+def _compute_health_summary(class_health):
+    """Répartition (bonnes/à surveiller/critiques) + classes à surveiller (top 5). Scalable."""
+    good     = sum(1 for r in class_health if r['status'] == 'good')
+    warning  = sum(1 for r in class_health if r['status'] == 'warning')
+    critical = sum(1 for r in class_health if r['status'] == 'critical')
+    watch = []
+    for r in class_health:
+        if r['status'] not in ('critical', 'warning'):
+            continue
+        if r['avg'] is not None and r['avg'] < PASS_THRESHOLD:
+            reason = f"Moyenne {r['avg']:.1f}/20".replace('.', ',')
+        elif r['payment_rate'] is not None and r['payment_rate'] < PAYMENT_CRITICAL_THRESHOLD:
+            reason = f"Paiement {int(r['payment_rate'])} %"
+        elif r['avg'] is not None:
+            reason = f"Moyenne {r['avg']:.1f}/20".replace('.', ',')
+        else:
+            reason = 'À surveiller'
+        watch.append({'class': r['class'], 'status': r['status'], 'reason': reason})
+    watch.sort(key=lambda x: 0 if x['status'] == 'critical' else 1)
+    return {'good': good, 'warning': warning, 'critical': critical,
+            'total': good + warning + critical, 'watch': watch[:5]}
+
+
+def _compute_todo(school, active_period, kpis):
+    """« À faire » structuré (impayés, bulletins à générer, < 8/20, salaires). Zéro N+1."""
+    todo = []
+    unpaid = kpis.get('unpaid_count') or 0
+    if unpaid:
+        todo.append({'key': 'payments', 'label': 'Impayés', 'level': 'danger',
+                     'value': f'{unpaid} élève{"s" if unpaid > 1 else ""}',
+                     'url': reverse('payments:dashboard')})
+    if active_period:
+        classes = list(school.classes.filter(is_active=True)
+                       .annotate(nst=Count('students', filter=Q(students__is_active=True))))
+        bul = {r['school_class_id']: r['c'] for r in Bulletin.objects.filter(
+            period=active_period, school_class__in=[c.id for c in classes], is_cancelled=False,
+        ).values('school_class_id').annotate(c=Count('id'))}
+        ready = sum(max(0, c.nst - bul.get(c.id, 0)) for c in classes)
+        if ready:
+            todo.append({'key': 'bulletins', 'label': 'Bulletins à générer', 'level': 'accent',
+                         'value': str(ready), 'url': reverse('bulletins:main')})
+        low = Bulletin.objects.filter(period=active_period, school_class__school=school,
+                                      is_cancelled=False, general_average__lt=8).count()
+        if low:
+            todo.append({'key': 'low', 'label': 'Élèves < 8/20', 'level': 'warning',
+                         'value': str(low), 'url': reverse('bulletins:main')})
+    if school.accounting_enabled:
+        from apps.accounting.models import SalaryPayment, SalaryStatus
+        sp = SalaryPayment.objects.filter(school=school, status=SalaryStatus.PENDING, is_cancelled=False).count()
+        if sp:
+            todo.append({'key': 'salaries', 'label': 'Salaires en attente', 'level': 'warning',
+                         'value': str(sp), 'url': reverse('accounting:salaires')})
+    return todo
+
+
+def _compute_deltas(school, active_year, active_period):
+    """Deltas légers : élèves inscrits ce trimestre, encaissé vs période précédente."""
+    deltas = {}
+    if not active_period:
+        return deltas
+    deltas['students_added'] = Student.objects.filter(
+        school=school, is_active=True,
+        enrolled_at__date__gte=active_period.start_date,
+        enrolled_at__date__lte=active_period.end_date,
+    ).count()
+    prev = (active_year.periods.filter(order__lt=active_period.order).order_by('-order').first()
+            if active_year else None)
+    if prev:
+        cur = Payment.objects.filter(student__school=school, is_cancelled=False,
+                                     payment_date__gte=active_period.start_date,
+                                     payment_date__lte=active_period.end_date).aggregate(s=Sum('amount'))['s'] or 0
+        pv = Payment.objects.filter(student__school=school, is_cancelled=False,
+                                    payment_date__gte=prev.start_date,
+                                    payment_date__lte=prev.end_date).aggregate(s=Sum('amount'))['s'] or 0
+        if pv:
+            deltas['revenue_pct'] = round((float(cur) - float(pv)) / float(pv) * 100)
+    return deltas
+
+
+def _summary_phrase(kpis, health, todo):
+    """Phrase d'accueil dérivée de l'état réel."""
+    if health['critical'] == 0 and (kpis.get('school_avg') or 0) >= 10:
+        base = 'École en bonne forme'
+    elif health['critical'] > 0:
+        n = health['critical']
+        base = f"{n} classe{'s' if n > 1 else ''} critique{'s' if n > 1 else ''} à voir"
+    else:
+        base = 'École stable'
+    unpaid = kpis.get('unpaid_count') or 0
+    if unpaid:
+        return f"{base}, {unpaid} impayé{'s' if unpaid > 1 else ''} à relancer."
+    return base + '.'
