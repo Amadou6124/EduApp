@@ -2398,6 +2398,14 @@ p {
   width: 76px;
 }
 
+.w-\[92px\] {
+  width: 92px;
+}
+
+.w-\[96px\] {
+  width: 96px;
+}
+
 .w-auto {
   width: auto;
 }
@@ -4139,6 +4147,10 @@ p {
   padding-left: 0.875rem;
 }
 
+.pl-5 {
+  padding-left: 1.25rem;
+}
+
 .pl-8 {
   padding-left: 2rem;
 }
@@ -5200,6 +5212,10 @@ p {
  * UTILITIES — animations & helpers
  * ════════════════════════════════════════════════════════ */
 
+.first\:border-t-0:first-child {
+  border-top-width: 0px;
+}
+
 .last\:border-b-0:last-child {
   border-bottom-width: 0px;
 }
@@ -5891,6 +5907,10 @@ p {
 
   .sm\:col-span-3 {
     grid-column: span 3 / span 3;
+  }
+
+  .sm\:ml-0 {
+    margin-left: 0px;
   }
 
   .sm\:ml-auto {

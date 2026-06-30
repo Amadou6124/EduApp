@@ -452,14 +452,32 @@ def salary_dashboard(request):
     year, month = _parse_year_month(request)
     data = compute_monthly_salary_preview(school, year, month)
 
+    def _sum(rows):
+        total = sum((r['computed_amount'] for r in rows), Decimal('0'))
+        paid = sum((r['existing_payment'].amount for r in rows
+                    if r['existing_payment'] and r['existing_payment'].status == 'paid'), Decimal('0'))
+        unpaid = sum(1 for r in rows if r['status'] == 'unpaid')
+        pending = sum(1 for r in rows if r['status'] == 'pending')
+        return {'total': total, 'paid': paid, 'restant': total - paid,
+                'pct': int(paid / total * 100) if total else 0,
+                'unpaid': unpaid, 'pending': pending}
+
+    perm_sum = _sum(data['permanents'])
+    vac_sum = _sum(data['vacataires'])
+
+    tab = request.GET.get('tab')
+    if tab not in ('perm', 'vac'):
+        tab = 'perm' if data['permanents'] else 'vac'
+
     prev_y, prev_m = (year, month - 1) if month > 1 else (year - 1, 12)
     next_y, next_m = (year, month + 1) if month < 12 else (year + 1, 1)
 
     return render(request, 'accounting/salary_dashboard.html', {
-        'school': school, 'year': year, 'month': month,
+        'school': school, 'year': year, 'month': month, 'tab': tab,
         'month_label': _MOIS_FR[month].capitalize(),
         'permanents': data['permanents'], 'vacataires': data['vacataires'],
-        'not_configured': data['not_configured'], 'totals': data['totals'],
+        'not_configured': data['not_configured'],
+        'perm_sum': perm_sum, 'vac_sum': vac_sum,
         'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
     })
 
@@ -561,6 +579,71 @@ def salary_pay(request):
         return _toast_error('Paiement déjà enregistré pour ce mois.')
 
     return _render_salary_row(request, m, year, month, toast='Paie créée (en attente de confirmation).')
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def salary_pay_all(request):
+    """Initie (PENDING) toutes les paies non encore créées d'un type, montant > 0."""
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    from django.contrib import messages
+    from .models import SalaryPayment
+    from .services import compute_monthly_salary_preview
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+    emp_type = request.POST.get('type')
+    tab = 'vac' if emp_type == 'vacataire' else 'perm'
+
+    data = compute_monthly_salary_preview(school, year, month)
+    rows = data['vacataires'] if emp_type == 'vacataire' else data['permanents']
+    created = 0
+    for r in rows:
+        if r['status'] != 'unpaid' or r['computed_amount'] <= 0:
+            continue
+        m = r['membership']
+        if SalaryPayment.objects.filter(employee=m, year=year, month=month, is_cancelled=False).exists():
+            continue
+        SalaryPayment.objects.create(
+            employee=m, school=school, year=year, month=month,
+            amount=r['computed_amount'], hours=r['computed_hours'], hourly_rate=None,
+            deduction=r['deduction'], absence_count=r['absences'],
+            status='pending', payment_method='cash', employee_name=m.user.full_name,
+        )
+        created += 1
+    messages.success(request, f"{created} paie(s) initiée(s)." if created else "Aucune paie à initier.")
+    return redirect(f"{reverse('accounting:salaires')}?year={year}&month={month}&tab={tab}")
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def salary_confirm_all(request):
+    """Confirme (PAID) toutes les paies PENDING d'un type."""
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    from django.contrib import messages
+    from django.utils import timezone
+    from .models import SalaryPayment, EmploymentType
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+    emp_type = request.POST.get('type')
+    tab = 'vac' if emp_type == 'vacataire' else 'perm'
+    et = EmploymentType.VACATAIRE if emp_type == 'vacataire' else EmploymentType.PERMANENT
+
+    n = (SalaryPayment.objects
+         .filter(school=school, year=year, month=month, status='pending', is_cancelled=False,
+                 employee__employee_profile__employment_type=et)
+         .update(status='paid', paid_at=timezone.now(), paid_by=request.user))
+    messages.success(request, f"{n} paiement(s) confirmé(s)." if n else "Aucune paie à confirmer.")
+    return redirect(f"{reverse('accounting:salaires')}?year={year}&month={month}&tab={tab}")
 
 
 @login_required
