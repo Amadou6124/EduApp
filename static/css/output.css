@@ -3896,6 +3896,11 @@ p {
   padding: 2rem;
 }
 
+.\!py-1 {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+
 .px-0 {
   padding-left: 0px;
   padding-right: 0px;
@@ -4094,6 +4099,10 @@ p {
 
 .pb-\[calc\(68px\+env\(safe-area-inset-bottom\)\)\] {
   padding-bottom: calc(68px + env(safe-area-inset-bottom));
+}
+
+.pl-1 {
+  padding-left: 0.25rem;
 }
 
 .pl-10 {

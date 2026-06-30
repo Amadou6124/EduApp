@@ -48,6 +48,43 @@ class EmployeeProfile(models.Model):
         return f'{self.membership.user.full_name} — {self.get_employment_type_display()}'
 
 
+# ─── Tarifs vacataire par matière ────────────────────────────────────────────
+
+class VacataireRate(models.Model):
+    """Tarif horaire d'un vacataire pour un COURS précis (matière + classe).
+
+    La paie d'un vacataire = Σ (heures émargées du cours × ce tarif). Le tarif
+    peut varier selon la classe/le niveau (Maths 6ème ≠ Maths 3ème) ; les heures
+    viennent de l'émargement. Isolation : profile.membership.school.
+    """
+    profile = models.ForeignKey(
+        EmployeeProfile, on_delete=models.CASCADE,
+        related_name='course_rates', verbose_name=_('profil employé'),
+    )
+    class_subject = models.ForeignKey(
+        'schools.ClassSubject', on_delete=models.CASCADE,
+        related_name='vacataire_rates', verbose_name=_('cours'),
+    )
+    hourly_rate = models.DecimalField(
+        _('taux horaire (FCFA)'), max_digits=12, decimal_places=0,
+        validators=[MinValueValidator(0)],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('tarif vacataire')
+        verbose_name_plural = _('tarifs vacataire')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['profile', 'class_subject'], name='uniq_vacataire_rate_course',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.profile_id} — cours {self.class_subject_id} — {self.hourly_rate}/h'
+
+
 # ─── Émargement enseignant (SÉPARÉ de Attendance élèves) ─────────────────────
 
 class TeacherAttendanceStatus(models.TextChoices):

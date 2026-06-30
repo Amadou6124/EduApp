@@ -75,6 +75,36 @@ def accounting_staff_list(request):
 
 # ─── Phase 2 — Rémunération employé (panneau lazy-load dans /team/<id>/) ──────
 
+def _vacataire_course_rates(school, member, profile):
+    """Cours du prof (matière + classe) groupés par matière + leur tarif actuel.
+
+    Auto-listés depuis ses cours → tarif par cours, avec « appliquer à toute la
+    matière » côté UI pour éviter la re-saisie.
+    """
+    from apps.schools.models import ClassSubject
+    from .models import VacataireRate
+
+    courses = (
+        ClassSubject.objects
+        .filter(teacher=member, school_class__school=school, is_active=True)
+        .select_related('subject', 'school_class')
+        .order_by('subject__name', 'school_class__name')
+    )
+    existing = {
+        vr.class_subject_id: vr.hourly_rate
+        for vr in VacataireRate.objects.filter(profile=profile)
+    }
+    groups, by_subj = [], {}
+    for cs in courses:
+        g = by_subj.get(cs.subject_id)
+        if g is None:
+            g = {'subject': cs.subject, 'courses': []}
+            by_subj[cs.subject_id] = g
+            groups.append(g)
+        g['courses'].append({'cs': cs, 'rate': existing.get(cs.id)})
+    return groups
+
+
 @login_required
 @director_or_accounting_required
 def employee_remuneration_panel(request, user_id):
@@ -94,6 +124,7 @@ def employee_remuneration_panel(request, user_id):
     )
     return render(request, 'accounting/partials/employee_remuneration.html', {
         'member': member, 'profile': profile, 'school': school,
+        'rate_groups': _vacataire_course_rates(school, member, profile),
     })
 
 
@@ -118,12 +149,9 @@ def employee_remuneration_save(request, user_id):
         emp_type = EmploymentType.PERMANENT
 
     monthly = _parse_money(request.POST.get('monthly_salary'))
-    hourly  = _parse_money(request.POST.get('hourly_rate'))
 
     if emp_type == EmploymentType.PERMANENT and monthly is None:
         return _toast_error('Le salaire mensuel est obligatoire pour un permanent.')
-    if emp_type == EmploymentType.VACATAIRE and hourly is None:
-        return _toast_error('Le taux horaire est obligatoire pour un vacataire.')
 
     hire_raw = (request.POST.get('hire_date') or '').strip()
     hire_date = None
@@ -135,12 +163,29 @@ def employee_remuneration_save(request, user_id):
 
     profile.employment_type = emp_type
     profile.monthly_salary = monthly if emp_type == EmploymentType.PERMANENT else None
-    profile.hourly_rate    = hourly if emp_type == EmploymentType.VACATAIRE else None
+    profile.hourly_rate    = None  # remplacé par les tarifs par matière (VacataireRate)
     profile.hire_date = hire_date
     profile.save()
 
+    # Tarifs par cours (vacataire) : upsert des valeurs saisies, suppression si vidé.
+    if emp_type == EmploymentType.VACATAIRE:
+        from .models import VacataireRate
+        for g in _vacataire_course_rates(school, member, profile):
+            for r in g['courses']:
+                cs_id = r['cs'].id
+                raw = (request.POST.get(f'rate_cs_{cs_id}') or '').strip()
+                if raw == '':
+                    VacataireRate.objects.filter(profile=profile, class_subject_id=cs_id).delete()
+                    continue
+                val = _parse_money(raw)
+                if val is not None and val >= 0:
+                    VacataireRate.objects.update_or_create(
+                        profile=profile, class_subject_id=cs_id, defaults={'hourly_rate': val},
+                    )
+
     resp = render(request, 'accounting/partials/employee_remuneration.html', {
         'member': member, 'profile': profile, 'school': school,
+        'rate_groups': _vacataire_course_rates(school, member, profile),
     })
     resp['HX-Trigger'] = json.dumps({
         'showToast': {'message': 'Rémunération enregistrée.', 'type': 'success'},
