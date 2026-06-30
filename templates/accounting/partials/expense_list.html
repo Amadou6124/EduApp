@@ -1,81 +1,108 @@
 {% load humanize %}
 <div id="expense-content">
-  {# Résumé : total + répartition par catégorie #}
-  <div class="card p-6 mb-6">
-    <div class="flex items-center justify-between mb-4">
-      <p class="text-sm text-gray-500">Total ce mois</p>
-      <p class="text-2xl font-extrabold text-gray-900">{{ total|floatformat:0|intcomma }} <span class="text-sm font-normal text-gray-400">FCFA</span></p>
+
+  {# ── Héros : total + delta + barre segmentée par catégorie ── #}
+  <div class="card p-5 mb-4">
+    <div>
+      <p class="text-xs text-gray-400 uppercase tracking-wide">Total des dépenses ce mois</p>
+      <div class="flex items-baseline gap-3 flex-wrap">
+        <p class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ total|floatformat:0|intcomma }} <span class="text-sm font-normal text-gray-400">FCFA</span></p>
+        {% if delta_pct is not None %}
+        <span class="text-xs font-medium flex items-center gap-0.5 {% if delta_pct <= 0 %}text-green-600{% else %}text-red-500{% endif %}">
+          <i data-lucide="{% if delta_pct <= 0 %}arrow-down-right{% else %}arrow-up-right{% endif %}" class="w-3.5 h-3.5"></i>{{ delta_pct|cut:"-" }} % vs mois précédent
+        </span>
+        {% endif %}
+      </div>
     </div>
     {% if by_cat %}
-    <div class="space-y-2.5">
+    <div class="h-3 rounded-lg overflow-hidden flex gap-0.5 mt-4">
+      {% for c in by_cat %}<div class="first:rounded-l-lg last:rounded-r-lg" style="width:{{ c.pct }}%;background:{{ c.color }}"></div>{% endfor %}
+    </div>
+    <div class="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
       {% for c in by_cat %}
-      <div>
-        <div class="flex items-center justify-between text-xs mb-1">
-          <span class="flex items-center gap-1.5 text-gray-600"><i data-lucide="{{ c.category__icon|default:'circle' }}" class="w-3.5 h-3.5"></i> {{ c.category__name }}</span>
-          <span class="font-semibold text-gray-700">{{ c.s|floatformat:0|intcomma }} FCFA · {{ c.pct }}%</span>
-        </div>
-        <div class="h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full bg-primary-600" style="width:{{ c.pct }}%"></div></div>
-      </div>
+      <span class="text-xs text-gray-600 flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm shrink-0" style="background:{{ c.color }}"></span> {{ c.category__name }} <span class="text-gray-400">{{ c.s|floatformat:0|intcomma }}</span></span>
       {% endfor %}
     </div>
+    {% else %}<p class="text-sm text-gray-400 mt-3">Aucune dépense ce mois</p>{% endif %}
+  </div>
+
+  {# ── Récurrentes : carte avec progression ── #}
+  <div class="card p-5 mb-4">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+        <i data-lucide="repeat" class="w-4 h-4 text-gray-400"></i> Récurrentes
+        {% if rec_total %}<span class="text-[11px] font-medium px-2 py-0.5 rounded-full {% if rec_done == rec_total %}bg-green-50 text-green-700{% else %}bg-amber-50 text-amber-700{% endif %}">{{ rec_done }} / {{ rec_total }} ce mois</span>{% endif %}
+      </p>
+      <button type="button" @click="$dispatch('open-rec-panel')" class="text-xs text-primary-600 hover:text-primary-700 font-medium">+ Ajouter</button>
+    </div>
+    {% if recurrings %}
+    <div class="space-y-2">
+      {% for item in recurrings %}{% with r=item.rec %}
+      <div class="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-xl">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:{{ r.chip_bg }};color:{{ r.chip_fg }}"><i data-lucide="{{ r.category.icon|default:'circle' }}" class="w-4 h-4"></i></div>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-gray-800 truncate">{{ r.label|default:r.category.name }}</p>
+          <p class="text-xs text-gray-400">{{ r.amount|floatformat:0|intcomma }} FCFA / mois</p>
+        </div>
+        {% if item.registered %}
+          <span class="text-xs text-green-600 flex items-center gap-1 shrink-0"><i data-lucide="check-circle" class="w-4 h-4"></i> Enregistrée</span>
+        {% else %}
+          <form hx-post="{% url 'accounting:recurring-register' %}" hx-target="#expense-content" hx-swap="outerHTML" class="shrink-0">
+            {% csrf_token %}<input type="hidden" name="recurring_id" value="{{ r.id }}"><input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
+            <button class="text-xs px-3 py-1.5 rounded-lg bg-primary-600 text-white hover:bg-primary-700 font-medium">Enregistrer</button>
+          </form>
+        {% endif %}
+        <form hx-post="{% url 'accounting:recurring-delete' r.id %}" hx-target="#expense-content" hx-swap="outerHTML" hx-confirm="Supprimer cette récurrente ? (l'historique est conservé)" class="shrink-0">
+          {% csrf_token %}<input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
+          <button class="p-1 text-gray-300 hover:text-red-500" title="Supprimer"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+        </form>
+      </div>
+      {% endwith %}{% endfor %}
+    </div>
     {% else %}
-    <p class="text-sm text-gray-400 text-center py-2">Aucune dépense ce mois</p>
+    <p class="text-xs text-gray-400">Aucune récurrente. Ajoute le loyer ou l'électricité pour les enregistrer en 1 clic chaque mois.</p>
     {% endif %}
   </div>
 
-  {# Liste #}
+  {# ── Liste groupée par jour ── #}
   {% if expenses %}
-  <div class="table-card">
-    <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
-        <th class="px-4 py-2.5 font-semibold">Date</th>
-        <th class="px-4 py-2.5 font-semibold">Catégorie</th>
-        <th class="px-4 py-2.5 font-semibold">Description</th>
-        <th class="px-4 py-2.5 font-semibold text-right">Montant</th>
-        <th class="px-4 py-2.5 font-semibold">Mode</th>
-        <th class="px-4 py-2.5 font-semibold"></th>
-      </tr></thead>
-      <tbody class="divide-y divide-gray-50">
-        {% for e in expenses %}
-        <tr class="hover:bg-gray-50/50 {% if e.is_cancelled %}opacity-60{% endif %}" x-data="{ cancel: false }">
-          <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ e.date|date:"d/m/Y" }}</td>
-          <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 text-gray-700"><i data-lucide="{{ e.category.icon|default:'circle' }}" class="w-3.5 h-3.5 text-gray-400"></i> {{ e.category.name }}</span></td>
-          <td class="px-4 py-3 text-gray-500">
-            {{ e.description|default:"—" }}
-            {% if e.is_cancelled and e.cancellation_reason %}<span class="block text-[11px] text-red-400 italic mt-0.5">Motif : {{ e.cancellation_reason }}</span>{% endif %}
-          </td>
-          <td class="px-4 py-3 text-right font-semibold whitespace-nowrap {% if e.is_cancelled %}text-gray-400 line-through{% else %}text-gray-900{% endif %}">{{ e.amount|floatformat:0|intcomma }} FCFA</td>
-          <td class="px-4 py-3 text-gray-500">{{ e.get_payment_method_display }}</td>
-          <td class="px-4 py-3 text-right">
-            {% if e.is_cancelled %}
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-400">Annulée</span>
-            {% else %}
-              <button type="button" @click="cancel = true" class="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50" title="Annuler"><i data-lucide="x" class="w-4 h-4"></i></button>
-              {# Modal motif d'annulation #}
-              <div x-show="cancel" x-cloak @click.self="cancel=false" @keydown.escape.window="cancel=false"
-                   class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-                <form hx-post="{% url 'accounting:expense-cancel' e.id %}" hx-target="#expense-content" hx-swap="outerHTML"
-                      @click.stop class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-4 text-left">
-                  {% csrf_token %}
-                  <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
-                  <h3 class="text-base font-semibold text-gray-900">Annuler cette dépense ?</h3>
-                  <p class="text-sm text-gray-500">{{ e.category.name }} — {{ e.amount|floatformat:0|intcomma }} FCFA du {{ e.date|date:"d/m/Y" }}</p>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Motif d'annulation <span class="text-red-500">*</span></label>
-                    <textarea name="reason" required rows="2" class="input-field" placeholder="Ex : erreur de saisie, doublon…"></textarea>
-                  </div>
-                  <div class="flex gap-3">
-                    <button type="submit" class="btn-danger flex-1">Confirmer l'annulation</button>
-                    <button type="button" @click="cancel=false" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition">Retour</button>
-                  </div>
-                </form>
+  <div class="card p-0 overflow-hidden">
+    {% regroup expenses by date as days %}
+    {% for day in days %}
+    <div class="px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50/70 border-t border-gray-100 first:border-t-0">{{ day.grouper|date:"l j F"|capfirst }}</div>
+    {% for e in day.list %}
+    <div class="flex items-center gap-3 px-4 py-3 border-t border-gray-50 flex-wrap {% if e.is_cancelled %}opacity-60{% endif %}" x-data="{ cancel: false }">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:{{ e.chip_bg }};color:{{ e.chip_fg }}"><i data-lucide="{{ e.category.icon|default:'circle' }}" class="w-4 h-4"></i></div>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-medium text-gray-800 truncate flex items-center gap-1.5">{{ e.category.name }}{% if e.recurring_id %}<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-600 font-semibold">récurrente</span>{% endif %}</p>
+        <p class="text-xs text-gray-400 truncate">{% if e.description %}{{ e.description }} · {% endif %}{{ e.get_payment_method_display }}{% if e.is_cancelled and e.cancellation_reason %} · <span class="text-red-400 italic">{{ e.cancellation_reason }}</span>{% endif %}</p>
+      </div>
+      <p class="text-sm font-semibold whitespace-nowrap {% if e.is_cancelled %}text-gray-400 line-through{% else %}text-gray-900{% endif %}">{{ e.amount|floatformat:0|intcomma }} <span class="text-xs font-normal text-gray-400">FCFA</span></p>
+      <div class="shrink-0">
+        {% if e.is_cancelled %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-400">Annulée</span>
+        {% else %}
+          <button type="button" @click="cancel = true" class="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50" title="Annuler"><i data-lucide="x" class="w-4 h-4"></i></button>
+          <template x-teleport="body"><div x-show="cancel" x-cloak @click.self="cancel=false" @keydown.escape.window="cancel=false"
+               class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <form hx-post="{% url 'accounting:expense-cancel' e.id %}" hx-target="#expense-content" hx-swap="outerHTML"
+                  @click.stop class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-4 text-left">
+              {% csrf_token %}<input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
+              <h3 class="text-base font-semibold text-gray-900">Annuler cette dépense ?</h3>
+              <p class="text-sm text-gray-500">{{ e.category.name }} — {{ e.amount|floatformat:0|intcomma }} FCFA du {{ e.date|date:"d/m/Y" }}</p>
+              <div><label class="block text-sm font-medium text-gray-700 mb-1">Motif d'annulation <span class="text-red-500">*</span></label>
+                <textarea name="reason" required rows="2" class="input-field" placeholder="Ex : erreur de saisie, doublon…"></textarea></div>
+              <div class="flex gap-3">
+                <button type="submit" class="btn-danger flex-1">Confirmer l'annulation</button>
+                <button type="button" @click="cancel=false" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition">Retour</button>
               </div>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table></div>
+            </form>
+          </div></template>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% endfor %}
   </div>
   {% else %}
   <div class="card p-10 text-center">

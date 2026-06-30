@@ -186,6 +186,40 @@ class ExpenseCategory(models.Model):
         return self.name
 
 
+class RecurringExpense(models.Model):
+    """Modèle de dépense récurrente (loyer, électricité…). Chaque mois, on
+    propose de l'enregistrer en un clic au lieu de re-saisir. N'est PAS une
+    dépense réelle tant qu'on ne l'a pas enregistrée."""
+    school = models.ForeignKey(
+        'schools.School', on_delete=models.CASCADE,
+        related_name='recurring_expenses', verbose_name=_('école'),
+    )
+    category = models.ForeignKey(
+        ExpenseCategory, on_delete=models.PROTECT,
+        related_name='recurring_expenses', verbose_name=_('catégorie'),
+    )
+    label = models.CharField(_('libellé'), max_length=200, blank=True)
+    amount = models.DecimalField(
+        _('montant (FCFA)'), max_digits=12, decimal_places=0,
+        validators=[MinValueValidator(1)],
+    )
+    payment_method = models.CharField(
+        _('mode de paiement'), max_length=20,
+        choices=PaymentMethod.choices, default=PaymentMethod.CASH,
+    )
+    is_active  = models.BooleanField(_('active'), default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('dépense récurrente')
+        verbose_name_plural = _('dépenses récurrentes')
+        ordering = ['category__name', 'label']
+
+    def __str__(self):
+        return f'{self.label or self.category.name} — {self.amount}/mois'
+
+
 class Expense(models.Model):
     school = models.ForeignKey(
         'schools.School', on_delete=models.CASCADE,
@@ -194,6 +228,10 @@ class Expense(models.Model):
     category = models.ForeignKey(
         ExpenseCategory, on_delete=models.PROTECT,
         related_name='expenses', verbose_name=_('catégorie'),
+    )
+    recurring = models.ForeignKey(
+        RecurringExpense, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='occurrences', verbose_name=_('dépense récurrente'),
     )
     amount = models.DecimalField(
         _('montant (FCFA)'), max_digits=12, decimal_places=0,

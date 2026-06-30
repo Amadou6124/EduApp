@@ -734,35 +734,83 @@ def _expense_categories(school):
             .order_by('-is_default', 'name'))
 
 
+# Palette déterministe par catégorie (pastille + couleur de barre).
+_CAT_PALETTE = [
+    ('#FAEEDA', '#BA7517'), ('#E6F1FB', '#185FA5'), ('#EEEDFE', '#534AB7'),
+    ('#E1F5EE', '#0F6E56'), ('#FBEAF0', '#993556'), ('#FAECE7', '#993C1D'),
+]
+
+
+def _cat_color(cid):
+    return _CAT_PALETTE[(cid or 0) % len(_CAT_PALETTE)]
+
+
+def _recurring_status(school, year, month):
+    """Récurrentes actives + si déjà enregistrées ce mois (occurrence non annulée)."""
+    from .models import RecurringExpense, Expense
+    recs = list(
+        RecurringExpense.objects.filter(school=school, is_active=True).select_related('category')
+    )
+    reg = set(
+        Expense.objects.filter(
+            school=school, recurring__in=recs, is_cancelled=False,
+            date__year=year, date__month=month,
+        ).values_list('recurring_id', flat=True)
+    )
+    out = []
+    for r in recs:
+        r.chip_bg, r.chip_fg = _cat_color(r.category_id)
+        out.append({'rec': r, 'registered': r.id in reg})
+    return out
+
+
 def _expense_context(request, school, year, month, category_id, method):
-    """Liste + totaux d'un mois filtré (mutualisé dashboard + refresh OOB)."""
+    """Liste + totaux + récurrentes d'un mois filtré (mutualisé dashboard + refresh)."""
     from django.db.models import Sum
     from .models import Expense
 
     # La LISTE inclut les annulées (affichées avec badge) ; les TOTAUX ci-dessous
     # restent sur is_cancelled=False. Actives d'abord, annulées en bas.
+    # Groupée par jour : tri par date (actives + annulées d'un même jour ensemble).
     qs = (Expense.objects
           .filter(school=school, date__year=year, date__month=month)
           .select_related('category', 'paid_by', 'cancelled_by')
-          .order_by('is_cancelled', '-date', '-created_at'))
+          .order_by('-date', 'is_cancelled', '-created_at'))
     if category_id:
         qs = qs.filter(category_id=category_id)
     if method:
         qs = qs.filter(payment_method=method)
     expenses = list(qs)
+    for e in expenses:
+        e.chip_bg, e.chip_fg = _cat_color(e.category_id)
 
     # Total + répartition par catégorie (sur le mois, hors filtres catégorie/mode)
     base = Expense.objects.filter(school=school, is_cancelled=False, date__year=year, date__month=month)
     total = base.aggregate(s=Sum('amount'))['s'] or 0
     by_cat = list(
-        base.values('category__name', 'category__icon')
+        base.values('category__id', 'category__name', 'category__icon')
         .annotate(s=Sum('amount')).order_by('-s')
     )
     for c in by_cat:
         c['pct'] = int(c['s'] / total * 100) if total else 0
+        c['chip'], c['color'] = _cat_color(c['category__id'])
 
+    # Delta vs mois précédent.
+    py, pm = (year, month - 1) if month > 1 else (year - 1, 12)
+    prev_total = (Expense.objects
+                  .filter(school=school, is_cancelled=False, date__year=py, date__month=pm)
+                  .aggregate(s=Sum('amount'))['s'] or 0)
+    delta_pct = None
+    if prev_total:
+        delta_pct = round((float(total) - float(prev_total)) / float(prev_total) * 100)
+
+    recurrings = _recurring_status(school, year, month)
     return {
         'expenses': expenses, 'total': total, 'by_cat': by_cat,
+        'recurrings': recurrings,
+        'rec_total': len(recurrings),
+        'rec_done': sum(1 for i in recurrings if i['registered']),
+        'delta_pct': delta_pct,
         'year': year, 'month': month, 'category_id': category_id, 'method': method,
     }
 
@@ -880,6 +928,108 @@ def expense_cancel(request, expense_id):
     resp = render(request, 'accounting/partials/expense_list.html', ctx)
     resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Dépense annulée.', 'type': 'info'}})
     return resp
+
+
+def _expense_list_response(request, school, year, month, message, extra_trigger=None):
+    """Re-render #expense-content + toast (mutualisé récurrentes)."""
+    ctx = _expense_context(request, school, year, month, '', '')
+    resp = render(request, 'accounting/partials/expense_list.html', ctx)
+    trig = {'showToast': {'message': message, 'type': 'success'}}
+    if extra_trigger:
+        trig.update(extra_trigger)
+    resp['HX-Trigger'] = json.dumps(trig)
+    return resp
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def recurring_register(request):
+    """Enregistre une dépense récurrente pour le mois affiché (1 clic)."""
+    from datetime import date as _date
+    from .models import RecurringExpense, Expense
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    try:
+        rec = RecurringExpense.objects.select_related('category').get(
+            pk=int(request.POST.get('recurring_id')), school=school, is_active=True,
+        )
+    except (TypeError, ValueError, RecurringExpense.DoesNotExist):
+        return _toast_error('Récurrente introuvable.')
+
+    already = Expense.objects.filter(
+        school=school, recurring=rec, is_cancelled=False,
+        date__year=year, date__month=month,
+    ).exists()
+    if not already:
+        today = _date.today()
+        d = today if (year, month) == (today.year, today.month) else _date(year, month, 1)
+        Expense.objects.create(
+            school=school, category=rec.category, recurring=rec,
+            amount=rec.amount, date=d, description=rec.label,
+            payment_method=rec.payment_method, paid_by=request.user,
+        )
+    return _expense_list_response(request, school, year, month, 'Dépense récurrente enregistrée.')
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def recurring_create(request):
+    """Ajoute un modèle de dépense récurrente."""
+    from django.db.models import Q
+    from .models import RecurringExpense, ExpenseCategory
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    amount = _parse_money(request.POST.get('amount'))
+    if amount is None or amount <= 0:
+        return _toast_error('Montant invalide.')
+    cat_id = (request.POST.get('category') or '').strip()
+    if not cat_id.isdigit():
+        return _toast_error('Veuillez sélectionner une catégorie.')
+    cat = ExpenseCategory.objects.filter(
+        Q(school__isnull=True) | Q(school=school), pk=cat_id, is_active=True,
+    ).first()
+    if cat is None:
+        return _toast_error('Catégorie invalide.')
+
+    from apps.payments.models import PaymentMethod
+    method = request.POST.get('payment_method', 'cash')
+    if method not in {c[0] for c in PaymentMethod.choices}:
+        method = 'cash'
+
+    RecurringExpense.objects.create(
+        school=school, category=cat, amount=amount,
+        label=request.POST.get('label', '').strip()[:200], payment_method=method,
+    )
+    return _expense_list_response(
+        request, school, year, month, 'Récurrente ajoutée.',
+        extra_trigger={'close-recurring-panel': True},
+    )
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def recurring_delete(request, rec_id):
+    """Désactive une récurrente (l'historique des occurrences est conservé)."""
+    from .models import RecurringExpense
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    RecurringExpense.objects.filter(pk=rec_id, school=school).update(is_active=False)
+    return _expense_list_response(request, school, year, month, 'Récurrente supprimée.')
 
 
 # ─── Phase 6 — Bilan (fusionné dans la Vue d'ensemble) ───────────────────────
