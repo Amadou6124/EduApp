@@ -224,7 +224,7 @@
         <div x-show="!$store.sidebar.open" x-cloak class="mx-auto my-1 w-5 h-px bg-gray-200"></div>
 
         <a href="{% url 'schools:class-list' %}"
-           class="nav-link {% if request.resolver_match.app_name == 'schools' %}is-active{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'schools' and 'announcement' not in request.resolver_match.url_name %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Classes'">
           <i data-lucide="school" class="w-5 h-5 shrink-0"></i>
