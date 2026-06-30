@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 
 from apps.core.mixins import get_school
 from apps.schools.models import ClassSubject, Subject, SchoolClass
+from apps.students.models import Student
 from .models import User, UserRole, StaffPermission, Membership
 from .team_forms import TeamMemberCreateForm, TeamMemberEditForm, StaffPermissionForm
 
@@ -23,6 +24,18 @@ _PRESETS = [
     ('Informaticien', 'informaticien'),
     ('Secrétaire',    'secretaire'),
 ]
+
+# Permissions « toujours actives » exclues du décompte affiché.
+_ALWAYS_ON_PERMS = {'can_view_students', 'can_view_classes'}
+
+
+def _active_perm_count(perm):
+    """Nombre de permissions explicitement activées (hors « toujours actif »)."""
+    return sum(
+        1 for f in perm._meta.fields
+        if f.name.startswith('can_') and f.name not in _ALWAYS_ON_PERMS
+        and getattr(perm, f.name)
+    )
 
 
 # ── Décorateur director uniquement ────────────────────────────────────────────
@@ -320,14 +333,33 @@ def team_member_detail(request, user_id):
         'school':                school,
         'member':                member,
         'member_role':           member_role,
+        # Statut PER-ÉCOLE (Membership), pas le champ global User.is_active.
+        'member_is_active':      membership.is_active if membership else member.is_active,
         'is_director':           is_director,
         'can_manage_accounting': is_director or bool(viewer_perm and viewer_perm.can_manage_accounting),
     }
 
-    if member_role == UserRole.STAFF:
+    # Chiffres clés (divulgation progressive) — selon le rôle dans cette école.
+    if member_role == UserRole.TEACHER:
+        cs = ClassSubject.objects.filter(
+            teacher=member, school_class__school=school, is_active=True,
+        )
+        class_ids = set(cs.values_list('school_class_id', flat=True))
+        subj_ids  = set(cs.values_list('subject_id', flat=True))
+        student_count = (
+            Student.objects.filter(school_class_id__in=class_ids, is_active=True).count()
+            if class_ids else 0
+        )
+        context['stats'] = {
+            'classes':  len(class_ids),
+            'subjects': len(subj_ids),
+            'students': student_count,
+        }
+    elif member_role == UserRole.STAFF:
         perm, _ = StaffPermission.objects.get_or_create(user=member)
         context['perm']      = perm
         context['perm_form'] = StaffPermissionForm(instance=perm)
+        context['stats'] = {'permissions': _active_perm_count(perm)}
 
     return render(request, 'team/team_detail.html', context)
 
@@ -380,11 +412,12 @@ def team_permissions_update(request, user_id):
     if form.is_valid():
         form.save()
         response = render(request, 'team/partials/staff_permissions.html', {
-            'school':      school,
-            'member':      member,
-            'perm':        perm,
-            'perm_form':   StaffPermissionForm(instance=perm),
-            'is_director': True,
+            'school':       school,
+            'member':       member,
+            'perm':         perm,
+            'perm_form':    StaffPermissionForm(instance=perm),
+            'is_director':  True,
+            'active_count': _active_perm_count(perm),
         })
         response['HX-Trigger'] = json.dumps({
             'showToast': {'message': 'Permissions mises à jour.', 'type': 'success'},
@@ -392,14 +425,36 @@ def team_permissions_update(request, user_id):
         return response
 
     response = render(request, 'team/partials/staff_permissions.html', {
-        'school':      school,
-        'member':      member,
-        'perm':        perm,
-        'perm_form':   form,
-        'is_director': True,
+        'school':       school,
+        'member':       member,
+        'perm':         perm,
+        'perm_form':    form,
+        'is_director':  True,
+        'active_count': _active_perm_count(perm),
     })
     response.status_code = 422
     return response
+
+
+def _detail_header_response(request, school, member, message, toast_type):
+    """Swap in-place de la carte identité (fiche détail) avec UN seul toast.
+
+    Utilisé quand (dés)activation est déclenchée depuis la fiche détail
+    (HX-Target=member-detail-header) → évite le full reload + le double toast.
+    """
+    membership = Membership.objects.filter(user=member, school=school).first()
+    resp = render(request, 'team/partials/team_member_header.html', {
+        'member':           member,
+        'member_role':      membership.role if membership else member.role,
+        'member_is_active': membership.is_active if membership else member.is_active,
+        'is_director':      request.user.role == UserRole.DIRECTOR or request.user.is_superuser,
+    })
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': toast_type}})
+    return resp
+
+
+def _from_detail_header(request):
+    return request.headers.get('HX-Target') == 'member-detail-header'
 
 
 @login_required
@@ -420,10 +475,14 @@ def team_member_deactivate(request, user_id):
     # Désactivation PER-ÉCOLE : Membership.is_active=False (compte global intact).
     Membership.objects.filter(user=member, school=school).update(is_active=False)
 
+    msg = f'{member.full_name} a été désactivé(e).'
+    if _from_detail_header(request):
+        return _detail_header_response(request, school, member, msg, 'info')
+
     resp = HttpResponse(status=204)
     resp['HX-Trigger'] = json.dumps({
         'team-changed': True,
-        'showToast': {'message': f'{member.full_name} a été désactivé(e).', 'type': 'info'},
+        'showToast': {'message': msg, 'type': 'info'},
     })
     return resp
 
@@ -441,10 +500,14 @@ def team_member_reactivate(request, user_id):
     member = get_object_or_404(User, pk=user_id, memberships__school=school)
     Membership.objects.filter(user=member, school=school).update(is_active=True)
 
+    msg = f'{member.full_name} réactivé(e).'
+    if _from_detail_header(request):
+        return _detail_header_response(request, school, member, msg, 'success')
+
     response = HttpResponse(status=204)
     response['HX-Trigger'] = json.dumps({
         'team-changed': True,
-        'showToast': {'message': f'{member.full_name} réactivé(e).', 'type': 'success'},
+        'showToast': {'message': msg, 'type': 'success'},
     })
     return response
 
@@ -467,11 +530,28 @@ def _teacher_subjects_ctx(school, member, saved=False):
         .filter(school=school, is_active=True)
         .order_by('level', 'name')
     )
+
+    # Regroupement par classe (accordéon repliable) + décompte assigné/total.
+    groups = []
+    by_class = {}
+    for cs in all_class_subjects:
+        cs.assigned = cs.id in assigned_ids
+        g = by_class.get(cs.school_class_id)
+        if g is None:
+            g = {'class': cs.school_class, 'subjects': [], 'assigned': 0, 'total': 0}
+            by_class[cs.school_class_id] = g
+            groups.append(g)
+        g['subjects'].append(cs)
+        g['total'] += 1
+        if cs.assigned:
+            g['assigned'] += 1
+
     return {
         'school':             school,
         'member':             member,
         'all_class_subjects': all_class_subjects,
         'assigned_ids':       assigned_ids,
+        'groups':             groups,
         'classes':            classes,
         'is_director':        True,
         'saved':              saved,
