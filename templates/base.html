@@ -286,11 +286,11 @@
         {% if request.school.accounting_enabled %}
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:dashboard' %}"
-           class="nav-link {% if request.resolver_match.app_name == 'accounting' and request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'staff-list' or request.resolver_match.url_name == 'staff-remuneration' %}is-active{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'accounting' and request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'bilan' or request.resolver_match.url_name == 'staff-list' or request.resolver_match.url_name == 'staff-remuneration' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Comptabilité'">
-          <i data-lucide="calculator" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Comptabilité</span>
+           :title="$store.sidebar.open ? '' : 'Finances'">
+          <i data-lucide="wallet" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Finances</span>
         </a>
         {% endif %}
         {% endif %}
@@ -331,17 +331,7 @@
         {% endif %}
         {% endif %}
 
-        {% if request.school.accounting_enabled %}
-        {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
-        <a href="{% url 'accounting:bilan' %}"
-           class="nav-link {% if request.resolver_match.url_name == 'bilan' %}is-active{% endif %}"
-           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Bilan financier'">
-          <i data-lucide="bar-chart-3" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Bilan financier</span>
-        </a>
-        {% endif %}
-        {% endif %}
+        {# Bilan fusionné dans « Finances · Vue d'ensemble » #}
 
         {# ── Administration ── #}
         <p class="nav-section" x-show="$store.sidebar.open">Administration</p>
@@ -592,7 +582,7 @@
                 {% elif app == 'payments' %}Paiements
                 {% elif app == 'notes' %}Notes
                 {% elif app == 'bulletins' %}Bulletins
-                {% elif app == 'accounting' %}{% if url == 'emargement' %}Émargement{% elif url == 'salaires' %}Paie mensuelle{% elif url == 'depenses' %}Dépenses{% elif url == 'bilan' %}Bilan financier{% else %}Comptabilité{% endif %}
+                {% elif app == 'accounting' %}{% if url == 'emargement' %}Émargement{% elif url == 'salaires' %}Paie mensuelle{% elif url == 'depenses' %}Dépenses{% else %}Finances{% endif %}
                 {% elif app == 'team' %}Équipe
                 {% elif app == 'settings' %}Paramètres
                 {% elif app == 'lessons' %}Mes unités

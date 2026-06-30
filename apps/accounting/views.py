@@ -882,37 +882,16 @@ def expense_cancel(request, expense_id):
     return resp
 
 
-# ─── Phase 6 — Bilan financier ───────────────────────────────────────────────
+# ─── Phase 6 — Bilan (fusionné dans la Vue d'ensemble) ───────────────────────
 
 @login_required
 @director_or_accounting_required
 def bilan_dashboard(request):
-    from .services import compute_monthly_balance, compute_balance_series
-
-    school = get_school(request)
-    if not school.accounting_enabled:
-        return HttpResponse(status=403)
-
+    """Fusionné dans « Finances · Vue d'ensemble » → redirection (compat liens)."""
+    from django.shortcuts import redirect
+    from django.urls import reverse
     year, month = _parse_year_month(request)
-    balance = compute_monthly_balance(school, year, month)
-    series = compute_balance_series(school, year, month, n=6)
-
-    chart_labels = [f'{_MOIS_FR[s["month"]][:4].capitalize()}' for s in series]
-    chart_revenus = [s['revenus'] for s in series]
-    chart_charges = [s['charges'] for s in series]
-    chart_resultat = [s['resultat'] for s in series]
-
-    prev_y, prev_m = (year, month - 1) if month > 1 else (year - 1, 12)
-    next_y, next_m = (year, month + 1) if month < 12 else (year + 1, 1)
-
-    return render(request, 'accounting/bilan_dashboard.html', {
-        'school': school, 'year': year, 'month': month,
-        'month_label': _MOIS_FR[month].capitalize(),
-        'b': balance,
-        'chart_labels': chart_labels, 'chart_revenus': chart_revenus,
-        'chart_charges': chart_charges, 'chart_resultat': chart_resultat,
-        'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
-    })
+    return redirect(f"{reverse('accounting:dashboard')}?year={year}&month={month}")
 
 
 @login_required
@@ -932,13 +911,13 @@ def bilan_export_excel(request):
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f'Bilan {month}-{year}'[:31]
+    ws.title = f'Trésorerie {month}-{year}'[:31]
 
     bold = Font(bold=True)
     hdr_font = Font(bold=True, color='FFFFFF')
     hdr_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
 
-    ws.append([f'{school.name} — Bilan financier {_MOIS_FR[month].capitalize()} {year}'])
+    ws.append([f'{school.name} — Trésorerie {_MOIS_FR[month].capitalize()} {year}'])
     ws['A1'].font = Font(bold=True, size=14)
     ws.append([])
 
@@ -970,7 +949,7 @@ def bilan_export_excel(request):
     ws.column_dimensions['A'].width = 36
     ws.column_dimensions['B'].width = 18
 
-    filename = f'bilan_{school.name.replace(" ", "_")}_{month}_{year}.xlsx'
+    filename = f'tresorerie_{school.name.replace(" ", "_")}_{month}_{year}.xlsx'
     resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     resp['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(resp)
@@ -982,7 +961,8 @@ def bilan_export_excel(request):
 @login_required
 @director_or_accounting_required
 def accounting_dashboard(request):
-    """Dashboard principal : KPI mois courant, graphique 6 mois, alertes, accès rapides."""
+    """Finances · Vue d'ensemble — fusion résultat net + bilan : KPIs, graphe 6 mois,
+    dépenses par catégorie, alertes, raccourcis, export. Réutilise les calculs."""
     from datetime import date as _date
     from .models import SalaryPayment, SalaryStatus, Expense, TeacherAttendance
     from .services import compute_monthly_balance, compute_balance_series
@@ -993,7 +973,8 @@ def accounting_dashboard(request):
         return HttpResponse(status=403)
 
     today = _date.today()
-    year, month = today.year, today.month
+    year, month = _parse_year_month(request)
+    is_current = (year, month) == (today.year, today.month)
 
     balance = compute_monthly_balance(school, year, month)
     series  = compute_balance_series(school, year, month, n=6)
@@ -1002,21 +983,24 @@ def accounting_dashboard(request):
         school=school, status=SalaryStatus.PENDING, is_cancelled=False,
     ).count()
 
-    depenses_recentes = list(
-        Expense.objects
-        .filter(school=school, is_cancelled=False)
-        .select_related('category')
-        .order_by('-date', '-id')[:5]
-    )
+    # Alerte émargement : seulement quand on regarde le mois courant.
+    non_emarges = 0
+    if is_current:
+        total_cours = ClassSubject.objects.filter(
+            school_class__school=school, school_class__is_active=True,
+            is_active=True, teacher__isnull=False,
+        ).count()
+        emarges = TeacherAttendance.objects.filter(school=school, date=today).count()
+        non_emarges = max(0, total_cours - emarges)
 
-    total_cours = ClassSubject.objects.filter(
-        school_class__school=school, school_class__is_active=True,
-        is_active=True, teacher__isnull=False,
-    ).count()
-    emargements_aujourd_hui = TeacherAttendance.objects.filter(
-        school=school, date=today,
-    ).count()
-    non_emarges = max(0, total_cours - emargements_aujourd_hui)
+    # Barre revenus/charges (proportion).
+    rev = float(balance['revenus'] or 0)
+    chg = float(balance['charges'] or 0)
+    charges_pct = min(100, round(chg / rev * 100)) if rev > 0 else (100 if chg > 0 else 0)
+    kept_pct = max(0, 100 - charges_pct)
+
+    prev_y, prev_m = (year, month - 1) if month > 1 else (year - 1, 12)
+    next_y, next_m = (year, month + 1) if month < 12 else (year + 1, 1)
 
     chart_labels   = [f"{_MOIS_FR[s['month']][:4].capitalize()}" for s in series]
     chart_revenus  = [s['revenus']  for s in series]
@@ -1024,14 +1008,12 @@ def accounting_dashboard(request):
     chart_resultat = [s['resultat'] for s in series]
 
     return render(request, 'accounting/dashboard.html', {
-        'school': school, 'today': today,
+        'school': school, 'today': today, 'is_current': is_current,
         'month_label': _MOIS_FR[month].capitalize(), 'year': year, 'month': month,
-        'b': balance,
+        'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
+        'b': balance, 'charges_pct': charges_pct, 'kept_pct': kept_pct,
         'salaires_en_attente': salaires_en_attente,
-        'depenses_recentes': depenses_recentes,
         'non_emarges': non_emarges,
-        'emargements_aujourd_hui': emargements_aujourd_hui,
-        'total_cours': total_cours,
         'chart_labels': chart_labels, 'chart_revenus': chart_revenus,
         'chart_charges': chart_charges, 'chart_resultat': chart_resultat,
     })
