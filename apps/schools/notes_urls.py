@@ -4,7 +4,7 @@ Namespace : notes
 """
 from django.urls import path
 
-from . import notes_views
+from . import notes_views, formatif_views
 
 app_name = 'notes'
 
@@ -36,4 +36,16 @@ urlpatterns = [
     path('period/<int:period_id>/toggle/',
          notes_views.notes_period_toggle,
          name='period-toggle'),
+
+    # ── Flux formatif (hors bulletin) ─────────────────────────────
+    path('formatif/<int:class_id>/<int:period_id>/<int:subject_id>/',
+         formatif_views.formatif_panel, name='formatif-panel'),
+    path('formatif/<int:class_id>/<int:period_id>/<int:subject_id>/create/',
+         formatif_views.formatif_eval_create, name='formatif-eval-create'),
+    path('formatif/eval/<int:eval_id>/grade/',
+         formatif_views.formatif_grade_save, name='formatif-grade-save'),
+    path('formatif/eval/<int:eval_id>/delete/',
+         formatif_views.formatif_eval_delete, name='formatif-eval-delete'),
+    path('formatif/eval/<int:eval_id>/publish/',
+         formatif_views.formatif_publish_toggle, name='formatif-publish'),
 ]
