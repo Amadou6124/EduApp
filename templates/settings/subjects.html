@@ -9,14 +9,21 @@
 
 {# ═══ Catalogue de matières ═══ #}
 <div class="card p-4 mb-4"
-     x-data="{ showForm: false, fill(n){ document.getElementById('id_name').value=n; this.showForm=true; document.getElementById('id_name').focus(); } }"
+     x-data="{ showForm: false, cq: '', fill(n){ document.getElementById('id_name').value=n; this.showForm=true; document.getElementById('id_name').focus(); } }"
      @subject-saved.window="showForm = false">
-  <div class="flex items-center justify-between mb-3">
-    <h3 class="text-sm font-semibold text-gray-800">Catalogue de matières</h3>
-    <button type="button" @click="showForm = !showForm"
-            class="btn-secondary text-xs">
-      <i data-lucide="plus" class="w-3.5 h-3.5"></i> Matière
-    </button>
+  <div class="flex items-center justify-between gap-3 mb-3">
+    <h3 class="text-sm font-semibold text-gray-800 shrink-0">Catalogue de matières <span class="text-gray-400 font-normal">· {{ subjects|length }}</span></h3>
+    <div class="flex items-center gap-2 min-w-0">
+      {% if subjects|length > 12 %}
+      <div class="relative">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+        <input x-model="cq" type="text" placeholder="Filtrer…" class="input-field h-8 text-xs pl-8 w-32 sm:w-40">
+      </div>
+      {% endif %}
+      <button type="button" @click="showForm = !showForm" class="btn-secondary text-xs shrink-0">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Matière
+      </button>
+    </div>
   </div>
 
   <div id="subject-list">
