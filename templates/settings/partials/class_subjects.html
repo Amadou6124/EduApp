@@ -1,158 +1,135 @@
 {% load i18n l10n %}
-<div class="border border-gray-200 rounded-xl overflow-hidden">
+{% comment %}
+Volet droit du maître-détail : matières d'une classe. Cible HTMX #class-subjects-panel.
+Contexte : school_class, class_subjects, available_subjects, teachers.
+{% endcomment %}
+<div class="card p-0 overflow-hidden">
 
-  <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-    <div>
-      <p class="text-sm font-semibold text-gray-900">{{ school_class.name }}</p>
-      <p class="text-xs text-gray-500">{{ school_class.get_level_display }}</p>
+  <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100">
+    <div class="min-w-0">
+      <p class="text-sm font-semibold text-gray-900 truncate">{{ school_class.name }}</p>
+      <p class="text-xs text-gray-400">{{ school_class.get_level_display }} · {{ class_subjects|length }} matière{{ class_subjects|length|pluralize }}</p>
     </div>
-    <span class="text-xs text-gray-400">{{ class_subjects|length }} matière{{ class_subjects|length|pluralize }}</span>
   </div>
 
+  {# Liste des matières de la classe #}
   {% if class_subjects %}
-  <div class="divide-y divide-gray-100">
+  <div class="p-3 space-y-2">
     {% for cs in class_subjects %}
-    <div x-data="{ editing: false }" class="px-4 py-3">
+    <div x-data="{ edit: false }" class="rounded-xl border border-gray-200">
 
-      <div x-show="!editing" class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-3 min-w-0 flex-1">
-          <span class="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold text-white"
-                style="background-color: {{ cs.subject.color }};">
-            {{ cs.subject.short_name|truncatechars:2 }}
-          </span>
-          <div class="min-w-0">
-            <p class="text-xs font-semibold text-gray-900 truncate">{{ cs.subject.name }}</p>
-            <p class="text-xs text-gray-400">
-              Coeff. {{ cs.coefficient }} · /{{ cs.max_grade }}
-              {% if cs.teacher %}
-                · <a href="{% url 'team:detail' cs.teacher.pk %}"
-                     class="text-primary-600 hover:underline inline-flex items-center gap-1">
-                    <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                    </svg>
-                    {{ cs.teacher.get_short_name }}
-                  </a>
-              {% endif %}
-            </p>
-          </div>
+      {# Lecture #}
+      <div x-show="!edit" class="flex items-center gap-3 px-3 py-2.5">
+        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ cs.subject.color }};"></span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-gray-900 truncate">{{ cs.subject.name }}</p>
+          <p class="text-xs text-gray-400">
+            Coeff. {{ cs.coefficient|floatformat:'-2' }} · /{{ cs.max_grade|floatformat:'-2' }}
+            {% if cs.teacher %}· {{ cs.teacher.get_short_name }}{% else %}· <span class="text-amber-500">non assigné</span>{% endif %}
+          </p>
         </div>
-        <div class="flex items-center gap-1 flex-shrink-0">
-          <button @click="editing = true"
-                  class="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-            </svg>
-          </button>
-          <button type="button"
-                  @click="$store.confirm.show({
-                    title: 'Retirer {{ cs.subject.name }}',
-                    message: 'Cette matière sera retirée de {{ school_class.name }}.',
-                    warning: 'Si des notes ont été saisies pour cette matière, le retrait sera bloqué.',
-                    confirmText: 'Retirer', confirmIcon: 'minus-circle', confirmClass: 'btn-danger',
-                    icon: 'alert-triangle', iconBg: 'bg-red-50', iconColor: 'text-red-500',
-                    onConfirm: () => htmx.ajax('DELETE', '{% url "settings:class-subject-remove" cs.id %}', {target: '#class-subjects-panel', swap: 'innerHTML'})
-                  })"
-                  class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
+        <button type="button" @click="edit = true" class="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition shrink-0" title="Modifier">
+          <i data-lucide="pencil" class="w-4 h-4"></i>
+        </button>
+        <button type="button"
+                @click="$store.confirm.show({
+                  title: 'Retirer {{ cs.subject.name|escapejs }}',
+                  message: 'Cette matière sera retirée de {{ school_class.name|escapejs }}.',
+                  warning: 'Bloqué si des notes ont été saisies pour cette matière.',
+                  confirmText: 'Retirer', confirmIcon: 'minus-circle', confirmClass: 'btn-danger',
+                  icon: 'alert-triangle', iconBg: 'bg-red-50', iconColor: 'text-red-500',
+                  onConfirm: () => htmx.ajax('DELETE', '{% url 'settings:class-subject-remove' cs.id %}', {target: '#class-subjects-panel', swap: 'innerHTML'})
+                })"
+                class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition shrink-0" title="Retirer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
       </div>
 
-      <div x-show="editing" x-cloak>
-        <form hx-post="{% url 'settings:class-subject-update' cs.id %}"
-              hx-target="#class-subjects-panel"
-              hx-swap="innerHTML"
-              class="grid grid-cols-2 sm:grid-cols-3 gap-2 items-end">
-          {% csrf_token %}
+      {# Édition inline #}
+      <form x-show="edit" x-cloak
+            hx-post="{% url 'settings:class-subject-update' cs.id %}"
+            hx-target="#class-subjects-panel" hx-swap="innerHTML"
+            class="px-3 py-2.5">
+        {% csrf_token %}
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ cs.subject.color }};"></span>
+          <span class="text-sm font-medium text-gray-800">{{ cs.subject.name }}</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 mb-1">Coeff.</label>
-            <input type="number" name="coefficient" value="{{ cs.coefficient|unlocalize }}"
-                   step="0.1" min="0.1"
-                   class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500">
+            <input name="coefficient" type="number" step="0.1" min="0.1" value="{{ cs.coefficient|unlocalize }}" class="input-field h-9 text-sm w-full">
           </div>
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 mb-1">Note max</label>
-            <input type="number" name="max_grade" value="{{ cs.max_grade|unlocalize }}"
-                   step="0.01" min="1"
-                   class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500">
+            <input name="max_grade" type="number" step="0.01" min="1" value="{{ cs.max_grade|unlocalize }}" class="input-field h-9 text-sm w-full">
           </div>
-          <input type="hidden" name="subject" value="{{ cs.subject_id }}">
-          <input type="hidden" name="teacher" value="{{ cs.teacher_id|default:'' }}">
-          <input type="hidden" name="order"   value="{{ cs.order }}">
-          <div class="col-span-2 sm:col-span-3 flex gap-2 justify-end mt-1">
-            <button type="button" @click="editing = false"
-                    class="px-3 py-1.5 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-50 transition">
-              Annuler
-            </button>
-            <button type="submit"
-                    class="px-3 py-1.5 text-xs font-semibold bg-primary-600 text-white rounded hover:bg-primary-700 transition">
-              Enregistrer
-            </button>
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Durée (h)</label>
+            <input name="duration_hours" type="number" step="0.5" min="0.5" value="{{ cs.duration_hours|unlocalize }}" class="input-field h-9 text-sm w-full">
           </div>
-        </form>
-      </div>
-
+          <div class="col-span-2 sm:col-span-1">
+            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Enseignant</label>
+            <select name="teacher" class="input-field h-9 text-sm w-full">
+              <option value="">— Aucun —</option>
+              {% for teacher in teachers %}<option value="{{ teacher.id }}" {% if teacher.id == cs.teacher_id %}selected{% endif %}>{{ teacher.full_name }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <input type="hidden" name="subject" value="{{ cs.subject_id }}">
+        <input type="hidden" name="order"   value="{{ cs.order }}">
+        <div class="flex justify-end gap-2 mt-2">
+          <button type="button" @click="edit = false" class="btn-secondary text-xs">Annuler</button>
+          <button type="submit" class="btn-primary text-xs">Enregistrer</button>
+        </div>
+      </form>
     </div>
     {% endfor %}
   </div>
   {% else %}
-  <div class="px-4 py-6 text-center text-gray-400 text-xs">
-    Aucune matière assignée à cette classe.
-  </div>
+  <div class="px-4 py-6 text-center text-sm text-gray-400">Aucune matière assignée à cette classe.</div>
   {% endif %}
 
-  <div class="px-4 py-3 bg-gray-50 border-t border-gray-200">
+  {# Ajouter une matière #}
+  <div class="px-3 pb-3">
     {% if available_subjects %}
-      <form hx-post="{% url 'settings:class-subject-add' school_class.id %}"
-            hx-target="#class-subjects-panel"
-            hx-swap="innerHTML"
-            class="space-y-2">
-        {% csrf_token %}
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div>
-            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Ajouter une matière <span class="text-red-400">*</span></label>
-            <select name="subject" required
-                    class="w-full border border-gray-300 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary-500">
-              <option value="">— Sélectionner —</option>
-              {% for subj in available_subjects %}
-              <option value="{{ subj.id }}">{{ subj.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Enseignant (optionnel)</label>
-            <select name="teacher"
-                    class="w-full border border-gray-300 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary-500">
-              <option value="">— Aucun —</option>
-              {% for teacher in teachers %}
-              <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
-              {% endfor %}
-            </select>
-          </div>
+    <form hx-post="{% url 'settings:class-subject-add' school_class.id %}"
+          hx-target="#class-subjects-panel" hx-swap="innerHTML"
+          class="rounded-xl border border-dashed border-gray-200 p-3">
+      {% csrf_token %}
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+        <div class="col-span-2 sm:col-span-2">
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Matière <span class="text-red-400">*</span></label>
+          <select name="subject" required class="input-field h-9 text-sm w-full">
+            <option value="">— Sélectionner —</option>
+            {% for subj in available_subjects %}<option value="{{ subj.id }}">{{ subj.name }}</option>{% endfor %}
+          </select>
         </div>
-        <input type="hidden" name="coefficient" value="1.0">
-        <input type="hidden" name="max_grade"   value="20.00">
-        <input type="hidden" name="order"       value="{{ class_subjects|length }}">
-        <div class="flex justify-end">
-          <button type="submit"
-                  class="px-3 py-2 text-xs font-semibold bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">
-            Ajouter
-          </button>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Coeff.</label>
+          <input name="coefficient" type="number" step="0.1" min="0.1" value="1" class="input-field h-9 text-sm w-full">
         </div>
-      </form>
-    {% else %}
-      <div class="flex items-center gap-2 text-xs text-green-700">
-        <svg class="w-4 h-4 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        Toutes les matières ont été assignées à cette classe.
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Enseignant</label>
+          <select name="teacher" class="input-field h-9 text-sm w-full">
+            <option value="">— Aucun —</option>
+            {% for teacher in teachers %}<option value="{{ teacher.id }}">{{ teacher.full_name }}</option>{% endfor %}
+          </select>
+        </div>
       </div>
+      <input type="hidden" name="max_grade"      value="20">
+      <input type="hidden" name="duration_hours" value="2">
+      <input type="hidden" name="order"          value="{{ class_subjects|length }}">
+      <div class="flex justify-end mt-2">
+        <button type="submit" class="btn-primary text-xs"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Ajouter</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="flex items-center gap-2 text-xs text-green-700 px-1 py-2">
+      <i data-lucide="check-circle" class="w-4 h-4 text-green-500 shrink-0"></i> Toutes les matières du catalogue sont assignées.
+    </div>
     {% endif %}
   </div>
 
+  <script>if(window.lucide)lucide.createIcons();</script>
 </div>

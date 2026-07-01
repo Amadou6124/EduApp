@@ -238,14 +238,15 @@ class ClassSubjectForm(forms.ModelForm):
         model  = ClassSubject
         fields = [
             'subject', 'coefficient', 'max_grade',
-            'teacher', 'order',
+            'duration_hours', 'teacher', 'order',
         ]
         widgets = {
-            'subject':     forms.Select(attrs={'class': _S}),
-            'coefficient': forms.NumberInput(attrs={'class': _F, 'step': '0.1', 'min': '0.1'}),
-            'max_grade':   forms.NumberInput(attrs={'class': _F, 'step': '0.01', 'min': '1'}),
-            'teacher':     forms.Select(attrs={'class': _S}),
-            'order':       forms.NumberInput(attrs={'class': _F, 'min': '0'}),
+            'subject':        forms.Select(attrs={'class': _S}),
+            'coefficient':    forms.NumberInput(attrs={'class': _F, 'step': '0.1', 'min': '0.1'}),
+            'max_grade':      forms.NumberInput(attrs={'class': _F, 'step': '0.01', 'min': '1'}),
+            'duration_hours': forms.NumberInput(attrs={'class': _F, 'step': '0.5', 'min': '0.5'}),
+            'teacher':        forms.Select(attrs={'class': _S}),
+            'order':          forms.NumberInput(attrs={'class': _F, 'min': '0'}),
         }
 
     def __init__(self, school, school_class, *args, **kwargs):

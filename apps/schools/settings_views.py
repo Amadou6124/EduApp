@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction, models
-from django.db.models import Count, ProtectedError
+from django.db.models import Count, Q, ProtectedError
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.template.loader import render_to_string
@@ -635,16 +635,24 @@ _QUICK_SUBJECTS = [
 def subjects(request):
     school     = get_school(request)
     subj_list  = Subject.objects.filter(school=school, is_active=True)
-    classes    = school.classes.filter(is_active=True).order_by('level', 'name')
-    form       = SubjectForm()
-    return render(request, 'settings/subjects.html', {
+    classes    = (
+        school.classes.filter(is_active=True)
+        .annotate(cs_count=Count('class_subjects', filter=Q(class_subjects__is_active=True)))
+        .order_by('level', 'name')
+    )
+    active_class = classes.first()
+    ctx = {
         'subjects':       subj_list,
         'classes':        classes,
-        'form':           form,
+        'form':           SubjectForm(),
         'quick_subjects': _QUICK_SUBJECTS,
         'active_section': 'subjects',
         'school':         school,
-    })
+        'active_class':   active_class,
+    }
+    if active_class:
+        ctx.update(_class_subjects_ctx(school, active_class))
+    return render(request, 'settings/subjects.html', ctx)
 
 
 @login_required
