@@ -76,32 +76,17 @@ class BulletinCalculator:
         Arrondi à 2 décimales (Decimal). Jamais > max_grade.
         """
         valid_notes = [n for n in notes if n and not n.is_cancelled]
-        if not valid_notes:
+        note_classe = next((n.value for n in valid_notes if n.position == 1), None)
+        compo       = next((n.value for n in valid_notes if n.position == 2), None)
+        if note_classe is None or compo is None:
             return None
 
-        if note_system == NoteSystem.DEVOIRS_COMPO:
-            devoirs = [n.value for n in valid_notes if n.position == 1]
-            compo   = next((n.value for n in valid_notes if n.position == 2), None)
-
-            if not devoirs or compo is None:
-                return None
-
-            moy_classe = sum(Decimal(str(v)) for v in devoirs) / len(devoirs)
-            # Formule malienne : (moy_classe + compo×2) / 3
-            # Retourne valeur NON arrondie — l'appelant arrondit séparément
-            # final_average et weighted_grade pour éviter l'erreur d'arrondi :
-            # round2(35/3)×3 = 11.67×3 = 35.01 ≠ 35.00
-            # round2(35/3×3) = round2(35.0) = 35.00 ✓
-            finale = (moy_classe + Decimal(str(compo)) * 2) / 3
-            return min(finale, Decimal(str(max_grade)))
-
-        else:
-            # MOYENNE_SIMPLE : moyenne arithmétique brute
-            # Test : notes=[15, 12, 18] → 45/3 = 15.00 ✓
-            # Retourne valeur NON arrondie — même raison que ci-dessus
-            values = [n.value for n in valid_notes]
-            finale = sum(Decimal(str(v)) for v in values) / len(values)
-            return min(finale, Decimal(str(max_grade)))
+        # Formule officielle malienne : (note de classe + composition×2) / 3.
+        # Position 1 = note de classe, position 2 = composition.
+        # Retourne valeur NON arrondie — l'appelant arrondit séparément final_average
+        # et weighted_grade (évite round2(35/3)×3 = 35.01 ≠ 35.00).
+        finale = (Decimal(str(note_classe)) + Decimal(str(compo)) * 2) / 3
+        return min(finale, Decimal(str(max_grade)))
 
     def calculate_weighted_grade(
         self,

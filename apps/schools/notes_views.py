@@ -17,6 +17,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.mixins import get_school
 from apps.students.models import Student
@@ -76,16 +77,9 @@ def _compute_class_stats(rows):
 
 
 def _column_names(cs, period, positions):
-    """Noms des colonnes : fixes en devoir/compo, nommables (EvaluationColumn) en moyenne simple.
-    Renvoie [{'pos': p, 'name': str, 'editable': bool}]."""
-    if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-        fixed = {1: _('Devoir'), 2: _('Composition')}
-        return [{'pos': p, 'name': fixed.get(p, f'Note {p}'), 'editable': False} for p in positions]
-    named = {
-        ec.position: ec.name
-        for ec in EvaluationColumn.objects.filter(class_subject=cs, period=period)
-    }
-    return [{'pos': p, 'name': named.get(p) or f'Éval {p}', 'editable': True} for p in positions]
+    """Colonnes du bulletin : position 1 = Note de classe, position 2 = Composition."""
+    fixed = {1: _('Note de classe'), 2: _('Composition')}
+    return [{'pos': p, 'name': fixed.get(p, f'Note {p}'), 'editable': False} for p in positions]
 
 
 def _build_table_data(cs, students, period, force_min_cols=2):
@@ -112,24 +106,8 @@ def _build_table_data(cs, students, period, force_min_cols=2):
     for note in existing:
         notes_by_student[note.student_id][note.position] = note
 
-    if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-        positions = [1, 2]  # fixe : 1=devoirs, 2=composition
-    else:
-        # Positions = colonnes avec notes ∪ colonnes nommées (EvaluationColumn).
-        note_pos = {
-            pos
-            for student_notes in notes_by_student.values()
-            for pos in student_notes
-            if not student_notes[pos].is_cancelled
-        }
-        eval_pos = set(
-            EvaluationColumn.objects.filter(class_subject=cs, period=period)
-            .values_list('position', flat=True)
-        )
-        all_pos   = note_pos | eval_pos
-        max_pos   = max(all_pos) if all_pos else 0
-        n_cols    = max(max_pos, force_min_cols)
-        positions = list(range(1, n_cols + 1))
+    # Bulletin : 2 colonnes fixes — note de classe (pos 1) + composition (pos 2).
+    positions = [1, 2]
 
     rows = []
     for student in students:
