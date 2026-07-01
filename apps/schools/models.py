@@ -547,6 +547,92 @@ class EvaluationColumn(models.Model):
 
 
 # ──────────────────────────────────────────────────────────────
+# Flux formatif (hors bulletin) — suivi entre les compositions
+# ──────────────────────────────────────────────────────────────
+
+class FormativeEvalType(models.TextChoices):
+    INTERRO_ECRITE = 'interro_ecrite', _('Interrogation écrite')
+    INTERRO_ORALE  = 'interro_orale',  _('Interrogation orale')
+    DEVOIR_MAISON  = 'devoir_maison',  _('Devoir maison')
+    AUTRE          = 'autre',          _('Autre')
+
+
+class FormativeEvaluation(models.Model):
+    """Évaluation formative (interro, DM, oral…) saisie par l'enseignant pour suivre
+    l'état de la classe ENTRE les compositions. Ne compte JAMAIS sur le bulletin
+    officiel. Le directeur peut la publier au parent (point d'étape)."""
+    class_subject = models.ForeignKey(
+        ClassSubject, on_delete=models.CASCADE,
+        related_name='formative_evaluations', verbose_name=_('matière de classe'),
+    )
+    period = models.ForeignKey(
+        Period, on_delete=models.CASCADE,
+        related_name='formative_evaluations', verbose_name=_('période'),
+    )
+    date      = models.DateField(_('date'))
+    eval_type = models.CharField(
+        _('type'), max_length=20,
+        choices=FormativeEvalType.choices, default=FormativeEvalType.INTERRO_ECRITE,
+    )
+    title     = models.CharField(_('libellé'), max_length=80, blank=True)
+    max_grade = models.DecimalField(
+        _('note maximale'), max_digits=5, decimal_places=2,
+        default=Decimal('20.00'), validators=[MinValueValidator(Decimal('1.00'))],
+    )
+    is_published_to_parent = models.BooleanField(_('publiée au parent'), default=False)
+    published_at = models.DateTimeField(_('publiée le'), null=True, blank=True)
+    created_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True,
+        related_name='created_formative_evaluations', verbose_name=_('créée par'),
+    )
+    created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name        = _('évaluation formative')
+        verbose_name_plural = _('évaluations formatives')
+        ordering            = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['class_subject', 'period'], name='formeval_cs_period_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_eval_type_display()} — {self.class_subject} ({self.date})'
+
+
+class FormativeGrade(models.Model):
+    """Note d'un élève pour une évaluation formative (is_absent=True → absent)."""
+    evaluation = models.ForeignKey(
+        FormativeEvaluation, on_delete=models.CASCADE,
+        related_name='grades', verbose_name=_('évaluation'),
+    )
+    student = models.ForeignKey(
+        'students.Student', on_delete=models.CASCADE,
+        related_name='formative_grades', verbose_name=_('élève'),
+    )
+    value = models.DecimalField(
+        _('note'), max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+    )
+    is_absent  = models.BooleanField(_('absent'), default=False)
+    created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('modifiée le'), auto_now=True)
+
+    class Meta:
+        verbose_name        = _('note formative')
+        verbose_name_plural = _('notes formatives')
+        ordering            = ['student__full_name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['evaluation', 'student'],
+                name='uniq_formative_grade_eval_student',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.student} — {self.evaluation} : {self.value}'
+
+
+# ──────────────────────────────────────────────────────────────
 # Bulletins — Étape 3/3
 # ──────────────────────────────────────────────────────────────
 
