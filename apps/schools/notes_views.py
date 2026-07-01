@@ -467,7 +467,7 @@ def notes_subject_table(request, class_id, period_id, subject_id):
     )
     positions, columns, rows, class_stats = _build_table_data(cs, students, period)
 
-    return render(request, 'notes/partials/notes_table.html', {
+    return render(request, 'notes/partials/subject_tabs.html', {
         'cs':           cs,
         'period':       period,
         'school_class': school_class,

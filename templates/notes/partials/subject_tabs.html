@@ -1,0 +1,37 @@
+{% load i18n %}
+{% comment %}
+Onglets d'une matière : Bulletin (officiel) · Formatif (suivi).
+Rendu à l'ouverture ET renvoyé par notes_subject_table (swap #notes-table-container)
+→ change de matière = nouveau wrapper, le formatif se recharge pour la bonne matière.
+Contexte : cs, period, school_class, positions, columns, rows, class_stats, can_enter, reason.
+{% endcomment %}
+<div x-data="{ tab: 'bulletin' }">
+
+  <div class="flex gap-1 border-b border-gray-200 mb-4">
+    <button type="button" @click="tab='bulletin'"
+            class="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition inline-flex items-center gap-2"
+            :class="tab==='bulletin' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
+      <i data-lucide="award" class="w-4 h-4"></i> {% trans "Bulletin" %} <span class="text-gray-400 font-normal hidden sm:inline">· {% trans "officiel" %}</span>
+    </button>
+    <button type="button" @click="tab='formatif'"
+            hx-get="{% url 'notes:formatif-panel' school_class.pk period.pk cs.subject_id %}"
+            hx-target="#formatif-container" hx-swap="innerHTML" hx-trigger="click once"
+            class="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition inline-flex items-center gap-2"
+            :class="tab==='formatif' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
+      <i data-lucide="notebook" class="w-4 h-4"></i> {% trans "Formatif" %} <span class="text-gray-400 font-normal hidden sm:inline">· {% trans "suivi" %}</span>
+    </button>
+  </div>
+
+  <div x-show="tab==='bulletin'">
+    {% include "notes/partials/notes_table.html" %}
+  </div>
+
+  <div x-show="tab==='formatif'" x-cloak id="formatif-container">
+    <div class="py-12 text-center text-gray-400 text-sm inline-flex items-center gap-2 w-full justify-center">
+      <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+      {% trans "Chargement…" %}
+    </div>
+  </div>
+
+  <script>if(window.lucide)lucide.createIcons();</script>
+</div>
