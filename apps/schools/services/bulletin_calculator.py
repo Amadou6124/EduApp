@@ -11,7 +11,7 @@ from django.db.models import Avg, Count, Q, Sum
 
 from apps.schools.models import (
     AppreciationScale, Bulletin, BulletinLine, ClassSubject,
-    Note, NoteSystem, NoteType,
+    Note, NoteType,
 )
 from apps.students.models import Student
 
@@ -43,9 +43,6 @@ class BulletinCalculator:
     def calculate_subject_average(
         self,
         notes: list[Note],
-        note_system: str,
-        coeff_devoirs: Decimal,   # non utilisé pour DEVOIRS_COMPO (formule fixe /3)
-        coeff_compo: Decimal,     # non utilisé pour DEVOIRS_COMPO (formule fixe /3)
         max_grade: Decimal,
     ) -> Optional[Decimal]:
         """
@@ -262,13 +259,7 @@ class BulletinCalculator:
             cs_notes = notes_by_cs.get(cs.pk, [])
 
             # Moyenne matière — valeur exacte non arrondie
-            avg_raw = self.calculate_subject_average(
-                cs_notes,
-                cs.note_system,
-                cs.coeff_devoirs,
-                cs.coeff_compo,
-                cs.max_grade,
-            )
+            avg_raw = self.calculate_subject_average(cs_notes, cs.max_grade)
 
             # Arrondi séparément pour éviter l'erreur de double arrondi :
             # round2(35/3)×3 = 11.67×3 = 35.01 ≠ round2(35/3×3) = 35.00
@@ -282,19 +273,18 @@ class BulletinCalculator:
             # Sous-détails pour DEVOIRS_COMPO
             devoir_avg = None
             compo_val = None
-            if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-                devoirs = [
-                    n.value for n in cs_notes
-                    if n.position == 1 and not n.is_cancelled
-                ]
-                if devoirs:
-                    devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
-                compo_note = next(
-                    (n for n in cs_notes if n.position == 2 and not n.is_cancelled),
-                    None,
-                )
-                if compo_note:
-                    compo_val = compo_note.value
+            devoirs = [
+                n.value for n in cs_notes
+                if n.position == 1 and not n.is_cancelled
+            ]
+            if devoirs:
+                devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
+            compo_note = next(
+                (n for n in cs_notes if n.position == 2 and not n.is_cancelled),
+                None,
+            )
+            if compo_note:
+                compo_val = compo_note.value
 
             lines_data.append({
                 'cs':             cs,
@@ -411,10 +401,7 @@ class BulletinCalculator:
             lines_data = []
             for cs in class_subjects:
                 cs_notes = notes_index.get((student.pk, cs.pk), [])
-                avg_raw = self.calculate_subject_average(
-                    cs_notes, cs.note_system,
-                    cs.coeff_devoirs, cs.coeff_compo, cs.max_grade,
-                )
+                avg_raw = self.calculate_subject_average(cs_notes, cs.max_grade)
                 # Arrondi séparé : évite round2(35/3)×3 = 35.01
                 avg_display = round2(avg_raw) if avg_raw is not None else None
                 weighted = (
@@ -424,13 +411,12 @@ class BulletinCalculator:
 
                 devoir_avg = None
                 compo_val = None
-                if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-                    devoirs = [n.value for n in cs_notes if n.position == 1]
-                    if devoirs:
-                        devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
-                    compo = next((n for n in cs_notes if n.position == 2), None)
-                    if compo:
-                        compo_val = compo.value
+                devoirs = [n.value for n in cs_notes if n.position == 1]
+                if devoirs:
+                    devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
+                compo = next((n for n in cs_notes if n.position == 2), None)
+                if compo:
+                    compo_val = compo.value
 
                 lines_data.append({
                     'cs':              cs,

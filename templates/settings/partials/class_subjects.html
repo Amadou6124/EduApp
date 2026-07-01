@@ -80,19 +80,9 @@
                    step="0.01" min="1"
                    class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500">
           </div>
-          <div>
-            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Système</label>
-            <select name="note_system"
-                    class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary-500">
-              <option value="moyenne_simple" {% if cs.note_system == 'moyenne_simple' %}selected{% endif %}>Moy. simple</option>
-              <option value="devoirs_compo"  {% if cs.note_system == 'devoirs_compo'  %}selected{% endif %}>Dev. + Compo</option>
-            </select>
-          </div>
-          <input type="hidden" name="subject"       value="{{ cs.subject_id }}">
-          <input type="hidden" name="teacher"       value="{{ cs.teacher_id|default:'' }}">
-          <input type="hidden" name="order"         value="{{ cs.order }}">
-          <input type="hidden" name="coeff_devoirs" value="{{ cs.coeff_devoirs }}">
-          <input type="hidden" name="coeff_compo"   value="{{ cs.coeff_compo }}">
+          <input type="hidden" name="subject" value="{{ cs.subject_id }}">
+          <input type="hidden" name="teacher" value="{{ cs.teacher_id|default:'' }}">
+          <input type="hidden" name="order"   value="{{ cs.order }}">
           <div class="col-span-2 sm:col-span-3 flex gap-2 justify-end mt-1">
             <button type="button" @click="editing = false"
                     class="px-3 py-1.5 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-50 transition">
@@ -144,12 +134,9 @@
             </select>
           </div>
         </div>
-        <input type="hidden" name="coefficient"   value="1.0">
-        <input type="hidden" name="note_system"   value="moyenne_simple">
-        <input type="hidden" name="coeff_devoirs" value="0.40">
-        <input type="hidden" name="coeff_compo"   value="0.60">
-        <input type="hidden" name="max_grade"     value="20.00">
-        <input type="hidden" name="order"         value="{{ class_subjects|length }}">
+        <input type="hidden" name="coefficient" value="1.0">
+        <input type="hidden" name="max_grade"   value="20.00">
+        <input type="hidden" name="order"       value="{{ class_subjects|length }}">
         <div class="flex justify-end">
           <button type="submit"
                   class="px-3 py-2 text-xs font-semibold bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">

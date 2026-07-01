@@ -23,7 +23,7 @@ from apps.core.mixins import get_school
 from apps.students.models import Student
 
 from .models import (
-    ClassSubject, EvaluationColumn, Note, NoteSystem, NoteType, Period, SchoolYear,
+    ClassSubject, Note, NoteType, Period, SchoolYear,
 )
 from .permissions import can_enter_notes
 
@@ -51,9 +51,7 @@ def _compute_student_avg(cs, note_list):
     note_list : liste ordonnée de Note|None (index = position-1).
     """
     from apps.schools.services.bulletin_calculator import BulletinCalculator, round2
-    raw = BulletinCalculator().calculate_subject_average(
-        note_list, cs.note_system, cs.coeff_devoirs, cs.coeff_compo, cs.max_grade,
-    )
+    raw = BulletinCalculator().calculate_subject_average(note_list, cs.max_grade)
     return round2(raw)
 
 
@@ -237,14 +235,9 @@ def notes_dashboard(request):
             return 'in_progress'
         if cs.pk not in positions_by_cs:
             return 'non_started'
-        if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-            full = (len(noted_by_cs_pos.get((cs.pk, 1), ())) == student_count
-                    and len(noted_by_cs_pos.get((cs.pk, 2), ())) == student_count)
-        else:
-            full = all(
-                len(noted_by_cs_pos.get((cs.pk, p), ())) == student_count
-                for p in positions_by_cs[cs.pk]
-            )
+        # Bulletin : complet si note de classe (pos 1) ET composition (pos 2) saisies pour tous.
+        full = (len(noted_by_cs_pos.get((cs.pk, 1), ())) == student_count
+                and len(noted_by_cs_pos.get((cs.pk, 2), ())) == student_count)
         return 'complete' if full else 'in_progress'
 
     class_progress = []
@@ -395,12 +388,8 @@ def notes_class(request, class_id, period_id):
             return 'in_progress'
         if cs.pk not in cs_positions:
             return 'non_started'
-        if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-            full = (len(noted_cs_pos.get((cs.pk, 1), ())) == student_count
-                    and len(noted_cs_pos.get((cs.pk, 2), ())) == student_count)
-        else:
-            full = all(len(noted_cs_pos.get((cs.pk, p), ())) == student_count
-                       for p in cs_positions[cs.pk])
+        full = (len(noted_cs_pos.get((cs.pk, 1), ())) == student_count
+                and len(noted_cs_pos.get((cs.pk, 2), ())) == student_count)
         return 'complete' if full else 'in_progress'
 
     subjects_status = [{'cs': cs, 'status': _status(cs)} for cs in class_subjects]
@@ -584,11 +573,8 @@ def note_save(request):
         })
         return response
 
-    # Déduire le type de note selon le système et la position
-    if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-        note_type = NoteType.DEVOIR if position == 1 else NoteType.COMPOSITION
-    else:
-        note_type = NoteType.SIMPLE
+    # Position 1 = note de classe (DEVOIR), position 2 = composition.
+    note_type = NoteType.DEVOIR if position == 1 else NoteType.COMPOSITION
 
     # Upsert — unique_together garantit l'unicité (student, class_subject, period, position)
     note, created = Note.objects.get_or_create(
@@ -670,66 +656,6 @@ def note_cancel(request, note_id):
 
 
 # ─────────────────────────────────────────────────────────────
-# Vue 6 : Ajouter une colonne (mode moyenne_simple)
-# ─────────────────────────────────────────────────────────────
-
-@login_required
-@require_http_methods(['POST'])
-def notes_add_column(request, class_id, period_id, subject_id):
-    """
-    HTMX POST — ajouter une colonne de note (mode moyenne_simple uniquement).
-    POST /notes/<class_id>/<period_id>/<subject_id>/add-column/
-    POST body : current_columns=<int>
-    Retourne  : fragment notes_table.html avec une colonne de plus.
-    """
-    school       = get_school(request)
-    school_class = get_object_or_404(school.classes.filter(is_active=True), pk=class_id)
-    period       = get_object_or_404(Period, pk=period_id, school_year__school=school)
-    cs           = get_object_or_404(
-        ClassSubject, pk=subject_id, school_class=school_class, is_active=True,
-    )
-
-    if cs.note_system != NoteSystem.MOYENNE_SIMPLE:
-        return HttpResponse(status=400)
-
-    can_enter, reason = can_enter_notes(request.user, cs, period)
-    if not can_enter:
-        return HttpResponse(
-            f'<span class="text-red-500 text-xs">{reason}</span>',
-            status=403,
-        )
-
-    current_columns = int(request.POST.get('current_columns', 2))
-    new_pos = current_columns + 1
-    # Nom par défaut « Éval N » pour la nouvelle colonne (renommable ensuite).
-    EvaluationColumn.objects.get_or_create(
-        class_subject=cs, period=period, position=new_pos,
-        defaults={'name': f'Éval {new_pos}'},
-    )
-    students = list(
-        Student.objects
-        .filter(school_class=school_class, school=school, is_active=True)
-        .order_by('full_name')
-    )
-    # Forcer au moins current_columns + 1 colonnes
-    positions, columns, rows, class_stats = _build_table_data(
-        cs, students, period, force_min_cols=new_pos,
-    )
-
-    return render(request, 'notes/partials/notes_table.html', {
-        'cs':           cs,
-        'period':       period,
-        'school_class': school_class,
-        'positions':    positions,
-        'columns':      columns,
-        'rows':         rows,
-        'class_stats':  class_stats,
-        'can_enter':    can_enter,
-        'reason':       reason,
-    })
-
-
-# ─────────────────────────────────────────────────────────────
 # Vue 7 : Ouvrir/fermer la saisie d'une période (directeur/staff)
 # ─────────────────────────────────────────────────────────────
 
@@ -751,91 +677,3 @@ def notes_period_toggle(request, period_id):
     return redirect(f"{reverse('notes:dashboard')}?period={period.pk}")
 
 
-# ─────────────────────────────────────────────────────────────
-# Vues 9-10 : Renommer une évaluation · Remplir une colonne
-# ─────────────────────────────────────────────────────────────
-
-def _render_table(request, school_class, cs, period, force_min_cols=2):
-    """Rend le partial notes_table pour une matière (DRY pour rename / fill)."""
-    can_enter, reason = can_enter_notes(request.user, cs, period)
-    students = list(
-        Student.objects.filter(school_class=school_class, is_active=True).order_by('full_name')
-    )
-    positions, columns, rows, class_stats = _build_table_data(
-        cs, students, period, force_min_cols=force_min_cols,
-    )
-    return render(request, 'notes/partials/notes_table.html', {
-        'cs': cs, 'period': period, 'school_class': school_class,
-        'positions': positions, 'columns': columns, 'rows': rows,
-        'class_stats': class_stats, 'can_enter': can_enter, 'reason': reason,
-    })
-
-
-@login_required
-@require_http_methods(['POST'])
-def notes_rename_column(request, class_id, period_id, subject_id, position):
-    """Renomme une évaluation (moyenne simple). POST body : name."""
-    school       = get_school(request)
-    school_class = get_object_or_404(school.classes.filter(is_active=True), pk=class_id)
-    period       = get_object_or_404(Period, pk=period_id, school_year__school=school)
-    cs           = get_object_or_404(ClassSubject, pk=subject_id, school_class=school_class, is_active=True)
-
-    if cs.note_system != NoteSystem.MOYENNE_SIMPLE:
-        return HttpResponse(status=400)
-    can_enter, reason = can_enter_notes(request.user, cs, period)
-    if not can_enter:
-        return HttpResponse(f'<span class="text-red-500 text-xs">{reason}</span>', status=403)
-
-    name = request.POST.get('name', '').strip()[:40] or f'Éval {position}'
-    EvaluationColumn.objects.update_or_create(
-        class_subject=cs, period=period, position=position, defaults={'name': name},
-    )
-    return _render_table(request, school_class, cs, period)
-
-
-@login_required
-@require_http_methods(['POST'])
-def notes_fill_column(request, class_id, period_id, subject_id, position):
-    """Remplit une colonne : même note à tous les élèves SANS note (cellules vides only)."""
-    school       = get_school(request)
-    school_class = get_object_or_404(school.classes.filter(is_active=True), pk=class_id)
-    period       = get_object_or_404(Period, pk=period_id, school_year__school=school)
-    cs           = get_object_or_404(ClassSubject, pk=subject_id, school_class=school_class, is_active=True)
-
-    can_enter, reason = can_enter_notes(request.user, cs, period)
-    if not can_enter:
-        return HttpResponse(f'<span class="text-red-500 text-xs">{reason}</span>', status=403)
-
-    try:
-        value = Decimal(request.POST.get('value', '').strip().replace(',', '.'))
-    except InvalidOperation:
-        return HttpResponse('<span class="text-red-500 text-xs">Valeur invalide.</span>', status=400)
-    if value < Decimal('0') or value > cs.max_grade:
-        return HttpResponse(f'<span class="text-red-500 text-xs">Entre 0 et {cs.max_grade}.</span>', status=400)
-
-    if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-        note_type = NoteType.DEVOIR if position == 1 else NoteType.COMPOSITION
-    else:
-        note_type = NoteType.SIMPLE
-
-    students = list(
-        Student.objects.filter(school_class=school_class, is_active=True).order_by('full_name')
-    )
-    # Garde-fou : ne remplir que les cellules vides (aucune ligne existante à cette position).
-    occupied = set(
-        Note.objects.filter(class_subject=cs, period=period, position=position)
-        .values_list('student_id', flat=True)
-    )
-    Note.objects.bulk_create([
-        Note(class_subject=cs, student=s, period=period, position=position,
-             value=value, note_type=note_type, entered_by=request.user)
-        for s in students if s.pk not in occupied
-    ])
-    filled = sum(1 for s in students if s.pk not in occupied)
-
-    resp = _render_table(request, school_class, cs, period)
-    resp['HX-Trigger'] = json.dumps({'showToast': {
-        'message': f'{filled} note{"s" if filled != 1 else ""} remplie{"s" if filled != 1 else ""}.',
-        'type': 'success',
-    }})
-    return resp

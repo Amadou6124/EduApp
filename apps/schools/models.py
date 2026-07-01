@@ -327,11 +327,6 @@ class Subject(models.Model):
         return f'{self.name} ({self.school.name})'
 
 
-class NoteSystem(models.TextChoices):
-    DEVOIRS_COMPO  = 'devoirs_compo',  _('Devoirs + Composition')
-    MOYENNE_SIMPLE = 'moyenne_simple', _('Moyenne simple')
-
-
 class ClassSubject(models.Model):
     school_class = models.ForeignKey(
         SchoolClass,
@@ -351,25 +346,6 @@ class ClassSubject(models.Model):
         decimal_places=1,
         default=Decimal('1.0'),
         validators=[MinValueValidator(Decimal('0.1'))],
-    )
-    note_system = models.CharField(
-        _('système de notes'),
-        max_length=20,
-        choices=NoteSystem.choices,
-        default=NoteSystem.MOYENNE_SIMPLE,
-    )
-    # Coefficients utilisés uniquement pour le mode DEVOIRS_COMPO
-    coeff_devoirs = models.DecimalField(
-        _('coefficient devoirs'),
-        max_digits=3,
-        decimal_places=2,
-        default=Decimal('0.40'),
-    )
-    coeff_compo = models.DecimalField(
-        _('coefficient composition'),
-        max_digits=3,
-        decimal_places=2,
-        default=Decimal('0.60'),
     )
     # Note maximale : 10.00 (primaire), 20.00 (collège/lycée), 100.00 (certaines universités)
     max_grade = models.DecimalField(
@@ -403,15 +379,6 @@ class ClassSubject(models.Model):
         verbose_name_plural = _('matières de classe')
         ordering            = ['order', 'subject__name']
         unique_together     = [('school_class', 'subject')]
-
-    def clean(self):
-        # Validation coefficients devoirs + composition = 1.0 en mode DEVOIRS_COMPO
-        if self.note_system == NoteSystem.DEVOIRS_COMPO:
-            total = (self.coeff_devoirs or Decimal('0')) + (self.coeff_compo or Decimal('0'))
-            if abs(total - Decimal('1.00')) > Decimal('0.01'):
-                raise ValidationError(
-                    _('La somme des coefficients devoirs et composition doit être égale à 1.')
-                )
 
     def __str__(self):
         return f'{self.subject.name} — {self.school_class.name}'
@@ -452,9 +419,7 @@ class Note(models.Model):
         choices=NoteType.choices,
         default=NoteType.SIMPLE,
     )
-    # Position dans la séquence : 1=première note, 2=deuxième…
-    # DEVOIRS_COMPO → position 1 = devoir, position 2 = composition
-    # MOYENNE_SIMPLE → position 1, 2, 3… (colonnes dynamiques)
+    # Bulletin : position 1 = note de classe, position 2 = composition.
     position = models.PositiveSmallIntegerField(_('position'), default=1)
     # La valeur ne peut jamais dépasser max_grade de la ClassSubject (validé dans clean())
     value = models.DecimalField(

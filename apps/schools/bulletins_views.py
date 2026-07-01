@@ -26,7 +26,7 @@ from apps.students.models import Student
 
 from .models import (
     Bulletin, BulletinConfig, BulletinLine, ClassSubject,
-    Note, Period, SchoolClass, SchoolYear, NoteSystem, AppreciationScale,
+    Note, Period, SchoolClass, SchoolYear, AppreciationScale,
 )
 from .services.bulletin_calculator import BulletinCalculator
 from .services.bulletin_pdf import (

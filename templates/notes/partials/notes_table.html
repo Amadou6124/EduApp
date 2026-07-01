@@ -47,7 +47,7 @@ Contexte : cs, period, school_class, positions, columns[{pos,name,editable}], ro
     {# Barre d'infos : système + recherche + ajout d'évaluation #}
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
       <div class="flex items-center gap-2 text-xs text-gray-500">
-        <span class="px-2 py-1 rounded-md bg-gray-100 text-gray-600 font-medium">{% if cs.note_system == 'devoirs_compo' %}{% trans "Devoir + Composition" %}{% else %}{% trans "Moyenne simple" %}{% endif %}</span>
+        <span class="px-2 py-1 rounded-md bg-gray-100 text-gray-600 font-medium">{% trans "Note de classe + Composition" %}</span>
         <span class="flex items-center gap-1"><i data-lucide="save" class="w-3.5 h-3.5"></i> {% trans "sauvegarde auto" %}</span>
       </div>
       <div class="flex items-center gap-2">
@@ -55,15 +55,6 @@ Contexte : cs, period, school_class, positions, columns[{pos,name,editable}], ro
           <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
           <input type="text" x-model="search" placeholder="{% trans 'Rechercher un élève…' %}" class="input-field h-9 pl-9 w-40 sm:w-52">
         </div>
-        {% if can_enter and cs.note_system == 'moyenne_simple' %}
-          <button type="button"
-                  hx-post="{% url 'notes:add-column' school_class.pk period.pk cs.pk %}"
-                  hx-vals='{"current_columns": {{ positions|length }}}'
-                  hx-target="#notes-table-container" hx-swap="innerHTML" hx-indicator="closest button"
-                  class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition whitespace-nowrap">
-            <i data-lucide="plus" class="w-4 h-4"></i> {% trans "Évaluation" %}
-          </button>
-        {% endif %}
       </div>
     </div>
 
@@ -83,31 +74,7 @@ Contexte : cs, period, school_class, positions, columns[{pos,name,editable}], ro
           <tr>
             <th class="sticky left-0 bg-gray-50 z-10 text-left px-3 py-3 font-semibold min-w-[170px] border-b border-gray-200">{% trans "Élève" %}</th>
             {% for col in columns %}
-              <th class="px-2 py-2 font-medium min-w-[78px] border-b border-gray-200 relative"
-                  x-data="{ menu:false, rename:false, fill:false }" @click.outside="menu=false;rename=false;fill=false">
-                <div class="flex items-center justify-center gap-1">
-                  <span x-show="!rename" class="truncate">{{ col.name }}</span>
-                  {% if can_enter %}<button type="button" x-show="!rename && !fill" @click="menu=!menu" class="text-gray-400 hover:text-gray-700 shrink-0"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>{% endif %}
-                </div>
-                {% if can_enter %}
-                <div x-show="menu" x-cloak class="absolute right-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30 text-left font-normal normal-case">
-                  {% if col.editable %}<button type="button" @click="rename=true;menu=false;$nextTick(() => $refs.rn.focus())" class="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"><i data-lucide="pencil" class="w-3.5 h-3.5"></i> {% trans "Renommer" %}</button>{% endif %}
-                  <button type="button" @click="fill=true;menu=false;$nextTick(() => $refs.fv.focus())" class="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"><i data-lucide="arrow-bar-to-down" class="w-3.5 h-3.5"></i> {% trans "Remplir la colonne" %}</button>
-                </div>
-                {% if col.editable %}
-                <form x-show="rename" x-cloak class="absolute left-1 right-1 top-1 z-30"
-                      hx-post="{% url 'notes:rename-column' school_class.pk period.pk cs.pk col.pos %}" hx-target="#notes-table-container" hx-swap="innerHTML">
-                  <input x-ref="rn" name="name" value="{{ col.name }}" maxlength="40" @keydown.escape="rename=false"
-                         class="w-full text-xs text-center border border-primary-400 rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500/30">
-                </form>
-                {% endif %}
-                <div x-show="fill" x-cloak class="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-30 text-left font-normal normal-case">
-                  <input x-ref="fv" type="text" name="value" inputmode="decimal" placeholder="{% trans 'note pour les vides' %}" class="w-full text-xs border border-gray-200 rounded px-2 py-1.5 mb-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500/30">
-                  <button type="button" hx-post="{% url 'notes:fill-column' school_class.pk period.pk cs.pk col.pos %}" hx-include="closest div" hx-target="#notes-table-container" hx-swap="innerHTML" hx-sync="this:drop" @click="fill=false"
-                          class="w-full text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded px-2 py-1.5">{% trans "Remplir les vides" %}</button>
-                </div>
-                {% endif %}
-              </th>
+              <th class="px-2 py-2 font-medium min-w-[78px] border-b border-gray-200 text-center">{{ col.name }}</th>
             {% endfor %}
             <th class="text-center px-3 py-3 font-semibold min-w-[64px] border-b border-gray-200 text-primary-600">{% trans "Moy." %}</th>
           </tr>
