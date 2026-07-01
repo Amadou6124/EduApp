@@ -299,6 +299,29 @@ class Period(models.Model):
 # Matières
 # ──────────────────────────────────────────────────────────────
 
+# Abréviation + couleur générées automatiquement depuis le nom (le directeur
+# ne tape que le nom ; il peut toujours les surcharger).
+_SUBJECT_STOPWORDS = {'de', 'la', 'le', 'les', 'des', 'du', 'et', 'à', 'a', 'en', 'l', 'd'}
+_SUBJECT_PALETTE = [
+    '#7F77DD', '#D85A30', '#378ADD', '#1D9E75', '#BA7517',
+    '#D4537E', '#534AB7', '#0F6E56', '#993C1D', '#185FA5',
+]
+
+
+def auto_subject_abbrev(name):
+    import re
+    words = [w for w in re.split(r'[\s\-]+', (name or '').strip()) if w]
+    significant = [w for w in words if w.lower() not in _SUBJECT_STOPWORDS] or words
+    if len(significant) >= 2:                       # plusieurs mots → acronyme
+        return ''.join(w[0] for w in significant[:5]).upper()
+    return (significant[0] if significant else '')[:4].upper()
+
+
+def auto_subject_color(name):
+    idx = sum(ord(c) for c in (name or '')) % len(_SUBJECT_PALETTE)
+    return _SUBJECT_PALETTE[idx]
+
+
 class Subject(models.Model):
     school     = models.ForeignKey(
         School,
@@ -307,8 +330,8 @@ class Subject(models.Model):
         verbose_name=_('école'),
     )
     name       = models.CharField(_('nom'), max_length=100)       # ex : "Mathématiques"
-    short_name = models.CharField(_('abréviation'), max_length=10)  # ex : "Maths"
-    color      = models.CharField(_('couleur'), max_length=7, default='#4F46E5')
+    short_name = models.CharField(_('abréviation'), max_length=10, blank=True)  # auto si vide
+    color      = models.CharField(_('couleur'), max_length=7, blank=True)       # auto si vide
     is_active  = models.BooleanField(_('active'), default=True)
 
     class Meta:
@@ -322,6 +345,13 @@ class Subject(models.Model):
                 name='unique_active_subject_per_school',
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        if not (self.short_name or '').strip():
+            self.short_name = auto_subject_abbrev(self.name)
+        if not (self.color or '').strip() or self.color == '#4F46E5':
+            self.color = auto_subject_color(self.name)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.name} ({self.school.name})'

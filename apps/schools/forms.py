@@ -169,18 +169,24 @@ class SubjectForm(forms.ModelForm):
         fields = ['name', 'short_name', 'color']
         widgets = {
             'name':       forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Mathématiques'}),
-            'short_name': forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Maths', 'maxlength': '10'}),
+            'short_name': forms.TextInput(attrs={'class': _F, 'placeholder': 'Auto', 'maxlength': '10'}),
             'color':      forms.TextInput(attrs={
-                'class': _F, 'placeholder': '#1E3A5F', 'maxlength': '7',
+                'class': _F, 'placeholder': 'Auto', 'maxlength': '7',
                 'x-bind:style': "'background-color:'+$el.value",
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Abréviation + couleur : optionnelles → générées auto (Subject.save) si vides.
+        self.fields['short_name'].required = False
+        self.fields['color'].required = False
 
     def clean_color(self):
         color = self.cleaned_data.get('color', '').strip()
         if color and not re.match(r'^#[0-9A-Fa-f]{6}$', color):
             raise forms.ValidationError('Format invalide. Utilisez #RRGGBB.')
-        return color or '#1E3A5F'
+        return color
 
 
 # ── Bulletin config ────────────────────────────────────────────────────────
