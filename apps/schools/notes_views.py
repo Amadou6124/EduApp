@@ -23,7 +23,7 @@ from apps.core.mixins import get_school
 from apps.students.models import Student
 
 from .models import (
-    ClassSubject, Note, NoteType, Period, SchoolYear,
+    ClassSubject, Note, NoteType, NoteEntryGrant, Period, SchoolYear,
 )
 from .permissions import can_enter_notes
 
@@ -420,6 +420,12 @@ def notes_class(request, class_id, period_id):
             if val:
                 mobile_existing[str(r['student'].pk)] = val
 
+    if active_cs:
+        is_director, has_grant = _grant_status(request, active_cs, period)
+    else:
+        is_director = request.user.is_superuser or request.role in (UserRole.DIRECTOR, UserRole.STAFF)
+        has_grant = False
+
     return render(request, 'notes/notes_class.html', {
         'school':           school,
         'school_class':     school_class,
@@ -429,6 +435,8 @@ def notes_class(request, class_id, period_id):
         'active_cs':        active_cs,
         'can_enter':        can_enter,
         'reason':           reason,
+        'is_director':      is_director,
+        'has_grant':        has_grant,
         'positions':        positions,
         'columns':          columns,
         'rows':             rows,
@@ -444,40 +452,65 @@ def notes_class(request, class_id, period_id):
 # Vue 3 : Partial HTMX — tableau matière
 # ─────────────────────────────────────────────────────────────
 
+def _grant_status(request, cs, period):
+    """(is_director, has_grant) — ouverture ciblée active pour cette (matière, période)."""
+    is_director = request.user.is_superuser or request.role in (UserRole.DIRECTOR, UserRole.STAFF)
+    has_grant = False
+    if is_director and not period.is_notes_open:
+        g = cs.entry_grants.filter(period=period).first()
+        has_grant = bool(g and g.is_active())
+    return is_director, has_grant
+
+
+def _render_subject_tabs(request, school_class, period, cs):
+    """Rend le wrapper d'onglets (Bulletin/Formatif) d'une matière."""
+    can_enter, reason = can_enter_notes(request.user, cs, period)
+    students = list(
+        Student.objects
+        .filter(school_class=school_class, school=school_class.school, is_active=True)
+        .order_by('full_name')
+    )
+    positions, columns, rows, class_stats = _build_table_data(cs, students, period)
+    is_director, has_grant = _grant_status(request, cs, period)
+    return render(request, 'notes/partials/subject_tabs.html', {
+        'cs': cs, 'period': period, 'school_class': school_class,
+        'positions': positions, 'columns': columns, 'rows': rows,
+        'class_stats': class_stats, 'can_enter': can_enter, 'reason': reason,
+        'is_director': is_director, 'has_grant': has_grant,
+    })
+
+
 @login_required
 def notes_subject_table(request, class_id, period_id, subject_id):
-    """
-    Partial HTMX — tableau de saisie pour une matière.
-    GET /notes/<class_id>/<period_id>/<subject_id>/
-    Réponse : fragment HTML (notes/partials/notes_table.html)
-    """
+    """Partial HTMX — onglets de saisie (Bulletin/Formatif) pour une matière."""
     school       = get_school(request)
     school_class = get_object_or_404(school.classes.filter(is_active=True), pk=class_id)
     period       = get_object_or_404(Period, pk=period_id, school_year__school=school)
     cs           = get_object_or_404(
         ClassSubject, pk=subject_id, school_class=school_class, is_active=True,
     )
+    return _render_subject_tabs(request, school_class, period, cs)
 
-    can_enter, reason = can_enter_notes(request.user, cs, period)
 
-    students = list(
-        Student.objects
-        .filter(school_class=school_class, school=school, is_active=True)
-        .order_by('full_name')
-    )
-    positions, columns, rows, class_stats = _build_table_data(cs, students, period)
-
-    return render(request, 'notes/partials/subject_tabs.html', {
-        'cs':           cs,
-        'period':       period,
-        'school_class': school_class,
-        'positions':    positions,
-        'columns':      columns,
-        'rows':         rows,
-        'class_stats':  class_stats,
-        'can_enter':    can_enter,
-        'reason':       reason,
-    })
+@login_required
+@require_http_methods(['POST'])
+def notes_grant_toggle(request, subject_id, period_id):
+    """Ouvre/ferme la saisie bulletin pour une (matière, période) précise (directeur)."""
+    school = get_school(request)
+    if not (request.user.is_superuser or request.role in (UserRole.DIRECTOR, UserRole.STAFF)):
+        return HttpResponse(status=403)
+    cs     = get_object_or_404(ClassSubject, pk=subject_id, school_class__school=school, is_active=True)
+    period = get_object_or_404(Period, pk=period_id, school_year__school=school)
+    existing = cs.entry_grants.filter(period=period).first()
+    if existing:
+        existing.delete()
+        msg = 'Saisie refermée pour cette matière.'
+    else:
+        NoteEntryGrant.objects.create(class_subject=cs, period=period, granted_by=request.user)
+        msg = "Saisie ouverte pour l'enseignant."
+    resp = _render_subject_tabs(request, cs.school_class, period, cs)
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': msg, 'type': 'success'}})
+    return resp
 
 
 # ─────────────────────────────────────────────────────────────

@@ -37,6 +37,11 @@ urlpatterns = [
          notes_views.notes_period_toggle,
          name='period-toggle'),
 
+    # ── Ouverture ciblée d'une (matière, période) — directeur ─────
+    path('grant/<int:subject_id>/<int:period_id>/',
+         notes_views.notes_grant_toggle,
+         name='grant-toggle'),
+
     # ── Flux formatif (hors bulletin) ─────────────────────────────
     path('formatif/<int:class_id>/<int:period_id>/<int:subject_id>/',
          formatif_views.formatif_panel, name='formatif-panel'),
