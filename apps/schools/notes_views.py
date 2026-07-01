@@ -547,11 +547,13 @@ def note_save(request):
     # Vérification permissions
     can_enter, reason = can_enter_notes(request.user, cs, period)
     if not can_enter:
-        return render(request, 'notes/partials/note_cell.html', {
+        resp = render(request, 'notes/partials/note_cell.html', {
             'cs': cs, 'student': student, 'period': period,
             'position': position, 'note': None,
             'can_enter': False, 'error': reason,
         })
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': reason, 'type': 'error'}})
+        return resp
 
     value_str = request.POST.get('value', '').strip()
 
