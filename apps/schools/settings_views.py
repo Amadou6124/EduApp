@@ -16,7 +16,7 @@ from .forms import (
     SchoolYearForm, PeriodForm, SubjectForm, ClassSubjectForm,
     BulletinConfigForm,
 )
-from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note, BulletinConfig
+from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note, BulletinConfig, AppreciationScale
 from apps.core.mixins import get_school, director_or_staff_required
 
 # ── Module Finances (Lot 2) — catalogue de frais ───────────────────────────────
@@ -166,8 +166,95 @@ def bulletin(request):
     return render(request, 'settings/bulletin.html', {
         'form': BulletinConfigForm(instance=config),
         'config': config,
+        'scales': AppreciationScale.objects.filter(school=school).order_by('-min_grade'),
         'active_section': 'bulletin',
     })
+
+
+# ─────────────────────────────────────────────────────────────
+# Barème d'appréciations (note → mention)
+# ─────────────────────────────────────────────────────────────
+
+_DEFAULT_APPRECIATIONS = [
+    ('18', 'Excellent'),
+    ('16', 'Très bien'),
+    ('14', 'Bien'),
+    ('12', 'Assez bien'),
+    ('10', 'Passable'),
+    ('8',  'Insuffisant'),
+    ('0',  'Faible'),
+]
+
+
+def _render_scales(request, school, message=None, msg_type='success'):
+    scales = AppreciationScale.objects.filter(school=school).order_by('-min_grade')
+    resp = render(request, 'settings/partials/appreciation_scale.html', {'scales': scales})
+    if message:
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': msg_type}})
+    return resp
+
+
+def _parse_grade(raw):
+    from decimal import Decimal, InvalidOperation
+    try:
+        g = Decimal((raw or '').strip().replace(',', '.'))
+    except (InvalidOperation, TypeError):
+        return None
+    return g if g >= 0 else None
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def appreciation_add(request):
+    school = get_school(request)
+    label  = (request.POST.get('label') or '').strip()
+    grade  = _parse_grade(request.POST.get('min_grade'))
+    if not label or grade is None:
+        return _render_scales(request, school, 'Libellé et note valide requis.', 'error')
+    if AppreciationScale.objects.filter(school=school, label=label).exists():
+        return _render_scales(request, school, 'Cette mention existe déjà.', 'error')
+    AppreciationScale.objects.create(school=school, label=label, min_grade=grade)
+    return _render_scales(request, school, 'Mention ajoutée.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def appreciation_update(request, scale_id):
+    school = get_school(request)
+    scale  = get_object_or_404(AppreciationScale, id=scale_id, school=school)
+    label  = (request.POST.get('label') or '').strip()
+    grade  = _parse_grade(request.POST.get('min_grade'))
+    if not label or grade is None:
+        return _render_scales(request, school, 'Libellé et note valide requis.', 'error')
+    if AppreciationScale.objects.filter(school=school, label=label).exclude(id=scale.id).exists():
+        return _render_scales(request, school, 'Cette mention existe déjà.', 'error')
+    scale.label = label
+    scale.min_grade = grade
+    scale.save(update_fields=['label', 'min_grade'])
+    return _render_scales(request, school, 'Mention mise à jour.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['DELETE'])
+def appreciation_delete(request, scale_id):
+    school = get_school(request)
+    AppreciationScale.objects.filter(id=scale_id, school=school).delete()
+    return _render_scales(request, school, 'Mention supprimée.', 'info')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def appreciation_seed(request):
+    school = get_school(request)
+    for grade, label in _DEFAULT_APPRECIATIONS:
+        AppreciationScale.objects.get_or_create(
+            school=school, label=label, defaults={'min_grade': grade},
+        )
+    return _render_scales(request, school, 'Barème par défaut chargé.')
 
 
 # ─────────────────────────────────────────────────────────────

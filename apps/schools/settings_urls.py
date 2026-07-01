@@ -60,6 +60,10 @@ urlpatterns = [
 
     # ── DOCUMENTS ─────────────────────────────────────────────────────
     path('bulletin/', settings_views.bulletin, name='bulletin'),
+    path('bulletin/appreciations/add/',                   settings_views.appreciation_add,    name='appreciation-add'),
+    path('bulletin/appreciations/seed/',                  settings_views.appreciation_seed,   name='appreciation-seed'),
+    path('bulletin/appreciations/<int:scale_id>/save/',   settings_views.appreciation_update, name='appreciation-update'),
+    path('bulletin/appreciations/<int:scale_id>/delete/', settings_views.appreciation_delete, name='appreciation-delete'),
     path('headers/',  settings_views.coming_soon, {'section': 'headers'},  name='headers'),
 
     # ── COMMUNICATION ─────────────────────────────────────────────────
