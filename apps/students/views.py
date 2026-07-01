@@ -1170,12 +1170,28 @@ def _difficulty_flagged(school):
         Attendance.objects.filter(school=school, status='absent', date__gte=month_start)
         .values('student_id').annotate(n=Count('id')).values_list('student_id', 'n')
     )
+    # Moyenne académique = bulletin si généré (figé), sinon formatif (alerte précoce,
+    # avant la composition). Fusion : formatif par défaut, bulletin non nul prioritaire.
     bul_map = {}
     if active_period:
-        bul_map = dict(
+        from apps.schools.models import FormativeGrade
+        from decimal import Decimal
+        bulletin_raw = dict(
             Bulletin.objects.filter(student__school=school, is_cancelled=False, period=active_period)
             .values_list('student_id', 'general_average')
         )
+        acc = {}
+        for sid, mx, val in (
+            FormativeGrade.objects
+            .filter(evaluation__period=active_period, is_absent=False, value__isnull=False,
+                    student__school=school)
+            .values_list('student_id', 'evaluation__max_grade', 'value')
+        ):
+            acc.setdefault(sid, []).append(val / (mx or Decimal('20')) * 20)
+        bul_map = {sid: round(sum(v) / len(v), 2) for sid, v in acc.items()}
+        for sid, avg in bulletin_raw.items():
+            if avg is not None:
+                bul_map[sid] = avg
     obs_map = dict(
         StudentObservation.objects.filter(school=school, is_private=False, is_read=False)
         .values('student_id').annotate(n=Count('id')).values_list('student_id', 'n')
