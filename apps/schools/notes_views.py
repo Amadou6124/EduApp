@@ -43,24 +43,17 @@ def _get_active_year(school, year_id=None):
 
 def _compute_student_avg(cs, note_list):
     """
-    Calcule la moyenne d'un élève pour une ClassSubject.
+    Moyenne d'un élève pour une ClassSubject.
 
+    SOURCE UNIQUE : réutilise exactement la formule du bulletin (BulletinCalculator),
+    pour que l'aperçu de saisie ne diverge jamais de la moyenne imprimée sur le bulletin.
     note_list : liste ordonnée de Note|None (index = position-1).
     """
-    valid = [n for n in note_list if n is not None and not n.is_cancelled]
-    if not valid:
-        return None
-
-    if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-        # position 1 = devoir, position 2 = composition
-        devoir = next((n.value for n in valid if n.position == 1), None)
-        compo  = next((n.value for n in valid if n.position == 2), None)
-        if devoir is not None and compo is not None:
-            return round(devoir * cs.coeff_devoirs + compo * cs.coeff_compo, 2)
-        return None
-
-    # Moyenne simple : somme / nb notes valides
-    return round(sum(n.value for n in valid) / len(valid), 2)
+    from apps.schools.services.bulletin_calculator import BulletinCalculator, round2
+    raw = BulletinCalculator().calculate_subject_average(
+        note_list, cs.note_system, cs.coeff_devoirs, cs.coeff_compo, cs.max_grade,
+    )
+    return round2(raw)
 
 
 def _compute_class_stats(rows):

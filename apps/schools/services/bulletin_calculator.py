@@ -171,13 +171,23 @@ class BulletinCalculator:
                 period=period,
                 school_class=school_class,
                 is_cancelled=False,
+                general_average__isnull=False,   # un élève sans moyenne n'est pas classé
             )
             .select_related('student')
             .order_by('-general_average')
         )
+        # Rangs « compétition » : les ex æquo partagent le même rang (1, 2, 2, 4…).
         ranks = {}
+        prev_avg = None
+        prev_rank = 0
         for idx, bul in enumerate(bulletins, start=1):
-            ranks[bul.student_id] = idx
+            if prev_avg is not None and bul.general_average == prev_avg:
+                rank = prev_rank
+            else:
+                rank = idx
+                prev_rank = idx
+                prev_avg = bul.general_average
+            ranks[bul.student_id] = rank
         return ranks
 
     def get_first_average(
@@ -487,7 +497,8 @@ class BulletinCalculator:
 
         # Calculer les rangs
         ranks = self.calculate_ranks(period, school_class)
-        class_size_val = len(students)
+        # Effectif classé = élèves ayant une moyenne (les sans-note ne sont pas classés).
+        class_size_val = sum(1 for b in created if b.general_average is not None)
         first_avg = self.get_first_average(period, school_class)
 
         # Mettre à jour rangs et stats

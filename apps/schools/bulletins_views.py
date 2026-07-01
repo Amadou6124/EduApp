@@ -426,7 +426,10 @@ def generate_student_bulletin(request, student_id, period_id):
             bulletin = calculator.generate_bulletin(student, period, request.user)
             ranks = calculator.calculate_ranks(period, student.school_class)
             bulletin.rank = ranks.get(student.pk)
-            bulletin.class_size = student.school_class.students.filter(is_active=True).count()
+            bulletin.class_size = Bulletin.objects.filter(
+                period=period, school_class=student.school_class,
+                is_cancelled=False, general_average__isnull=False,
+            ).count()
             bulletin.first_average = calculator.get_first_average(period, student.school_class)
             bulletin.save(update_fields=['rank', 'class_size', 'first_average'])
     except Exception as e:
