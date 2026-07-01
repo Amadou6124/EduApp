@@ -61,9 +61,8 @@ class GeneralSettingsForm(forms.ModelForm):
 
     class Meta:
         model = School
-        fields = ['name', 'short_name', 'phone_number', 'email',
-                  'address', 'city', 'country',
-                  'current_school_year', 'school_type']
+        fields = ['logo', 'name', 'short_name', 'phone_number', 'email',
+                  'address', 'city', 'country', 'school_type']
         widgets = {
             'name':                forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : École Primaire Sainte Marie'}),
             'short_name':          forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : EPF Sundiata'}),
@@ -72,14 +71,13 @@ class GeneralSettingsForm(forms.ModelForm):
             'address':             forms.TextInput(attrs={'class': _F, 'placeholder': 'Rue Soundiata Keïta, Hamdallaye', 'list': 'countries-list'}),
             'city':                forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Bamako'}),
             'country':             forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Mali', 'list': 'countries-list'}),
-            'current_school_year': forms.TextInput(attrs={'class': _F, 'placeholder': '2024-2025'}),
             'school_type':         forms.Select(attrs={'class': _S}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['school_type'].choices = [('', '— Sélectionner —')] + list(SchoolType.choices)
-        for f in ['email', 'address', 'city', 'current_school_year', 'school_type']:
+        for f in ['phone_number', 'email', 'address', 'city', 'school_type']:
             self.fields[f].required = False
 
     def clean_name(self):
@@ -89,10 +87,16 @@ class GeneralSettingsForm(forms.ModelForm):
         return v
 
     def clean_phone_number(self):
-        v = self.cleaned_data.get('phone_number', '').strip()
-        if not v:
-            raise forms.ValidationError('Le numéro de téléphone est obligatoire.')
-        return v
+        return self.cleaned_data.get('phone_number', '').strip()
+
+    def clean_logo(self):
+        logo = self.cleaned_data.get('logo')
+        if logo and hasattr(logo, 'content_type'):
+            if logo.content_type not in ('image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'):
+                raise forms.ValidationError('Format invalide. Utilisez PNG, JPG ou SVG.')
+            if logo.size > 2 * 1024 * 1024:
+                raise forms.ValidationError('Le logo ne doit pas dépasser 2 Mo.')
+        return logo
 
 
 class AppearanceForm(forms.ModelForm):
@@ -111,13 +115,6 @@ class AppearanceForm(forms.ModelForm):
         return logo
 
 
-class ReceiptModeForm(forms.ModelForm):
-
-    class Meta:
-        model = School
-        fields = ['receipt_mode']
-
-
 class ReceiptSignerForm(forms.ModelForm):
 
     class Meta:
@@ -128,22 +125,6 @@ class ReceiptSignerForm(forms.ModelForm):
                 'class': _F, 'placeholder': 'Ex : Le Directeur',
             }),
         }
-
-
-class ReceiptUploadForm(forms.ModelForm):
-
-    class Meta:
-        model = School
-        fields = ['receipt_template_pdf']
-
-    def clean_receipt_template_pdf(self):
-        pdf = self.cleaned_data.get('receipt_template_pdf')
-        if pdf and hasattr(pdf, 'content_type'):
-            if pdf.content_type != 'application/pdf':
-                raise forms.ValidationError('Seuls les fichiers PDF natifs sont acceptés.')
-            if pdf.size > 10 * 1024 * 1024:
-                raise forms.ValidationError('Le fichier ne doit pas dépasser 10 Mo.')
-        return pdf
 
 
 # ── Années scolaires + Périodes ────────────────────────────────────────────
@@ -215,9 +196,9 @@ class BulletinConfigForm(forms.ModelForm):
             'bulletin_title',
             'show_logo',
             'paper_format',
-            'show_rank', 'show_class_average',
+            'show_rank',
             'show_first_average', 'show_appreciations',
-            'show_annual_averages', 'show_last_average',
+            'show_last_average',
             'footer_left', 'footer_right',
         ]
         widgets = {
@@ -230,6 +211,13 @@ class BulletinConfigForm(forms.ModelForm):
             'paper_format':   forms.Select(attrs={'class': _S}),
             'footer_left':    forms.TextInput(attrs={'class': _F, 'placeholder': "Le Parent"}),
             'footer_right':   forms.TextInput(attrs={'class': _F, 'placeholder': "Le Directeur"}),
+            # Interrupteurs (cases masquées + piste stylée dans le template)
+            'show_ministry_header': forms.CheckboxInput(attrs={'class': 'sr-only peer', 'x-model': 'ministry'}),
+            'show_logo':            forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
+            'show_rank':            forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
+            'show_first_average':   forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
+            'show_appreciations':   forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
+            'show_last_average':    forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
         }
 
     def __init__(self, *args, **kwargs):

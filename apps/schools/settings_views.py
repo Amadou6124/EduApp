@@ -8,12 +8,11 @@ from django.db.models import Count, ProtectedError
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.template.loader import render_to_string
-from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .forms import (
     AppearanceForm, GeneralSettingsForm,
-    ReceiptModeForm, ReceiptUploadForm, ReceiptSignerForm,
+    ReceiptSignerForm,
     SchoolYearForm, PeriodForm, SubjectForm, ClassSubjectForm,
     BulletinConfigForm,
 )
@@ -25,20 +24,6 @@ from apps.finance.models import (
     FeeType, FeeVariant, PaymentScheduleTemplate, FeeCategory,
 )
 from apps.finance.forms import FeeTypeForm, FeeVariantForm
-
-# Variables disponibles pour le mapping de reçu personnalisé
-_RECEIPT_VARIABLES = [
-    ('nom_eleve',       '{{nom_eleve}}'),
-    ('classe',          '{{classe}}'),
-    ('montant',         '{{montant}}'),
-    ('date',            '{{date}}'),
-    ('numero_recu',     '{{numero_recu}}'),
-    ('solde',           '{{solde}}'),
-    ('nom_ecole',       '{{nom_ecole}}'),
-    ('telephone_ecole', '{{telephone_ecole}}'),
-    ('mode_paiement',   '{{mode_paiement}}'),
-    ('ignore',          '— Ignorer —'),
-]
 
 # Métadonnées des sections "coming soon"
 _COMING_SOON_META = {
@@ -57,20 +42,10 @@ _COMING_SOON_META = {
 _SIGNER_SUGGESTIONS = ['Le Directeur', 'Le Caissier', 'Le Comptable', 'La Directrice']
 
 
-def _custom_step(school):
-    """Détermine l'étape courante du flux de reçu personnalisé."""
-    if school.receipt_configured_at:
-        return 'configured'
-    if school.receipt_template_pdf:
-        return 'uploaded'
-    return 'empty'
-
-
 def _receipt_ctx(school, **extra):
     """Contexte de base pour receipt_content.html."""
     return {
         'school': school,
-        'custom_step': _custom_step(school),
         'signer_suggestions': _SIGNER_SUGGESTIONS,
         **extra,
     }
@@ -91,9 +66,46 @@ def settings_home(request):
 def general(request):
     school = get_school(request)
     if request.method == 'POST':
-        form = GeneralSettingsForm(request.POST, instance=school)
+        # Suppression du logo (depuis la carte Identité)
+        if request.POST.get('delete_logo'):
+            if school.logo:
+                school.logo.delete(save=True)
+            school.refresh_from_db()
+            resp = render(request, 'settings/partials/general_form.html', {
+                'form': GeneralSettingsForm(instance=school), 'school': school,
+            })
+            resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Logo supprimé.', 'type': 'info'}})
+            return resp
+
+        # Enregistrement automatique du logo dès la sélection (indépendant des autres champs)
+        if request.POST.get('logo_only'):
+            logo = request.FILES.get('logo')
+            err = None
+            if not logo:
+                err = "Aucun fichier reçu."
+            elif getattr(logo, 'content_type', '') not in ('image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'):
+                err = "Format invalide. Utilisez PNG, JPG ou SVG."
+            elif logo.size > 2 * 1024 * 1024:
+                err = "Le logo ne doit pas dépasser 2 Mo."
+            if err:
+                resp = render(request, 'settings/partials/general_form.html', {
+                    'form': GeneralSettingsForm(instance=school), 'school': school,
+                })
+                resp['HX-Trigger'] = json.dumps({'showToast': {'message': err, 'type': 'error'}})
+                return resp
+            school.logo = logo
+            school.save()
+            school.refresh_from_db()
+            resp = render(request, 'settings/partials/general_form.html', {
+                'form': GeneralSettingsForm(instance=school), 'school': school,
+            })
+            resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Logo enregistré.', 'type': 'success'}})
+            return resp
+
+        form = GeneralSettingsForm(request.POST, request.FILES, instance=school)
         if form.is_valid():
             form.save()
+            school.refresh_from_db()
             resp = render(request, 'settings/partials/general_form.html', {
                 'form': GeneralSettingsForm(instance=school),
                 'school': school,
@@ -114,105 +126,19 @@ def general(request):
 
 @login_required
 @director_or_staff_required
-def appearance(request):
+def receipt(request):
     school = get_school(request)
-    if request.method == 'POST':
-        if request.POST.get('delete_logo'):
-            if school.logo:
-                school.logo.delete(save=True)
-            school.refresh_from_db()
-            resp = render(request, 'settings/partials/appearance_form.html', {
-                'form': AppearanceForm(instance=school), 'school': school,
-            })
-            resp['HX-Trigger'] = json.dumps(
-                {'showToast': {'message': 'Logo supprimé.', 'type': 'info'}}
-            )
-            return resp
-        form = AppearanceForm(request.POST, request.FILES, instance=school)
+    if request.method == 'POST' and request.POST.get('action') == 'save_signer':
+        form = ReceiptSignerForm(request.POST, instance=school)
         if form.is_valid():
             form.save()
             school.refresh_from_db()
-            resp = render(request, 'settings/partials/appearance_form.html', {
-                'form': AppearanceForm(instance=school), 'school': school,
-            })
-            resp['HX-Trigger'] = json.dumps(
-                {'showToast': {'message': 'Apparence mise à jour.', 'type': 'success'}}
-            )
-            return resp
-        return render(request, 'settings/partials/appearance_form.html', {
-            'form': form, 'school': school,
-        })
-    return render(request, 'settings/appearance.html', {
-        'form': AppearanceForm(instance=school),
-        'school': school,
-        'active_section': 'appearance',
-    })
-
-
-@login_required
-@director_or_staff_required
-def receipt(request):
-    school = get_school(request)
-    if request.method == 'POST':
-        action = request.POST.get('action', '')
-
-        if action == 'set_mode':
-            mode = request.POST.get('receipt_mode', 'standard')
-            if mode in ('standard', 'custom'):
-                school.receipt_mode = mode
-                school.save(update_fields=['receipt_mode'])
-            school.refresh_from_db()
             resp = render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
             resp['HX-Trigger'] = json.dumps(
-                {'showToast': {'message': 'Mode mis à jour.', 'type': 'success'}}
+                {'showToast': {'message': 'Titre du signataire enregistré.', 'type': 'success'}}
             )
             return resp
-
-        elif action == 'upload_pdf':
-            form = ReceiptUploadForm(request.POST, request.FILES, instance=school)
-            if form.is_valid():
-                form.save()
-                school.refresh_from_db()
-                return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
-            return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(
-                school, custom_step='empty',
-                upload_error=form.errors.get('receipt_template_pdf', ['Erreur inconnue.'])[0],
-            ))
-
-        elif action == 'analyze':
-            return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(
-                school, custom_step='mapping',
-                mapping=[], variables=_RECEIPT_VARIABLES, analyze_notice=True,
-            ))
-
-        elif action == 'save_signer':
-            form = ReceiptSignerForm(request.POST, instance=school)
-            if form.is_valid():
-                form.save()
-                school.refresh_from_db()
-                resp = render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
-                resp['HX-Trigger'] = json.dumps(
-                    {'showToast': {'message': 'Titre du signataire enregistré.', 'type': 'success'}}
-                )
-                return resp
-            return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
-
-        elif action == 'save_mapping':
-            mapping_data = {
-                key[4:]: val
-                for key, val in request.POST.items()
-                if key.startswith('var_')
-            }
-            school.receipt_mapping = mapping_data
-            school.receipt_configured_at = timezone.now()
-            school.receipt_mode = 'custom'
-            school.save(update_fields=['receipt_mapping', 'receipt_configured_at', 'receipt_mode'])
-            school.refresh_from_db()
-            resp = render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
-            resp['HX-Trigger'] = json.dumps(
-                {'showToast': {'message': 'Modèle de reçu configuré avec succès.', 'type': 'success'}}
-            )
-            return resp
+        return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
 
     return render(request, 'settings/receipt.html', _receipt_ctx(school, active_section='receipt'))
 

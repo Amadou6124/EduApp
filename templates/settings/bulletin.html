@@ -1,13 +1,11 @@
 {% extends "settings/settings_base.html" %}
 
 {% block settings_content %}
-<div class="max-w-2xl px-8 py-8">
-  <div class="mb-8">
-    <h2 class="text-xl font-bold text-gray-900">Modèle de bulletin</h2>
-    <p class="text-sm text-gray-500 mt-1">
-      Personnalisez l'en-tête officiel, la présentation et les signatures du bulletin PDF.
-    </p>
-  </div>
-  {% include "settings/partials/bulletin_form.html" %}
+<div class="mb-6">
+  <h2 class="text-lg font-semibold text-gray-900">Modèle de bulletin</h2>
+  <p class="text-sm text-gray-500 mt-0.5">
+    Personnalisez l'en-tête officiel, la présentation et les signatures du bulletin PDF.
+  </p>
 </div>
+{% include "settings/partials/bulletin_form.html" %}
 {% endblock %}

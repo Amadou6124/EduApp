@@ -1,15 +1,14 @@
 {% extends "settings/settings_base.html" %}
 {% load i18n %}
 {% block settings_content %}
-<div class="max-w-3xl px-6 py-8"
-     x-data="{ showForm: false }"
+<div x-data="{ showForm: false }"
      @school-year-saved.window="showForm = false">
 
   <!-- ── En-tête ─────────────────────────────────────────────── -->
-  <div class="flex items-start justify-between mb-6">
+  <div class="flex items-start justify-between gap-3 mb-6">
     <div>
-      <h2 class="text-xl font-bold text-gray-900">Années scolaires</h2>
-      <p class="text-sm text-gray-500 mt-1">Configurez les années et leurs périodes (trimestres, semestres).</p>
+      <h2 class="text-lg font-semibold text-gray-900">Années scolaires</h2>
+      <p class="text-sm text-gray-500 mt-0.5">Configurez les années et leurs périodes (trimestres, semestres).</p>
     </div>
     <button @click="showForm = !showForm"
             class="btn-primary min-h-[44px] flex-shrink-0">

@@ -2,9 +2,9 @@
 {% if years %}
   <div class="space-y-3">
     {% for year in years %}
-    <div class="flex items-center justify-between px-5 py-4 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition"
+    <div class="card p-4 hover:border-gray-300 transition flex flex-col sm:flex-row sm:items-center gap-3"
          x-data="{ edit: false }">
-      <div class="flex items-center gap-4 min-w-0">
+      <div class="flex items-center gap-3 min-w-0 sm:flex-1">
         <!-- Statut badge -->
         {% if year.is_active %}
         <span class="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
@@ -25,7 +25,7 @@
         </div>
       </div>
       <!-- Infos + actions -->
-      <div class="flex items-center gap-3 flex-shrink-0">
+      <div class="flex items-center flex-wrap gap-2 sm:flex-shrink-0 sm:ml-auto">
         <span class="text-xs text-gray-500">
           {{ year.periods_count }} période{{ year.periods_count|pluralize }}
         </span>

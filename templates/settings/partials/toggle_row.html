@@ -1,0 +1,12 @@
+{# Interrupteur réutilisable — attend : field (BoundField booléen), label, sublabel (optionnel) #}
+<label class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+  <span class="min-w-0">
+    <span class="block text-sm font-medium text-gray-700">{{ label }}</span>
+    {% if sublabel %}<span class="block text-xs text-gray-400 mt-0.5">{{ sublabel }}</span>{% endif %}
+  </span>
+  <span class="relative inline-flex shrink-0">
+    {{ field }}
+    <span class="w-10 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-300 transition-colors"></span>
+    <span class="pointer-events-none absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></span>
+  </span>
+</label>

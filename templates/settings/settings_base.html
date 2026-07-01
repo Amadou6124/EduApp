@@ -25,7 +25,6 @@
       <div>
         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-1">École</p>
         {% include "settings/partials/nav_item.html" with section="general" label="Général" icon="settings" available=True value=request.school.short_name|default:request.school.name %}
-        {% include "settings/partials/nav_item.html" with section="appearance" label="Apparence" icon="palette" available=True %}
       </div>
       <div>
         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-1">Pédagogie</p>

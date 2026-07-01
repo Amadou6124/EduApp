@@ -1,11 +1,9 @@
 {% extends "settings/settings_base.html" %}
 
 {% block settings_content %}
-<div class="max-w-2xl px-8 py-8">
-  <div class="mb-8">
-    <h2 class="text-xl font-bold text-gray-900">Modèle de reçu</h2>
-    <p class="text-sm text-gray-500 mt-1">Choisissez comment vos reçus de paiement seront générés.</p>
-  </div>
-  {% include "settings/partials/receipt_content.html" %}
+<div class="mb-6">
+  <h2 class="text-lg font-semibold text-gray-900">Modèle de reçu</h2>
+  <p class="text-sm text-gray-500 mt-0.5">L'aperçu du reçu remis à chaque paiement, et son signataire.</p>
 </div>
+{% include "settings/partials/receipt_content.html" %}
 {% endblock %}

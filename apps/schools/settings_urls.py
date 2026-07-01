@@ -11,7 +11,6 @@ urlpatterns = [
 
     # ── ÉCOLE ─────────────────────────────────────────────────────────
     path('general/',    settings_views.general,    name='general'),
-    path('appearance/', settings_views.appearance, name='appearance'),
 
     # Années scolaires
     path('school-years/',                         settings_views.school_years,        name='school-years'),
