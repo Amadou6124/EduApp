@@ -21,17 +21,24 @@ def can_enter_notes(user, class_subject, period) -> tuple[bool, str]:
     if user.is_superuser or user.role in (UserRole.DIRECTOR, UserRole.STAFF):
         return True, None
 
-    # Période fermée → seulement le directeur peut forcer
-    if not period.is_notes_open:
-        return False, 'La saisie des notes est fermée pour cette période.'
-
     if user.role == UserRole.TEACHER:
-        # Enseignant assigné directement à la matière de classe
-        if class_subject.teacher_id == user.pk:
+        # 1. Doit être assigné (enseignant de la matière) ou délégué sur la classe.
+        assigned = (
+            class_subject.teacher_id == user.pk
+            or class_subject.school_class.notes_delegates.filter(pk=user.pk).exists()
+        )
+        if not assigned:
+            return False, "Vous n'êtes pas assigné à cette matière pour cette classe."
+        # 2. Période ouverte globalement OU ouverture ciblée accordée par le directeur.
+        if period.is_notes_open:
             return True, None
-        # Ou délégué sur la classe (notes_delegates M2M)
-        if class_subject.school_class.notes_delegates.filter(pk=user.pk).exists():
+        grant = (
+            class_subject.entry_grants
+            .filter(period=period)
+            .first()
+        )
+        if grant and grant.is_active():
             return True, None
-        return False, "Vous n'êtes pas assigné à cette matière pour cette classe."
+        return False, 'La saisie des notes est fermée pour cette période.'
 
     return False, "Votre rôle ne permet pas la saisie des notes."

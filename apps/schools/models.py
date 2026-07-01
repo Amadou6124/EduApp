@@ -632,6 +632,47 @@ class FormativeGrade(models.Model):
         return f'{self.student} — {self.evaluation} : {self.value}'
 
 
+class NoteEntryGrant(models.Model):
+    """Ouverture ciblée de la saisie bulletin : le directeur autorise une
+    (classe, matière) précise sur une période, même quand la période globale
+    (`Period.is_notes_open`) est fermée. Sert au cas « enseignant en retard ».
+    Révocation = suppression de la ligne."""
+    class_subject = models.ForeignKey(
+        ClassSubject, on_delete=models.CASCADE,
+        related_name='entry_grants', verbose_name=_('matière de classe'),
+    )
+    period = models.ForeignKey(
+        Period, on_delete=models.CASCADE,
+        related_name='entry_grants', verbose_name=_('période'),
+    )
+    granted_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True,
+        related_name='granted_note_entries', verbose_name=_('accordée par'),
+    )
+    granted_at = models.DateTimeField(_('accordée le'), auto_now_add=True)
+    expires_at = models.DateTimeField(
+        _('expire le'), null=True, blank=True,
+        help_text=_('Laisser vide = ouverte jusqu\'à révocation.'),
+    )
+
+    class Meta:
+        verbose_name        = _('ouverture de saisie ciblée')
+        verbose_name_plural = _('ouvertures de saisie ciblées')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['class_subject', 'period'],
+                name='uniq_note_entry_grant_cs_period',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Ouverture {self.class_subject} — {self.period}'
+
+    def is_active(self):
+        from django.utils import timezone
+        return self.expires_at is None or self.expires_at > timezone.now()
+
+
 # ──────────────────────────────────────────────────────────────
 # Bulletins — Étape 3/3
 # ──────────────────────────────────────────────────────────────
