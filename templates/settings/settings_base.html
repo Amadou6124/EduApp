@@ -48,7 +48,7 @@
       <a href="{% url 'settings:settings-home' %}" class="flex items-center gap-1.5 text-sm text-gray-500"><i data-lucide="arrow-left" class="w-4 h-4"></i> Paramètres</a>
     </div>
     {% endif %}
-    <div class="py-7 px-6 lg:px-8 max-w-3xl w-full">
+    <div class="py-7 px-6 lg:px-8 w-full mx-auto {% block settings_width %}max-w-3xl{% endblock %}">
       {% block settings_content %}{% endblock %}
     </div>
   </div>
