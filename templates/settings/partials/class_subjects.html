@@ -10,6 +10,27 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
       <p class="text-sm font-semibold text-gray-900 truncate">{{ school_class.name }}</p>
       <p class="text-xs text-gray-400">{{ school_class.get_level_display }} · {{ class_subjects|length }} matière{{ class_subjects|length|pluralize }}</p>
     </div>
+    {% if other_classes %}
+    <div class="relative shrink-0" x-data="{ open: false }" @click.outside="open = false">
+      <button type="button" @click="open = !open" class="btn-secondary text-xs">
+        <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copier depuis…
+      </button>
+      <div x-show="open" x-cloak class="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-30 max-h-72 overflow-y-auto">
+        <p class="px-3 py-1.5 text-[10px] text-gray-400 uppercase tracking-wider">Copier la config de</p>
+        {% for oc in other_classes %}
+        <button type="button"
+                hx-post="{% url 'settings:class-subject-copy' school_class.id %}"
+                hx-vals='{"source_class_id": {{ oc.id }}}'
+                hx-target="#class-subjects-panel" hx-swap="innerHTML"
+                @click="open = false"
+                class="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
+          <span class="truncate">{{ oc.name }}</span>
+          <span class="text-[11px] text-gray-400">{{ oc.cs_count }}</span>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   {# Liste des matières de la classe #}
