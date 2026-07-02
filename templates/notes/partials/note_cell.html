@@ -75,7 +75,7 @@ Contexte attendu :
     <input type="hidden" name="period_id" value="{{ period.pk }}">
     <input type="hidden" name="position" value="{{ position }}">
     {# Indicateur de sauvegarde #}
-    <div class="htmx-indicator absolute inset-0 flex items-center justify-center bg-white/80 rounded">
+    <div class="htmx-indicator pointer-events-none absolute inset-0 flex items-center justify-center bg-white/80 rounded">
       <svg class="w-4 h-4 text-primary-600 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
