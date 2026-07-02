@@ -17,7 +17,7 @@ Contexte attendu :
   {# ── Lecture seule ──────────────────────────────────────────── #}
   <td class="border border-gray-200 px-2 py-1.5 text-center min-w-[64px]">
     {% if note and not note.is_cancelled %}
-      <span class="text-sm font-medium text-gray-700">{{ note.value }}</span>
+      <span class="text-sm font-medium {% if level == 'low' %}text-red-600{% elif level == 'mid' %}text-amber-600{% elif level == 'high' %}text-green-700{% else %}text-gray-700{% endif %}">{{ note.value }}</span>
     {% elif note and note.is_cancelled %}
       <span class="text-xs text-gray-400 line-through"
             title="{{ note.cancellation_reason|default:'Annulée' }}">

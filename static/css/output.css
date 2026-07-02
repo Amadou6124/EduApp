@@ -2163,6 +2163,10 @@ p {
   height: 1px;
 }
 
+.max-h-40 {
+  max-height: 10rem;
+}
+
 .max-h-52 {
   max-height: 13rem;
 }
@@ -4358,6 +4362,10 @@ p {
   font-size: 11px;
 }
 
+.text-\[13px\] {
+  font-size: 13px;
+}
+
 .text-\[15px\] {
   font-size: 15px;
 }
@@ -6011,6 +6019,10 @@ p {
 
   .sm\:w-32 {
     width: 8rem;
+  }
+
+  .sm\:w-40 {
+    width: 10rem;
   }
 
   .sm\:w-48 {

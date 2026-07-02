@@ -165,16 +165,39 @@ function mobileNoteInput(students, existingNotes) {
         </div>
 
         <div x-show="tab==='bulletin'">
-          {% if can_enter and rows %}
-            {% include "notes/partials/notes_mobile_input.html" %}
-          {% elif not can_enter %}
+          {% if not rows %}
+            <div class="card p-8 text-center"><i data-lucide="users" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i><p class="text-sm font-medium text-gray-500">Aucun élève dans cette classe</p></div>
+          {% elif can_enter %}
+            {# Ouvert : bascule Saisir (flashcard) ⇄ Voir la liste (lecture seule) #}
+            <div x-data="{ mmode: 'saisir' }">
+              <div class="flex bg-gray-100 rounded-xl p-1 gap-1 mb-3">
+                <button type="button" @click="mmode='saisir'"
+                        class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition"
+                        :class="mmode==='saisir' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500'">
+                  <i data-lucide="pencil" class="w-4 h-4"></i> {% trans "Saisir" %}
+                </button>
+                <button type="button" @click="mmode='liste'"
+                        class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition"
+                        :class="mmode==='liste' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500'">
+                  <i data-lucide="list" class="w-4 h-4"></i> {% trans "Voir la liste" %}
+                </button>
+              </div>
+              <div x-show="mmode==='saisir'">
+                {% include "notes/partials/notes_mobile_input.html" %}
+              </div>
+              <div x-show="mmode==='liste'" x-cloak>
+                {% include "notes/partials/notes_mobile_list.html" %}
+              </div>
+            </div>
+          {% elif read_only %}
+            {# Fermé : consultation en liste (pas de flashcard puisqu'on ne saisit pas) #}
+            {% include "notes/partials/notes_mobile_list.html" %}
+          {% else %}
             <div class="bg-white rounded-xl border border-amber-200 p-8 text-center">
               <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3"><i data-lucide="lock" class="w-6 h-6 text-amber-500"></i></div>
               <p class="text-sm font-medium text-gray-700 mb-1">Saisie non disponible</p>
               <p class="text-xs text-gray-400">{{ reason|default:"Votre rôle ne permet pas la saisie des notes." }}</p>
             </div>
-          {% else %}
-            <div class="card p-8 text-center"><i data-lucide="users" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i><p class="text-sm font-medium text-gray-500">Aucun élève dans cette classe</p></div>
           {% endif %}
         </div>
 
@@ -209,7 +232,7 @@ function mobileNoteInput(students, existingNotes) {
       </div>
 
       <div id="notes-table-container">
-        {% include "notes/partials/subject_tabs.html" with cs=active_cs period=period school_class=school_class positions=positions columns=columns rows=rows class_stats=class_stats can_enter=can_enter reason=reason is_director=is_director has_grant=has_grant %}
+        {% include "notes/partials/subject_tabs.html" with cs=active_cs period=period school_class=school_class positions=positions columns=columns rows=rows class_stats=class_stats can_enter=can_enter reason=reason is_director=is_director has_grant=has_grant read_only=read_only %}
       </div>
     {% endif %}
   </div>
