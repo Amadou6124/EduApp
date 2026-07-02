@@ -1,0 +1,63 @@
+{% load i18n %}
+{% comment %}Carte identité (fiche détail). Contexte : member, member_role, member_is_active, is_director.
+Rendu inline dans team_detail.html ET seule (swap in-place) par deactivate/reactivate.{% endcomment %}
+{% with colors=member.get_avatar_colors initials=member.get_initials %}
+<aside id="member-detail-header" class="card p-6 mb-5 lg:mb-0 lg:sticky lg:top-6">
+  <div class="flex flex-col items-center text-center">
+    <div class="w-[76px] h-[76px] rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0"
+         style="background-color:{{ colors.0 }};color:{{ colors.1 }}">{{ initials }}</div>
+    <h2 class="text-lg font-bold text-gray-900 mt-3">{{ member.full_name }}</h2>
+    <p class="text-sm text-gray-500 mt-0.5">
+      {% if member.job_title %}{{ member.job_title }}{% else %}{{ member.get_role_display }}{% endif %}
+    </p>
+    <div class="flex items-center gap-1.5 mt-2.5">
+      {% if member_role == 'teacher' %}<span class="badge-info">Enseignant</span>
+      {% elif member_role == 'staff' %}<span class="badge-purple">Staff</span>
+      {% elif member_role == 'director' %}<span class="badge-warning">Directeur</span>{% endif %}
+      {% if member_is_active %}<span class="badge-success">Actif</span>
+      {% else %}<span class="badge-neutral">Désactivé</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="border-t border-gray-100 my-4"></div>
+
+  <div class="space-y-3">
+    <div>
+      <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Téléphone</p>
+      <button type="button" @click="copyPhone()"
+              class="group flex items-center gap-1.5 text-sm text-gray-700 font-medium font-mono hover:text-primary-600 transition"
+              :title="phoneCopied ? 'Copié' : 'Copier le numéro'">
+        <span>{{ member.phone_number }}</span>
+        <i x-show="!phoneCopied" data-lucide="copy" class="w-3.5 h-3.5 text-gray-300 group-hover:text-primary-500"></i>
+        <i x-show="phoneCopied" x-cloak data-lucide="check" class="w-3.5 h-3.5 text-green-500"></i>
+      </button>
+    </div>
+    <div>
+      <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Membre depuis</p>
+      <p class="text-sm text-gray-700 font-medium">{{ member.created_at|date:"d/m/Y" }}</p>
+    </div>
+  </div>
+
+  {% if is_director %}
+    <div class="border-t border-gray-100 my-4"></div>
+    <div class="flex flex-col gap-2">
+      {% if member_is_active %}
+        <button @click="openEditPanel()" class="btn-primary w-full min-h-[40px]">
+          <i data-lucide="pencil" class="w-4 h-4"></i> Modifier la fiche
+        </button>
+        {% if member.pk != request.user.pk %}
+        <button @click="confirmDeactivate()"
+                class="flex items-center justify-center gap-2 w-full px-4 py-2 border border-red-200 text-red-600 bg-white hover:bg-red-50 text-sm font-medium rounded-lg transition min-h-[40px]">
+          <i data-lucide="user-x" class="w-4 h-4"></i> Désactiver
+        </button>
+        {% endif %}
+      {% else %}
+        <button @click="reactivate()"
+                class="flex items-center justify-center gap-2 w-full px-4 py-2 border border-green-200 text-green-700 bg-white hover:bg-green-50 text-sm font-medium rounded-lg transition min-h-[40px]">
+          <i data-lucide="user-check" class="w-4 h-4"></i> Réactiver le membre
+        </button>
+      {% endif %}
+    </div>
+  {% endif %}
+</aside>
+{% endwith %}

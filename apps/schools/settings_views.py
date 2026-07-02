@@ -4,20 +4,19 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction, models
-from django.db.models import Count, ProtectedError
+from django.db.models import Count, Q, ProtectedError
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.template.loader import render_to_string
-from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .forms import (
     AppearanceForm, GeneralSettingsForm,
-    ReceiptModeForm, ReceiptUploadForm, ReceiptSignerForm,
+    ReceiptSignerForm,
     SchoolYearForm, PeriodForm, SubjectForm, ClassSubjectForm,
     BulletinConfigForm,
 )
-from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note, BulletinConfig
+from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note, BulletinConfig, AppreciationScale
 from apps.core.mixins import get_school, director_or_staff_required
 
 # ── Module Finances (Lot 2) — catalogue de frais ───────────────────────────────
@@ -25,20 +24,6 @@ from apps.finance.models import (
     FeeType, FeeVariant, PaymentScheduleTemplate, FeeCategory,
 )
 from apps.finance.forms import FeeTypeForm, FeeVariantForm
-
-# Variables disponibles pour le mapping de reçu personnalisé
-_RECEIPT_VARIABLES = [
-    ('nom_eleve',       '{{nom_eleve}}'),
-    ('classe',          '{{classe}}'),
-    ('montant',         '{{montant}}'),
-    ('date',            '{{date}}'),
-    ('numero_recu',     '{{numero_recu}}'),
-    ('solde',           '{{solde}}'),
-    ('nom_ecole',       '{{nom_ecole}}'),
-    ('telephone_ecole', '{{telephone_ecole}}'),
-    ('mode_paiement',   '{{mode_paiement}}'),
-    ('ignore',          '— Ignorer —'),
-]
 
 # Métadonnées des sections "coming soon"
 _COMING_SOON_META = {
@@ -57,20 +42,10 @@ _COMING_SOON_META = {
 _SIGNER_SUGGESTIONS = ['Le Directeur', 'Le Caissier', 'Le Comptable', 'La Directrice']
 
 
-def _custom_step(school):
-    """Détermine l'étape courante du flux de reçu personnalisé."""
-    if school.receipt_configured_at:
-        return 'configured'
-    if school.receipt_template_pdf:
-        return 'uploaded'
-    return 'empty'
-
-
 def _receipt_ctx(school, **extra):
     """Contexte de base pour receipt_content.html."""
     return {
         'school': school,
-        'custom_step': _custom_step(school),
         'signer_suggestions': _SIGNER_SUGGESTIONS,
         **extra,
     }
@@ -78,12 +53,59 @@ def _receipt_ctx(school, **extra):
 
 @login_required
 @director_or_staff_required
+def settings_home(request):
+    """Index des paramètres — liste drill-in sur mobile, repère sur desktop."""
+    school = get_school(request)
+    return render(request, 'settings/index.html', {
+        'school': school, 'active_section': 'home',
+    })
+
+
+@login_required
+@director_or_staff_required
 def general(request):
     school = get_school(request)
     if request.method == 'POST':
-        form = GeneralSettingsForm(request.POST, instance=school)
+        # Suppression du logo (depuis la carte Identité)
+        if request.POST.get('delete_logo'):
+            if school.logo:
+                school.logo.delete(save=True)
+            school.refresh_from_db()
+            resp = render(request, 'settings/partials/general_form.html', {
+                'form': GeneralSettingsForm(instance=school), 'school': school,
+            })
+            resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Logo supprimé.', 'type': 'info'}})
+            return resp
+
+        # Enregistrement automatique du logo dès la sélection (indépendant des autres champs)
+        if request.POST.get('logo_only'):
+            logo = request.FILES.get('logo')
+            err = None
+            if not logo:
+                err = "Aucun fichier reçu."
+            elif getattr(logo, 'content_type', '') not in ('image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'):
+                err = "Format invalide. Utilisez PNG, JPG ou SVG."
+            elif logo.size > 2 * 1024 * 1024:
+                err = "Le logo ne doit pas dépasser 2 Mo."
+            if err:
+                resp = render(request, 'settings/partials/general_form.html', {
+                    'form': GeneralSettingsForm(instance=school), 'school': school,
+                })
+                resp['HX-Trigger'] = json.dumps({'showToast': {'message': err, 'type': 'error'}})
+                return resp
+            school.logo = logo
+            school.save()
+            school.refresh_from_db()
+            resp = render(request, 'settings/partials/general_form.html', {
+                'form': GeneralSettingsForm(instance=school), 'school': school,
+            })
+            resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Logo enregistré.', 'type': 'success'}})
+            return resp
+
+        form = GeneralSettingsForm(request.POST, request.FILES, instance=school)
         if form.is_valid():
             form.save()
+            school.refresh_from_db()
             resp = render(request, 'settings/partials/general_form.html', {
                 'form': GeneralSettingsForm(instance=school),
                 'school': school,
@@ -104,105 +126,19 @@ def general(request):
 
 @login_required
 @director_or_staff_required
-def appearance(request):
+def receipt(request):
     school = get_school(request)
-    if request.method == 'POST':
-        if request.POST.get('delete_logo'):
-            if school.logo:
-                school.logo.delete(save=True)
-            school.refresh_from_db()
-            resp = render(request, 'settings/partials/appearance_form.html', {
-                'form': AppearanceForm(instance=school), 'school': school,
-            })
-            resp['HX-Trigger'] = json.dumps(
-                {'showToast': {'message': 'Logo supprimé.', 'type': 'info'}}
-            )
-            return resp
-        form = AppearanceForm(request.POST, request.FILES, instance=school)
+    if request.method == 'POST' and request.POST.get('action') == 'save_signer':
+        form = ReceiptSignerForm(request.POST, instance=school)
         if form.is_valid():
             form.save()
             school.refresh_from_db()
-            resp = render(request, 'settings/partials/appearance_form.html', {
-                'form': AppearanceForm(instance=school), 'school': school,
-            })
-            resp['HX-Trigger'] = json.dumps(
-                {'showToast': {'message': 'Apparence mise à jour.', 'type': 'success'}}
-            )
-            return resp
-        return render(request, 'settings/partials/appearance_form.html', {
-            'form': form, 'school': school,
-        })
-    return render(request, 'settings/appearance.html', {
-        'form': AppearanceForm(instance=school),
-        'school': school,
-        'active_section': 'appearance',
-    })
-
-
-@login_required
-@director_or_staff_required
-def receipt(request):
-    school = get_school(request)
-    if request.method == 'POST':
-        action = request.POST.get('action', '')
-
-        if action == 'set_mode':
-            mode = request.POST.get('receipt_mode', 'standard')
-            if mode in ('standard', 'custom'):
-                school.receipt_mode = mode
-                school.save(update_fields=['receipt_mode'])
-            school.refresh_from_db()
             resp = render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
             resp['HX-Trigger'] = json.dumps(
-                {'showToast': {'message': 'Mode mis à jour.', 'type': 'success'}}
+                {'showToast': {'message': 'Titre du signataire enregistré.', 'type': 'success'}}
             )
             return resp
-
-        elif action == 'upload_pdf':
-            form = ReceiptUploadForm(request.POST, request.FILES, instance=school)
-            if form.is_valid():
-                form.save()
-                school.refresh_from_db()
-                return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
-            return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(
-                school, custom_step='empty',
-                upload_error=form.errors.get('receipt_template_pdf', ['Erreur inconnue.'])[0],
-            ))
-
-        elif action == 'analyze':
-            return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(
-                school, custom_step='mapping',
-                mapping=[], variables=_RECEIPT_VARIABLES, analyze_notice=True,
-            ))
-
-        elif action == 'save_signer':
-            form = ReceiptSignerForm(request.POST, instance=school)
-            if form.is_valid():
-                form.save()
-                school.refresh_from_db()
-                resp = render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
-                resp['HX-Trigger'] = json.dumps(
-                    {'showToast': {'message': 'Titre du signataire enregistré.', 'type': 'success'}}
-                )
-                return resp
-            return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
-
-        elif action == 'save_mapping':
-            mapping_data = {
-                key[4:]: val
-                for key, val in request.POST.items()
-                if key.startswith('var_')
-            }
-            school.receipt_mapping = mapping_data
-            school.receipt_configured_at = timezone.now()
-            school.receipt_mode = 'custom'
-            school.save(update_fields=['receipt_mapping', 'receipt_configured_at', 'receipt_mode'])
-            school.refresh_from_db()
-            resp = render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
-            resp['HX-Trigger'] = json.dumps(
-                {'showToast': {'message': 'Modèle de reçu configuré avec succès.', 'type': 'success'}}
-            )
-            return resp
+        return render(request, 'settings/partials/receipt_content.html', _receipt_ctx(school))
 
     return render(request, 'settings/receipt.html', _receipt_ctx(school, active_section='receipt'))
 
@@ -230,8 +166,95 @@ def bulletin(request):
     return render(request, 'settings/bulletin.html', {
         'form': BulletinConfigForm(instance=config),
         'config': config,
+        'scales': AppreciationScale.objects.filter(school=school).order_by('-min_grade'),
         'active_section': 'bulletin',
     })
+
+
+# ─────────────────────────────────────────────────────────────
+# Barème d'appréciations (note → mention)
+# ─────────────────────────────────────────────────────────────
+
+_DEFAULT_APPRECIATIONS = [
+    ('18', 'Excellent'),
+    ('16', 'Très bien'),
+    ('14', 'Bien'),
+    ('12', 'Assez bien'),
+    ('10', 'Passable'),
+    ('8',  'Insuffisant'),
+    ('0',  'Faible'),
+]
+
+
+def _render_scales(request, school, message=None, msg_type='success'):
+    scales = AppreciationScale.objects.filter(school=school).order_by('-min_grade')
+    resp = render(request, 'settings/partials/appreciation_scale.html', {'scales': scales})
+    if message:
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': msg_type}})
+    return resp
+
+
+def _parse_grade(raw):
+    from decimal import Decimal, InvalidOperation
+    try:
+        g = Decimal((raw or '').strip().replace(',', '.'))
+    except (InvalidOperation, TypeError):
+        return None
+    return g if g >= 0 else None
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def appreciation_add(request):
+    school = get_school(request)
+    label  = (request.POST.get('label') or '').strip()
+    grade  = _parse_grade(request.POST.get('min_grade'))
+    if not label or grade is None:
+        return _render_scales(request, school, 'Libellé et note valide requis.', 'error')
+    if AppreciationScale.objects.filter(school=school, label=label).exists():
+        return _render_scales(request, school, 'Cette mention existe déjà.', 'error')
+    AppreciationScale.objects.create(school=school, label=label, min_grade=grade)
+    return _render_scales(request, school, 'Mention ajoutée.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def appreciation_update(request, scale_id):
+    school = get_school(request)
+    scale  = get_object_or_404(AppreciationScale, id=scale_id, school=school)
+    label  = (request.POST.get('label') or '').strip()
+    grade  = _parse_grade(request.POST.get('min_grade'))
+    if not label or grade is None:
+        return _render_scales(request, school, 'Libellé et note valide requis.', 'error')
+    if AppreciationScale.objects.filter(school=school, label=label).exclude(id=scale.id).exists():
+        return _render_scales(request, school, 'Cette mention existe déjà.', 'error')
+    scale.label = label
+    scale.min_grade = grade
+    scale.save(update_fields=['label', 'min_grade'])
+    return _render_scales(request, school, 'Mention mise à jour.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['DELETE'])
+def appreciation_delete(request, scale_id):
+    school = get_school(request)
+    AppreciationScale.objects.filter(id=scale_id, school=school).delete()
+    return _render_scales(request, school, 'Mention supprimée.', 'info')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def appreciation_seed(request):
+    school = get_school(request)
+    for grade, label in _DEFAULT_APPRECIATIONS:
+        AppreciationScale.objects.get_or_create(
+            school=school, label=label, defaults={'min_grade': grade},
+        )
+    return _render_scales(request, school, 'Barème par défaut chargé.')
 
 
 # ─────────────────────────────────────────────────────────────
@@ -612,16 +635,24 @@ _QUICK_SUBJECTS = [
 def subjects(request):
     school     = get_school(request)
     subj_list  = Subject.objects.filter(school=school, is_active=True)
-    classes    = school.classes.filter(is_active=True).order_by('level', 'name')
-    form       = SubjectForm()
-    return render(request, 'settings/subjects.html', {
+    classes    = (
+        school.classes.filter(is_active=True)
+        .annotate(cs_count=Count('class_subjects', filter=Q(class_subjects__is_active=True)))
+        .order_by('level', 'name')
+    )
+    active_class = classes.first()
+    ctx = {
         'subjects':       subj_list,
         'classes':        classes,
-        'form':           form,
+        'form':           SubjectForm(),
         'quick_subjects': _QUICK_SUBJECTS,
         'active_section': 'subjects',
         'school':         school,
-    })
+        'active_class':   active_class,
+    }
+    if active_class:
+        ctx.update(_class_subjects_ctx(school, active_class))
+    return render(request, 'settings/subjects.html', ctx)
 
 
 @login_required
@@ -724,11 +755,19 @@ def _class_subjects_ctx(school, school_class):
         school=school, is_active=True,
         role=UserRole.TEACHER,
     ).order_by('full_name')
+    other_classes = (
+        school.classes.filter(is_active=True)
+        .exclude(pk=school_class.pk)
+        .annotate(cs_count=Count('class_subjects', filter=Q(class_subjects__is_active=True)))
+        .filter(cs_count__gt=0)
+        .order_by('level', 'name')
+    )
     return {
         'school_class':       school_class,
         'class_subjects':     class_subjects,
         'available_subjects': available,
         'teachers':           teachers,
+        'other_classes':      other_classes,
     }
 
 
@@ -818,6 +857,85 @@ def class_subject_remove(request, cs_id):
         )
     return render(request, 'settings/partials/class_subjects.html',
                   _class_subjects_ctx(school, school_class))
+
+
+def _copy_class_config(source_class, target_class):
+    """Copie les matières (coeff, note max, durée — SANS enseignant) de source vers
+    target. Upsert : crée les manquantes, met à jour les existantes. Ne supprime rien."""
+    if source_class.pk == target_class.pk:
+        return 0, 0
+    existing = {cs.subject_id: cs for cs in ClassSubject.objects.filter(school_class=target_class)}
+    created = updated = 0
+    for s in ClassSubject.objects.filter(school_class=source_class, is_active=True):
+        tgt = existing.get(s.subject_id)
+        if tgt:
+            tgt.coefficient, tgt.max_grade, tgt.duration_hours, tgt.is_active = (
+                s.coefficient, s.max_grade, s.duration_hours, True)
+            tgt.save(update_fields=['coefficient', 'max_grade', 'duration_hours', 'is_active'])
+            updated += 1
+        else:
+            ClassSubject.objects.create(
+                school_class=target_class, subject_id=s.subject_id,
+                coefficient=s.coefficient, max_grade=s.max_grade,
+                duration_hours=s.duration_hours, order=s.order,
+            )
+            created += 1
+    return created, updated
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def class_subject_copy(request, class_id):
+    """M3 — copie la config d'une autre classe vers celle-ci."""
+    school = get_school(request)
+    target = get_object_or_404(school.classes.filter(is_active=True), id=class_id)
+    source = get_object_or_404(school.classes.filter(is_active=True), id=request.POST.get('source_class_id', ''))
+    created, updated = _copy_class_config(source, target)
+    resp = render(request, 'settings/partials/class_subjects.html', _class_subjects_ctx(school, target))
+    resp['HX-Trigger'] = json.dumps({'showToast': {
+        'message': f'Depuis {source.name} : {created} ajoutée(s), {updated} mise(s) à jour.', 'type': 'success'}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def class_subject_bulk(request):
+    """M4 — actions groupées sur plusieurs classes cochées : copier une config OU
+    ajouter une matière."""
+    from decimal import Decimal, InvalidOperation
+    school  = get_school(request)
+    ids     = [x for x in (request.POST.get('class_ids') or '').split(',') if x.strip()] \
+              or request.POST.getlist('class_ids')
+    targets = list(school.classes.filter(is_active=True, id__in=ids))
+    action  = request.POST.get('action')
+    if not targets:
+        return _toast(HttpResponse(status=422), 'Aucune classe sélectionnée.', 'error')
+
+    if action == 'copy':
+        source = get_object_or_404(school.classes.filter(is_active=True), id=request.POST.get('source_class_id', ''))
+        n = sum(1 for t in targets if t.pk != source.pk and _copy_class_config(source, t) is not None)
+        msg = f'Config de {source.name} copiée vers {n} classe(s).'
+    elif action == 'add':
+        subject = get_object_or_404(Subject, id=request.POST.get('subject_id', ''), school=school, is_active=True)
+        try:
+            coeff = Decimal((request.POST.get('coefficient') or '1').replace(',', '.'))
+        except (InvalidOperation, TypeError):
+            coeff = Decimal('1')
+        n = 0
+        for t in targets:
+            _, created = ClassSubject.objects.get_or_create(
+                school_class=t, subject=subject,
+                defaults={'coefficient': coeff, 'max_grade': Decimal('20'), 'duration_hours': Decimal('2')},
+            )
+            if created:
+                n += 1
+        msg = f'{subject.name} ajoutée à {n} classe(s).'
+    else:
+        return _toast(HttpResponse(status=400), 'Action inconnue.', 'error')
+
+    return _toast(HttpResponse(status=204), msg)
 
 
 @login_required

@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, DecimalField, F, Prefetch, Q, Subquery, OuterRef, Sum
 from django.db.models.functions import Coalesce
+from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -152,14 +153,50 @@ def _overdue_rows(school, q, class_id, today=None):
     return out
 
 
+def _annotate_reminders(school, rows, today=None):
+    """Marque chaque ligne `reminded_today` = relance in-app déjà envoyée aujourd'hui."""
+    from apps.notifications.models import Notification, NotificationCategory
+    today = today or timezone.now().date()
+    ids = [r['student'].id for r in rows]
+    reminded = set(
+        Notification.objects.filter(
+            school=school, category=NotificationCategory.REMINDER,
+            student_id__in=ids, created_at__date=today,
+        ).values_list('student_id', flat=True)
+    )
+    for r in rows:
+        r['reminded_today'] = r['student'].id in reminded
+
+
+def _send_reminder(school, student):
+    """Relance in-app aux parents (notif) si pas déjà fait aujourd'hui. True si envoyée."""
+    from apps.notifications.models import Notification, NotificationCategory
+    from apps.notifications.services import notify_guardians
+    from apps.finance.services import student_fee_summary
+    today = timezone.now().date()
+    if Notification.objects.filter(
+        school=school, category=NotificationCategory.REMINDER,
+        student=student, created_at__date=today,
+    ).exists():
+        return False
+    summ = student_fee_summary(student)
+    balance = int(summ['balance']) if summ else 0
+    body = f"Rappel : il reste {balance:,} FCFA à régler pour {student.full_name}.".replace(',', ' ')
+    notify_guardians(
+        student, category=NotificationCategory.REMINDER,
+        title='Rappel de scolarité', body=body, url=reverse('parent:payments'),
+    )
+    return True
+
+
 # ── Vues ──────────────────────────────────────────────────────────────────────
 
 _TAB_LIST = [
+    ('overdue', 'En retard'),   # 1er = onglet par défaut, visible d'emblée
     ('all',     'Tous'),
     ('unpaid',  'Impayés'),
     ('partial', 'Partiel'),
     ('paid',    'Soldés'),
-    ('overdue', 'En retard'),
 ]
 
 
@@ -169,7 +206,7 @@ def payment_dashboard(request):
         return redirect('teacher:dashboard')
     school = get_school(request)
     q        = request.GET.get('q', '').strip()
-    status   = request.GET.get('status', 'unpaid')
+    status   = request.GET.get('status', 'overdue')   # défaut : la liste rouge (relances)
     class_id = request.GET.get('class_id', '')
 
     accounts = _dashboard_accounts(school)
@@ -177,26 +214,76 @@ def payment_dashboard(request):
     classes  = SchoolClass.objects.filter(school=school, is_active=True).order_by('name')
 
     ctx = {
-        'stats':       stats,
-        'classes':     classes,
-        'tab_list':    _TAB_LIST,
-        'q':           q,
-        'status':      status,
-        'class_id':    class_id,
-        'school':      school,
-        'page_subtitle': f"{int(stats['encaisse_mois']):,}".replace(',', ' ') + " FCFA collecté ce mois",
+        'stats':    stats,
+        'classes':  classes,
+        'tab_list': _TAB_LIST,
+        'q':        q,
+        'status':   status,
+        'class_id': class_id,
+        'school':   school,
     }
 
-    # Onglet « En retard » → liste rouge dédiée (basée sur les due_date).
     ctx['is_overdue'] = (status == 'overdue')
     if ctx['is_overdue']:
-        ctx['overdue_rows'] = _overdue_rows(school, q, class_id)
+        rows = _overdue_rows(school, q, class_id)
+        _annotate_reminders(school, rows)
+        page = Paginator(rows, 30).get_page(request.GET.get('page'))
+        ctx['overdue_rows']      = page
+        ctx['page_obj']          = page
+        ctx['overdue_remindable'] = sum(1 for r in rows if not r['reminded_today'])
     else:
-        ctx['accounts'] = _apply_filters(accounts, q, status, class_id)
+        page = Paginator(_apply_filters(accounts, q, status, class_id), 30).get_page(request.GET.get('page'))
+        ctx['accounts'] = page
+        ctx['page_obj'] = page
 
     if request.htmx:
         return render(request, 'payments/partials/payment_list_refresh.html', ctx)
     return render(request, 'payments/dashboard.html', ctx)
+
+
+@login_required
+@director_or_staff_required
+@require_POST
+def payment_remind(request, student_id):
+    """Relance in-app (notif aux parents) pour 1 élève. Anti-spam : max 1/jour."""
+    school = get_school(request)
+    student = get_object_or_404(
+        Student.objects.select_related('school_class'), id=student_id, school=school,
+    )
+    sent = _send_reminder(school, student)
+    resp = render(request, 'payments/partials/remind_cell.html',
+                  {'r': {'student': student, 'reminded_today': True}})
+    resp['HX-Trigger'] = json.dumps({'showToast': {
+        'message': 'Relance envoyée aux parents.' if sent else 'Déjà relancé aujourd\'hui.',
+        'type': 'success' if sent else 'info',
+    }})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_POST
+def payment_remind_all(request):
+    """Relance toutes les familles en retard du filtre courant (hors déjà relancées ce jour)."""
+    school = get_school(request)
+    q        = request.POST.get('q', '').strip()
+    class_id = request.POST.get('class_id', '')
+    rows = _overdue_rows(school, q, class_id)
+    _annotate_reminders(school, rows)
+    n = sum(1 for r in rows if not r['reminded_today'] and _send_reminder(school, r['student']))
+    _annotate_reminders(school, rows)   # rafraîchit l'état post-envoi
+    page = Paginator(rows, 30).get_page(1)
+    ctx = {
+        'overdue_rows': page, 'page_obj': page, 'is_overdue': True,
+        'overdue_remindable': 0, 'q': q, 'class_id': class_id, 'status': 'overdue',
+        'stats': _compute_stats(school, _dashboard_accounts(school)),
+    }
+    resp = render(request, 'payments/partials/payment_list_refresh.html', ctx)
+    resp['HX-Trigger'] = json.dumps({'showToast': {
+        'message': f'{n} famille(s) relancée(s).' if n else 'Toutes déjà relancées aujourd\'hui.',
+        'type': 'success' if n else 'info',
+    }})
+    return resp
 
 
 @login_required

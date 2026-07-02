@@ -2,253 +2,164 @@
 {% load i18n humanize %}
 
 {% block title %}{% trans "Gestion des classes" %}{% endblock %}
-
 {% block page_title %}{% trans "Classes" %}{% endblock %}
 
-{% block content %}
-<div x-data="{
-       view: localStorage.getItem('eduapp_class_view') || 'cards',
-       setView(v) { this.view = v; localStorage.setItem('eduapp_class_view', v); },
-       showAddModal: false,
-       showEditModal: false,
-       showImportModal: false
-     }"
-     @keydown.escape.window="showAddModal = false; showEditModal = false; showImportModal = false"
-     @open-edit-modal.window="showEditModal = true"
-     @close-edit-modal.window="showEditModal = false"
-     @close-add-modal.window="showAddModal = false"
-     @close-import-modal.window="showImportModal = false">
-
-  <!-- ── En-tête : toggle + bouton ─────────────────────────────── -->
-  <div class="flex items-center justify-between mb-6">
-
-    <div></div>
-
-    <!-- Boutons d'action -->
-    <div class="flex items-center gap-2">
-      <button @click="showImportModal = true"
-              class="flex items-center gap-2 bg-white hover:bg-gray-50 text-primary-600 border border-primary-600 font-semibold px-4 py-2.5 rounded-lg transition shadow-sm min-h-[44px] text-sm">
-        <i data-lucide="upload" class="w-4 h-4 shrink-0"></i>
-        <span class="hidden sm:inline">{% trans "Importer" %}</span>
-      </button>
-      <button @click="showAddModal = true"
-              class="btn-primary min-h-[44px]">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        <span class="hidden sm:inline">{% trans "Nouvelle classe" %}</span>
-        <span class="sm:hidden">{% trans "Ajouter" %}</span>
-      </button>
-    </div>
+{% block header_actions %}
+  <div class="flex items-center gap-2" x-data>
+    <button type="button" @click="$dispatch('open-import')"
+            class="flex items-center gap-2 px-4 h-10 bg-white border border-gray-200 text-gray-600 hover:border-primary-600 hover:text-primary-600 text-sm font-medium rounded-lg transition">
+      <i data-lucide="upload" class="w-4 h-4 shrink-0"></i><span class="hidden sm:inline">{% trans "Importer" %}</span>
+    </button>
+    <button type="button" @click="$dispatch('open-add')" class="btn-primary h-10">
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      <span class="hidden sm:inline">{% trans "Nouvelle classe" %}</span><span class="sm:hidden">{% trans "Ajouter" %}</span>
+    </button>
   </div>
+{% endblock %}
 
-  <!-- ── 3 Stats ────────────────────────────────────────────────── -->
+{% block content %}
+<div x-data="{ showAddModal:false, showEditModal:false, showImportModal:false }"
+     @open-add.window="showAddModal=true" @open-import.window="showImportModal=true"
+     @keydown.escape.window="showAddModal=false; showEditModal=false; showImportModal=false"
+     @open-edit-modal.window="showEditModal=true" @close-edit-modal.window="showEditModal=false"
+     @close-add-modal.window="showAddModal=false" @close-import-modal.window="showImportModal=false">
+
+  {# Stats #}
   <div id="class-stats" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
     {% include "schools/partials/class_stats.html" %}
   </div>
 
-  <!-- ── Barre de recherche + switch vue ──────────────────────── -->
-  {% url 'schools:class-search' as class_search_url %}
-  <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-    <div class="flex-1">
-      {% include "includes/search_bar.html" with placeholder="Rechercher une classe..." target="classes-table" url=class_search_url %}
+  {# Filtres : recherche (haut) + niveau + disponibilité #}
+  <form hx-get="{% url 'schools:class-search' %}" hx-target="#classes-table" hx-swap="innerHTML"
+        hx-trigger="change, keyup changed delay:300ms from:[name=q]" hx-indicator="#class-skel" class="mb-5">
+    <div class="relative mb-3">
+      <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="{% trans 'Rechercher une classe…' %}" class="input-field w-full pl-10">
     </div>
-    <div class="hidden sm:flex items-center gap-1 shrink-0">
-      <button @click="setView('cards')"
-              :class="view === 'cards' ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
-              class="p-2 rounded-lg border border-gray-200 transition" title="Vue cards">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-        </svg>
-      </button>
-      <button @click="setView('table')"
-              :class="view === 'table' ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
-              class="p-2 rounded-lg border border-gray-200 transition" title="Vue tableau">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
-        </svg>
-      </button>
+    <div class="flex flex-wrap items-center gap-2">
+      <select name="level" class="input-field flex-1 min-w-0 sm:flex-none sm:w-60">
+        <option value="">{% trans "Tous les niveaux" %}</option>
+        {% for val, label in levels %}<option value="{{ val }}" {% if level == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <label class="relative cursor-pointer shrink-0">
+        <input type="checkbox" name="dispo" value="1" class="sr-only peer" {% if dispo %}checked{% endif %}>
+        <span class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 h-[38px] text-sm text-gray-500 transition-colors hover:border-gray-400 peer-checked:border-solid peer-checked:border-primary-300 peer-checked:bg-primary-50 peer-checked:text-primary-700">
+          <i data-lucide="user-check" class="w-4 h-4"></i> {% trans "Places dispo" %}
+        </span>
+      </label>
+    </div>
+  </form>
+
+  {# Liste — table dense (desktop) / cards (mobile) #}
+  <div class="relative">
+    <div id="classes-table">
+      {% include "schools/partials/class_table_body.html" %}
+    </div>
+    <div id="class-skel" class="htmx-indicator pointer-events-none absolute inset-0 z-10 bg-white/70 backdrop-blur-[1px] flex flex-col gap-2.5 pt-1">
+      {% for _ in "123456" %}<div class="skeleton h-12 rounded-xl"></div>{% endfor %}
     </div>
   </div>
 
-  <!-- ── Contenu (cards ou tableau) — cible HTMX ───────────────── -->
-  <div id="classes-table">
-    {% include "schools/partials/class_table_body.html" %}
-  </div>
-
-  <!-- ─── Modal : Nouvelle classe ──────────────────────────────── -->
-  <!-- ─── Modal : Nouvelle classe ──────────────────────────── -->
-  <div x-show="showAddModal" x-cloak
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
-       @click.self="showAddModal = false">
-    <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg"
-         @click.stop
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
-         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100 scale-100 translate-y-0"
-         x-transition:leave-end="opacity-0 scale-95 translate-y-2">
-      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="text-base font-semibold text-gray-900">{% trans "Nouvelle classe" %}</h3>
-        <button @click="showAddModal = false"
-                class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-          <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
-        </button>
+  {# ════ Slide-over édition (téléporté → au-dessus du nav) ════ #}
+  <template x-teleport="body">
+    <div>
+      <div x-show="showEditModal" x-cloak @click="showEditModal=false"
+           x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+           class="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[55]"></div>
+      <div x-show="showEditModal" x-cloak
+           x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+           class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white shadow-2xl border-l border-gray-200 z-[60] flex flex-col">
+        <div id="modal-edit-content" class="h-full overflow-y-auto"></div>
       </div>
-      <form hx-post="{% url 'schools:class-create' %}"
-            hx-target="#classes-table"
-            hx-swap="innerHTML"
-            class="px-6 py-6 space-y-4">
-        {% csrf_token %}
-        {% include "schools/partials/class_form_fields.html" %}
-        <div class="flex gap-3 pt-2">
-          <button type="submit"
-                  class="btn-primary flex-1 py-3">
-            {% trans "Créer la classe" %}
-          </button>
-          <button type="button" @click="showAddModal = false"
-                  class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg transition">
-            {% trans "Annuler" %}
-          </button>
+    </div>
+  </template>
+
+  {# ════ Modal Nouvelle classe (téléporté) ════ #}
+  <template x-teleport="body">
+    <div x-show="showAddModal" x-cloak class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
+      <div @click="showAddModal=false"
+           x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+           class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg"
+           x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95 translate-y-2" x-transition:enter-end="opacity-100 scale-100 translate-y-0">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 class="text-base font-semibold text-gray-900">{% trans "Nouvelle classe" %}</h3>
+          <button @click="showAddModal=false" class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"><i data-lucide="x" class="w-4 h-4 text-gray-500"></i></button>
         </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ─── Modal : Modifier une classe ──────────────────────────── -->
-  <div x-show="showEditModal" x-cloak
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
-       @click.self="showEditModal = false">
-    <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg"
-         @click.stop
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
-         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100 scale-100 translate-y-0"
-         x-transition:leave-end="opacity-0 scale-95 translate-y-2">
-      <div id="modal-edit-content" class="min-h-[200px]">
-        <!-- Contenu chargé dynamiquement par HTMX -->
-      </div>
-    </div>
-  </div>
-
-  <!-- ─── Modal : Importer des classes ────────────────────────── -->
-  <div x-show="showImportModal"
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0 scale-95"
-       x-transition:enter-end="opacity-100 scale-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100 scale-100"
-       x-transition:leave-end="opacity-0 scale-95"
-       class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-       style="display:none">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
-         @click.outside="showImportModal = false">
-
-      <!-- En-tête -->
-      <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-        <h3 class="font-semibold text-lg text-primary-700">{% trans "Importer des classes" %}</h3>
-        <button @click="showImportModal = false"
-                class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-
-      <div class="px-6 py-5 space-y-5">
-
-        <!-- Étape 1 : télécharger le template -->
-        <div class="rounded-xl bg-primary-50 border border-primary-100 p-4 flex items-start gap-3">
-          <svg class="w-5 h-5 text-primary-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-          </svg>
-          <div class="flex-1">
-            <p class="font-medium text-primary-700 text-sm">Étape 1 — Télécharger le modèle</p>
-            <p class="text-xs text-gray-500 mt-0.5 mb-2">Colonnes : Nom, Niveau, Frais annuels (FCFA), Capacité max</p>
-            <a href="{% url 'schools:class-import-template' %}"
-               class="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 underline hover:no-underline">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-              </svg>
-              modele_classes.xlsx
-            </a>
+        <form hx-post="{% url 'schools:class-create' %}" hx-target="#classes-table" hx-swap="innerHTML" hx-sync="this:drop" class="px-6 py-6 space-y-4">
+          {% csrf_token %}
+          {% include "schools/partials/class_form_fields.html" %}
+          <div class="flex gap-3 pt-2">
+            <button type="submit" class="btn-primary flex-1 py-3">{% trans "Créer la classe" %}</button>
+            <button type="button" @click="showAddModal=false" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg transition">{% trans "Annuler" %}</button>
           </div>
-        </div>
-
-        <!-- Étape 2 : upload du fichier -->
-        <div x-data="{ fileName: '', dragging: false }">
-          <p class="font-medium text-sm text-gray-700 mb-2">Étape 2 — Choisir votre fichier (.xlsx ou .csv)</p>
-
-          <form id="import-form"
-                hx-post="{% url 'schools:class-import-preview' %}"
-                hx-target="#import-preview-zone"
-                hx-swap="innerHTML"
-                hx-encoding="multipart/form-data"
-                hx-indicator="#import-spinner">
-            {% csrf_token %}
-
-            <!-- Zone de dépôt / clic -->
-            <label for="import-file-input"
-                   class="flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl p-6 cursor-pointer transition"
-                   :class="dragging ? 'border-primary-400 bg-primary-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'"
-                   @dragover.prevent="dragging = true"
-                   @dragleave.prevent="dragging = false"
-                   @drop.prevent="
-                     dragging = false;
-                     const f = $event.dataTransfer.files[0];
-                     if (f) { $refs.fileInput.files = $event.dataTransfer.files; fileName = f.name; }">
-              <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-              </svg>
-              <p class="text-sm text-gray-500" x-text="fileName || 'Glisser-déposer ou cliquer pour choisir'"></p>
-              <p class="text-xs text-gray-400 mt-1">Excel (.xlsx) ou CSV</p>
-            </label>
-
-            <input id="import-file-input"
-                   type="file"
-                   name="import_file"
-                   x-ref="fileInput"
-                   accept=".xlsx,.xls,.csv"
-                   class="sr-only"
-                   @change="fileName = $event.target.files[0]?.name || ''">
-
-            <button type="submit"
-                    @click.prevent="
-                      if (!$refs.fileInput.files.length) { alert('Choisissez d\'abord un fichier.'); return; }
-                      htmx.trigger($refs.fileInput.closest('form'), 'submit');
-                    "
-                    class="btn-primary w-full mt-3 min-h-[44px]">
-              <svg id="import-spinner" class="htmx-indicator w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-              Analyser le fichier
-            </button>
-          </form>
-        </div>
-
-        <!-- Zone d'aperçu / résultats -->
-        <div id="import-preview-zone"></div>
-
+        </form>
       </div>
     </div>
-  </div>
+  </template>
+
+  {# ════ Modal Importer (téléporté) ════ #}
+  <template x-teleport="body">
+    <div x-show="showImportModal" x-cloak class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
+      <div @click="showImportModal=false"
+           x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+           class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
+           x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+        <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+          <h3 class="font-semibold text-lg text-primary-700">{% trans "Importer des classes" %}</h3>
+          <button @click="showImportModal=false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <div class="px-6 py-5 space-y-5">
+          <div class="rounded-xl bg-primary-50 border border-primary-100 p-4 flex items-start gap-3">
+            <i data-lucide="file-down" class="w-5 h-5 text-primary-600 mt-0.5 shrink-0"></i>
+            <div class="flex-1">
+              <p class="font-medium text-primary-700 text-sm">{% trans "Étape 1 — Télécharger le modèle" %}</p>
+              <p class="text-xs text-gray-500 mt-0.5 mb-2">{% trans "Colonnes : Nom, Niveau, Frais annuels (FCFA), Capacité max" %}</p>
+              <a href="{% url 'schools:class-import-template' %}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 underline hover:no-underline">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i> modele_classes.xlsx
+              </a>
+            </div>
+          </div>
+
+          <div x-data="{ fileName: '', dragging: false }">
+            <p class="font-medium text-sm text-gray-700 mb-2">{% trans "Étape 2 — Choisir votre fichier (.xlsx ou .csv)" %}</p>
+            <form id="import-form" hx-post="{% url 'schools:class-import-preview' %}" hx-target="#import-preview-zone" hx-swap="innerHTML"
+                  hx-encoding="multipart/form-data" hx-indicator="#import-spinner">
+              {% csrf_token %}
+              <label for="import-file-input"
+                     class="flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl p-6 cursor-pointer transition"
+                     :class="dragging ? 'border-primary-400 bg-primary-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'"
+                     @dragover.prevent="dragging = true" @dragleave.prevent="dragging = false"
+                     @drop.prevent="dragging=false; const f=$event.dataTransfer.files[0]; if(f){ $refs.fileInput.files=$event.dataTransfer.files; fileName=f.name; }">
+                <i data-lucide="upload-cloud" class="w-8 h-8 text-gray-400 mb-2"></i>
+                <p class="text-sm text-gray-500" x-text="fileName || '{% trans "Glisser-déposer ou cliquer pour choisir" %}'"></p>
+                <p class="text-xs text-gray-400 mt-1">{% trans "Excel (.xlsx) ou CSV" %}</p>
+              </label>
+              <input id="import-file-input" type="file" name="import_file" x-ref="fileInput" accept=".xlsx,.xls,.csv" class="sr-only"
+                     @change="fileName = $event.target.files[0]?.name || ''">
+              <button type="submit"
+                      @click.prevent="if(!$refs.fileInput.files.length){ alert('{% trans "Choisissez d abord un fichier." %}'); return; } htmx.trigger($refs.fileInput.closest('form'), 'submit');"
+                      class="btn-primary w-full mt-3 min-h-[44px]">
+                <svg id="import-spinner" class="htmx-indicator w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                {% trans "Analyser le fichier" %}
+              </button>
+            </form>
+          </div>
+
+          <div id="import-preview-zone"></div>
+        </div>
+      </div>
+    </div>
+  </template>
 
 </div>
 {% endblock %}

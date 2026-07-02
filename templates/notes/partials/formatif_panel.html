@@ -1,0 +1,116 @@
+{% load humanize %}
+{% comment %}
+Flux formatif (hors bulletin) — cible HTMX #formatif-panel.
+Contexte : cs, period, evals, rows (student/cells/avg), eval_types, can_enter, can_publish, today.
+{% endcomment %}
+<div id="formatif-panel">
+
+  {# Bandeau : rôle du flux #}
+  <div class="flex items-start gap-2 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-3">
+    <i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 shrink-0 text-gray-400"></i>
+    <span>Suivi entre les compositions (interros, devoirs maison…). <b class="text-gray-600">Ne compte pas sur le bulletin.</b> Le directeur peut publier une évaluation aux parents.</span>
+  </div>
+
+  {# Ajouter une évaluation #}
+  {% if can_enter %}
+  <form hx-post="{% url 'notes:formatif-eval-create' cs.school_class_id period.id cs.subject_id %}"
+        hx-target="#formatif-panel" hx-swap="outerHTML"
+        class="flex flex-wrap items-end gap-2 mb-4 p-3 bg-white border border-gray-200 rounded-xl">
+    {% csrf_token %}
+    <div>
+      <label class="block text-[10px] font-semibold text-gray-500 mb-1">Date</label>
+      <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" class="input-field h-9 text-xs">
+    </div>
+    <div>
+      <label class="block text-[10px] font-semibold text-gray-500 mb-1">Type</label>
+      <select name="eval_type" class="input-field h-9 text-xs">
+        {% for val, label in eval_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="flex-1 min-w-[120px]">
+      <label class="block text-[10px] font-semibold text-gray-500 mb-1">Libellé <span class="font-normal text-gray-400">optionnel</span></label>
+      <input type="text" name="title" maxlength="80" placeholder="Ex : Chapitre 3" class="input-field h-9 text-xs w-full">
+    </div>
+    <div class="w-20">
+      <label class="block text-[10px] font-semibold text-gray-500 mb-1">Sur</label>
+      <input type="number" name="max_grade" value="20" min="1" step="0.5" class="input-field h-9 text-xs w-full">
+    </div>
+    <button type="submit" class="btn-primary h-9 text-xs shrink-0">
+      <i data-lucide="plus" class="w-4 h-4"></i> Évaluation
+    </button>
+  </form>
+  {% endif %}
+
+  {% if evals %}
+  <div class="overflow-x-auto border border-gray-200 rounded-xl">
+    <table class="w-full text-xs border-collapse">
+      <thead>
+        <tr class="bg-gray-50">
+          <th class="sticky left-0 bg-gray-50 text-left px-3 py-2 border-b border-gray-200 font-medium text-gray-500 min-w-[140px]">Élève</th>
+          {% for ev in evals %}
+          <th class="px-2 py-2 border-b border-l border-gray-200 font-medium text-gray-600 min-w-[92px] align-top">
+            <div class="flex flex-col items-center gap-1">
+              <span class="whitespace-nowrap">{{ ev.date|date:'d/m' }} · {{ ev.get_eval_type_display|truncatechars:12 }}</span>
+              {% if ev.title %}<span class="text-[10px] text-gray-400 truncate max-w-[88px]">{{ ev.title }}</span>{% endif %}
+              <span class="text-[10px] text-gray-400">/{{ ev.max_grade|floatformat:'-2' }}</span>
+              <div class="flex items-center gap-1">
+                {% if ev.is_published_to_parent %}
+                  <span class="inline-flex items-center gap-0.5 text-[9px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-1.5 py-0.5"><i data-lucide="send" class="w-2.5 h-2.5"></i> Publié</span>
+                {% endif %}
+                {% if can_publish %}
+                <button type="button" title="{% if ev.is_published_to_parent %}Retirer des parents{% else %}Publier aux parents{% endif %}"
+                        hx-post="{% url 'notes:formatif-publish' ev.id %}" hx-target="#formatif-panel" hx-swap="outerHTML"
+                        class="p-0.5 rounded {% if ev.is_published_to_parent %}text-green-600{% else %}text-gray-300 hover:text-green-600{% endif %}">
+                  <i data-lucide="send" class="w-3 h-3"></i>
+                </button>
+                {% endif %}
+                {% if can_enter %}
+                <button type="button" title="Supprimer l'évaluation"
+                        @click="$store.confirm.show({ title:'Supprimer cette évaluation ?', message:'Les notes formatives associées seront supprimées.', confirmText:'Supprimer', confirmIcon:'trash-2', confirmClass:'btn-danger', icon:'alert-triangle', iconBg:'bg-red-50', iconColor:'text-red-500', onConfirm:()=>htmx.ajax('DELETE','{% url 'notes:formatif-eval-delete' ev.id %}',{target:'#formatif-panel', swap:'outerHTML'}) })"
+                        class="p-0.5 rounded text-gray-300 hover:text-red-500">
+                  <i data-lucide="x" class="w-3 h-3"></i>
+                </button>
+                {% endif %}
+              </div>
+            </div>
+          </th>
+          {% endfor %}
+          <th class="px-3 py-2 border-b border-l border-gray-200 font-semibold text-primary-600 min-w-[64px]">Tendance</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for row in rows %}
+        <tr class="hover:bg-gray-50/50">
+          <td class="sticky left-0 bg-white px-3 py-1.5 font-medium text-gray-800 truncate max-w-[160px]">{{ row.student.full_name }}</td>
+          {% for cell in row.cells %}
+          <td class="px-1 py-1 border-l border-gray-100 text-center">
+            <input type="number" step="0.25" min="0" max="{{ cell.eval.max_grade }}"
+                   value="{% if cell.grade and cell.grade.value is not None %}{{ cell.grade.value|floatformat:'-2' }}{% endif %}"
+                   placeholder="{% if cell.grade.is_absent %}Abs{% else %}–{% endif %}"
+                   hx-post="{% url 'notes:formatif-grade-save' cell.eval.id %}"
+                   hx-vals='{"student_id": {{ row.student.id }}}'
+                   hx-trigger="change" hx-swap="none"
+                   {% if not can_enter %}disabled{% endif %}
+                   class="w-14 text-center text-xs border border-gray-200 rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500/30 {% if cell.grade.is_absent %}bg-amber-50 placeholder-amber-500{% endif %}"
+                   aria-label="Note {{ row.student.full_name }}">
+          </td>
+          {% endfor %}
+          <td class="px-2 py-1.5 border-l border-gray-100 text-center font-semibold {% if row.avg is not None and row.avg < 10 %}text-amber-600{% else %}text-primary-600{% endif %}">
+            {% if row.avg is not None %}{{ row.avg|floatformat:'-2' }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-[11px] text-gray-400 mt-2">Tendance = moyenne des évals ramenées sur 20. Ces notes n'apparaissent jamais sur le bulletin officiel.</p>
+  {% else %}
+  <div class="rounded-xl border border-dashed border-gray-200 p-8 text-center">
+    <div class="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center mx-auto mb-3"><i data-lucide="notebook" class="w-6 h-6 text-primary-600"></i></div>
+    <p class="text-sm font-medium text-gray-700">Aucune évaluation formative</p>
+    <p class="text-xs text-gray-400 mt-1 max-w-xs mx-auto">Ajoutez une interro, un devoir maison ou un oral pour suivre l'état de la classe avant la composition.</p>
+  </div>
+  {% endif %}
+
+  <script>if(window.lucide)lucide.createIcons();</script>
+</div>

@@ -1,18 +1,16 @@
 {% load payment_tags %}
-{% comment %}Cartes stats — NOUVEAU modèle (lot 6) : dû/versé/solde = agrégats des fiches par
-   allocation (plus l'ancien tuition_fee/get_total_paid). id="payment-stats" porté par
-   le wrapper OOB (payment_list_refresh).{% endcomment %}
-<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-2">
+{% comment %}Cartes stats (refonte) : dû/versé/solde = agrégats des fiches par allocation.
+   .kpi = icône + hover:shadow (l'âme, cohérent avec les autres pages). id="payment-stats"
+   porté par le wrapper OOB (payment_list_refresh).{% endcomment %}
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
 
   <div class="kpi">
     <div class="flex items-center gap-3">
-      <div class="kpi-icon bg-gray-50 text-gray-600 shrink-0">
-        <i data-lucide="credit-card" class="w-5 h-5"></i>
-      </div>
+      <div class="kpi-icon bg-gray-50 text-gray-600 shrink-0"><i data-lucide="credit-card" class="w-5 h-5"></i></div>
       <div class="min-w-0">
         <p class="text-lg font-bold text-gray-900 leading-none">
           <span class="sm:hidden">{{ stats.total_due|fcfa_compact }}</span><span class="hidden sm:inline">{{ stats.total_due|fcfa_fmt }}</span>
-          <span class="text-xs font-normal text-gray-400 ml-0.5">FCFA</span>
+          <span class="text-xs font-normal text-gray-400 ml-0.5">F</span>
         </p>
         <p class="kpi-label">Total dû</p>
       </div>
@@ -21,13 +19,11 @@
 
   <div class="kpi">
     <div class="flex items-center gap-3">
-      <div class="kpi-icon bg-green-50 text-green-600 shrink-0">
-        <i data-lucide="trending-up" class="w-5 h-5"></i>
-      </div>
+      <div class="kpi-icon bg-green-50 text-green-600 shrink-0"><i data-lucide="trending-up" class="w-5 h-5"></i></div>
       <div class="min-w-0">
-        <p class="text-lg font-bold text-gray-900 leading-none">
+        <p class="text-lg font-bold text-green-600 leading-none">
           <span class="sm:hidden">{{ stats.encaisse_mois|fcfa_compact }}</span><span class="hidden sm:inline">{{ stats.encaisse_mois|fcfa_fmt }}</span>
-          <span class="text-xs font-normal text-gray-400 ml-0.5">FCFA</span>
+          <span class="text-xs font-normal text-gray-400 ml-0.5">F</span>
         </p>
         <p class="kpi-label">Encaissé mois</p>
       </div>
@@ -36,13 +32,11 @@
 
   <div class="kpi">
     <div class="flex items-center gap-3">
-      <div class="kpi-icon bg-red-50 text-red-600 shrink-0">
-        <i data-lucide="alert-circle" class="w-5 h-5"></i>
-      </div>
+      <div class="kpi-icon bg-red-50 text-red-600 shrink-0"><i data-lucide="alert-circle" class="w-5 h-5"></i></div>
       <div class="min-w-0">
-        <p class="text-lg font-bold text-gray-900 leading-none">
+        <p class="text-lg font-bold {% if stats.solde_restant > 0 %}text-red-600{% else %}text-gray-900{% endif %} leading-none">
           <span class="sm:hidden">{{ stats.solde_restant|fcfa_compact }}</span><span class="hidden sm:inline">{{ stats.solde_restant|fcfa_fmt }}</span>
-          <span class="text-xs font-normal text-gray-400 ml-0.5">FCFA</span>
+          <span class="text-xs font-normal text-gray-400 ml-0.5">F</span>
         </p>
         <p class="kpi-label">Solde restant</p>
       </div>
@@ -51,9 +45,7 @@
 
   <div class="kpi">
     <div class="flex items-center gap-3">
-      <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0">
-        <i data-lucide="check-circle" class="w-5 h-5"></i>
-      </div>
+      <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0"><i data-lucide="circle-check" class="w-5 h-5"></i></div>
       <div class="min-w-0">
         <p class="kpi-value">{{ stats.count_soldes }}</p>
         <p class="kpi-label">Soldés</p>
@@ -63,9 +55,7 @@
 
   <div class="kpi col-span-2 lg:col-span-1">
     <div class="flex items-center gap-3">
-      <div class="kpi-icon bg-amber-50 text-amber-500 shrink-0">
-        <i data-lucide="clock" class="w-5 h-5"></i>
-      </div>
+      <div class="kpi-icon bg-amber-50 text-amber-500 shrink-0"><i data-lucide="clock" class="w-5 h-5"></i></div>
       <div class="min-w-0">
         <p class="kpi-value">{{ stats.count_impayes }}</p>
         <p class="kpi-label">Impayés</p>
@@ -75,10 +65,8 @@
 
 </div>
 
-{% comment %}Élèves actifs sans fiche financière (dev / base non encore peuplée). En prod base
-   vierge = 0. On les signale à part pour ne pas fausser les stats ci-dessus.{% endcomment %}
 {% if stats.sans_fiche %}
-  <p class="text-xs text-amber-600 mt-1 flex items-center gap-1.5">
+  <p class="text-xs text-amber-600 -mt-3 mb-4 flex items-center gap-1.5">
     <i data-lucide="info" class="w-3.5 h-3.5"></i>
     {{ stats.sans_fiche }} élève{{ stats.sans_fiche|pluralize }} sans fiche financière (non comptés ci-dessus).
   </p>

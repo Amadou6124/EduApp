@@ -81,51 +81,55 @@
 
       {% csrf_token %}
 
-      {% regroup all_class_subjects by school_class as grouped %}
+      {% if groups %}
+        <div x-data="{ q: '' }">
+          {# Recherche rapide de classe #}
+          <div class="relative mb-3">
+            <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input x-model="q" type="text" placeholder="Rechercher une classe…" class="input-field pl-9">
+          </div>
 
-      {% if grouped %}
-        <div class="space-y-5">
-          {% for group in grouped %}
-            <div>
-              <div class="flex items-center gap-2 mb-2">
-                <i data-lucide="layout-grid" class="w-3.5 h-3.5 text-gray-400"></i>
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ group.grouper.name }}</p>
-                {% if group.grouper.level %}
-                  <span class="text-xs text-gray-400">— {{ group.grouper.level }}</span>
-                {% endif %}
-              </div>
-              <div class="space-y-1 ml-5">
-                {% for cs in group.list %}
-                  <label class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group">
-                    <div class="relative flex-shrink-0">
-                      <input type="checkbox"
-                             name="class_subject_ids"
-                             value="{{ cs.pk }}"
-                             {% if cs.pk in assigned_ids %}checked{% endif %}
-                             class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer">
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium text-gray-800 group-hover:text-gray-900 transition-colors">
-                        {{ cs.subject.name }}
-                        {% if cs.subject.short_name %}
-                          <span class="text-xs text-gray-400 font-mono">({{ cs.subject.short_name }})</span>
-                        {% endif %}
-                      </p>
-                      <p class="text-xs text-gray-400">Coeff. {{ cs.coefficient }}</p>
-                    </div>
-                    {% if cs.teacher and cs.teacher.pk != member.pk %}
-                      <span class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">
-                        {{ cs.teacher.get_short_name }}
+          {# Accordéons par classe — repliés par défaut #}
+          <div class="space-y-2">
+            {% for group in groups %}
+              <div x-data="{ open: false }"
+                   x-show="q === '' || '{{ group.class.name|lower|escapejs }}'.includes(q.toLowerCase().trim())"
+                   class="border border-gray-200 rounded-xl overflow-hidden">
+                <button type="button" @click="open = !open"
+                        class="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 transition">
+                  <span class="flex items-center gap-2 min-w-0">
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0" :class="open ? 'rotate-90' : ''"></i>
+                    <span class="font-medium text-gray-800 truncate">{{ group.class.name }}</span>
+                    {% if group.class.level %}<span class="text-xs text-gray-400 flex-shrink-0">{{ group.class.level }}</span>{% endif %}
+                  </span>
+                  {% if group.assigned %}<span class="badge-info flex-shrink-0">{{ group.assigned }}/{{ group.total }}</span>
+                  {% else %}<span class="badge-neutral flex-shrink-0">0/{{ group.total }}</span>{% endif %}
+                </button>
+                <div x-show="open" x-cloak
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 -translate-y-1"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     class="border-t border-gray-100 px-2 py-1.5">
+                  {% for cs in group.subjects %}
+                    <label class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group">
+                      <input type="checkbox" name="class_subject_ids" value="{{ cs.pk }}"
+                             {% if cs.assigned %}checked{% endif %}
+                             class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer flex-shrink-0">
+                      <span class="flex-1 min-w-0">
+                        <span class="block text-sm font-medium text-gray-800 group-hover:text-gray-900 transition-colors">
+                          {{ cs.subject.name }}{% if cs.subject.short_name %} <span class="text-xs text-gray-400 font-mono">({{ cs.subject.short_name }})</span>{% endif %}
+                        </span>
+                        <span class="block text-xs text-gray-400">Coeff. {{ cs.coefficient }}</span>
                       </span>
-                    {% endif %}
-                  </label>
-                {% endfor %}
+                      {% if cs.teacher and cs.teacher.pk != member.pk %}
+                        <span class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">{{ cs.teacher.get_short_name }}</span>
+                      {% endif %}
+                    </label>
+                  {% endfor %}
+                </div>
               </div>
-            </div>
-            {% if not forloop.last %}
-              <div class="border-t border-gray-50"></div>
-            {% endif %}
-          {% endfor %}
+            {% endfor %}
+          </div>
         </div>
 
         <div class="mt-5 pt-4 border-t border-gray-100 flex items-center gap-3">

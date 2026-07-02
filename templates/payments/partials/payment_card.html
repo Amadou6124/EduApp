@@ -50,22 +50,20 @@ Carte élève — NOUVEAU modèle (lot 6). `account` = StudentFeeAccount annoté
     <p class="text-sm font-bold text-green-600 mb-3">Compte soldé ✓</p>
   {% endif %}
 
-  <div class="flex gap-2">
+  <div class="flex items-center gap-2">
     <button type="button"
             hx-get="{% url 'finance:collect-panel' student.id %}"
             hx-target="#collect-panel-body" hx-swap="innerHTML"
             @click="$store.payments.showPanel = true"
-            class="btn-primary flex-1 min-h-[44px]">
-      + Nouveau versement
+            class="flex-1 h-9 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+      <i data-lucide="wallet" class="w-4 h-4"></i> Encaisser
     </button>
     <button type="button"
             hx-get="{% url 'payments:history' student.id %}"
             hx-target="#payment-history-modal" hx-swap="innerHTML"
             @click="$store.payments.showHistory = true"
-            class="p-2.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg border border-gray-200 transition" title="Historique">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
+            class="h-9 px-3 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg border border-gray-200 transition" title="Historique">
+      <i data-lucide="history" class="w-4 h-4"></i>
     </button>
   </div>
 

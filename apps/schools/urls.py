@@ -6,7 +6,9 @@ app_name = 'schools'
 urlpatterns = [
     path('classes/', views.class_list, name='class-list'),
     path('announcements/',                  views.announcement_list,    name='announcement-list'),
+    path('announcements/form/',             views.announcement_form,    name='announcement-form'),
     path('announcements/create/',           views.announcement_create,  name='announcement-create'),
+    path('announcements/<int:pk>/update/',  views.announcement_update,  name='announcement-update'),
     path('announcements/<int:pk>/publish/', views.announcement_publish, name='announcement-publish'),
     path('announcements/<int:pk>/delete/',  views.announcement_delete,  name='announcement-delete'),
     path('classes/create/', views.class_create, name='class-create'),
@@ -19,4 +21,5 @@ urlpatterns = [
     path('classes/<int:class_id>/delete/', views.class_delete, name='class-delete'),
     path('classes/<int:class_id>/row/', views.class_row, name='class-row'),
     path('classes/<int:class_id>/edit-modal/', views.class_edit_modal, name='class-edit-modal'),
+    path('classes/<int:class_id>/', views.class_detail, name='class-detail'),
 ]

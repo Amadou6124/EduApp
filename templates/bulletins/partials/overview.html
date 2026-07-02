@@ -1,0 +1,84 @@
+{% load i18n %}
+{# Vue école des bulletins — rafraîchie en HTMX après génération/publication groupée (#bulletins-overview). #}
+<div id="bulletins-overview">
+
+  {# KPIs #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+    <div class="kpi"><div class="flex items-center gap-3">
+      <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0"><i data-lucide="layout-grid" class="w-5 h-5"></i></div>
+      <div class="min-w-0"><p class="kpi-value">{{ overview_totals.classes_done }}<span class="text-sm text-gray-400">/{{ overview_totals.classes }}</span></p><p class="kpi-label">Classes prêtes</p></div>
+    </div></div>
+    <div class="kpi"><div class="flex items-center gap-3">
+      <div class="kpi-icon bg-gray-50 text-gray-600 shrink-0"><i data-lucide="file-text" class="w-5 h-5"></i></div>
+      <div class="min-w-0"><p class="kpi-value">{{ overview_totals.generated }}</p><p class="kpi-label">Bulletins générés</p></div>
+    </div></div>
+    <div class="kpi"><div class="flex items-center gap-3">
+      <div class="kpi-icon bg-green-50 text-green-600 shrink-0"><i data-lucide="send" class="w-5 h-5"></i></div>
+      <div class="min-w-0"><p class="kpi-value text-green-600">{{ overview_totals.published }}</p><p class="kpi-label">Publiés</p></div>
+    </div></div>
+    <div class="kpi"><div class="flex items-center gap-3">
+      <div class="kpi-icon bg-amber-50 text-amber-500 shrink-0"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+      <div class="min-w-0"><p class="kpi-value {% if overview_totals.stale %}text-amber-600{% endif %}">{{ overview_totals.stale }}</p><p class="kpi-label">À régénérer</p></div>
+    </div></div>
+  </div>
+
+  {# Actions groupées #}
+  {% if can_generate %}
+  <div class="flex flex-wrap items-center gap-2 mb-4" x-data="{ cg: false, cp: false }">
+    <button x-show="!cg" @click="cg = true" type="button" class="btn-primary text-sm"><i data-lucide="zap" class="w-4 h-4"></i> Générer toutes</button>
+    <div x-show="cg" x-cloak class="flex items-center gap-2 text-sm">
+      <span class="text-gray-600">Générer les {{ overview_totals.classes }} classes ?</span>
+      <button type="button" hx-post="{% url 'bulletins:generate-all' active_period.pk %}" hx-target="#bulletins-overview" hx-swap="outerHTML" hx-indicator="#overview-busy" hx-sync="this:drop" @click="cg = false" class="btn-primary text-sm">Oui</button>
+      <button type="button" @click="cg = false" class="text-gray-500 px-2">Non</button>
+    </div>
+
+    <button x-show="!cp" @click="cp = true" type="button" class="text-sm bg-white border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 font-medium flex items-center gap-1.5"><i data-lucide="send" class="w-4 h-4"></i> Publier toutes</button>
+    <div x-show="cp" x-cloak class="flex items-center gap-2 text-sm">
+      <span class="text-gray-600">Publier tous les bulletins générés et notifier les parents ?</span>
+      <button type="button" hx-post="{% url 'bulletins:publish-all' active_period.pk %}" hx-target="#bulletins-overview" hx-swap="outerHTML" hx-indicator="#overview-busy" hx-sync="this:drop" @click="cp = false" class="btn-primary text-sm">Oui</button>
+      <button type="button" @click="cp = false" class="text-gray-500 px-2">Non</button>
+    </div>
+
+    <span id="overview-busy" class="htmx-indicator text-sm text-primary-600 flex items-center gap-1.5"><span class="animate-spin w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full"></span> En cours…</span>
+  </div>
+  {% endif %}
+
+  {# Tableau des classes #}
+  <div class="table-card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Classe</th>
+          <th>Générés</th>
+          <th class="text-center">Publiés</th>
+          <th class="text-center">État</th>
+          <th class="w-8"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in overview %}
+        <tr class="cursor-pointer" onclick="window.location.href='?class={{ o.class.pk }}&period={{ active_period.pk }}'">
+          <td><span class="font-medium text-gray-900">{{ o.class.name }}</span> <span class="text-gray-400 text-xs">· {{ o.students }} él.</span></td>
+          <td>
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-gray-600 tabular-nums whitespace-nowrap">{{ o.generated }} / {{ o.students }}</span>
+              {% if o.students %}
+                <span class="hidden sm:block w-20 h-1.5 rounded-full bg-gray-100 overflow-hidden"><span class="block h-full {% if o.done %}bg-green-500{% else %}bg-primary-600{% endif %}" style="width:{% widthratio o.generated o.students 100 %}%"></span></span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-center tabular-nums text-gray-600">{{ o.published }}</td>
+          <td class="text-center">
+            {% if o.stale %}<span class="badge-warning">{{ o.stale }} à régénérer</span>
+            {% elif o.generated == 0 %}<span class="text-gray-300 text-xs">à générer</span>
+            {% elif o.published and o.published >= o.generated %}<span class="badge-success">publié</span>
+            {% elif o.done %}<span class="badge-info">complet</span>
+            {% else %}<span class="text-gray-400 text-xs">en cours</span>{% endif %}
+          </td>
+          <td class="text-right"><i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

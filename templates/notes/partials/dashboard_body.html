@@ -1,0 +1,100 @@
+{% load i18n %}
+{# Corps du dashboard notes — swappé en HTMX au changement de période (#notes-body). #}
+<div id="notes-body">
+
+{% if not periods %}
+  <div class="flex flex-col items-center justify-center py-12 px-8 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+      <i data-lucide="layers" class="w-7 h-7 text-gray-400"></i>
+    </div>
+    <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucune période configurée</h3>
+    <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">Aucune période pour l'année {{ active_year.name }}.</p>
+    <a href="{% url 'settings:school-year-periods' active_year.pk %}" class="btn-primary text-sm">
+      <i data-lucide="settings" class="w-4 h-4"></i> Configurer les périodes
+    </a>
+  </div>
+
+{% else %}
+  {# ── Onglets périodes (HTMX) + verrou de saisie ──────────────── #}
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 overflow-x-auto scrollbar-hide">
+      {% for p in periods %}
+        <a hx-get="?period={{ p.pk }}" hx-target="#notes-body" hx-swap="outerHTML"
+           hx-push-url="true" hx-indicator="#notes-skel" style="cursor:pointer"
+           class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all whitespace-nowrap
+                  {% if active_period and p.pk == active_period.pk %}bg-white shadow-sm text-gray-900 font-medium{% else %}text-gray-600 hover:bg-white/60 hover:text-gray-900{% endif %}">
+          <span class="w-2 h-2 rounded-full shrink-0 {% if p.is_notes_open %}bg-green-500{% else %}bg-gray-300{% endif %}"></span>
+          {{ p.name }}
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if active_period %}
+      {% if can_manage %}
+        <form method="post" action="{% url 'notes:period-toggle' active_period.pk %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="flex items-center gap-2 h-9 px-3 rounded-lg text-sm font-medium transition-colors
+                         {% if active_period.is_notes_open %}bg-green-50 text-green-700 hover:bg-green-100{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+            <i data-lucide="{% if active_period.is_notes_open %}lock-open{% else %}lock{% endif %}" class="w-4 h-4"></i>
+            {% if active_period.is_notes_open %}Saisie ouverte{% else %}Saisie fermée{% endif %}
+          </button>
+        </form>
+      {% else %}
+        <span class="flex items-center gap-2 h-9 px-3 rounded-lg text-sm
+                     {% if active_period.is_notes_open %}bg-green-50 text-green-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+          <i data-lucide="{% if active_period.is_notes_open %}lock-open{% else %}lock{% endif %}" class="w-4 h-4"></i>
+          {% if active_period.is_notes_open %}Saisie ouverte{% else %}Saisie fermée{% endif %}
+        </span>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  {# ── KPIs honnêtes ────────────────────────────────────────────── #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div class="kpi"><div class="flex items-center gap-3">
+      <div class="kpi-icon bg-red-50 text-red-600 shrink-0"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+      <div class="min-w-0"><p class="kpi-value {% if stats.non_started %}text-red-600{% endif %}">{{ stats.non_started }}</p><p class="kpi-label">Pas commencé</p></div>
+    </div></div>
+    <div class="kpi"><div class="flex items-center gap-3">
+      <div class="kpi-icon bg-amber-50 text-amber-500 shrink-0"><i data-lucide="pencil" class="w-5 h-5"></i></div>
+      <div class="min-w-0"><p class="kpi-value">{{ stats.in_progress }}</p><p class="kpi-label">En cours</p></div>
+    </div></div>
+    <div class="kpi"><div class="flex items-center gap-3">
+      <div class="kpi-icon bg-green-50 text-green-600 shrink-0"><i data-lucide="circle-check" class="w-5 h-5"></i></div>
+      <div class="min-w-0"><p class="kpi-value text-green-600">{{ stats.complete }}</p><p class="kpi-label">Complètes</p></div>
+    </div></div>
+    <div class="kpi"><div class="flex items-center gap-3">
+      <div class="kpi-icon bg-gray-50 text-gray-600 shrink-0"><i data-lucide="book-open" class="w-5 h-5"></i></div>
+      <div class="min-w-0"><p class="kpi-value">{% if stats.avg_overall %}{{ stats.avg_overall }}<span class="text-sm text-gray-400">/20</span>{% else %}—{% endif %}</p><p class="kpi-label">Moyenne générale</p></div>
+    </div></div>
+  </div>
+
+  {# ── Classes (recherche + grille) ─────────────────────────────── #}
+  {% if class_progress %}
+    <div x-data="{ q: '' }">
+      <div class="relative mb-4">
+        <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+        <input type="text" x-model="q" placeholder="Rechercher une classe…" class="input-field w-full pl-10">
+      </div>
+      {# Masonry : les cartes se calent selon leur hauteur réelle (matières variables) → pas de trou. #}
+      <div class="columns-1 md:columns-2 xl:columns-3 gap-4">
+        {% for item in class_progress %}
+          <div class="break-inside-avoid mb-4" x-show="!q || '{{ item.class.name|lower|escapejs }}'.includes(q.toLowerCase().trim())">
+            {% include "notes/partials/class_progress_card.html" with item=item period=active_period %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <div class="flex flex-col items-center justify-center py-12 px-8 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+        <i data-lucide="school" class="w-7 h-7 text-gray-400"></i>
+      </div>
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucune classe</h3>
+      <p class="text-sm text-gray-500 max-w-xs leading-relaxed">Aucune classe active à afficher.</p>
+    </div>
+  {% endif %}
+{% endif %}
+
+</div>

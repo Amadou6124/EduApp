@@ -1,8 +1,8 @@
 {% extends "settings/settings_base.html" %}
 {% load i18n %}
+{% block settings_width %}max-w-4xl{% endblock %}
 {% block settings_content %}
-<div class="max-w-3xl px-6 py-8"
-     x-data="{ showForm: false }">
+<div x-data="{ showForm: false }">
 
   <!-- ── Breadcrumb + titre ──────────────────────────────────── -->
   <div class="mb-6">
@@ -13,10 +13,10 @@
       </svg>
       Années scolaires
     </a>
-    <div class="flex items-start justify-between">
+    <div class="flex items-start justify-between gap-3">
       <div>
-        <h2 class="text-xl font-bold text-gray-900">{{ year.name }} — Périodes</h2>
-        <p class="text-sm text-gray-500 mt-1">
+        <h2 class="text-lg font-semibold text-gray-900">{{ year.name }} — Périodes</h2>
+        <p class="text-sm text-gray-500 mt-0.5">
           {{ year.start_date|date:"d/m/Y" }} → {{ year.end_date|date:"d/m/Y" }}
           {% if year.is_active %}
           <span class="ml-2 inline-flex items-center gap-1 text-xs font-medium text-green-600">

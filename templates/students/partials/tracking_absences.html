@@ -1,8 +1,7 @@
-{# Onglet Absences — filtres + tableau paginé #}
+{# Onglet Absences — filtres période/classe + table dense paginée. #}
 <div>
-  {# Filtres #}
   <div class="flex flex-wrap items-center gap-2 mb-4">
-    <div class="inline-flex bg-gray-100 rounded-lg p-0.5">
+    <div class="flex flex-wrap bg-gray-100 rounded-lg p-0.5">
       <button hx-get="{% url 'students:suivi-absences' %}?periode=today{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
               class="px-3 py-1.5 rounded-md text-xs font-medium {% if periode == 'today' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Aujourd'hui</button>
       <button hx-get="{% url 'students:suivi-absences' %}?periode=week{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
@@ -18,46 +17,52 @@
   </div>
 
   {% if absences %}
-  <div class="table-card">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="border-b border-gray-100 bg-gray-50 text-left text-xs text-gray-500">
-          <th class="px-4 py-2.5 font-semibold">Date</th>
-          <th class="px-4 py-2.5 font-semibold">Classe</th>
-          <th class="px-4 py-2.5 font-semibold">Élève</th>
-          <th class="px-4 py-2.5 font-semibold">Statut</th>
-          <th class="px-4 py-2.5 font-semibold">Professeur</th>
-        </tr></thead>
-        <tbody class="divide-y divide-gray-50">
+    {# Desktop : table dense #}
+    <div class="hidden lg:block table-card">
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Élève</th><th>Classe</th><th>Statut</th><th>Professeur</th></tr></thead>
+        <tbody>
           {% for a in absences %}
-          <tr class="hover:bg-gray-50/50">
-            <td class="px-4 py-2.5 whitespace-nowrap text-gray-600">{{ a.date|date:"d/m/Y" }}</td>
-            <td class="px-4 py-2.5 text-gray-500">{{ a.school_class.name }}</td>
-            <td class="px-4 py-2.5"><a href="{% url 'students:detail' a.student.id %}" class="font-medium text-gray-900 hover:text-primary-600">{{ a.student.full_name }}</a></td>
-            <td class="px-4 py-2.5">
-              {% if a.status == 'absent' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Absent</span>
-              {% else %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Retard</span>{% endif %}
-            </td>
-            <td class="px-4 py-2.5 text-gray-500">{% if a.teacher %}{{ a.teacher.full_name }}{% else %}—{% endif %}</td>
+          <tr class="cursor-pointer" onclick="window.location.href='{% url 'students:detail' a.student.id %}'">
+            <td class="text-gray-600 whitespace-nowrap">{{ a.date|date:"d/m/Y" }}</td>
+            <td><a href="{% url 'students:detail' a.student.id %}" onclick="event.stopPropagation()" class="font-medium text-gray-900 hover:text-primary-700">{{ a.student.full_name }}</a></td>
+            <td class="text-gray-600">{{ a.school_class.name }}</td>
+            <td>{% if a.status == 'absent' %}<span class="badge-danger">Absent</span>{% else %}<span class="badge-warning">Retard</span>{% endif %}</td>
+            <td class="text-gray-500">{% if a.teacher %}{{ a.teacher.full_name }}{% else %}—{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-  </div>
 
-  {% if absences.has_other_pages %}
-  <div class="flex items-center justify-center gap-2 mt-4 text-sm">
-    {% if absences.has_previous %}<button hx-get="{% url 'students:suivi-absences' %}?periode={{ periode }}{% if class_id %}&class={{ class_id }}{% endif %}&page={{ absences.previous_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">←</button>{% endif %}
-    <span class="text-gray-400">{{ absences.number }} / {{ absences.paginator.num_pages }}</span>
-    {% if absences.has_next %}<button hx-get="{% url 'students:suivi-absences' %}?periode={{ periode }}{% if class_id %}&class={{ class_id }}{% endif %}&page={{ absences.next_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">→</button>{% endif %}
-  </div>
-  {% endif %}
+    {# Mobile : cards compactes #}
+    <div class="lg:hidden space-y-2.5">
+      {% for a in absences %}
+      <a href="{% url 'students:detail' a.student.id %}" class="flex items-center justify-between gap-3 bg-white border border-gray-200 rounded-xl p-3.5 transition active:bg-gray-50">
+        <div class="min-w-0">
+          <p class="font-medium text-gray-900 text-sm truncate">{{ a.student.full_name }}</p>
+          <p class="text-xs text-gray-400">{{ a.school_class.name }} · {{ a.date|date:"d/m/Y" }}</p>
+        </div>
+        {% if a.status == 'absent' %}<span class="badge-danger shrink-0">Absent</span>{% else %}<span class="badge-warning shrink-0">Retard</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+
+    {% if absences.has_other_pages %}
+    <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+      <span>{{ absences.start_index }}–{{ absences.end_index }} sur {{ absences.paginator.count }}</span>
+      <div class="flex gap-2">
+        {% if absences.has_previous %}<button hx-get="{% url 'students:suivi-absences' %}?periode={{ periode }}{% if class_id %}&class={{ class_id }}{% endif %}&page={{ absences.previous_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Précédent</button>{% else %}<span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Précédent</span>{% endif %}
+        {% if absences.has_next %}<button hx-get="{% url 'students:suivi-absences' %}?periode={{ periode }}{% if class_id %}&class={{ class_id }}{% endif %}&page={{ absences.next_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Suivant</button>{% else %}<span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Suivant</span>{% endif %}
+      </div>
+    </div>
+    {% endif %}
 
   {% else %}
-  <div class="card p-10 text-center">
-    <i data-lucide="check-circle" class="w-10 h-10 mx-auto text-green-400 mb-2"></i>
-    <p class="text-sm text-gray-400">Aucune absence sur cette période</p>
-  </div>
+    <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mb-4"><i data-lucide="circle-check" class="w-7 h-7 text-green-500"></i></div>
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucune absence</h3>
+      <p class="text-sm text-gray-500">Rien à signaler sur cette période.</p>
+    </div>
   {% endif %}
 </div>

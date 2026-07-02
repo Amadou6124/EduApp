@@ -61,12 +61,8 @@ Contexte : bulletin, lines, config
           <tr>
             <th class="text-left px-3 py-2 border-b">Matière</th>
             <th class="text-center px-3 py-2 border-b">Coef</th>
-            {% for line in lines %}
-              {% if forloop.first and line.class_subject.note_system == 'devoirs_compo' %}
-                <th class="text-center px-3 py-2 border-b">Devoirs</th>
-                <th class="text-center px-3 py-2 border-b">Compo</th>
-              {% endif %}
-            {% endfor %}
+            <th class="text-center px-3 py-2 border-b">Note classe</th>
+            <th class="text-center px-3 py-2 border-b">Compo</th>
             <th class="text-center px-3 py-2 border-b">Moyenne</th>
             <th class="text-center px-3 py-2 border-b">N×Coef</th>
             <th class="text-center px-3 py-2 border-b">Appr.</th>
@@ -77,14 +73,12 @@ Contexte : bulletin, lines, config
             <tr class="{% cycle '' 'bg-gray-50/30' %}">
               <td class="px-3 py-1.5 font-medium">{{ line.class_subject.subject.name }}</td>
               <td class="text-center px-3 py-1.5">{{ line.class_subject.coefficient|floatformat:'0' }}</td>
-              {% if line.class_subject.note_system == 'devoirs_compo' %}
-                <td class="text-center px-3 py-1.5">
-                  {{ line.devoir_average|default:'—' }}
-                </td>
-                <td class="text-center px-3 py-1.5">
-                  {{ line.compo_grade|default:'—' }}
-                </td>
-              {% endif %}
+              <td class="text-center px-3 py-1.5">
+                {{ line.devoir_average|default:'—' }}
+              </td>
+              <td class="text-center px-3 py-1.5">
+                {{ line.compo_grade|default:'—' }}
+              </td>
               <td class="text-center px-3 py-1.5 font-semibold">
                 {{ line.final_average|floatformat:'2'|default:'—' }}
               </td>

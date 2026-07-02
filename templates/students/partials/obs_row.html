@@ -1,0 +1,29 @@
+{% load humanize %}
+{# Ligne d'inbox observation (Suivi). Requiert o (avec .student chargé). Marquer-lu swappe cette ligne (obs-mark-read?row=1). #}
+<div id="obs-row-{{ o.id }}" class="flex items-start gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0 {% if not o.is_read %}bg-primary-50/40{% endif %}">
+  <span class="mt-2 w-1.5 h-1.5 rounded-full shrink-0 {% if not o.is_read %}bg-primary-600{% endif %}"></span>
+  <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+       style="background:{{ o.student.get_avatar_colors.0 }};color:{{ o.student.get_avatar_colors.1 }}">{{ o.student.get_initials }}</div>
+
+  <div class="flex-1 min-w-0">
+    <div class="flex items-baseline gap-2 min-w-0">
+      <a href="{% url 'students:detail' o.student.id %}"
+         class="text-sm truncate min-w-0 {% if not o.is_read %}font-semibold text-gray-900{% else %}text-gray-700{% endif %} hover:text-primary-700">{{ o.student.full_name }}</a>
+      <span class="text-xs text-gray-400 shrink-0">{{ o.student.school_class.name }}</span>
+      {% if o.is_visible_to_parent %}<span class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 shrink-0">Partagé parent</span>{% endif %}
+    </div>
+    <p class="text-xs text-gray-500 truncate">{{ o.content }}</p>
+    <p class="text-[11px] text-gray-400 mt-0.5">{% if o.teacher %}{{ o.teacher.full_name }} · {% endif %}{{ o.created_at|naturaltime }}</p>
+  </div>
+
+  <div class="flex items-center gap-1.5 shrink-0">
+    {% if not o.is_read %}
+      <button hx-post="{% url 'students:obs-mark-read' o.student.id o.id %}?row=1"
+              hx-target="#obs-row-{{ o.id }}" hx-swap="outerHTML"
+              class="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-primary-300 hover:text-primary-600 transition" title="Marquer lu" aria-label="Marquer lu">
+        <i data-lucide="check" class="w-3.5 h-3.5"></i>
+      </button>
+    {% endif %}
+    {% include "students/partials/obs_share_button.html" with obs=o student=o.student %}
+  </div>
+</div>

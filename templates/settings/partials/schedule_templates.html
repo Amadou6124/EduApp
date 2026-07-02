@@ -1,8 +1,10 @@
 {% load i18n %}
 {% comment %}
-Gabarits de tranches — cartes sélectionnables. Le gabarit is_default a une bordure
-primary + badge « Par défaut ». Cliquer sur un autre le passe par défaut (HTMX).
-Cible #schedule-templates. Responsive : 1 colonne mobile, 3 colonnes desktop.
+Gabarits de tranches — tuiles sélectionnables avec barre segmentée (N versements
+égaux). La tuile is_default a une bordure primary + badge « Par défaut ». Cliquer
+sur une autre la passe par défaut (HTMX). Cible #schedule-templates.
+Le nombre de segments = installments_count (boucle via le filtre natif `center`).
+Responsive : 1 colonne mobile, 3 colonnes desktop.
 {% endcomment %}
 
 {% if schedule_templates %}
@@ -13,25 +15,28 @@ Cible #schedule-templates. Responsive : 1 colonne mobile, 3 colonnes desktop.
               hx-post="{% url 'settings:schedule-set-default' tpl.id %}"
               hx-target="#schedule-templates" hx-swap="innerHTML"
               {% endif %}
-              class="card p-4 text-left transition relative
-                     {% if tpl.is_default %}border-primary-500 ring-1 ring-primary-500{% else %}hover:border-primary-300 cursor-pointer{% endif %}">
+              class="rounded-xl border p-3.5 text-left transition relative
+                     {% if tpl.is_default %}border-primary-500 ring-1 ring-primary-500 bg-primary-50/40{% else %}border-gray-200 bg-white hover:border-primary-300 cursor-pointer{% endif %}">
         {% if tpl.is_default %}
           <span class="badge-primary absolute top-3 right-3">Par défaut</span>
         {% endif %}
-        <div class="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center mb-3">
-          <i data-lucide="calendar-clock" class="w-5 h-5 text-primary-600"></i>
-        </div>
-        <p class="font-semibold text-gray-900">{{ tpl.name }}</p>
-        <p class="text-xs text-gray-500 mt-0.5">
-          {{ tpl.installments_count }} tranche{{ tpl.installments_count|pluralize }}
+        <p class="font-semibold text-gray-900 text-sm">{{ tpl.name }}</p>
+        <p class="text-xs text-gray-500 mt-0.5 mb-3">
+          {{ tpl.installments_count }} versement{{ tpl.installments_count|pluralize }}{% if tpl.installments_count > 1 %} égaux{% endif %}
         </p>
+        {# Barre segmentée : un segment par versement. #}
+        <div class="flex gap-1" aria-hidden="true">
+          {% for _ in ""|center:tpl.installments_count %}
+            <span class="flex-1 h-2 rounded-sm {% if tpl.is_default %}bg-primary-500{% else %}bg-gray-200{% endif %}"></span>
+          {% endfor %}
+        </div>
       </button>
     {% endfor %}
   </div>
 {% else %}
-  <div class="card p-6 text-center">
+  <div class="rounded-xl border border-dashed border-gray-200 p-5 text-center">
     <p class="text-sm text-gray-500">
-      Aucun gabarit de tranches. Utilisez « Charger un exemple » ci-dessus pour créer
+      Aucun gabarit de tranches. Utilisez « Charger un exemple » pour créer
       les gabarits Annuel / Trimestriel / Mensuel.
     </p>
   </div>

@@ -38,12 +38,19 @@
     {% if p.hours is not None %}
     <div class="block">
       <div class="row"><span class="label">Heures effectuées</span><span class="val">{{ p.hours|floatformat:"-1" }} h</span></div>
-      <div class="row"><span class="label">Taux horaire</span><span class="val">{{ p.hourly_rate|default:0|intcomma }} FCFA/h</span></div>
+      <div class="row"><span class="label">Calcul</span><span class="val">Tarif par cours</span></div>
+    </div>
+    {% endif %}
+
+    {% if p.deduction %}
+    <div class="block">
+      <div class="row"><span class="label">Salaire brut</span><span class="val">{{ gross|intcomma }} FCFA</span></div>
+      <div class="row"><span class="label">Retenue ({{ p.absence_count }} absence{{ p.absence_count|pluralize }})</span><span class="val">− {{ p.deduction|intcomma }} FCFA</span></div>
     </div>
     {% endif %}
 
     <div class="amount">
-      <div class="row"><span class="label">MONTANT BRUT</span><span class="big">{{ p.amount|intcomma }} FCFA</span></div>
+      <div class="row"><span class="label">NET À PAYER</span><span class="big">{{ p.amount|intcomma }} FCFA</span></div>
       <div class="row muted"><span>Mode de paiement</span><span>{{ p.get_payment_method_display }}</span></div>
       <div class="row muted"><span>Date de paiement</span><span>{% if p.paid_at %}{{ p.paid_at|date:"j F Y" }}{% else %}—{% endif %}</span></div>
     </div>

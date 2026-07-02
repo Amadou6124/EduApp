@@ -1,0 +1,28 @@
+{% load humanize %}
+{# Notes par matière (+ moyenne/matière). Réutilisé par l'onglet Scolarité et l'endpoint notes-period. #}
+<div id="notes-by-subject">
+  {% if notes_by_subject %}
+    <div class="space-y-2.5">
+      {% for grp in notes_by_subject %}
+        <div class="rounded-xl border border-gray-100 p-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-800">{{ grp.subject }}</span>
+            {% if grp.avg is not None %}
+              <span class="text-xs font-semibold {% if grp.avg < 10 %}text-red-600{% else %}text-primary-700{% endif %}">Moy. {{ grp.avg }}</span>
+            {% endif %}
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            {% for n in grp.notes %}
+              <span class="px-2 py-0.5 rounded-md text-xs font-semibold {% if n.value < 10 %}bg-red-100 text-red-700{% else %}bg-primary-100 text-primary-700{% endif %}">{{ n.value|floatformat:"-2" }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-center py-10">
+      <i data-lucide="clipboard-list" class="w-8 h-8 mx-auto text-gray-300 mb-2"></i>
+      <p class="text-sm text-gray-400">Aucune note {% if active_period %}pour {{ active_period.name }}{% else %}pour la période active{% endif %}.</p>
+    </div>
+  {% endif %}
+</div>

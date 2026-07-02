@@ -1,0 +1,89 @@
+{% load humanize %}
+{# Rail identité + KPIs + actions. Rendu dans la fiche ET seul (detail-rail) pour auto-refresh après encaissement/édition. #}
+{% with colors=student.get_avatar_colors %}
+<aside id="student-rail"
+       hx-get="{% url 'students:detail-rail' student.id %}"
+       hx-trigger="refresh-rail from:body, close-collect-panel from:body"
+       hx-target="#student-rail" hx-swap="outerHTML"
+       class="card p-5">
+
+  {# ── Identité ── #}
+  <div class="flex flex-col items-center text-center gap-2 pb-4 border-b border-gray-100">
+    <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold"
+         style="background-color:{{ colors.0 }};color:{{ colors.1 }}">{{ student.get_initials }}</div>
+    <div>
+      <h2 class="text-base font-semibold text-gray-900">{{ student.full_name }}</h2>
+      <p class="text-xs text-gray-400">{{ student.school_class.name }} · <span class="font-mono text-primary-700">{{ student.access_code }}</span></p>
+    </div>
+    <div class="flex flex-wrap justify-center gap-1.5">
+      {% include "students/partials/fee_status_badge.html" with status=fee_status %}
+      {% if has_overdue %}<span class="badge-danger">En retard</span>{% endif %}
+      {% if student.has_parent_linked %}<span class="badge-neutral">Parent lié</span>{% else %}<span class="badge-neutral">Sans parent</span>{% endif %}
+    </div>
+  </div>
+
+  {# ── KPIs ── #}
+  <div class="py-4 space-y-2.5 border-b border-gray-100">
+    {% if fee_account %}
+      <div class="bg-gray-50 rounded-xl p-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400">Solde dû</span>
+          <span class="text-xs text-gray-400">{{ pct_paid }}% payé</span>
+        </div>
+        <p class="text-lg font-bold {% if fee_balance > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+          {{ fee_balance|intcomma }} <span class="text-xs font-normal text-gray-400">F</span>
+        </p>
+        <div class="h-1.5 rounded-full bg-gray-200 mt-2 overflow-hidden"><div class="h-full bg-primary-600" style="width:{{ pct_paid }}%"></div></div>
+      </div>
+      {% if next_inst %}
+        <div class="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
+          <span class="text-xs text-gray-400">Prochaine échéance</span>
+          <span class="text-xs text-gray-700">{{ next_inst.due_date|date:"d/m/y" }} · {{ next_inst.balance|intcomma }} F</span>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="bg-gray-50 rounded-xl p-3 text-center"><p class="text-xs text-gray-400">Aucune fiche financière</p></div>
+    {% endif %}
+    <div class="grid grid-cols-2 gap-2.5">
+      <div class="bg-gray-50 rounded-xl p-3">
+        <p class="text-[10px] text-gray-400 uppercase tracking-wide">Moyenne</p>
+        <p class="text-base font-bold text-gray-900">{% if moyenne is not None %}{{ moyenne }}<span class="text-xs font-normal text-gray-400">/20</span>{% else %}—{% endif %}</p>
+      </div>
+      <div class="bg-gray-50 rounded-xl p-3">
+        <p class="text-[10px] text-gray-400 uppercase tracking-wide">Absences 30j</p>
+        <p class="text-base font-bold text-gray-900">{{ absences_count }}</p>
+      </div>
+    </div>
+  </div>
+
+  {# ── Actions ── #}
+  <div class="pt-4 space-y-2">
+    {% if fee_account %}
+      <button type="button" @click="collectOpen = true"
+              hx-get="{% url 'finance:collect-panel' student.id %}" hx-target="#collect-panel-body" hx-swap="innerHTML"
+              class="btn-primary w-full">
+        <i data-lucide="wallet" class="w-4 h-4"></i> Encaisser
+      </button>
+    {% endif %}
+    {% if is_director %}
+      <div class="flex gap-2">
+        <button type="button" @click="editOpen = true"
+                hx-get="{% url 'students:update' student.id %}" hx-target="#edit-panel-body" hx-swap="innerHTML"
+                class="btn-secondary flex-1">
+          <i data-lucide="pencil" class="w-4 h-4"></i> Modifier
+        </button>
+        <div class="relative" x-data="{ menu: false }" @click.outside="menu = false">
+          <button type="button" @click="menu = !menu" class="btn-secondary px-3" aria-label="Plus d'actions"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+          <div x-show="menu" x-cloak x-transition.origin.top.right
+               class="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-20">
+            <button type="button" @click="menu = false; withdrawOpen = true"
+                    class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+              <i data-lucide="user-x" class="w-4 h-4"></i> Retirer l'élève
+            </button>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</aside>
+{% endwith %}

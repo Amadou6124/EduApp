@@ -48,6 +48,43 @@ class EmployeeProfile(models.Model):
         return f'{self.membership.user.full_name} — {self.get_employment_type_display()}'
 
 
+# ─── Tarifs vacataire par matière ────────────────────────────────────────────
+
+class VacataireRate(models.Model):
+    """Tarif horaire d'un vacataire pour un COURS précis (matière + classe).
+
+    La paie d'un vacataire = Σ (heures émargées du cours × ce tarif). Le tarif
+    peut varier selon la classe/le niveau (Maths 6ème ≠ Maths 3ème) ; les heures
+    viennent de l'émargement. Isolation : profile.membership.school.
+    """
+    profile = models.ForeignKey(
+        EmployeeProfile, on_delete=models.CASCADE,
+        related_name='course_rates', verbose_name=_('profil employé'),
+    )
+    class_subject = models.ForeignKey(
+        'schools.ClassSubject', on_delete=models.CASCADE,
+        related_name='vacataire_rates', verbose_name=_('cours'),
+    )
+    hourly_rate = models.DecimalField(
+        _('taux horaire (FCFA)'), max_digits=12, decimal_places=0,
+        validators=[MinValueValidator(0)],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('tarif vacataire')
+        verbose_name_plural = _('tarifs vacataire')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['profile', 'class_subject'], name='uniq_vacataire_rate_course',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.profile_id} — cours {self.class_subject_id} — {self.hourly_rate}/h'
+
+
 # ─── Émargement enseignant (SÉPARÉ de Attendance élèves) ─────────────────────
 
 class TeacherAttendanceStatus(models.TextChoices):
@@ -89,6 +126,11 @@ class TeacherAttendance(models.Model):
         _('statut'), max_length=10,
         choices=TeacherAttendanceStatus.choices,
         default=TeacherAttendanceStatus.PRESENT,
+    )
+    hours = models.DecimalField(
+        _('heures réelles'), max_digits=4, decimal_places=1,
+        null=True, blank=True, validators=[MinValueValidator(Decimal('0.5'))],
+        help_text=_("Si vide, la durée prévue du cours est utilisée. Permet le « partiel »."),
     )
     substitute = models.ForeignKey(
         'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
@@ -144,6 +186,40 @@ class ExpenseCategory(models.Model):
         return self.name
 
 
+class RecurringExpense(models.Model):
+    """Modèle de dépense récurrente (loyer, électricité…). Chaque mois, on
+    propose de l'enregistrer en un clic au lieu de re-saisir. N'est PAS une
+    dépense réelle tant qu'on ne l'a pas enregistrée."""
+    school = models.ForeignKey(
+        'schools.School', on_delete=models.CASCADE,
+        related_name='recurring_expenses', verbose_name=_('école'),
+    )
+    category = models.ForeignKey(
+        ExpenseCategory, on_delete=models.PROTECT,
+        related_name='recurring_expenses', verbose_name=_('catégorie'),
+    )
+    label = models.CharField(_('libellé'), max_length=200, blank=True)
+    amount = models.DecimalField(
+        _('montant (FCFA)'), max_digits=12, decimal_places=0,
+        validators=[MinValueValidator(1)],
+    )
+    payment_method = models.CharField(
+        _('mode de paiement'), max_length=20,
+        choices=PaymentMethod.choices, default=PaymentMethod.CASH,
+    )
+    is_active  = models.BooleanField(_('active'), default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('dépense récurrente')
+        verbose_name_plural = _('dépenses récurrentes')
+        ordering = ['category__name', 'label']
+
+    def __str__(self):
+        return f'{self.label or self.category.name} — {self.amount}/mois'
+
+
 class Expense(models.Model):
     school = models.ForeignKey(
         'schools.School', on_delete=models.CASCADE,
@@ -152,6 +228,10 @@ class Expense(models.Model):
     category = models.ForeignKey(
         ExpenseCategory, on_delete=models.PROTECT,
         related_name='expenses', verbose_name=_('catégorie'),
+    )
+    recurring = models.ForeignKey(
+        RecurringExpense, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='occurrences', verbose_name=_('dépense récurrente'),
     )
     amount = models.DecimalField(
         _('montant (FCFA)'), max_digits=12, decimal_places=0,
@@ -220,6 +300,11 @@ class SalaryPayment(models.Model):
     hourly_rate = models.DecimalField(
         _('taux horaire (FCFA)'), max_digits=12, decimal_places=0, null=True, blank=True,
     )
+    # Retenue sur absence (permanents) — snapshots figés au paiement.
+    deduction = models.DecimalField(
+        _('retenue (FCFA)'), max_digits=12, decimal_places=0, default=0,
+    )
+    absence_count = models.PositiveSmallIntegerField(_("absences retenues"), default=0)
     status = models.CharField(
         _('statut'), max_length=10,
         choices=SalaryStatus.choices, default=SalaryStatus.PENDING,

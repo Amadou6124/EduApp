@@ -8,419 +8,160 @@
 <script>
 function teamPageData() {
   return {
-    showPanel:     false,
-    selectedRole:  'teacher',
-    showEditPanel: false,
-    editUserId:    null,
-    showPwdModal:  false,
-    pwdPhone:      '',
-    pwdValue:      '',
-    pwdCopied:     false,
-    searchTeacher: '',
-    searchStaff:   '',
+    showPanel: false, showEditPanel: false, editUserId: null,
+    showPwdModal: false, pwdPhone: '', pwdValue: '', pwdCopied: false,
+    roleFilter: '{{ role_filter|default:"all" }}',
+    selectedRole: 'teacher',  {# défaut du formulaire de création (member_create_form) #}
 
     openEditPanel(userId) {
-      this.editUserId    = userId
-      this.showEditPanel = true
-      this.$nextTick(() => {
-        htmx.ajax('GET', `/team/${userId}/edit/`, {
-          target: '#edit-panel-body',
-          swap:   'innerHTML',
-        })
-      })
+      this.editUserId = userId; this.showEditPanel = true;
+      this.$nextTick(() => htmx.ajax('GET', `/team/${userId}/edit/`, { target: '#edit-panel-body', swap: 'innerHTML' }));
     },
-
     resetSearch() {
-      const input = document.getElementById('team-search-phone')
-      if (input) input.value = ''
-      // Recharge l'état initial (indice neutre) du panneau de recherche.
-      htmx.ajax('GET', '{% url "team:search" %}', {
-        target: '#team-search-result',
-        swap:   'innerHTML',
-      })
-      this.$nextTick(() => input && input.focus())
+      const input = document.getElementById('team-search-phone');
+      if (input) input.value = '';
+      htmx.ajax('GET', '{% url "team:search" %}', { target: '#team-search-result', swap: 'innerHTML' });
+      this.$nextTick(() => input && input.focus());
     },
-
+    _csrf() { return document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''; },
     confirmDeactivate(userId, name) {
       Alpine.store('confirm').show({
-        title:        'Désactiver ' + name + ' ?',
-        message:      'Ce membre ne pourra plus se connecter à EduApp.',
-        icon:         'user-x',
-        iconBg:       'bg-orange-50',
-        iconColor:    'text-orange-500',
-        confirmText:  'Désactiver',
-        confirmIcon:  'user-x',
-        confirmClass: 'bg-orange-600 hover:bg-orange-700 text-white',
-        onConfirm: () => {
-          htmx.ajax('POST', `/team/${userId}/deactivate/`, {
-            target:  `#member-card-${userId}`,
-            swap:    'outerHTML',
-            headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' },
-          })
-        },
-      })
+        title: 'Désactiver ' + name + ' ?', message: 'Ce membre ne pourra plus se connecter à EduApp.',
+        icon: 'user-x', iconBg: 'bg-orange-50', iconColor: 'text-orange-500',
+        confirmText: 'Désactiver', confirmIcon: 'user-x', confirmClass: 'bg-orange-600 hover:bg-orange-700 text-white',
+        onConfirm: () => htmx.ajax('POST', `/team/${userId}/deactivate/`, { swap: 'none', headers: { 'X-CSRFToken': this._csrf() } }),
+      });
+    },
+    reactivate(userId) {
+      htmx.ajax('POST', `/team/${userId}/reactivate/`, { swap: 'none', headers: { 'X-CSRFToken': this._csrf() } });
     },
   }
 }
 </script>
 {% endblock %}
 
+{% block header_actions %}
+  {% if is_director %}
+    <button type="button" @click="$dispatch('open-team-panel')" class="btn-primary h-10">
+      <i data-lucide="user-plus" class="w-4 h-4 shrink-0"></i><span class="hidden sm:inline">Ajouter un membre</span>
+    </button>
+  {% endif %}
+{% endblock %}
+
 {% block content %}
 <div x-data="teamPageData()"
-     x-init="$watch('showPanel', v => v && resetSearch())"
+     @open-team-panel.window="showPanel = true; $nextTick(() => resetSearch())"
      @close-panel.window="showPanel = false"
      @close-edit-panel.window="showEditPanel = false"
-     @team-member-added.window="
-       showPanel    = false;
-       pwdPhone     = $event.detail.phone_number || '';
-       pwdValue     = $event.detail.temp_pwd    || '';
-       pwdCopied    = false;
-       showPwdModal = true;
-       $nextTick(() => lucide.createIcons())
-     ">
+     @keydown.escape.window="showPanel = false; showEditPanel = false"
+     @team-member-added.window="showPanel = false; pwdPhone = $event.detail.phone_number || ''; pwdValue = $event.detail.temp_pwd || ''; pwdCopied = false; showPwdModal = true; $nextTick(() => lucide.createIcons())">
 
-  <div class="flex items-center justify-between mb-6">
-    <div></div>
-    {% if is_director %}
-      <button @click="showPanel = true"
-              class="btn-primary min-h-[44px]">
-        <i data-lucide="user-plus" class="w-4 h-4 shrink-0"></i>
-        Ajouter un membre
-      </button>
-    {% endif %}
+  {# KPIs — 3-up compact : icône cachée < sm, value/label réduits pour tenir sur mobile #}
+  <div class="grid grid-cols-3 gap-2.5 sm:gap-3 mb-5">
+    <div class="kpi !p-3 sm:!p-5"><div class="flex items-center gap-3"><div class="kpi-icon bg-primary-50 text-primary-600 shrink-0 hidden sm:flex"><i data-lucide="users-round" class="w-5 h-5"></i></div><div class="min-w-0"><p class="kpi-value text-2xl sm:text-3xl">{{ stats.total }}</p><p class="kpi-label text-xs sm:text-sm">Total actifs</p></div></div></div>
+    <div class="kpi !p-3 sm:!p-5"><div class="flex items-center gap-3"><div class="kpi-icon bg-primary-50 text-primary-600 shrink-0 hidden sm:flex"><i data-lucide="graduation-cap" class="w-5 h-5"></i></div><div class="min-w-0"><p class="kpi-value text-2xl sm:text-3xl">{{ stats.teachers }}</p><p class="kpi-label text-xs sm:text-sm">Enseignants</p></div></div></div>
+    <div class="kpi !p-3 sm:!p-5"><div class="flex items-center gap-3"><div class="kpi-icon bg-purple-50 text-purple-600 shrink-0 hidden sm:flex"><i data-lucide="briefcase" class="w-5 h-5"></i></div><div class="min-w-0"><p class="kpi-value text-2xl sm:text-3xl">{{ stats.staff }}</p><p class="kpi-label text-xs sm:text-sm">Staff admin</p></div></div></div>
   </div>
 
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-    <div class="kpi animate-fade-in-up">
-      <div class="flex items-center gap-3">
-        <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0">
-          <i data-lucide="users-round" class="w-5 h-5"></i>
-        </div>
-        <div class="min-w-0">
-          <p class="kpi-value">{{ stats.total }}</p>
-          <p class="kpi-label">Total actifs</p>
-        </div>
-      </div>
+  {# Recherche + filtres rôle #}
+  <form hx-get="{% url 'team:list' %}" hx-target="#team-list-area" hx-swap="outerHTML"
+        hx-trigger="keyup changed delay:300ms from:[name=q]" hx-include="[name=role]" hx-indicator="#team-skel" class="mb-5">
+    <input type="hidden" name="role" :value="roleFilter">
+    <div class="relative mb-3">
+      <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="Rechercher un membre…" class="input-field w-full pl-10">
     </div>
-    <div class="kpi animate-fade-in-up animate-delay-100">
-      <div class="flex items-center gap-3">
-        <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0">
-          <i data-lucide="graduation-cap" class="w-5 h-5"></i>
-        </div>
-        <div class="min-w-0">
-          <p class="kpi-value">{{ stats.teachers }}</p>
-          <p class="kpi-label">Enseignants</p>
-        </div>
-      </div>
+    <div class="bg-gray-100 rounded-lg p-1 inline-flex gap-1 overflow-x-auto scrollbar-hide max-w-full">
+      <button type="button" hx-get="{% url 'team:list' %}?role=all" hx-include="[name=q]" hx-target="#team-list-area" hx-swap="outerHTML" hx-indicator="#team-skel" @click="roleFilter='all'" :class="roleFilter==='all' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900'" class="px-3.5 py-1.5 rounded-md text-sm transition whitespace-nowrap">Tous</button>
+      <button type="button" hx-get="{% url 'team:list' %}?role=teacher" hx-include="[name=q]" hx-target="#team-list-area" hx-swap="outerHTML" hx-indicator="#team-skel" @click="roleFilter='teacher'" :class="roleFilter==='teacher' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900'" class="px-3.5 py-1.5 rounded-md text-sm transition whitespace-nowrap">Enseignants</button>
+      <button type="button" hx-get="{% url 'team:list' %}?role=staff" hx-include="[name=q]" hx-target="#team-list-area" hx-swap="outerHTML" hx-indicator="#team-skel" @click="roleFilter='staff'" :class="roleFilter==='staff' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900'" class="px-3.5 py-1.5 rounded-md text-sm transition whitespace-nowrap">Staff</button>
+      <button type="button" hx-get="{% url 'team:list' %}?role=inactive" hx-include="[name=q]" hx-target="#team-list-area" hx-swap="outerHTML" hx-indicator="#team-skel" @click="roleFilter='inactive'" :class="roleFilter==='inactive' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900'" class="px-3.5 py-1.5 rounded-md text-sm transition whitespace-nowrap">Désactivés</button>
     </div>
-    <div class="kpi animate-fade-in-up animate-delay-200">
-      <div class="flex items-center gap-3">
-        <div class="kpi-icon bg-purple-50 text-purple-600 shrink-0">
-          <i data-lucide="briefcase" class="w-5 h-5"></i>
-        </div>
-        <div class="min-w-0">
-          <p class="kpi-value">{{ stats.staff }}</p>
-          <p class="kpi-label">Staff admin</p>
-        </div>
-      </div>
+  </form>
+
+  {# Liste #}
+  <div class="relative">
+    {% include "team/partials/team_list_body.html" %}
+    <div id="team-skel" class="htmx-indicator pointer-events-none absolute inset-0 z-10 bg-white/70 backdrop-blur-[1px] flex flex-col gap-2.5 pt-1">
+      {% for _ in "12345678" %}<div class="skeleton h-12 rounded-xl"></div>{% endfor %}
     </div>
   </div>
 
-  <div class="mb-10">
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex items-center gap-2">
-        <h2 class="text-base font-semibold text-gray-800">Enseignants</h2>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-50 text-primary-700">
-          {{ stats.teachers }}
-        </span>
-      </div>
-    </div>
+  {# Refresher : après une action (team-changed), recharge la liste avec les filtres courants #}
+  <div hx-get="{% url 'team:list' %}" hx-trigger="team-changed from:body" hx-target="#team-list-area" hx-swap="outerHTML" hx-include="[name=q],[name=role]" class="hidden"></div>
 
-    {% if teachers_data %}
-      <div class="relative mb-4">
-        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-          <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
-          </svg>
+  {# ════ Panneau création (téléporté) ════ #}
+  <template x-teleport="body">
+    <div>
+      <div x-show="showPanel" x-cloak @click="showPanel = false" x-transition.opacity class="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[55]"></div>
+      <div x-show="showPanel" x-cloak
+           x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+           class="fixed top-0 right-0 h-full w-full sm:w-[540px] bg-white shadow-2xl border-l border-gray-200 z-[60] flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center"><i data-lucide="user-plus" class="w-4 h-4 text-primary-600"></i></div><h2 class="text-base font-semibold text-gray-900">Nouveau membre</h2></div>
+          <button @click="showPanel = false" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
-        <input type="text"
-               x-model="searchTeacher"
-               autocomplete="off"
-               placeholder="Rechercher un enseignant…"
-               class="w-full min-h-[44px] rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 transition focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20">
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {% for item in teachers_data %}
-          <div id="member-card-{{ item.user.pk }}"
-               data-name="{{ item.user.full_name|lower }}"
-               x-show="!searchTeacher || $el.dataset.name.includes(searchTeacher.toLowerCase())">
-            {% with member=item.user class_count=item.class_count %}
-              {% include "team/partials/member_card.html" %}
-            {% endwith %}
+        <div class="flex-1 overflow-y-auto">
+          <div class="px-6 py-5 border-b border-gray-100">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone du membre <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <input type="tel" id="team-search-phone" name="phone" inputmode="tel" autocomplete="off" placeholder="Ex : 0700000000" class="input-field pr-10"
+                     hx-get="{% url 'team:search' %}" hx-trigger="input changed delay:400ms" hx-target="#team-search-result" hx-swap="innerHTML" hx-include="this" hx-indicator="#search-spinner">
+              <svg id="search-spinner" class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
+            <p class="text-xs text-gray-400 mt-2 flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Si ce numéro a déjà un compte, vous pourrez le lier directement.</p>
           </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center animate-fade-in">
-        <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <i data-lucide="graduation-cap" class="w-7 h-7 text-primary-600"></i>
-        </div>
-        <p class="text-sm font-semibold text-gray-700 mb-1">Aucun enseignant</p>
-        <p class="text-sm text-gray-400 mb-5">Ajoutez le premier enseignant de votre école.</p>
-        {% if is_director %}
-          <button @click="showPanel = true; selectedRole = 'teacher'"
-                  class="btn-primary min-h-[40px]">
-            <i data-lucide="user-plus" class="w-4 h-4"></i>
-            Ajouter un enseignant
-          </button>
-        {% endif %}
-      </div>
-    {% endif %}
-  </div>
-
-  <div class="mb-10">
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex items-center gap-2">
-        <h2 class="text-base font-semibold text-gray-800">Staff administratif</h2>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-              style="background-color:#F3F0FE;color:#5B21B6">
-          {{ stats.staff }}
-        </span>
-      </div>
-    </div>
-
-    {% if staff_members %}
-      <div class="relative mb-4">
-        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-          <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
-          </svg>
-        </div>
-        <input type="text"
-               x-model="searchStaff"
-               autocomplete="off"
-               placeholder="Rechercher un membre du staff…"
-               class="w-full min-h-[44px] rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 transition focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20">
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {% for member in staff_members %}
-          <div id="member-card-{{ member.pk }}"
-               data-name="{{ member.full_name|lower }}"
-               x-show="!searchStaff || $el.dataset.name.includes(searchStaff.toLowerCase())">
-            {% with class_count=0 %}
-              {% include "team/partials/member_card.html" %}
-            {% endwith %}
-          </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center animate-fade-in animate-delay-100">
-        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-             style="background-color:#F3F0FE">
-          <i data-lucide="briefcase" class="w-7 h-7" style="color:#5B21B6"></i>
-        </div>
-        <p class="text-sm font-semibold text-gray-700 mb-1">Aucun staff administratif</p>
-        <p class="text-sm text-gray-400 mb-5">Ajoutez un secrétaire, comptable ou censeur.</p>
-        {% if is_director %}
-          <button @click="showPanel = true; selectedRole = 'staff'"
-                  class="btn-primary min-h-[40px]">
-            <i data-lucide="user-plus" class="w-4 h-4"></i>
-            Ajouter un membre
-          </button>
-        {% endif %}
-      </div>
-    {% endif %}
-  </div>
-
-  {# ── Membres inactifs (désactivés dans cette école) ── #}
-  {% if inactive_members %}
-  <div class="mt-10">
-    <div class="flex items-center gap-2 mb-4">
-      <h2 class="text-base font-semibold text-gray-500">Membres inactifs</h2>
-      <span class="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ inactive_members|length }}</span>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {% for member in inactive_members %}
-        {% include "team/partials/member_card_deactivated.html" with member=member is_director=is_director %}
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <div x-show="showPanel" x-cloak
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40"
-       @click="showPanel = false">
-  </div>
-
-  <div x-show="showPanel" x-cloak
-       x-transition:enter="transition ease-out duration-300"
-       x-transition:enter-start="translate-x-full"
-       x-transition:enter-end="translate-x-0"
-       x-transition:leave="transition ease-in duration-200"
-       x-transition:leave-start="translate-x-0"
-       x-transition:leave-end="translate-x-full"
-       class="fixed top-0 right-0 h-full w-full sm:w-[540px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col">
-
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center">
-          <i data-lucide="user-plus" class="w-4 h-4 text-primary-600"></i>
-        </div>
-        <h2 class="text-base font-semibold text-gray-900">Nouveau membre</h2>
-      </div>
-      <button @click="showPanel = false"
-              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
-        <i data-lucide="x" class="w-4 h-4"></i>
-      </button>
-    </div>
-
-    <div class="flex-1 overflow-y-auto">
-
-      {# ── Étape 1 : recherche par téléphone (lie un compte existant) ── #}
-      <div class="px-6 py-5 border-b border-gray-100">
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-          Téléphone du membre <span class="text-red-400">*</span>
-        </label>
-        <div class="relative">
-          <input type="tel"
-                 id="team-search-phone"
-                 name="phone"
-                 inputmode="tel"
-                 autocomplete="off"
-                 placeholder="Ex : 0700000000"
-                 class="input-field pr-10"
-                 hx-get="{% url 'team:search' %}"
-                 hx-trigger="input changed delay:400ms"
-                 hx-target="#team-search-result"
-                 hx-swap="innerHTML"
-                 hx-include="this"
-                 hx-indicator="#search-spinner">
-          <svg id="search-spinner"
-               class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-primary-500"
-               fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-          </svg>
-        </div>
-        <p class="text-xs text-gray-400 mt-2 flex items-center gap-1">
-          <i data-lucide="info" class="w-3 h-3"></i>
-          Si ce numéro a déjà un compte EduApp, vous pourrez le lier directement.
-        </p>
-      </div>
-
-      {# ── Étape 2 : résultat (carte de liaison OU formulaire de création) ── #}
-      <div id="team-search-result">
-        {% include "team/partials/member_search_result.html" with searched=False %}
-      </div>
-
-    </div>
-  </div>
-
-  <div x-show="showEditPanel" x-cloak
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40"
-       @click="showEditPanel = false">
-  </div>
-
-  <div x-show="showEditPanel" x-cloak
-       x-transition:enter="transition ease-out duration-300"
-       x-transition:enter-start="translate-x-full"
-       x-transition:enter-end="translate-x-0"
-       x-transition:leave="transition ease-in duration-200"
-       x-transition:leave-start="translate-x-0"
-       x-transition:leave-end="translate-x-full"
-       class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center">
-          <i data-lucide="pencil" class="w-4 h-4 text-primary-600"></i>
-        </div>
-        <h2 class="text-base font-semibold text-gray-900">Modifier le membre</h2>
-      </div>
-      <button @click="showEditPanel = false"
-              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
-        <i data-lucide="x" class="w-4 h-4"></i>
-      </button>
-    </div>
-    <div id="edit-panel-body" class="flex-1 overflow-y-auto px-6 py-5">
-      <div class="flex items-center justify-center h-32 text-gray-300">
-        <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>
-      </div>
-    </div>
-  </div>
-
-  <div x-show="showPwdModal" x-cloak
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-    <div x-show="showPwdModal"
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0 scale-95"
-         x-transition:enter-end="opacity-100 scale-100"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100 scale-100"
-         x-transition:leave-end="opacity-0 scale-95"
-         class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
-
-      <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-        <i data-lucide="check" class="w-6 h-6 text-green-600"></i>
-      </div>
-      <h3 class="text-base font-semibold text-gray-900 text-center mb-1">Membre créé avec succès</h3>
-      <p class="text-sm text-gray-500 text-center mb-5 leading-relaxed">
-        Communiquez ces identifiants au membre <strong>en personne</strong>.
-      </p>
-
-      <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-4 space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="text-xs text-gray-500">Téléphone</span>
-          <span class="text-sm font-semibold text-gray-800 font-mono" x-text="pwdPhone"></span>
-        </div>
-        <div class="border-t border-gray-100 pt-2 flex items-center justify-between">
-          <span class="text-xs text-gray-500">Mot de passe</span>
-          <span class="text-sm font-semibold text-gray-800 font-mono" x-text="pwdValue"></span>
+          <div id="team-search-result">{% include "team/partials/member_search_result.html" with searched=False %}</div>
         </div>
       </div>
-
-      <button type="button"
-              @click="navigator.clipboard.writeText('Téléphone : ' + pwdPhone + '\nMot de passe : ' + pwdValue).then(() => { pwdCopied = true; setTimeout(() => pwdCopied = false, 2500) })"
-              :class="pwdCopied ? 'border-green-300 text-green-700 bg-green-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
-              class="w-full flex items-center justify-center gap-2 border rounded-lg py-2.5 text-sm font-medium transition mb-4">
-        <i :data-lucide="pwdCopied ? 'check' : 'clipboard'" class="w-4 h-4"></i>
-        <span x-text="pwdCopied ? 'Copié !' : 'Copier les identifiants'"></span>
-      </button>
-
-      <div class="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 mb-5">
-        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5"></i>
-        <p class="text-xs text-amber-700 leading-relaxed">
-          Ce mot de passe ne sera affiché <strong>qu'une seule fois</strong>.
-          Notez-le avant de fermer.
-        </p>
-      </div>
-
-      <button type="button"
-              @click="showPwdModal = false; $nextTick(() => window.location.reload())"
-              class="btn-primary w-full py-3 min-h-[44px]">
-        J'ai noté les identifiants
-      </button>
-
     </div>
-  </div>
+  </template>
+
+  {# ════ Panneau édition (téléporté) ════ #}
+  <template x-teleport="body">
+    <div>
+      <div x-show="showEditPanel" x-cloak @click="showEditPanel = false" x-transition.opacity class="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[55]"></div>
+      <div x-show="showEditPanel" x-cloak
+           x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+           class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-[60] flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center"><i data-lucide="pencil" class="w-4 h-4 text-primary-600"></i></div><h2 class="text-base font-semibold text-gray-900">Modifier le membre</h2></div>
+          <button @click="showEditPanel = false" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <div id="edit-panel-body" class="flex-1 overflow-y-auto px-6 py-5">
+          <div class="flex items-center justify-center h-32 text-gray-300"><i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  {# ════ Modal mot de passe (téléporté) ════ #}
+  <template x-teleport="body">
+    <div x-show="showPwdModal" x-cloak class="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
+      <div @click.outside="showPwdModal = false" class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
+           x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+        <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4"><i data-lucide="check" class="w-6 h-6 text-green-600"></i></div>
+        <h3 class="text-base font-semibold text-gray-900 text-center mb-1">Membre créé avec succès</h3>
+        <p class="text-sm text-gray-500 text-center mb-5 leading-relaxed">Communiquez ces identifiants au membre <strong>en personne</strong>.</p>
+        <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-4 space-y-2">
+          <div class="flex items-center justify-between"><span class="text-xs text-gray-500">Téléphone</span><span class="text-sm font-semibold text-gray-800 font-mono" x-text="pwdPhone"></span></div>
+          <div class="border-t border-gray-100 pt-2 flex items-center justify-between"><span class="text-xs text-gray-500">Mot de passe</span><span class="text-sm font-semibold text-gray-800 font-mono" x-text="pwdValue"></span></div>
+        </div>
+        <button type="button" @click="navigator.clipboard.writeText('Téléphone : ' + pwdPhone + '\nMot de passe : ' + pwdValue).then(() => { pwdCopied = true; setTimeout(() => pwdCopied = false, 2500) })"
+                :class="pwdCopied ? 'border-green-300 text-green-700 bg-green-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
+                class="w-full flex items-center justify-center gap-2 border rounded-lg py-2.5 text-sm font-medium transition mb-4">
+          <i :data-lucide="pwdCopied ? 'check' : 'clipboard'" class="w-4 h-4"></i><span x-text="pwdCopied ? 'Copié !' : 'Copier les identifiants'"></span>
+        </button>
+        <div class="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 mb-5">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500 shrink-0 mt-0.5"></i>
+          <p class="text-xs text-amber-700 leading-relaxed">Ce mot de passe ne sera affiché <strong>qu'une seule fois</strong>. Notez-le avant de fermer.</p>
+        </div>
+        <button type="button" @click="showPwdModal = false" class="btn-primary w-full py-3 min-h-[44px]">J'ai noté les identifiants</button>
+      </div>
+    </div>
+  </template>
 
 </div>
 {% endblock %}

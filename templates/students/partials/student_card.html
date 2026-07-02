@@ -1,45 +1,25 @@
 {% load humanize %}
-{% with colors=student.get_avatar_colors %}
-<div class="card p-5 flex flex-col gap-3">
+{# Card mobile — toute la card est cliquable → fiche. status 'no_fee' = badge neutre. #}
+{% with colors=student.get_avatar_colors status=student.fee_status %}
+<a href="{% url 'students:detail' student.id %}"
+   class="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3.5 transition active:bg-gray-50">
 
-  <div class="flex items-center gap-3">
-    <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-         style="background-color:{{ colors.0 }};color:{{ colors.1 }}">
-      {{ student.get_initials }}
-    </div>
-    <div class="min-w-0">
-      <p class="font-medium text-gray-900 truncate">{{ student.full_name }}</p>
-      <p class="text-xs text-gray-400 truncate">{{ student.school_class.name }}</p>
-    </div>
+  <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+       style="background-color:{{ colors.0 }};color:{{ colors.1 }}">
+    {{ student.get_initials }}
   </div>
 
-  <div class="flex items-center gap-2 flex-wrap">
-    {# status financier annoté par le helper central → 'no_fee' (badge neutre) si pas de fiche. #}
-    {% include "students/partials/fee_status_badge.html" with status=student.fee_status %}
-
-    {% if student.has_parent_linked %}
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary-50 text-primary-700">
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-        Parent lié
-      </span>
-    {% else %}
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-400">
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-        Sans parent
-      </span>
-    {% endif %}
+  <div class="min-w-0 flex-1">
+    <p class="font-medium text-gray-900 text-sm truncate">{{ student.full_name }}</p>
+    <p class="text-xs text-gray-400 truncate">
+      {{ student.school_class.name }}{% if not student.has_parent_linked %} · <span class="text-amber-500">sans parent</span>{% endif %}
+    </p>
   </div>
 
-  <div class="flex gap-2 mt-auto pt-2 border-t border-gray-50">
-    <a href="{% url 'students:detail' student.id %}"
-       class="flex-1 text-center text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 py-2 rounded-lg transition min-h-[36px] flex items-center justify-center">
-      Voir fiche
-    </a>
-    <a href="{% url 'students:update' student.id %}"
-       class="flex-1 text-center text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 py-2 rounded-lg transition min-h-[36px] flex items-center justify-center">
-      Modifier
-    </a>
+  <div class="flex items-center gap-2 shrink-0">
+    {% include "students/partials/fee_status_badge.html" with status=status %}
+    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
   </div>
 
-</div>
+</a>
 {% endwith %}

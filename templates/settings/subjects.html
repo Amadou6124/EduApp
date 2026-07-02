@@ -1,104 +1,139 @@
 {% extends "settings/settings_base.html" %}
 {% load i18n %}
+{% block settings_width %}max-w-5xl{% endblock %}
 {% block settings_content %}
-<div class="px-6 py-8">
-
-  <div class="mb-6">
-    <h2 class="text-xl font-bold text-gray-900">Matières</h2>
-    <p class="text-sm text-gray-500 mt-1">Gérez les matières de l'école et leur assignation par classe.</p>
-  </div>
-
-  <!-- ── Deux colonnes ─────────────────────────────────────────── -->
-  <div class="grid lg:grid-cols-2 gap-8 items-start">
-
-    <!-- ── Colonne gauche : Matières de l'école ─────────────────── -->
-    <div x-data="{
-           showForm: false,
-           fillForm(name, short) {
-             document.getElementById('id_name').value = name;
-             document.getElementById('id_short_name').value = short;
-             this.showForm = true;
-           }
-         }"
-         @subject-saved.window="showForm = false">
-
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-semibold text-gray-900 text-sm">Matières de l'école</h3>
-        <button @click="showForm = !showForm"
-                class="flex items-center gap-1.5 px-3 py-2 bg-primary-600 text-white text-xs font-semibold rounded-lg hover:bg-primary-700 transition">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-          Ajouter
-        </button>
-      </div>
-
-      <!-- Suggestions rapides -->
-      <div class="mb-4">
-        <p class="text-xs text-gray-400 font-medium mb-2">Suggestions rapides :</p>
-        <div class="flex flex-wrap gap-2">
-          {% for name, short in quick_subjects %}
-          <button @click="fillForm('{{ name }}', '{{ short }}')"
-                  class="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded-full hover:bg-primary-50 hover:text-primary-600 border border-transparent hover:border-primary-200 transition">
-            {{ name }}
-          </button>
-          {% endfor %}
-        </div>
-      </div>
-
-      <!-- Formulaire création -->
-      <div x-show="showForm"
-           x-transition:enter="transition ease-out duration-200"
-           x-transition:enter-start="opacity-0 -translate-y-2"
-           x-transition:enter-end="opacity-100 translate-y-0"
-           x-cloak
-           class="mb-4 bg-gray-50 border border-gray-200 rounded-xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <h4 class="text-xs font-semibold text-gray-700">Nouvelle matière</h4>
-          <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div id="subject-form">
-          {% include "settings/partials/subject_form.html" with form=form %}
-        </div>
-      </div>
-
-      <!-- Liste matières -->
-      <div id="subject-list">
-        {% include "settings/partials/subject_list.html" with subjects=subjects %}
-      </div>
-
-    </div>
-
-    <!-- ── Colonne droite : Matières par classe ──────────────────── -->
-    <div>
-      <h3 class="font-semibold text-gray-900 text-sm mb-4">Par classe</h3>
-
-      <div class="mb-4">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Sélectionner une classe</label>
-        <select name="class_id"
-                hx-get="{% url 'settings:class-subjects-search' %}"
-                hx-target="#class-subjects-panel"
-                hx-swap="innerHTML"
-                hx-trigger="change"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
-          <option value="">— Sélectionner —</option>
-          {% for sc in classes %}
-          <option value="{{ sc.id }}">{{ sc.name }} — {{ sc.get_level_display }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div id="class-subjects-panel">
-        <div class="text-center py-10 text-gray-400">
-          <p class="text-sm">Sélectionnez une classe pour gérer ses matières.</p>
-        </div>
-      </div>
-    </div>
-
-  </div>
+<div class="mb-5">
+  <h2 class="text-lg font-semibold text-gray-900">Matières</h2>
+  <p class="text-sm text-gray-500 mt-0.5">Le catalogue de l'école, et quelle matière avec quel coefficient dans chaque classe.</p>
 </div>
+
+{# ═══ Catalogue de matières ═══ #}
+<div class="card p-4 mb-4"
+     x-data="{ showForm: false, cq: '', fill(n){ document.getElementById('id_name').value=n; this.showForm=true; document.getElementById('id_name').focus(); } }"
+     @subject-saved.window="showForm = false">
+  <div class="flex items-center justify-between gap-3 mb-3">
+    <h3 class="text-sm font-semibold text-gray-800 shrink-0">Catalogue de matières <span class="text-gray-400 font-normal">· {{ subjects|length }}</span></h3>
+    <div class="flex items-center gap-2 min-w-0">
+      {% if subjects|length > 12 %}
+      <div class="relative">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+        <input x-model="cq" type="text" placeholder="Filtrer…" class="input-field h-8 text-xs pl-8 w-32 sm:w-40">
+      </div>
+      {% endif %}
+      <button type="button" @click="showForm = !showForm" class="btn-secondary text-xs shrink-0">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Matière
+      </button>
+    </div>
+  </div>
+
+  <div id="subject-list">
+    {% include "settings/partials/subject_list.html" with subjects=subjects %}
+  </div>
+
+  {# Suggestions + formulaire (repliés) #}
+  <div x-show="showForm" x-cloak class="mt-3 pt-3 border-t border-gray-100">
+    <div class="flex flex-wrap gap-1.5 mb-3">
+      <span class="text-[11px] text-gray-400 mr-1 self-center">Suggestions :</span>
+      {% for name, short in quick_subjects %}
+        <button type="button" @click="fill('{{ name|escapejs }}')"
+                class="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded-full hover:bg-primary-50 hover:text-primary-600 transition">{{ name }}</button>
+      {% endfor %}
+    </div>
+    <div id="subject-form">
+      {% include "settings/partials/subject_form.html" with form=form %}
+    </div>
+  </div>
+
+  <p class="text-[11px] text-gray-400 mt-2 flex items-center gap-1">
+    <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> Abréviation et couleur générées automatiquement — tu tapes juste le nom.
+  </p>
+</div>
+
+{# ═══ Maître-détail : classes × matières ═══ #}
+{% if classes %}
+<div class="lg:flex lg:items-start gap-4"
+     x-data="{ sel: {{ active_class.id|default:'null' }}, checked: [], q: '', selectMode: false, mView: 'list', bSubject: '', bCoeff: '1', bSource: '',
+       open(el, id){ this.sel = id; this.mView = 'detail'; if (window.innerWidth < 1024) window.scrollTo(0, 0); htmx.ajax('GET', el.dataset.url, {target:'#class-subjects-panel', swap:'innerHTML'}); },
+       toggle(id){ this.checked = this.checked.includes(id) ? this.checked.filter(x => x !== id) : [...this.checked, id]; } }">
+
+  {# Volet gauche : liste des classes (masqué sur mobile quand on est dans le détail) #}
+  <div class="card p-0 overflow-hidden lg:block lg:w-60 lg:shrink-0 mb-4 lg:mb-0"
+       :class="mView === 'detail' ? 'hidden' : ''">
+    <div class="p-2 border-b border-gray-100">
+      <input x-model="q" type="text" placeholder="Rechercher une classe…"
+             class="input-field h-9 text-sm w-full">
+      <button type="button" @click="selectMode = !selectMode; if (!selectMode) checked = []"
+              class="hidden lg:flex w-full items-center justify-center gap-1.5 h-8 rounded-lg text-xs font-medium transition mt-2"
+              :class="selectMode ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-100 border border-gray-200'">
+        <i data-lucide="list-checks" class="w-3.5 h-3.5"></i>
+        <span x-text="selectMode ? 'Terminer' : 'Sélectionner des classes'"></span>
+      </button>
+    </div>
+    <div class="p-1.5 max-h-80 lg:max-h-96 overflow-y-auto">
+      {% regroup classes by get_level_display as level_groups %}
+      {% for group in level_groups %}
+        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 pt-2 pb-1">{{ group.grouper }}</p>
+        {% for sc in group.list %}
+          <div x-show="q === '' || '{{ sc.name|lower|escapejs }}'.includes(q.toLowerCase().trim())"
+               data-url="{% url 'settings:class-subjects' sc.id %}"
+               @click="selectMode ? toggle({{ sc.id }}) : open($event.currentTarget, {{ sc.id }})"
+               class="flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition"
+               :class="(selectMode ? checked.includes({{ sc.id }}) : sel === {{ sc.id }}) ? 'bg-primary-50' : 'hover:bg-gray-50'">
+            <input type="checkbox" x-show="selectMode" x-cloak :checked="checked.includes({{ sc.id }})"
+                   class="w-3.5 h-3.5 shrink-0 accent-primary-600 pointer-events-none">
+            <span class="flex-1 text-sm truncate" :class="(selectMode ? checked.includes({{ sc.id }}) : sel === {{ sc.id }}) ? 'text-primary-700' : 'text-gray-700'">{{ sc.name }}</span>
+            <span class="text-[11px] text-gray-400">{{ sc.cs_count }}</span>
+          </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Volet droit : matières de la classe (sur mobile, remplace la liste ; flèche retour) #}
+  <div class="lg:flex-1 lg:min-w-0 lg:block" :class="mView === 'list' ? 'hidden' : ''">
+    <button type="button" @click="mView = 'list'"
+            class="lg:hidden inline-flex items-center gap-1.5 text-sm text-gray-500 mb-2 px-1">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Toutes les classes
+    </button>
+    <div id="class-subjects-panel">
+      {% include "settings/partials/class_subjects.html" %}
+    </div>
+  </div>
+
+  {# Barre groupée (mode sélection uniquement) — téléportée dans body pour un position:fixed fiable #}
+  <template x-teleport="body">
+  <div x-show="selectMode && checked.length > 0" x-cloak
+       class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-white rounded-xl shadow-2xl border border-gray-200 px-3 py-2 flex items-center gap-2 flex-wrap max-w-[94vw]">
+    <span class="text-xs font-semibold text-primary-700 whitespace-nowrap" x-text="checked.length + ' classe' + (checked.length>1?'s':'')"></span>
+    <span class="w-px h-5 bg-gray-200"></span>
+    <select x-model="bSubject" class="input-field h-8 text-xs w-32">
+      <option value="">Matière…</option>
+      {% for s in subjects %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+    </select>
+    <input x-model="bCoeff" type="number" step="0.1" min="0.1" class="input-field h-8 text-xs w-14 text-center" title="Coefficient">
+    <button type="button"
+            @click="if(bSubject){ htmx.ajax('POST','{% url 'settings:class-subject-bulk' %}',{values:{action:'add', class_ids: checked.join(','), subject_id: bSubject, coefficient: bCoeff}}); bSubject=''; checked=[]; }"
+            class="btn-primary text-xs h-8">Ajouter</button>
+    <span class="w-px h-5 bg-gray-200"></span>
+    <select x-model="bSource" class="input-field h-8 text-xs w-32">
+      <option value="">Copier de…</option>
+      {% for sc in classes %}<option value="{{ sc.id }}">{{ sc.name }}</option>{% endfor %}
+    </select>
+    <button type="button"
+            @click="if(bSource){ htmx.ajax('POST','{% url 'settings:class-subject-bulk' %}',{values:{action:'copy', class_ids: checked.join(','), source_class_id: bSource}}); bSource=''; checked=[]; }"
+            class="btn-secondary text-xs h-8">Copier</button>
+    <button type="button" @click="checked=[]" class="text-gray-400 hover:text-gray-600 p-1" title="Annuler la sélection">
+      <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
+  </div>
+  </template>
+</div>
+{% else %}
+<div class="card p-8 text-center">
+  <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3"><i data-lucide="layers" class="w-6 h-6 text-gray-400"></i></div>
+  <p class="text-sm font-medium text-gray-700 mb-1">Aucune classe</p>
+  <p class="text-xs text-gray-400">Créez d'abord des classes pour leur assigner des matières.</p>
+</div>
+{% endif %}
+
 {% endblock %}

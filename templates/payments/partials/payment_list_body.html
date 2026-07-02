@@ -1,116 +1,106 @@
 {% load humanize %}
 {% comment %}
-Corps de liste (lot 6). Deux modes selon l'onglet :
-  - onglet « En retard » (overdue_rows défini) → LISTE ROUGE des impayés en retard ;
-  - autres onglets → tableau/cartes des fiches (accounts).
+Corps de liste (refonte). Deux modes selon l'onglet :
+  - « En retard » (is_overdue) → liste rouge PAGINÉE + relance (par ligne + Tout relancer) ;
+  - autres → fiches PAGINÉES, table dense (desktop) / cards (mobile).
 {% endcomment %}
 
 {% if is_overdue %}
-  {# ════ LISTE ROUGE — impayés en retard (basée sur Installment.due_date) ════ #}
   {% if not overdue_rows %}
-    <div class="text-center py-16 text-gray-400">
-      <div class="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-3">
-        <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
-      </div>
-      <p class="text-sm font-medium text-gray-900 mb-0.5">Aucun retard</p>
-      <p class="text-xs text-gray-500">Aucune tranche échue impayée.</p>
+    <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mb-4"><i data-lucide="circle-check" class="w-7 h-7 text-green-600"></i></div>
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun retard</h3>
+      <p class="text-sm text-gray-500">Aucune tranche échue impayée.</p>
     </div>
   {% else %}
-    <div class="table-card">
-      <div class="overflow-x-auto">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Élève</th><th>Classe</th>
-              <th class="text-right">En retard</th>
-              <th class="text-center">Tranches</th>
-              <th class="text-right">Depuis</th>
-              <th class="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in overdue_rows %}
-              <tr>
-                <td>
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 bg-red-500">{{ r.student.full_name|first|upper }}</div>
-                    <a href="{% url 'students:detail' r.student.id %}" class="font-medium text-gray-900 text-sm hover:text-primary-600">{{ r.student.full_name }}</a>
-                  </div>
-                </td>
-                <td><span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ r.student.school_class.name }}</span></td>
-                <td class="text-right font-bold text-red-600 tabular-nums">{{ r.amount|floatformat:0|intcomma }} F</td>
-                <td class="text-center"><span class="badge-danger">{{ r.count }}</span></td>
-                <td class="text-right">
-                  <span class="text-xs font-semibold text-red-600">{{ r.days }} j</span>
-                  <span class="block text-[10px] text-gray-400">{{ r.oldest|date:"d/m/Y" }}</span>
-                </td>
-                <td>
-                  <div class="flex items-center justify-end gap-2">
-                    <button type="button"
-                            hx-get="{% url 'finance:collect-panel' r.student.id %}"
-                            hx-target="#collect-panel-body" hx-swap="innerHTML"
-                            @click="$store.payments.showPanel = true"
-                            class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold rounded-lg transition min-h-[32px]">
-                      Encaisser
-                    </button>
-                    {# Relance auto (notif/SMS) = évolution future — placeholder désactivé, pas d'infra SMS. #}
-                    <button type="button" disabled title="Relance automatique — bientôt"
-                            class="px-3 py-1.5 bg-gray-100 text-gray-400 text-xs font-semibold rounded-lg cursor-not-allowed min-h-[32px]">
-                      Relancer
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+    {# Bandeau : compteur + « Tout relancer » (confirmation inline) #}
+    <div class="flex items-center justify-between gap-3 rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 mb-3" x-data="{ confirmAll: false }">
+      <span class="text-sm font-medium text-red-700 flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-4 h-4"></i> {{ page_obj.paginator.count }} élève{{ page_obj.paginator.count|pluralize }} en retard</span>
+      {% if overdue_remindable %}
+        <button type="button" x-show="!confirmAll" @click="confirmAll = true"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition shrink-0">
+          <i data-lucide="send" class="w-3.5 h-3.5"></i> Tout relancer
+        </button>
+        <div x-show="confirmAll" x-cloak class="flex items-center gap-2 text-xs text-red-700">
+          <span>Relancer {{ overdue_remindable }} famille{{ overdue_remindable|pluralize }} ?</span>
+          <button type="button" hx-post="{% url 'payments:remind-all' %}" hx-include="[name=q],[name=class_id]"
+                  hx-target="#payment-list-area" hx-swap="outerHTML" hx-sync="this:drop" @click="confirmAll = false"
+                  class="px-2.5 py-1 rounded-lg bg-primary-600 text-white font-semibold">Oui</button>
+          <button type="button" @click="confirmAll = false" class="px-2 py-1 rounded-lg text-gray-500 hover:text-gray-700">Non</button>
+        </div>
+      {% endif %}
     </div>
-    <div class="mt-4 text-xs text-gray-400 text-center">{{ overdue_rows|length }} élève{{ overdue_rows|length|pluralize }} en retard</div>
+
+    {# Desktop : table dense #}
+    <div class="hidden lg:block table-card">
+      <table class="data-table">
+        <thead><tr><th>Élève</th><th>Classe</th><th class="text-right">En retard</th><th class="text-center">Tranches</th><th class="text-right">Depuis</th><th class="text-right">Actions</th></tr></thead>
+        <tbody>
+          {% for r in overdue_rows %}
+          <tr>
+            <td>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 bg-red-500">{{ r.student.full_name|first|upper }}</div>
+                <a href="{% url 'students:detail' r.student.id %}" class="font-medium text-gray-900 text-sm hover:text-primary-600">{{ r.student.full_name }}</a>
+              </div>
+            </td>
+            <td class="text-gray-600">{{ r.student.school_class.name }}</td>
+            <td class="text-right font-bold text-red-600 tabular-nums">{{ r.amount|floatformat:0|intcomma }} F</td>
+            <td class="text-center"><span class="badge-danger">{{ r.count }}</span></td>
+            <td class="text-right"><span class="text-xs font-semibold text-red-600">{{ r.days }} j</span><span class="block text-[10px] text-gray-400">{{ r.oldest|date:"d/m/Y" }}</span></td>
+            <td>
+              <div class="flex items-center justify-end gap-2">
+                <button type="button" hx-get="{% url 'finance:collect-panel' r.student.id %}" hx-target="#collect-panel-body" hx-swap="innerHTML" @click="$store.payments.showPanel = true"
+                        class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold rounded-lg transition">Encaisser</button>
+                {% include "payments/partials/remind_cell.html" %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# Mobile : cards #}
+    <div class="lg:hidden space-y-2.5">
+      {% for r in overdue_rows %}
+      <div class="bg-white border border-red-100 rounded-xl p-3.5">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <a href="{% url 'students:detail' r.student.id %}" class="font-medium text-gray-900 text-sm">{{ r.student.full_name }}</a>
+            <p class="text-xs text-gray-400">{{ r.student.school_class.name }} · {{ r.count }} tranche{{ r.count|pluralize }}</p>
+          </div>
+          <div class="text-right shrink-0"><div class="text-sm font-bold text-red-600">{{ r.amount|floatformat:0|intcomma }} F</div><div class="text-[10px] text-red-500">{{ r.days }} j</div></div>
+        </div>
+        <div class="flex items-center gap-2 mt-3">
+          <button type="button" hx-get="{% url 'finance:collect-panel' r.student.id %}" hx-target="#collect-panel-body" hx-swap="innerHTML" @click="$store.payments.showPanel = true"
+                  class="flex-1 h-9 bg-primary-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center">Encaisser</button>
+          {% include "payments/partials/remind_cell.html" %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% include "payments/partials/_pagination.html" %}
   {% endif %}
 
 {% elif not accounts %}
-  <div class="text-center py-16 text-gray-400">
-    <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-      <i data-lucide="search" class="w-6 h-6 text-gray-400"></i>
-    </div>
-    <p class="text-sm font-medium text-gray-900 mb-0.5">Aucun résultat</p>
-    <p class="text-xs text-gray-500">Aucune fiche financière ne correspond à ces filtres.</p>
+  <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4"><i data-lucide="search" class="w-7 h-7 text-gray-400"></i></div>
+    <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun résultat</h3>
+    <p class="text-sm text-gray-500">Aucune fiche ne correspond à ces filtres.</p>
   </div>
+
 {% else %}
-
-  <div x-show="viewMode === 'table'">
-    <div class="overflow-x-auto">
-      <div class="table-card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Élève</th><th>Classe</th>
-              <th class="text-right">Total dû</th>
-              <th class="text-right">Versé</th>
-              <th class="text-right">Solde</th>
-              <th class="text-center">Statut</th>
-              <th class="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for account in accounts %}
-              {% include "payments/partials/payment_row.html" %}
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
+  {# Desktop : table dense #}
+  <div class="hidden lg:block table-card">
+    <table class="data-table">
+      <thead><tr><th>Élève</th><th>Classe</th><th class="text-right">Dû</th><th class="text-right">Versé</th><th class="text-right">Solde</th><th class="text-center">Statut</th><th class="text-right">Actions</th></tr></thead>
+      <tbody>{% for account in accounts %}{% include "payments/partials/payment_row.html" %}{% endfor %}</tbody>
+    </table>
   </div>
+  {# Mobile : cards #}
+  <div class="lg:hidden space-y-2.5">{% for account in accounts %}{% include "payments/partials/payment_card.html" %}{% endfor %}</div>
 
-  <div x-show="viewMode === 'cards'" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-    {% for account in accounts %}
-      {% include "payments/partials/payment_card.html" %}
-    {% endfor %}
-  </div>
-
-  <div class="mt-4 text-xs text-gray-400 text-center">
-    {{ accounts|length }} élève{{ accounts|length|pluralize }} affiché{{ accounts|length|pluralize }}
-  </div>
-
+  {% include "payments/partials/_pagination.html" %}
 {% endif %}

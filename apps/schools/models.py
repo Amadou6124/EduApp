@@ -54,6 +54,11 @@ class SchoolGroup(models.Model):
 class School(models.Model):
     # ── Informations générales ─────────────────────────────────────
     name         = models.CharField(_('nom de l\'école'), max_length=200)
+    short_name   = models.CharField(
+        _('nom court'), max_length=30, blank=True,
+        help_text=_('Affiché dans la barre latérale et l\'en-tête. Ex : EPF Sundiata. '
+                    'Laissé vide = le nom complet est utilisé.'),
+    )
     address      = models.CharField(_('adresse'), max_length=300, blank=True)
     city         = models.CharField(_('ville'), max_length=100)
     country      = models.CharField(_('pays'), max_length=100, default='Côte d\'Ivoire')
@@ -101,6 +106,11 @@ class School(models.Model):
     accounting_enabled = models.BooleanField(
         _('module comptabilité activé'), default=False,
     )
+    absence_deduction = models.DecimalField(
+        _('retenue par absence (FCFA)'), max_digits=12, decimal_places=0,
+        default=0, validators=[MinValueValidator(0)],
+        help_text=_("Montant déduit du salaire d'un permanent par cours absent (0 = aucune retenue)."),
+    )
 
     # ── Métadonnées ────────────────────────────────────────────────
     is_active  = models.BooleanField(_('active'), default=True)
@@ -113,6 +123,11 @@ class School(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def nav_name(self):
+        """Nom affiché dans le châssis (header / sidebar) : court si défini, sinon complet."""
+        return self.short_name or self.name
 
 
 class SchoolClass(models.Model):
@@ -284,6 +299,29 @@ class Period(models.Model):
 # Matières
 # ──────────────────────────────────────────────────────────────
 
+# Abréviation + couleur générées automatiquement depuis le nom (le directeur
+# ne tape que le nom ; il peut toujours les surcharger).
+_SUBJECT_STOPWORDS = {'de', 'la', 'le', 'les', 'des', 'du', 'et', 'à', 'a', 'en', 'l', 'd'}
+_SUBJECT_PALETTE = [
+    '#7F77DD', '#D85A30', '#378ADD', '#1D9E75', '#BA7517',
+    '#D4537E', '#534AB7', '#0F6E56', '#993C1D', '#185FA5',
+]
+
+
+def auto_subject_abbrev(name):
+    import re
+    words = [w for w in re.split(r'[\s\-]+', (name or '').strip()) if w]
+    significant = [w for w in words if w.lower() not in _SUBJECT_STOPWORDS] or words
+    if len(significant) >= 2:                       # plusieurs mots → acronyme
+        return ''.join(w[0] for w in significant[:5]).upper()
+    return (significant[0] if significant else '')[:4].upper()
+
+
+def auto_subject_color(name):
+    idx = sum(ord(c) for c in (name or '')) % len(_SUBJECT_PALETTE)
+    return _SUBJECT_PALETTE[idx]
+
+
 class Subject(models.Model):
     school     = models.ForeignKey(
         School,
@@ -292,8 +330,8 @@ class Subject(models.Model):
         verbose_name=_('école'),
     )
     name       = models.CharField(_('nom'), max_length=100)       # ex : "Mathématiques"
-    short_name = models.CharField(_('abréviation'), max_length=10)  # ex : "Maths"
-    color      = models.CharField(_('couleur'), max_length=7, default='#4F46E5')
+    short_name = models.CharField(_('abréviation'), max_length=10, blank=True)  # auto si vide
+    color      = models.CharField(_('couleur'), max_length=7, blank=True)       # auto si vide
     is_active  = models.BooleanField(_('active'), default=True)
 
     class Meta:
@@ -308,13 +346,15 @@ class Subject(models.Model):
             ),
         ]
 
+    def save(self, *args, **kwargs):
+        if not (self.short_name or '').strip():
+            self.short_name = auto_subject_abbrev(self.name)
+        if not (self.color or '').strip() or self.color == '#4F46E5':
+            self.color = auto_subject_color(self.name)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f'{self.name} ({self.school.name})'
-
-
-class NoteSystem(models.TextChoices):
-    DEVOIRS_COMPO  = 'devoirs_compo',  _('Devoirs + Composition')
-    MOYENNE_SIMPLE = 'moyenne_simple', _('Moyenne simple')
 
 
 class ClassSubject(models.Model):
@@ -336,25 +376,6 @@ class ClassSubject(models.Model):
         decimal_places=1,
         default=Decimal('1.0'),
         validators=[MinValueValidator(Decimal('0.1'))],
-    )
-    note_system = models.CharField(
-        _('système de notes'),
-        max_length=20,
-        choices=NoteSystem.choices,
-        default=NoteSystem.MOYENNE_SIMPLE,
-    )
-    # Coefficients utilisés uniquement pour le mode DEVOIRS_COMPO
-    coeff_devoirs = models.DecimalField(
-        _('coefficient devoirs'),
-        max_digits=3,
-        decimal_places=2,
-        default=Decimal('0.40'),
-    )
-    coeff_compo = models.DecimalField(
-        _('coefficient composition'),
-        max_digits=3,
-        decimal_places=2,
-        default=Decimal('0.60'),
     )
     # Note maximale : 10.00 (primaire), 20.00 (collège/lycée), 100.00 (certaines universités)
     max_grade = models.DecimalField(
@@ -388,15 +409,6 @@ class ClassSubject(models.Model):
         verbose_name_plural = _('matières de classe')
         ordering            = ['order', 'subject__name']
         unique_together     = [('school_class', 'subject')]
-
-    def clean(self):
-        # Validation coefficients devoirs + composition = 1.0 en mode DEVOIRS_COMPO
-        if self.note_system == NoteSystem.DEVOIRS_COMPO:
-            total = (self.coeff_devoirs or Decimal('0')) + (self.coeff_compo or Decimal('0'))
-            if abs(total - Decimal('1.00')) > Decimal('0.01'):
-                raise ValidationError(
-                    _('La somme des coefficients devoirs et composition doit être égale à 1.')
-                )
 
     def __str__(self):
         return f'{self.subject.name} — {self.school_class.name}'
@@ -437,9 +449,7 @@ class Note(models.Model):
         choices=NoteType.choices,
         default=NoteType.SIMPLE,
     )
-    # Position dans la séquence : 1=première note, 2=deuxième…
-    # DEVOIRS_COMPO → position 1 = devoir, position 2 = composition
-    # MOYENNE_SIMPLE → position 1, 2, 3… (colonnes dynamiques)
+    # Bulletin : position 1 = note de classe, position 2 = composition.
     position = models.PositiveSmallIntegerField(_('position'), default=1)
     # La valeur ne peut jamais dépasser max_grade de la ClassSubject (validé dans clean())
     value = models.DecimalField(
@@ -496,6 +506,166 @@ class Note(models.Model):
             f'{self.student} — {self.class_subject.subject.name} : '
             f'{self.value}/{self.class_subject.max_grade}'
         )
+
+
+class EvaluationColumn(models.Model):
+    """Nom d'une colonne d'évaluation (mode moyenne simple) — ex. « Devoir 1 », « Interro ».
+
+    Une entrée par (matière de classe, période, position). Optionnelle : sans entrée,
+    la colonne affiche un nom par défaut « Éval N ». En mode devoir/composition, les
+    noms sont fixes (« Devoir » / « Composition ») et ce modèle n'est pas utilisé.
+    """
+    class_subject = models.ForeignKey(
+        ClassSubject, on_delete=models.CASCADE,
+        related_name='evaluation_columns', verbose_name=_('matière de classe'),
+    )
+    period = models.ForeignKey(
+        Period, on_delete=models.CASCADE,
+        related_name='evaluation_columns', verbose_name=_('période'),
+    )
+    position = models.PositiveSmallIntegerField(_('position'))
+    name     = models.CharField(_('nom'), max_length=40)
+
+    class Meta:
+        verbose_name        = _('colonne d\'évaluation')
+        verbose_name_plural = _('colonnes d\'évaluation')
+        ordering            = ['position']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['class_subject', 'period', 'position'],
+                name='uniq_eval_col_cs_period_position',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.class_subject} — {self.period} · pos {self.position} : {self.name}'
+
+
+# ──────────────────────────────────────────────────────────────
+# Flux formatif (hors bulletin) — suivi entre les compositions
+# ──────────────────────────────────────────────────────────────
+
+class FormativeEvalType(models.TextChoices):
+    INTERRO_ECRITE = 'interro_ecrite', _('Interrogation écrite')
+    INTERRO_ORALE  = 'interro_orale',  _('Interrogation orale')
+    DEVOIR_MAISON  = 'devoir_maison',  _('Devoir maison')
+    AUTRE          = 'autre',          _('Autre')
+
+
+class FormativeEvaluation(models.Model):
+    """Évaluation formative (interro, DM, oral…) saisie par l'enseignant pour suivre
+    l'état de la classe ENTRE les compositions. Ne compte JAMAIS sur le bulletin
+    officiel. Le directeur peut la publier au parent (point d'étape)."""
+    class_subject = models.ForeignKey(
+        ClassSubject, on_delete=models.CASCADE,
+        related_name='formative_evaluations', verbose_name=_('matière de classe'),
+    )
+    period = models.ForeignKey(
+        Period, on_delete=models.CASCADE,
+        related_name='formative_evaluations', verbose_name=_('période'),
+    )
+    date      = models.DateField(_('date'))
+    eval_type = models.CharField(
+        _('type'), max_length=20,
+        choices=FormativeEvalType.choices, default=FormativeEvalType.INTERRO_ECRITE,
+    )
+    title     = models.CharField(_('libellé'), max_length=80, blank=True)
+    max_grade = models.DecimalField(
+        _('note maximale'), max_digits=5, decimal_places=2,
+        default=Decimal('20.00'), validators=[MinValueValidator(Decimal('1.00'))],
+    )
+    is_published_to_parent = models.BooleanField(_('publiée au parent'), default=False)
+    published_at = models.DateTimeField(_('publiée le'), null=True, blank=True)
+    created_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True,
+        related_name='created_formative_evaluations', verbose_name=_('créée par'),
+    )
+    created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
+
+    class Meta:
+        verbose_name        = _('évaluation formative')
+        verbose_name_plural = _('évaluations formatives')
+        ordering            = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['class_subject', 'period'], name='formeval_cs_period_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_eval_type_display()} — {self.class_subject} ({self.date})'
+
+
+class FormativeGrade(models.Model):
+    """Note d'un élève pour une évaluation formative (is_absent=True → absent)."""
+    evaluation = models.ForeignKey(
+        FormativeEvaluation, on_delete=models.CASCADE,
+        related_name='grades', verbose_name=_('évaluation'),
+    )
+    student = models.ForeignKey(
+        'students.Student', on_delete=models.CASCADE,
+        related_name='formative_grades', verbose_name=_('élève'),
+    )
+    value = models.DecimalField(
+        _('note'), max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+    )
+    is_absent  = models.BooleanField(_('absent'), default=False)
+    created_at = models.DateTimeField(_('créée le'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('modifiée le'), auto_now=True)
+
+    class Meta:
+        verbose_name        = _('note formative')
+        verbose_name_plural = _('notes formatives')
+        ordering            = ['student__full_name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['evaluation', 'student'],
+                name='uniq_formative_grade_eval_student',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.student} — {self.evaluation} : {self.value}'
+
+
+class NoteEntryGrant(models.Model):
+    """Ouverture ciblée de la saisie bulletin : le directeur autorise une
+    (classe, matière) précise sur une période, même quand la période globale
+    (`Period.is_notes_open`) est fermée. Sert au cas « enseignant en retard ».
+    Révocation = suppression de la ligne."""
+    class_subject = models.ForeignKey(
+        ClassSubject, on_delete=models.CASCADE,
+        related_name='entry_grants', verbose_name=_('matière de classe'),
+    )
+    period = models.ForeignKey(
+        Period, on_delete=models.CASCADE,
+        related_name='entry_grants', verbose_name=_('période'),
+    )
+    granted_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True,
+        related_name='granted_note_entries', verbose_name=_('accordée par'),
+    )
+    granted_at = models.DateTimeField(_('accordée le'), auto_now_add=True)
+    expires_at = models.DateTimeField(
+        _('expire le'), null=True, blank=True,
+        help_text=_('Laisser vide = ouverte jusqu\'à révocation.'),
+    )
+
+    class Meta:
+        verbose_name        = _('ouverture de saisie ciblée')
+        verbose_name_plural = _('ouvertures de saisie ciblées')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['class_subject', 'period'],
+                name='uniq_note_entry_grant_cs_period',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Ouverture {self.class_subject} — {self.period}'
+
+    def is_active(self):
+        from django.utils import timezone
+        return self.expires_at is None or self.expires_at > timezone.now()
 
 
 # ──────────────────────────────────────────────────────────────

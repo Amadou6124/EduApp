@@ -1,0 +1,71 @@
+{% load i18n %}
+{# Ligne membre — contexte : r {user, role, is_active, subjects, class_count, perm} · is_director #}
+{% with u=r.user colors=r.user.get_avatar_colors %}
+<tr id="team-row-{{ u.pk }}" class="cursor-pointer {% if not r.is_active %}opacity-60{% endif %}"
+    onclick="window.location.href='{% url 'team:detail' u.pk %}'">
+
+  <td>
+    <div class="flex items-center gap-3">
+      <span class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background-color:{{ colors.0 }};color:{{ colors.1 }}">{{ u.get_initials }}</span>
+      <div class="min-w-0">
+        <p class="font-medium text-gray-900 truncate">{{ u.full_name }}</p>
+        <p class="text-xs text-gray-400 truncate">{{ u.job_title|default:u.get_role_display }}</p>
+      </div>
+    </div>
+  </td>
+
+  <td>
+    {% if r.role == 'director' %}<span class="badge-warning">Directeur</span>
+    {% elif r.role == 'staff' %}<span class="badge-purple">Staff</span>
+    {% else %}<span class="badge-info">Enseignant</span>{% endif %}
+  </td>
+
+  <td>
+    {% if r.role == 'teacher' %}
+      {% if r.subjects %}
+        <div class="flex flex-wrap items-center gap-1.5">
+          {% for cs in r.subjects|slice:":3" %}<span class="badge-neutral">{{ cs.subject.short_name|default:cs.subject.name }}</span>{% endfor %}
+          {% if r.subjects|length > 3 %}<span class="text-xs text-gray-400">+{{ r.subjects|length|add:"-3" }}</span>{% endif %}
+          <span class="text-xs text-gray-400">· {{ r.class_count }} classe{{ r.class_count|pluralize }}</span>
+        </div>
+      {% else %}<span class="text-xs text-gray-300 italic">Aucune matière</span>{% endif %}
+    {% elif r.role == 'staff' %}
+      {% with p=r.perm %}
+      {% if p %}
+        <div class="flex flex-wrap gap-1.5">
+          {% if p.can_view_payments or p.can_create_payments %}<span class="badge-success">Paiements</span>{% endif %}
+          {% if p.can_view_notes or p.can_edit_notes %}<span class="badge-info">Notes</span>{% endif %}
+          {% if p.can_generate_bulletins or p.can_download_bulletins %}<span class="badge-purple">Bulletins</span>{% endif %}
+          {% if p.can_record_absences %}<span class="badge-warning">Absences</span>{% endif %}
+          {% if p.can_create_students or p.can_edit_students %}<span class="badge-emerald">Élèves</span>{% endif %}
+          {% if p.can_edit_classes %}<span class="badge-neutral">Classes</span>{% endif %}
+        </div>
+      {% else %}<span class="text-xs text-gray-300 italic">Aucune permission</span>{% endif %}
+      {% endwith %}
+    {% else %}
+      <span class="text-xs text-gray-400">Accès complet</span>
+    {% endif %}
+  </td>
+
+  <td class="text-center">
+    {% if r.is_active %}<span class="badge-success">Actif</span>{% else %}<span class="badge-neutral">Désactivé</span>{% endif %}
+  </td>
+
+  <td class="text-right" onclick="event.stopPropagation()">
+    <div class="relative inline-block" x-data="{ menu: false }" @click.outside="menu = false">
+      <button type="button" @click="menu = !menu" class="p-2 text-gray-400 hover:text-gray-700 rounded-lg transition" aria-label="Actions"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+      <div x-show="menu" x-cloak x-transition.origin.top.right class="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-20">
+        <a href="{% url 'team:detail' u.pk %}" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><i data-lucide="eye" class="w-4 h-4"></i> Voir la fiche</a>
+        {% if is_director %}
+          {% if r.is_active %}
+            <button type="button" @click="menu = false; openEditPanel({{ u.pk }})" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><i data-lucide="pencil" class="w-4 h-4"></i> Modifier</button>
+            <button type="button" @click="menu = false; confirmDeactivate({{ u.pk }}, '{{ u.full_name|escapejs }}')" class="w-full text-left px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"><i data-lucide="user-x" class="w-4 h-4"></i> Désactiver</button>
+          {% else %}
+            <button type="button" @click="menu = false; reactivate({{ u.pk }})" class="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"><i data-lucide="user-check" class="w-4 h-4"></i> Réactiver</button>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </td>
+</tr>
+{% endwith %}

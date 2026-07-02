@@ -24,15 +24,19 @@
           {% if g.relationship %}{{ g.get_relationship_display }} · {% endif %}{{ g.guardian.phone_number }}
         </p>
       </div>
-      <form hx-post="{% url 'students:guardian-remove' student.id g.id %}"
-            hx-target="#guardian-section" hx-swap="outerHTML"
-            hx-confirm="Retirer {{ g.guardian.full_name }} ?">
-        {% csrf_token %}
-        <button type="submit"
+      <div x-data="{ confirm: false }" class="shrink-0">
+        <button type="button" x-show="!confirm" @click="confirm = true"
                 class="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="Retirer">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
-      </form>
+        <form x-show="confirm" x-cloak class="flex items-center gap-1"
+              hx-post="{% url 'students:guardian-remove' student.id g.id %}"
+              hx-target="#guardian-section" hx-swap="outerHTML" hx-sync="this:drop">
+          {% csrf_token %}
+          <button type="submit" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 transition">Retirer</button>
+          <button type="button" @click="confirm = false" class="px-2 py-1 rounded-lg text-xs text-gray-400 hover:text-gray-600 transition">Annuler</button>
+        </form>
+      </div>
     </div>
     {% endfor %}
   </div>

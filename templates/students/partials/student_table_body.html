@@ -1,42 +1,41 @@
-{% load i18n %}
+{% load i18n humanize %}
 <div id="student-list-area">
 
   {% if not students %}
+    {# ── État vide canonique ── #}
     <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
       <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
         <i data-lucide="users" class="w-7 h-7 text-gray-400"></i>
       </div>
-      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun élève trouvé</h3>
-      <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
-        Commencez par inscrire vos élèves dans une classe.
-      </p>
-      <button type="button" @click="showPanel = true" class="btn-primary text-sm">
-        <i data-lucide="plus" class="w-4 h-4"></i>
-        Inscrire un élève
-      </button>
+      {% if q or status != 'all' or class_id or no_parent %}
+        {# Aucun résultat pour les filtres actifs (≠ école vide). #}
+        <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun résultat</h3>
+        <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
+          Aucun élève ne correspond à ces filtres. Élargissez la recherche.
+        </p>
+      {% else %}
+        <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun élève pour l'instant</h3>
+        <p class="text-sm text-gray-500 max-w-xs mb-5 leading-relaxed">
+          Inscrivez votre premier élève ou importez une liste Excel.
+        </p>
+        <button type="button" @click="showPanel = true" class="btn-primary text-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          Inscrire un élève
+        </button>
+      {% endif %}
     </div>
 
   {% else %}
-    {# Vue cards #}
-    <div x-show="viewMode === 'cards'" x-cloak
-         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {% for student in students %}
-        {% include "students/partials/student_card.html" %}
-      {% endfor %}
-    </div>
-
-    {# Vue tableau #}
-    <div x-show="viewMode === 'table'" x-cloak class="table-card">
+    {# ── Desktop : table dense (lignes horizontales fines, ligne cliquable) ── #}
+    <div class="hidden lg:block table-card">
       <table class="data-table">
         <thead>
           <tr>
             <th>Élève</th>
             <th>Classe</th>
-            <th>Téléphone</th>
             <th>Paiement</th>
             <th class="text-center">Parent</th>
-            <th>Inscription</th>
-            <th class="text-right">Actions</th>
+            <th class="w-8"></th>
           </tr>
         </thead>
         <tbody>
@@ -46,6 +45,38 @@
         </tbody>
       </table>
     </div>
+
+    {# ── Mobile : cards ── #}
+    <div class="lg:hidden space-y-2.5">
+      {% for student in students %}
+        {% include "students/partials/student_card.html" %}
+      {% endfor %}
+    </div>
+
+    {# ── Pagination ── #}
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+      <span>{{ page_obj.start_index }}–{{ page_obj.end_index }} sur {{ page_obj.paginator.count }}</span>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+          <button type="button"
+                  hx-get="{% url 'students:search' %}" hx-vals='{"page": {{ page_obj.previous_page_number }}}'
+                  hx-include="#student-filters" hx-target="#student-list-area" hx-swap="innerHTML" hx-indicator="#list-skeleton"
+                  class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Précédent</button>
+        {% else %}
+          <span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Précédent</span>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <button type="button"
+                  hx-get="{% url 'students:search' %}" hx-vals='{"page": {{ page_obj.next_page_number }}}'
+                  hx-include="#student-filters" hx-target="#student-list-area" hx-swap="innerHTML" hx-indicator="#list-skeleton"
+                  class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Suivant</button>
+        {% else %}
+          <span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Suivant</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   {% endif %}
 
 </div>

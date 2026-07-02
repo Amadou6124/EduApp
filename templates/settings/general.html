@@ -1,10 +1,8 @@
 {% extends "settings/settings_base.html" %}
 {% block settings_content %}
-<div class="max-w-2xl px-8 py-8">
-  <div class="mb-8">
-    <h2 class="text-xl font-bold text-gray-900">Informations générales</h2>
-    <p class="text-sm text-gray-500 mt-1">Informations de base de votre établissement.</p>
-  </div>
-  {% include "settings/partials/general_form.html" %}
+<div class="mb-6">
+  <h2 class="text-lg font-semibold text-gray-900">Général</h2>
+  <p class="text-sm text-gray-500 mt-0.5">Identité, contact et localisation de l'établissement.</p>
 </div>
+{% include "settings/partials/general_form.html" %}
 {% endblock %}

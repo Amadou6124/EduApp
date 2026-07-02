@@ -1,0 +1,18 @@
+{# Pagination de la liste Paiements. Requiert page_obj + status/q/class_id pour conserver les filtres. #}
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+  <span>{{ page_obj.start_index }}–{{ page_obj.end_index }} sur {{ page_obj.paginator.count }}</span>
+  <div class="flex gap-2">
+    {% if page_obj.has_previous %}
+      <button type="button" hx-get="{% url 'payments:dashboard' %}?status={{ status }}&q={{ q }}&class_id={{ class_id }}&page={{ page_obj.previous_page_number }}"
+              hx-target="#payment-list-area" hx-swap="outerHTML" hx-push-url="true"
+              class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Précédent</button>
+    {% else %}<span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Précédent</span>{% endif %}
+    {% if page_obj.has_next %}
+      <button type="button" hx-get="{% url 'payments:dashboard' %}?status={{ status }}&q={{ q }}&class_id={{ class_id }}&page={{ page_obj.next_page_number }}"
+              hx-target="#payment-list-area" hx-swap="outerHTML" hx-push-url="true"
+              class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Suivant</button>
+    {% else %}<span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Suivant</span>{% endif %}
+  </div>
+</div>
+{% endif %}

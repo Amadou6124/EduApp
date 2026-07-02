@@ -14,7 +14,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 
 from apps.accounts.models import UserRole
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Max, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.template.loader import render_to_string
@@ -26,7 +26,7 @@ from apps.students.models import Student
 
 from .models import (
     Bulletin, BulletinConfig, BulletinLine, ClassSubject,
-    Note, Period, SchoolClass, SchoolYear, NoteSystem, AppreciationScale,
+    Note, Period, SchoolClass, SchoolYear, AppreciationScale,
 )
 from .services.bulletin_calculator import BulletinCalculator
 from .services.bulletin_pdf import (
@@ -108,6 +108,12 @@ def bulletins_main(request):
         'can_generate':    request.user.role in (UserRole.DIRECTOR, UserRole.STAFF) or request.user.is_superuser,
     }
 
+    # Vue école : aucune classe sélectionnée → vue d'ensemble de toutes les classes.
+    if active_period and not active_class:
+        overview, totals = _school_overview(school, active_period)
+        context['overview'] = overview
+        context['overview_totals'] = totals
+
     # Stats globales si classe + période sélectionnées
     if active_class and active_period:
         stats = _get_class_stats(active_class, active_period, school)
@@ -124,13 +130,6 @@ def bulletins_main(request):
             active_class.level,
             ('', 'bg-gray-100 text-gray-600 border-gray-200'),
         )
-
-    if active_class and active_period:
-        gen   = context.get('generated_count', 0)
-        total = context.get('total_count', 0)
-        context['page_subtitle'] = f"{gen}/{total} bulletins · {active_period.name}"
-    elif active_period:
-        context['page_subtitle'] = active_period.name
 
     return render(request, 'bulletins/bulletins_main.html', context)
 
@@ -191,6 +190,7 @@ def bulletins_tab(request):
 
     generated_count = len(existing)
     total_count     = len(students)
+    stale_count     = _annotate_stale(rows, active_class, active_period)
     return render(request, 'bulletins/partials/bulletins_tab.html', {
         'rows':            rows,
         'school_class':    active_class,
@@ -200,6 +200,7 @@ def bulletins_tab(request):
         'total_count':     total_count,
         'pending_count':   total_count - generated_count,
         'generated_pct':   int(generated_count / total_count * 100) if total_count > 0 else 0,
+        'stale_count':     stale_count,
     })
 
 
@@ -254,6 +255,13 @@ def generate_class_bulletins(request, class_id, period_id):
         Period, pk=period_id, school_year__school=school,
     )
 
+    # Conserver l'état publié : la régénération recrée des bulletins non publiés,
+    # sinon « Régénérer » ferait perdre l'accès aux parents.
+    published_ids = set(
+        Bulletin.objects.filter(
+            school_class=school_class, period=period, is_published=True, is_cancelled=False,
+        ).values_list('student_id', flat=True)
+    )
     try:
         bulletins = calculator.generate_class_bulletins(
             school_class, period, request.user,
@@ -264,6 +272,13 @@ def generate_class_bulletins(request, class_id, period_id):
             'showToast': {'message': f'Erreur de génération : {e}', 'type': 'error'},
         })
         return resp
+
+    if published_ids:
+        from django.utils import timezone
+        Bulletin.objects.filter(
+            school_class=school_class, period=period,
+            student_id__in=published_ids, is_cancelled=False,
+        ).update(is_published=True, published_at=timezone.now())
 
     # Re-rendre l'onglet bulletins avec les nouveaux bulletins
     students = list(
@@ -291,6 +306,7 @@ def generate_class_bulletins(request, class_id, period_id):
 
     generated_count = len(existing)
     total_count     = len(students)
+    stale_count     = _annotate_stale(rows, school_class, period)
     tab_html = render_to_string('bulletins/partials/bulletins_tab.html', {
         'rows':            rows,
         'school_class':    school_class,
@@ -300,6 +316,7 @@ def generate_class_bulletins(request, class_id, period_id):
         'total_count':     total_count,
         'pending_count':   total_count - generated_count,
         'generated_pct':   int(generated_count / total_count * 100) if total_count > 0 else 0,
+        'stale_count':     stale_count,
     }, request=request)
     # OOB : met à jour le badge compteur X/Y de l'en-tête (hors zone swappée).
     badge_html = render_to_string('bulletins/partials/_bulletins_badge.html', {
@@ -323,6 +340,80 @@ def generate_class_bulletins(request, class_id, period_id):
 @login_required
 @director_or_staff_required
 @require_http_methods(['POST'])
+def generate_all_classes(request, period_id):
+    """Génère les bulletins de TOUTES les classes (conserve l'état publié). Vue école."""
+    from django.utils import timezone
+    school = get_school(request)
+    period = get_object_or_404(Period, pk=period_id, school_year__school=school)
+    n = 0
+    for c in school.classes.filter(is_active=True):
+        if not c.students.filter(is_active=True).exists():
+            continue
+        published_ids = set(
+            Bulletin.objects.filter(
+                school_class=c, period=period, is_published=True, is_cancelled=False,
+            ).values_list('student_id', flat=True)
+        )
+        try:
+            calculator.generate_class_bulletins(c, period, request.user)
+        except Exception:
+            continue
+        if published_ids:
+            Bulletin.objects.filter(
+                school_class=c, period=period, student_id__in=published_ids, is_cancelled=False,
+            ).update(is_published=True, published_at=timezone.now())
+        n += 1
+    overview, totals = _school_overview(school, period)
+    resp = render(request, 'bulletins/partials/overview.html', {
+        'overview': overview, 'overview_totals': totals, 'active_period': period, 'can_generate': True,
+    })
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': f'{n} classe·s générée·s.', 'type': 'success'}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def publish_all_classes(request, period_id):
+    """Publie tous les bulletins générés non publiés de la période + notifie les parents."""
+    from django.utils import timezone
+    school = get_school(request)
+    period = get_object_or_404(Period, pk=period_id, school_year__school=school)
+    to_publish = list(
+        Bulletin.objects.filter(
+            period=period, school_class__school=school, is_cancelled=False,
+            is_published=False, general_average__isnull=False,
+        ).select_related('student')
+    )
+    now = timezone.now()
+    for b in to_publish:
+        b.is_published = True
+        b.published_at = now
+    if to_publish:
+        Bulletin.objects.bulk_update(to_publish, ['is_published', 'published_at'])
+        try:
+            from apps.notifications.services import notify_guardians
+            from apps.notifications.models import NotificationCategory
+            for b in to_publish:
+                notify_guardians(
+                    student=b.student, category=NotificationCategory.BULLETIN,
+                    title=f'Bulletin disponible — {period.name}',
+                    body=f'Le bulletin de {b.student.full_name} pour {period.name} est disponible.',
+                    url=reverse('parent:bulletins'), target=b,
+                )
+        except Exception:
+            pass
+    overview, totals = _school_overview(school, period)
+    resp = render(request, 'bulletins/partials/overview.html', {
+        'overview': overview, 'overview_totals': totals, 'active_period': period, 'can_generate': True,
+    })
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': f'{len(to_publish)} bulletin·s publié·s.', 'type': 'success'}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
 def generate_student_bulletin(request, student_id, period_id):
     """Génère le bulletin d'un élève spécifique."""
     school = get_school(request)
@@ -335,7 +426,10 @@ def generate_student_bulletin(request, student_id, period_id):
             bulletin = calculator.generate_bulletin(student, period, request.user)
             ranks = calculator.calculate_ranks(period, student.school_class)
             bulletin.rank = ranks.get(student.pk)
-            bulletin.class_size = student.school_class.students.filter(is_active=True).count()
+            bulletin.class_size = Bulletin.objects.filter(
+                period=period, school_class=student.school_class,
+                is_cancelled=False, general_average__isnull=False,
+            ).count()
             bulletin.first_average = calculator.get_first_average(period, student.school_class)
             bulletin.save(update_fields=['rank', 'class_size', 'first_average'])
     except Exception as e:
@@ -679,6 +773,71 @@ def _students_with_notes(period, school_class):
         .filter(distinct_subjects__gte=cs_count)
     )
     return {row['student_id'] for row in rows}
+
+
+def _school_overview(school, period):
+    """Vue école : par classe → effectif, générés, publiés, périmés. Renvoie (overview, totals).
+    Efficient : 3 requêtes (classes annotées, bulletins, dernière modif de note par élève)."""
+    from collections import defaultdict
+    classes = list(
+        school.classes.filter(is_active=True)
+        .annotate(nb_students=Count('students', filter=Q(students__is_active=True)))
+        .order_by('level', 'name')
+    )
+    buls = Bulletin.objects.filter(
+        period=period, school_class__school=school, is_cancelled=False,
+    ).values('school_class_id', 'student_id', 'is_published', 'generated_at')
+    latest = dict(
+        Note.objects.filter(period=period, class_subject__school_class__school=school)
+        .values('student_id').annotate(m=Max('modified_at')).values_list('student_id', 'm')
+    )
+    gen = defaultdict(int)
+    pub = defaultdict(int)
+    stale = defaultdict(int)
+    for b in buls:
+        cid = b['school_class_id']
+        gen[cid] += 1
+        if b['is_published']:
+            pub[cid] += 1
+        lm = latest.get(b['student_id'])
+        if lm and lm > b['generated_at']:
+            stale[cid] += 1
+    overview = [{
+        'class':     c,
+        'students':  c.nb_students,
+        'generated': gen[c.pk],
+        'published': pub[c.pk],
+        'stale':     stale[c.pk],
+        'done':      c.nb_students > 0 and gen[c.pk] >= c.nb_students,
+    } for c in classes]
+    totals = {
+        'classes':      len(classes),
+        'classes_done': sum(1 for o in overview if o['done']),
+        'generated':    sum(gen.values()),
+        'published':    sum(pub.values()),
+        'stale':        sum(stale.values()),
+    }
+    return overview, totals
+
+
+def _annotate_stale(rows, school_class, period):
+    """Marque `row['is_stale']` = une note a été modifiée APRÈS la génération du bulletin
+    → le bulletin (et son PDF/ce que voit le parent) est périmé. Renvoie le nb de périmés."""
+    latest = dict(
+        Note.objects.filter(class_subject__school_class=school_class, period=period)
+        .values('student_id')
+        .annotate(m=Max('modified_at'))
+        .values_list('student_id', 'm')
+    )
+    stale = 0
+    for row in rows:
+        b = row.get('bulletin')
+        last = latest.get(b.student_id) if b else None
+        is_stale = bool(b) and last is not None and last > b.generated_at
+        row['is_stale'] = is_stale
+        if is_stale:
+            stale += 1
+    return stale
 
 
 def _get_class_stats(school_class, period, school):

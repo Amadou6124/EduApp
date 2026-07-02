@@ -1,86 +1,46 @@
 {% comment %}
-Carte de progression par classe — affichée sur le dashboard notes.
-Contexte attendu :
-  - item   : dict {class, subjects, student_count, all_complete}
-  - period : Period (actif)
+Carte classe — dashboard notes. Bande de pastilles (1 point/matière) → hauteur uniforme
+quel que soit le nombre de matières. Détail matière/prof : dans la page de saisie.
+Contexte : item {class, subjects[{cs,status}], student_count, total_subjects, started, non_started, all_complete} · period
 {% endcomment %}
 {% load i18n %}
 
 {% with sc=item.class %}
-<a href="{% url 'notes:class' sc.pk period.pk %}"
-   class="card p-5 hover:border-primary-600/30 group block">
+<a href="{% url 'notes:class' sc.pk period.pk %}" class="card p-5 hover:border-primary-600/30 group block">
 
-  {# ── En-tête : nom classe + niveau ───────────────────────────── #}
-  <div class="flex items-start justify-between mb-3">
-    <div class="min-w-0 flex-1">
-      <h3 class="text-sm font-semibold text-gray-800 truncate group-hover:text-primary-600 transition">
-        {{ sc.name }}
-      </h3>
-      <span class="hidden sm:inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium
-                   {% if sc.level == 'prescolaire' %}bg-purple-100 text-purple-700
-                   {% elif sc.level == 'fondamental_1' %}bg-blue-100 text-blue-700
-                   {% elif sc.level == 'fondamental_2' %}bg-indigo-100 text-indigo-700
-                   {% elif sc.level == 'secondaire_gen' %}bg-green-100 text-green-700
-                   {% elif sc.level == 'secondaire_pro' %}bg-teal-100 text-teal-700
-                   {% elif sc.level == 'superieur' %}bg-orange-100 text-orange-700
-                   {% else %}bg-gray-100 text-gray-600{% endif %}">
-        {{ sc.get_level_display }}
-      </span>
-    </div>
-    {# Badge complet/disponible #}
+  {# Nom + état #}
+  <div class="flex items-center justify-between gap-2 mb-2">
+    <h3 class="text-sm font-semibold text-gray-800 truncate min-w-0 flex-1 group-hover:text-primary-600 transition">{{ sc.name }}</h3>
     {% if item.all_complete %}
-      <span class="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
-        {% trans "Complet" %}
-      </span>
+      <span class="shrink-0 badge-success">{% trans "Complet" %}</span>
+    {% elif not item.started %}
+      <span class="shrink-0 badge-danger">{% trans "À saisir" %}</span>
     {% else %}
-      <span class="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">
-        {% trans "En cours" %}
-      </span>
+      <span class="shrink-0 text-[11px] text-gray-500">{{ item.started }}/{{ item.total_subjects }} {% trans "saisies" %}</span>
     {% endif %}
   </div>
 
-  {# ── Compteur élèves ─────────────────────────────────────────── #}
-  <div class="flex items-center gap-2 mb-3 text-xs text-gray-500">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-    </svg>
-    <span>{{ item.student_count }} élève{{ item.student_count|pluralize }}</span>
+  {# Effectif + reste à faire #}
+  <div class="flex items-center gap-1.5 text-xs text-gray-500">
+    <i data-lucide="users" class="w-3.5 h-3.5"></i>
+    <span>{{ item.student_count }} élève{{ item.student_count|pluralize }}{% if item.non_started %} · <span class="text-red-500">{{ item.non_started }} à faire</span>{% endif %}</span>
   </div>
 
-  {# ── Barres de progression par matière ───────────────────────── #}
+  {# Bande de pastilles : 1 point par matière, couleur = statut #}
   {% if item.subjects %}
-    <div class="space-y-2">
+    <div class="flex flex-wrap gap-1.5 mt-3">
       {% for sub in item.subjects %}
-        <div class="flex items-center gap-2">
-          <span class="text-[11px] text-gray-600 w-20 truncate flex-shrink-0"
-                title="{{ sub.cs.subject.name }}">
-            {{ sub.cs.subject.short_name|default:sub.cs.subject.name }}
-          </span>
-          <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-500
-                        {% if sub.done %}bg-green-400{% elif sub.pct > 0 %}bg-primary-600{% else %}bg-gray-200{% endif %}"
-                 style="width: {% if sub.total > 0 %}{{ sub.pct }}{% else %}0{% endif %}%">
-            </div>
-          </div>
-          <span class="text-[10px] text-gray-400 w-12 text-right flex-shrink-0">
-            {{ sub.noted }}/{{ sub.total }}
-          </span>
-        </div>
+        <span class="w-2.5 h-2.5 rounded-full {% if sub.status == 'complete' %}bg-green-500{% elif sub.status == 'in_progress' %}bg-amber-400{% else %}bg-red-400{% endif %}"
+              title="{{ sub.cs.subject.name }} — {% if sub.status == 'complete' %}complet{% elif sub.status == 'in_progress' %}en cours{% else %}pas commencé{% endif %}"></span>
       {% endfor %}
     </div>
   {% else %}
-    <p class="text-xs text-gray-400 italic">Aucune matière assignée</p>
+    <p class="text-xs text-gray-400 italic mt-3">{% trans "Aucune matière assignée" %}</p>
   {% endif %}
 
-  {# ── Flèche hover ────────────────────────────────────────────── #}
+  {# Flèche hover #}
   <div class="flex justify-end mt-3 opacity-0 group-hover:opacity-100 transition">
-    <span class="text-xs text-primary-600 flex items-center gap-1">
-      {% trans "Saisir les notes" %}
-      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-      </svg>
-    </span>
+    <span class="text-xs text-primary-600 flex items-center gap-1">{% trans "Saisir les notes" %} <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
   </div>
 </a>
 {% endwith %}

@@ -5,77 +5,94 @@
 {% block page_title %}Dépenses{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto" x-data="{ panel: false }"
-     @close-expense-panel.document="panel = false">
+<div class="max-w-3xl mx-auto" x-data="{ panel: false, recPanel: false }"
+     @close-expense-panel.window="panel = false"
+     @open-rec-panel="recPanel = true"
+     @close-recurring-panel.window="recPanel = false">
 
-  {# Toolbar : filtres (gauche) + action (droite) #}
+  {# Toolbar : mois + filtres + action #}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-  <form method="get" class="flex flex-wrap items-center gap-2">
-    <a href="?year={{ prev_y }}&month={{ prev_m }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
-    <span class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-800 min-w-[140px] text-center">{{ month_label }} {{ year }}</span>
-    <a href="?year={{ next_y }}&month={{ next_m }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
-    <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
-    <select name="category" onchange="this.form.submit()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
-      <option value="">Toutes catégories</option>
-      {% for cat in categories %}<option value="{{ cat.id }}" {% if category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
-    </select>
-    <select name="method" onchange="this.form.submit()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
-      <option value="">Tous modes</option>
-      {% for val, label in methods %}<option value="{{ val }}" {% if method == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
-    </select>
-  </form>
+    <form method="get" class="flex flex-wrap items-center gap-2">
+      <a href="?year={{ prev_y }}&month={{ prev_m }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
+      <span class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-800 min-w-[140px] text-center">{{ month_label }} {{ year }}</span>
+      <a href="?year={{ next_y }}&month={{ next_m }}" class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
+      <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
+      <select name="category" onchange="this.form.submit()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
+        <option value="">Toutes catégories</option>
+        {% for cat in categories %}<option value="{{ cat.id }}" {% if category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
+      </select>
+      <select name="method" onchange="this.form.submit()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
+        <option value="">Tous modes</option>
+        {% for val, label in methods %}<option value="{{ val }}" {% if method == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </form>
     <button type="button" @click="panel = true" class="btn-primary min-h-[44px] shrink-0">
       <i data-lucide="plus" class="w-4 h-4"></i> Nouvelle dépense
     </button>
   </div>
 
-  {# Contenu (résumé + liste) — swappé après add/cancel #}
   {% include "accounting/partials/expense_list.html" %}
 
-  {# Panel slide — nouvelle dépense #}
-  <div x-show="panel" x-cloak @click="panel=false" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="fixed inset-0 bg-black/30 z-30"></div>
-  <div x-show="panel" x-cloak
-       x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
-       x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
-       class="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-white shadow-2xl z-40 flex flex-col">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-      <h2 class="text-base font-bold text-gray-900">Nouvelle dépense</h2>
-      <button @click="panel=false" class="p-2 rounded-lg hover:bg-gray-100 text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
-    </div>
-    <form hx-post="{% url 'accounting:expense-create' %}" hx-target="#expense-content" hx-swap="outerHTML" class="flex-1 overflow-y-auto p-5 space-y-4">
-      {% csrf_token %}
-      <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
-      <div>
-        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Catégorie</label>
-        <select name="category" required class="input-field mt-1.5">
-          {% for cat in categories %}<option value="{{ cat.id }}">{{ cat.name }}</option>{% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Montant</label>
-        <div class="flex items-center gap-2 mt-1.5">
-          <input type="number" name="amount" min="1" step="1" required placeholder="0" class="input-field flex-1">
-          <span class="text-sm text-gray-400">FCFA</span>
+  {# ── Panneau : nouvelle dépense (téléporté) ── #}
+  <template x-teleport="body">
+    <div>
+      <div x-show="panel" x-cloak @click="panel=false" x-transition.opacity class="fixed inset-0 bg-black/30 z-40"></div>
+      <div x-show="panel" x-cloak
+           x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+           class="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-white shadow-2xl z-50 flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+          <h2 class="text-base font-bold text-gray-900">Nouvelle dépense</h2>
+          <button @click="panel=false" class="p-2 rounded-lg hover:bg-gray-100 text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
+        <form hx-post="{% url 'accounting:expense-create' %}" hx-target="#expense-content" hx-swap="outerHTML" class="flex-1 overflow-y-auto p-5 space-y-4">
+          {% csrf_token %}
+          <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
+          <div><label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Catégorie</label>
+            <select name="category" required class="input-field mt-1.5">{% for cat in categories %}<option value="{{ cat.id }}">{{ cat.name }}</option>{% endfor %}</select></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Montant</label>
+            <div class="flex items-center gap-2 mt-1.5"><input type="number" name="amount" min="1" step="1" required placeholder="0" class="input-field flex-1"><span class="text-sm text-gray-400">FCFA</span></div></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</label>
+            <input type="date" name="date" value="{% now 'Y-m-d' %}" class="input-field mt-1.5"></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Description <span class="font-normal normal-case text-gray-400">(optionnel)</span></label>
+            <input type="text" name="description" maxlength="300" placeholder="Ex : loyer du mois" class="input-field mt-1.5"></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Mode de paiement</label>
+            <select name="payment_method" class="input-field mt-1.5">{% for val, label in methods %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+          <button type="submit" class="btn-primary w-full h-11"><i data-lucide="save" class="w-4 h-4"></i> Enregistrer</button>
+        </form>
       </div>
-      <div>
-        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</label>
-        <input type="date" name="date" value="{% now 'Y-m-d' %}" class="input-field mt-1.5">
+    </div>
+  </template>
+
+  {# ── Panneau : ajouter une récurrente (téléporté) ── #}
+  <template x-teleport="body">
+    <div>
+      <div x-show="recPanel" x-cloak @click="recPanel=false" x-transition.opacity class="fixed inset-0 bg-black/30 z-40"></div>
+      <div x-show="recPanel" x-cloak
+           x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+           class="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-white shadow-2xl z-50 flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+          <h2 class="text-base font-bold text-gray-900">Nouvelle récurrente</h2>
+          <button @click="recPanel=false" class="p-2 rounded-lg hover:bg-gray-100 text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <form hx-post="{% url 'accounting:recurring-create' %}" hx-target="#expense-content" hx-swap="outerHTML" class="flex-1 overflow-y-auto p-5 space-y-4">
+          {% csrf_token %}
+          <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="month" value="{{ month }}">
+          <p class="text-xs text-gray-400">Un modèle réutilisable (loyer, électricité…). Chaque mois, tu l'enregistreras en 1 clic.</p>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Catégorie</label>
+            <select name="category" required class="input-field mt-1.5">{% for cat in categories %}<option value="{{ cat.id }}">{{ cat.name }}</option>{% endfor %}</select></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Libellé <span class="font-normal normal-case text-gray-400">(optionnel)</span></label>
+            <input type="text" name="label" maxlength="200" placeholder="Ex : Loyer bâtiment principal" class="input-field mt-1.5"></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Montant mensuel</label>
+            <div class="flex items-center gap-2 mt-1.5"><input type="number" name="amount" min="1" step="1" required placeholder="0" class="input-field flex-1"><span class="text-sm text-gray-400">FCFA</span></div></div>
+          <div><label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Mode de paiement</label>
+            <select name="payment_method" class="input-field mt-1.5">{% for val, label in methods %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+          <button type="submit" class="btn-primary w-full h-11"><i data-lucide="repeat" class="w-4 h-4"></i> Ajouter la récurrente</button>
+        </form>
       </div>
-      <div>
-        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Description <span class="font-normal normal-case text-gray-400">(optionnel)</span></label>
-        <input type="text" name="description" maxlength="300" placeholder="Ex : loyer du mois" class="input-field mt-1.5">
-      </div>
-      <div>
-        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Mode de paiement</label>
-        <select name="payment_method" class="input-field mt-1.5">
-          {% for val, label in methods %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
-        </select>
-      </div>
-      <button type="submit" class="btn-primary w-full h-11">
-        <i data-lucide="save" class="w-4 h-4"></i> Enregistrer
-      </button>
-    </form>
-  </div>
+    </div>
+  </template>
+
 </div>
 {% endblock %}

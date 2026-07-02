@@ -35,16 +35,53 @@
       </div>
     </div>
 
-    {# Vacataire : taux horaire #}
+    {# Vacataire : grille de tarifs par cours (matière + classe), groupée par matière #}
     <div x-show="type==='vacataire'" x-cloak class="mb-4">
-      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Taux horaire</label>
-      <div class="flex items-center gap-2 mt-1.5">
-        <input type="number" name="hourly_rate" min="0" step="1" placeholder="0"
-               value="{{ profile.hourly_rate|default:''|unlocalize }}"
-               class="input-field flex-1">
-        <span class="text-sm text-gray-400 shrink-0">FCFA/h</span>
-      </div>
-      <p class="text-[11px] text-gray-400 mt-1.5">La durée de chaque cours est définie par matière (paramètre matière de classe) et sert au calcul des heures.</p>
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarif par cours</label>
+      {% if rate_groups %}
+        <div class="mt-2 space-y-3">
+          {% for g in rate_groups %}
+          <div x-data="{ bulk: '' }" class="border border-gray-200 rounded-xl p-3">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="text-sm font-semibold text-gray-800 min-w-0 truncate">{{ g.subject.name }}</span>
+              {% if g.courses|length > 1 %}
+              <div class="flex items-center gap-1.5 shrink-0">
+                <input type="number" min="0" step="1" placeholder="tarif" x-model="bulk"
+                       class="input-field w-20 text-right !py-1 text-xs">
+                <button type="button"
+                        @click="$root.querySelectorAll('input[name^=rate_cs_]').forEach(i => { i.value = bulk })"
+                        class="text-xs font-medium text-primary-600 hover:text-primary-700 whitespace-nowrap">Appliquer à tous</button>
+              </div>
+              {% endif %}
+            </div>
+            <div class="space-y-1.5">
+              {% for r in g.courses %}
+              <div class="flex items-center justify-between gap-3 pl-1">
+                <span class="text-sm text-gray-600 min-w-0 truncate">{{ r.cs.school_class.name }}</span>
+                <span class="flex items-center gap-1.5 shrink-0">
+                  <input type="number" name="rate_cs_{{ r.cs.id }}" min="0" step="1" placeholder="0"
+                         value="{{ r.rate|default:''|unlocalize }}"
+                         class="input-field w-24 text-right">
+                  <span class="text-xs text-gray-400">FCFA/h</span>
+                </span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="text-[11px] text-gray-400 mt-2">
+          Paie = heures émargées × tarif du cours. « Appliquer à tous » remplit toutes les classes de la matière.
+        </p>
+      {% else %}
+        <div class="mt-2 flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5">
+          <i data-lucide="info" class="w-4 h-4 text-amber-500 shrink-0 mt-0.5"></i>
+          <p class="text-[11px] text-amber-700 leading-relaxed">
+            Aucun cours assigné à cet enseignant. Assignez-lui des matières
+            (section « Matières et classes ») pour définir ses tarifs.
+          </p>
+        </div>
+      {% endif %}
     </div>
 
     {# Date d'embauche #}

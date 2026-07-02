@@ -11,7 +11,7 @@ from django.db.models import Avg, Count, Q, Sum
 
 from apps.schools.models import (
     AppreciationScale, Bulletin, BulletinLine, ClassSubject,
-    Note, NoteSystem, NoteType,
+    Note, NoteType,
 )
 from apps.students.models import Student
 
@@ -43,9 +43,6 @@ class BulletinCalculator:
     def calculate_subject_average(
         self,
         notes: list[Note],
-        note_system: str,
-        coeff_devoirs: Decimal,   # non utilisé pour DEVOIRS_COMPO (formule fixe /3)
-        coeff_compo: Decimal,     # non utilisé pour DEVOIRS_COMPO (formule fixe /3)
         max_grade: Decimal,
     ) -> Optional[Decimal]:
         """
@@ -76,32 +73,17 @@ class BulletinCalculator:
         Arrondi à 2 décimales (Decimal). Jamais > max_grade.
         """
         valid_notes = [n for n in notes if n and not n.is_cancelled]
-        if not valid_notes:
+        note_classe = next((n.value for n in valid_notes if n.position == 1), None)
+        compo       = next((n.value for n in valid_notes if n.position == 2), None)
+        if note_classe is None or compo is None:
             return None
 
-        if note_system == NoteSystem.DEVOIRS_COMPO:
-            devoirs = [n.value for n in valid_notes if n.position == 1]
-            compo   = next((n.value for n in valid_notes if n.position == 2), None)
-
-            if not devoirs or compo is None:
-                return None
-
-            moy_classe = sum(Decimal(str(v)) for v in devoirs) / len(devoirs)
-            # Formule malienne : (moy_classe + compo×2) / 3
-            # Retourne valeur NON arrondie — l'appelant arrondit séparément
-            # final_average et weighted_grade pour éviter l'erreur d'arrondi :
-            # round2(35/3)×3 = 11.67×3 = 35.01 ≠ 35.00
-            # round2(35/3×3) = round2(35.0) = 35.00 ✓
-            finale = (moy_classe + Decimal(str(compo)) * 2) / 3
-            return min(finale, Decimal(str(max_grade)))
-
-        else:
-            # MOYENNE_SIMPLE : moyenne arithmétique brute
-            # Test : notes=[15, 12, 18] → 45/3 = 15.00 ✓
-            # Retourne valeur NON arrondie — même raison que ci-dessus
-            values = [n.value for n in valid_notes]
-            finale = sum(Decimal(str(v)) for v in values) / len(values)
-            return min(finale, Decimal(str(max_grade)))
+        # Formule officielle malienne : (note de classe + composition×2) / 3.
+        # Position 1 = note de classe, position 2 = composition.
+        # Retourne valeur NON arrondie — l'appelant arrondit séparément final_average
+        # et weighted_grade (évite round2(35/3)×3 = 35.01 ≠ 35.00).
+        finale = (Decimal(str(note_classe)) + Decimal(str(compo)) * 2) / 3
+        return min(finale, Decimal(str(max_grade)))
 
     def calculate_weighted_grade(
         self,
@@ -171,13 +153,23 @@ class BulletinCalculator:
                 period=period,
                 school_class=school_class,
                 is_cancelled=False,
+                general_average__isnull=False,   # un élève sans moyenne n'est pas classé
             )
             .select_related('student')
             .order_by('-general_average')
         )
+        # Rangs « compétition » : les ex æquo partagent le même rang (1, 2, 2, 4…).
         ranks = {}
+        prev_avg = None
+        prev_rank = 0
         for idx, bul in enumerate(bulletins, start=1):
-            ranks[bul.student_id] = idx
+            if prev_avg is not None and bul.general_average == prev_avg:
+                rank = prev_rank
+            else:
+                rank = idx
+                prev_rank = idx
+                prev_avg = bul.general_average
+            ranks[bul.student_id] = rank
         return ranks
 
     def get_first_average(
@@ -267,13 +259,7 @@ class BulletinCalculator:
             cs_notes = notes_by_cs.get(cs.pk, [])
 
             # Moyenne matière — valeur exacte non arrondie
-            avg_raw = self.calculate_subject_average(
-                cs_notes,
-                cs.note_system,
-                cs.coeff_devoirs,
-                cs.coeff_compo,
-                cs.max_grade,
-            )
+            avg_raw = self.calculate_subject_average(cs_notes, cs.max_grade)
 
             # Arrondi séparément pour éviter l'erreur de double arrondi :
             # round2(35/3)×3 = 11.67×3 = 35.01 ≠ round2(35/3×3) = 35.00
@@ -287,19 +273,18 @@ class BulletinCalculator:
             # Sous-détails pour DEVOIRS_COMPO
             devoir_avg = None
             compo_val = None
-            if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-                devoirs = [
-                    n.value for n in cs_notes
-                    if n.position == 1 and not n.is_cancelled
-                ]
-                if devoirs:
-                    devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
-                compo_note = next(
-                    (n for n in cs_notes if n.position == 2 and not n.is_cancelled),
-                    None,
-                )
-                if compo_note:
-                    compo_val = compo_note.value
+            devoirs = [
+                n.value for n in cs_notes
+                if n.position == 1 and not n.is_cancelled
+            ]
+            if devoirs:
+                devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
+            compo_note = next(
+                (n for n in cs_notes if n.position == 2 and not n.is_cancelled),
+                None,
+            )
+            if compo_note:
+                compo_val = compo_note.value
 
             lines_data.append({
                 'cs':             cs,
@@ -416,10 +401,7 @@ class BulletinCalculator:
             lines_data = []
             for cs in class_subjects:
                 cs_notes = notes_index.get((student.pk, cs.pk), [])
-                avg_raw = self.calculate_subject_average(
-                    cs_notes, cs.note_system,
-                    cs.coeff_devoirs, cs.coeff_compo, cs.max_grade,
-                )
+                avg_raw = self.calculate_subject_average(cs_notes, cs.max_grade)
                 # Arrondi séparé : évite round2(35/3)×3 = 35.01
                 avg_display = round2(avg_raw) if avg_raw is not None else None
                 weighted = (
@@ -429,13 +411,12 @@ class BulletinCalculator:
 
                 devoir_avg = None
                 compo_val = None
-                if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-                    devoirs = [n.value for n in cs_notes if n.position == 1]
-                    if devoirs:
-                        devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
-                    compo = next((n for n in cs_notes if n.position == 2), None)
-                    if compo:
-                        compo_val = compo.value
+                devoirs = [n.value for n in cs_notes if n.position == 1]
+                if devoirs:
+                    devoir_avg = round2(sum(Decimal(str(v)) for v in devoirs) / len(devoirs))
+                compo = next((n for n in cs_notes if n.position == 2), None)
+                if compo:
+                    compo_val = compo.value
 
                 lines_data.append({
                     'cs':              cs,
@@ -487,7 +468,8 @@ class BulletinCalculator:
 
         # Calculer les rangs
         ranks = self.calculate_ranks(period, school_class)
-        class_size_val = len(students)
+        # Effectif classé = élèves ayant une moyenne (les sans-note ne sont pas classés).
+        class_size_val = sum(1 for b in created if b.general_average is not None)
         first_avg = self.get_first_average(period, school_class)
 
         # Mettre à jour rangs et stats

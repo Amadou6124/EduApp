@@ -1,7 +1,10 @@
 {% load i18n %}
 <div class="card p-6">
   <div class="flex items-center justify-between mb-5">
-    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Permissions</h3>
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
+      Permissions
+      {% if active_count is not None %}<span class="badge-purple normal-case tracking-normal">{{ active_count }} active{{ active_count|pluralize }}</span>{% endif %}
+    </h3>
     {% if is_director %}
       <span id="perm-save-indicator" class="text-xs text-green-600 font-medium opacity-0 transition-opacity duration-300">
         <i data-lucide="check" class="w-3 h-3 inline-block mr-0.5"></i> Enregistré

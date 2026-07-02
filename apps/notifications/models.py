@@ -9,6 +9,7 @@ class NotificationCategory(models.TextChoices):
     ABSENCE     = 'absence',     _('Absence')
     BULLETIN    = 'bulletin',    _('Bulletin disponible')
     PAYMENT     = 'payment',     _('Paiement reçu')
+    REMINDER    = 'reminder',    _('Rappel de paiement')
     INFO        = 'info',        _("Message de l'école")
 
 

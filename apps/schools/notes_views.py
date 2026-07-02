@@ -14,14 +14,16 @@ from django.db.models import Prefetch
 
 from apps.accounts.models import UserRole
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.mixins import get_school
 from apps.students.models import Student
 
 from .models import (
-    ClassSubject, Note, NoteSystem, NoteType, Period, SchoolYear,
+    ClassSubject, Note, NoteType, NoteEntryGrant, Period, SchoolYear,
 )
 from .permissions import can_enter_notes
 
@@ -42,24 +44,15 @@ def _get_active_year(school, year_id=None):
 
 def _compute_student_avg(cs, note_list):
     """
-    Calcule la moyenne d'un élève pour une ClassSubject.
+    Moyenne d'un élève pour une ClassSubject.
 
+    SOURCE UNIQUE : réutilise exactement la formule du bulletin (BulletinCalculator),
+    pour que l'aperçu de saisie ne diverge jamais de la moyenne imprimée sur le bulletin.
     note_list : liste ordonnée de Note|None (index = position-1).
     """
-    valid = [n for n in note_list if n is not None and not n.is_cancelled]
-    if not valid:
-        return None
-
-    if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-        # position 1 = devoir, position 2 = composition
-        devoir = next((n.value for n in valid if n.position == 1), None)
-        compo  = next((n.value for n in valid if n.position == 2), None)
-        if devoir is not None and compo is not None:
-            return round(devoir * cs.coeff_devoirs + compo * cs.coeff_compo, 2)
-        return None
-
-    # Moyenne simple : somme / nb notes valides
-    return round(sum(n.value for n in valid) / len(valid), 2)
+    from apps.schools.services.bulletin_calculator import BulletinCalculator, round2
+    raw = BulletinCalculator().calculate_subject_average(note_list, cs.max_grade)
+    return round2(raw)
 
 
 def _compute_class_stats(rows):
@@ -81,15 +74,22 @@ def _compute_class_stats(rows):
     }
 
 
+def _column_names(cs, period, positions):
+    """Colonnes du bulletin : position 1 = Note de classe, position 2 = Composition."""
+    fixed = {1: _('Note de classe'), 2: _('Composition')}
+    return [{'pos': p, 'name': fixed.get(p, f'Note {p}'), 'editable': False} for p in positions]
+
+
 def _build_table_data(cs, students, period, force_min_cols=2):
     """
     Construit les données du tableau de saisie pour une ClassSubject.
 
     force_min_cols : nombre minimal de colonnes (utilisé par "ajouter une colonne").
 
-    Retourne : (positions, rows, class_stats)
+    Retourne : (positions, columns, rows, class_stats)
       - positions  : liste d'entiers [1, 2, …]
-      - rows       : liste de dicts {student, notes:{pos:Note}, avg}
+      - columns    : liste de dicts {pos, name, editable} (en-têtes nommés)
+      - rows       : liste de dicts {student, cells, avg, notes_js}
       - class_stats: dict retourné par _compute_class_stats()
     """
     existing = list(
@@ -104,18 +104,8 @@ def _build_table_data(cs, students, period, force_min_cols=2):
     for note in existing:
         notes_by_student[note.student_id][note.position] = note
 
-    if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-        positions = [1, 2]  # fixe : 1=devoirs, 2=composition
-    else:
-        all_pos = {
-            pos
-            for student_notes in notes_by_student.values()
-            for pos in student_notes
-            if not student_notes[pos].is_cancelled
-        }
-        max_pos   = max(all_pos) if all_pos else 0
-        n_cols    = max(max_pos + 1, force_min_cols)
-        positions = list(range(1, n_cols + 1))
+    # Bulletin : 2 colonnes fixes — note de classe (pos 1) + composition (pos 2).
+    positions = [1, 2]
 
     rows = []
     for student in students:
@@ -138,7 +128,8 @@ def _build_table_data(cs, students, period, force_min_cols=2):
             'notes_js':  notes_js,
         })
 
-    return positions, rows, _compute_class_stats(rows)
+    columns = _column_names(cs, period, positions)
+    return positions, columns, rows, _compute_class_stats(rows)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -193,8 +184,9 @@ def notes_dashboard(request):
     if teacher_class_ids is not None:
         classes_qs = classes_qs.filter(pk__in=teacher_class_ids)
 
-    # Toutes les notes de la période active — 1 seule requête
-    notes_meta  = {}   # {cs_id: set(student_id)}
+    # Notes de la période : maps (cs, position) → élèves notés + valeurs — 1 requête.
+    noted_by_cs_pos = defaultdict(set)   # (cs_id, position) -> {student_id}
+    positions_by_cs = defaultdict(set)   # cs_id -> {position}
     note_values = []
     if active_period:
         notes_filter = dict(
@@ -205,10 +197,13 @@ def notes_dashboard(request):
         if teacher_class_ids is not None:
             notes_filter['class_subject__school_class_id__in'] = teacher_class_ids
         for row in Note.objects.filter(**notes_filter).values(
-            'class_subject_id', 'student_id', 'value'
+            'class_subject_id', 'position', 'student_id', 'value', 'class_subject__max_grade'
         ):
-            notes_meta.setdefault(row['class_subject_id'], set()).add(row['student_id'])
-            note_values.append(float(row['value']))
+            noted_by_cs_pos[(row['class_subject_id'], row['position'])].add(row['student_id'])
+            positions_by_cs[row['class_subject_id']].add(row['position'])
+            mg = float(row['class_subject__max_grade'] or 20)
+            if mg:
+                note_values.append(float(row['value']) / mg * 20)   # normalisé /20
 
     # Classes + matières + élèves — 3 requêtes prefetch
     classes = list(
@@ -229,39 +224,54 @@ def notes_dashboard(request):
         .order_by('level', 'name')
     )
 
-    class_progress        = []
-    subjects_without_notes = 0
-    complete_classes       = 0
+    def _cs_status(cs, student_count):
+        """non_started | in_progress | complete.
+
+        « complete » n'est revendiqué que si c'est vérifiable : devoir+compo saisis
+        pour tous, ou (moyenne simple) toutes les colonnes existantes remplies pour tous.
+        Sinon « in_progress » — le vrai « terminé » reste la fermeture de la période.
+        """
+        if student_count == 0:
+            return 'in_progress'
+        if cs.pk not in positions_by_cs:
+            return 'non_started'
+        # Bulletin : complet si note de classe (pos 1) ET composition (pos 2) saisies pour tous.
+        full = (len(noted_by_cs_pos.get((cs.pk, 1), ())) == student_count
+                and len(noted_by_cs_pos.get((cs.pk, 2), ())) == student_count)
+        return 'complete' if full else 'in_progress'
+
+    class_progress = []
+    n_non_started  = n_in_progress = n_complete = 0
 
     for sc in classes:
         student_count = len(sc.active_students)
         subject_data  = []
-        all_complete  = student_count > 0
-
+        c_started = c_complete = c_non_started = 0
         for cs in sc.active_subjects:
-            noted = len(notes_meta.get(cs.pk, set()))
-            pct   = int(noted / student_count * 100) if student_count else 0
-            done  = (pct == 100 and student_count > 0)
-            if not done:
-                all_complete = False
-            if noted == 0 and student_count > 0:
-                subjects_without_notes += 1
-            subject_data.append({
-                'cs':    cs,
-                'noted': noted,
-                'total': student_count,
-                'pct':   pct,
-                'done':  done,
-            })
-
-        if all_complete and subject_data:
-            complete_classes += 1
-
+            status = _cs_status(cs, student_count)
+            subject_data.append({'cs': cs, 'status': status})
+            if student_count == 0:
+                continue
+            if status == 'non_started':
+                n_non_started += 1
+                c_non_started += 1
+            elif status == 'complete':
+                n_complete += 1
+                c_complete += 1
+                c_started += 1
+            else:
+                n_in_progress += 1
+                c_started += 1
+        total_subjects = len(subject_data)
         class_progress.append({
-            'class':         sc,
-            'subjects':      subject_data,
-            'student_count': student_count,
-            'all_complete':  all_complete and bool(subject_data),
+            'class':          sc,
+            'subjects':       subject_data,
+            'student_count':  student_count,
+            'total_subjects': total_subjects,
+            'started':        c_started,
+            'complete':       c_complete,
+            'non_started':    c_non_started,
+            'all_complete':   total_subjects > 0 and c_complete == total_subjects,
         })
 
     avg_overall = (
@@ -269,21 +279,33 @@ def notes_dashboard(request):
         if note_values else None
     )
 
-    return render(request, 'notes/notes_dashboard.html', {
+    can_manage = (
+        request.user.is_superuser
+        or request.role in (UserRole.DIRECTOR, UserRole.STAFF)
+    )
+    ctx = {
         'school':         school,
         'active_year':    active_year,
         'years':          years,
         'periods':        periods,
         'active_period':  active_period,
         'class_progress': class_progress,
+        'can_manage':     can_manage,
         'stats': {
-            'open_periods':            open_periods_count,
-            'subjects_without_notes':  subjects_without_notes,
-            'complete_classes':        complete_classes,
-            'avg_overall':             avg_overall,
+            'open_periods':  open_periods_count,
+            'non_started':   n_non_started,
+            'in_progress':   n_in_progress,
+            'complete':      n_complete,
+            'avg_overall':   avg_overall,
         },
         'active_section': 'notes',
-    })
+    }
+    # Onglets périodes en HTMX → on ne renvoie que le corps (swap instantané).
+    template = (
+        'notes/partials/dashboard_body.html'
+        if request.htmx and periods else 'notes/notes_dashboard.html'
+    )
+    return render(request, template, ctx)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -344,15 +366,38 @@ def notes_class(request, class_id, period_id):
         else (False, 'Aucune matière disponible pour votre compte.')
     )
 
+    students = list(
+        Student.objects
+        .filter(school_class=school_class, school=school, is_active=True)
+        .order_by('full_name')
+    )
+    student_count = len(students)
+
+    # Statut par matière (pour le menu déroulant) — 1 requête sur toutes les matières.
+    cs_ids = [cs.pk for cs in class_subjects]
+    noted_cs_pos = defaultdict(set)   # (cs_id, pos) -> {student_id}
+    cs_positions = defaultdict(set)   # cs_id -> {pos}
+    for row in Note.objects.filter(
+        class_subject_id__in=cs_ids, period=period, is_cancelled=False,
+    ).values('class_subject_id', 'position', 'student_id'):
+        noted_cs_pos[(row['class_subject_id'], row['position'])].add(row['student_id'])
+        cs_positions[row['class_subject_id']].add(row['position'])
+
+    def _status(cs):
+        if student_count == 0:
+            return 'in_progress'
+        if cs.pk not in cs_positions:
+            return 'non_started'
+        full = (len(noted_cs_pos.get((cs.pk, 1), ())) == student_count
+                and len(noted_cs_pos.get((cs.pk, 2), ())) == student_count)
+        return 'complete' if full else 'in_progress'
+
+    subjects_status = [{'cs': cs, 'status': _status(cs)} for cs in class_subjects]
+
     # Données du tableau pour la matière active
-    positions, rows, class_stats = [], [], {}
+    positions, columns, rows, class_stats = [], [], [], {}
     if active_cs:
-        students = list(
-            Student.objects
-            .filter(school_class=school_class, school=school, is_active=True)
-            .order_by('full_name')
-        )
-        positions, rows, class_stats = _build_table_data(active_cs, students, period)
+        positions, columns, rows, class_stats = _build_table_data(active_cs, students, period)
 
     # Données pour le mode saisie rapide mobile (Phase 5)
     mobile_position = positions[0] if positions else 1
@@ -375,15 +420,25 @@ def notes_class(request, class_id, period_id):
             if val:
                 mobile_existing[str(r['student'].pk)] = val
 
+    if active_cs:
+        is_director, has_grant = _grant_status(request, active_cs, period)
+    else:
+        is_director = request.user.is_superuser or request.role in (UserRole.DIRECTOR, UserRole.STAFF)
+        has_grant = False
+
     return render(request, 'notes/notes_class.html', {
         'school':           school,
         'school_class':     school_class,
         'period':           period,
         'class_subjects':   class_subjects,
+        'subjects_status':  subjects_status,
         'active_cs':        active_cs,
         'can_enter':        can_enter,
         'reason':           reason,
+        'is_director':      is_director,
+        'has_grant':        has_grant,
         'positions':        positions,
+        'columns':          columns,
         'rows':             rows,
         'class_stats':      class_stats,
         'mobile_students':  mobile_students,
@@ -397,39 +452,65 @@ def notes_class(request, class_id, period_id):
 # Vue 3 : Partial HTMX — tableau matière
 # ─────────────────────────────────────────────────────────────
 
+def _grant_status(request, cs, period):
+    """(is_director, has_grant) — ouverture ciblée active pour cette (matière, période)."""
+    is_director = request.user.is_superuser or request.role in (UserRole.DIRECTOR, UserRole.STAFF)
+    has_grant = False
+    if is_director and not period.is_notes_open:
+        g = cs.entry_grants.filter(period=period).first()
+        has_grant = bool(g and g.is_active())
+    return is_director, has_grant
+
+
+def _render_subject_tabs(request, school_class, period, cs):
+    """Rend le wrapper d'onglets (Bulletin/Formatif) d'une matière."""
+    can_enter, reason = can_enter_notes(request.user, cs, period)
+    students = list(
+        Student.objects
+        .filter(school_class=school_class, school=school_class.school, is_active=True)
+        .order_by('full_name')
+    )
+    positions, columns, rows, class_stats = _build_table_data(cs, students, period)
+    is_director, has_grant = _grant_status(request, cs, period)
+    return render(request, 'notes/partials/subject_tabs.html', {
+        'cs': cs, 'period': period, 'school_class': school_class,
+        'positions': positions, 'columns': columns, 'rows': rows,
+        'class_stats': class_stats, 'can_enter': can_enter, 'reason': reason,
+        'is_director': is_director, 'has_grant': has_grant,
+    })
+
+
 @login_required
 def notes_subject_table(request, class_id, period_id, subject_id):
-    """
-    Partial HTMX — tableau de saisie pour une matière.
-    GET /notes/<class_id>/<period_id>/<subject_id>/
-    Réponse : fragment HTML (notes/partials/notes_table.html)
-    """
+    """Partial HTMX — onglets de saisie (Bulletin/Formatif) pour une matière."""
     school       = get_school(request)
     school_class = get_object_or_404(school.classes.filter(is_active=True), pk=class_id)
     period       = get_object_or_404(Period, pk=period_id, school_year__school=school)
     cs           = get_object_or_404(
         ClassSubject, pk=subject_id, school_class=school_class, is_active=True,
     )
+    return _render_subject_tabs(request, school_class, period, cs)
 
-    can_enter, reason = can_enter_notes(request.user, cs, period)
 
-    students = list(
-        Student.objects
-        .filter(school_class=school_class, school=school, is_active=True)
-        .order_by('full_name')
-    )
-    positions, rows, class_stats = _build_table_data(cs, students, period)
-
-    return render(request, 'notes/partials/notes_table.html', {
-        'cs':           cs,
-        'period':       period,
-        'school_class': school_class,
-        'positions':    positions,
-        'rows':         rows,
-        'class_stats':  class_stats,
-        'can_enter':    can_enter,
-        'reason':       reason,
-    })
+@login_required
+@require_http_methods(['POST'])
+def notes_grant_toggle(request, subject_id, period_id):
+    """Ouvre/ferme la saisie bulletin pour une (matière, période) précise (directeur)."""
+    school = get_school(request)
+    if not (request.user.is_superuser or request.role in (UserRole.DIRECTOR, UserRole.STAFF)):
+        return HttpResponse(status=403)
+    cs     = get_object_or_404(ClassSubject, pk=subject_id, school_class__school=school, is_active=True)
+    period = get_object_or_404(Period, pk=period_id, school_year__school=school)
+    existing = cs.entry_grants.filter(period=period).first()
+    if existing:
+        existing.delete()
+        msg = 'Saisie refermée pour cette matière.'
+    else:
+        NoteEntryGrant.objects.create(class_subject=cs, period=period, granted_by=request.user)
+        msg = "Saisie ouverte pour l'enseignant."
+    resp = _render_subject_tabs(request, cs.school_class, period, cs)
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': msg, 'type': 'success'}})
+    return resp
 
 
 # ─────────────────────────────────────────────────────────────
@@ -466,11 +547,13 @@ def note_save(request):
     # Vérification permissions
     can_enter, reason = can_enter_notes(request.user, cs, period)
     if not can_enter:
-        return render(request, 'notes/partials/note_cell.html', {
+        resp = render(request, 'notes/partials/note_cell.html', {
             'cs': cs, 'student': student, 'period': period,
             'position': position, 'note': None,
             'can_enter': False, 'error': reason,
         })
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': reason, 'type': 'error'}})
+        return resp
 
     value_str = request.POST.get('value', '').strip()
 
@@ -525,11 +608,8 @@ def note_save(request):
         })
         return response
 
-    # Déduire le type de note selon le système et la position
-    if cs.note_system == NoteSystem.DEVOIRS_COMPO:
-        note_type = NoteType.DEVOIR if position == 1 else NoteType.COMPOSITION
-    else:
-        note_type = NoteType.SIMPLE
+    # Position 1 = note de classe (DEVOIR), position 2 = composition.
+    note_type = NoteType.DEVOIR if position == 1 else NoteType.COMPOSITION
 
     # Upsert — unique_together garantit l'unicité (student, class_subject, period, position)
     note, created = Note.objects.get_or_create(
@@ -611,53 +691,24 @@ def note_cancel(request, note_id):
 
 
 # ─────────────────────────────────────────────────────────────
-# Vue 6 : Ajouter une colonne (mode moyenne_simple)
+# Vue 7 : Ouvrir/fermer la saisie d'une période (directeur/staff)
 # ─────────────────────────────────────────────────────────────
 
 @login_required
 @require_http_methods(['POST'])
-def notes_add_column(request, class_id, period_id, subject_id):
+def notes_period_toggle(request, period_id):
     """
-    HTMX POST — ajouter une colonne de note (mode moyenne_simple uniquement).
-    POST /notes/<class_id>/<period_id>/<subject_id>/add-column/
-    POST body : current_columns=<int>
-    Retourne  : fragment notes_table.html avec une colonne de plus.
+    Ouvre ou ferme la saisie des notes pour une période, puis recharge le dashboard.
+    POST /notes/period/<period_id>/toggle/  — réservé directeur / staff.
     """
-    school       = get_school(request)
-    school_class = get_object_or_404(school.classes.filter(is_active=True), pk=class_id)
-    period       = get_object_or_404(Period, pk=period_id, school_year__school=school)
-    cs           = get_object_or_404(
-        ClassSubject, pk=subject_id, school_class=school_class, is_active=True,
-    )
+    school = get_school(request)
+    if not (request.user.is_superuser or request.role in (UserRole.DIRECTOR, UserRole.STAFF)):
+        return HttpResponse(status=403)
 
-    if cs.note_system != NoteSystem.MOYENNE_SIMPLE:
-        return HttpResponse(status=400)
+    period = get_object_or_404(Period, pk=period_id, school_year__school=school)
+    period.is_notes_open = not period.is_notes_open
+    period.save(update_fields=['is_notes_open'])
 
-    can_enter, reason = can_enter_notes(request.user, cs, period)
-    if not can_enter:
-        return HttpResponse(
-            f'<span class="text-red-500 text-xs">{reason}</span>',
-            status=403,
-        )
+    return redirect(f"{reverse('notes:dashboard')}?period={period.pk}")
 
-    current_columns = int(request.POST.get('current_columns', 2))
-    students = list(
-        Student.objects
-        .filter(school_class=school_class, school=school, is_active=True)
-        .order_by('full_name')
-    )
-    # Forcer au moins current_columns + 1 colonnes
-    positions, rows, class_stats = _build_table_data(
-        cs, students, period, force_min_cols=current_columns + 1,
-    )
 
-    return render(request, 'notes/partials/notes_table.html', {
-        'cs':           cs,
-        'period':       period,
-        'school_class': school_class,
-        'positions':    positions,
-        'rows':         rows,
-        'class_stats':  class_stats,
-        'can_enter':    can_enter,
-        'reason':       reason,
-    })
