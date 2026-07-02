@@ -1,20 +1,21 @@
 from decimal import Decimal, ROUND_HALF_UP
 from collections import defaultdict
+from datetime import date as _date
 
-from apps.schools.models import ClassSubject, Note
-from .models import QuickAssessment
+from apps.schools.models import ClassSubject, Note, FormativeGrade
 
 
 # ─── Constantes ──────────────────────────────────────────────────────────────
 
-WEIGHT_OFFICIAL = Decimal('0.60')
-WEIGHT_QUICK    = Decimal('0.40')
+WEIGHT_OFFICIAL  = Decimal('0.60')
+WEIGHT_FORMATIVE = Decimal('0.40')
 
-LEVEL_CRITICAL = 'critical'
-LEVEL_WARNING  = 'warning'
-LEVEL_WATCH    = 'watch'
-LEVEL_GOOD     = 'good'
+LEVEL_CRITICAL     = 'critical'      # < 8  → en difficulté
+LEVEL_WARNING      = 'warning'       # < 12 → à surveiller
+LEVEL_GOOD         = 'good'          # >= 12
+LEVEL_INSUFFICIENT = 'insufficient'  # < 2 données → pas assez pour juger
 
+MIN_DATA_POINTS = 2
 TREND_THRESHOLD = Decimal('1.5')
 
 
@@ -34,10 +35,7 @@ def _avg(values: list) -> Decimal | None:
 
 
 def _trend(scores_chrono: list) -> str:
-    """
-    Comparaison moyenne 3 premières évals vs 3 dernières.
-    scores_chrono trié du plus ancien au plus récent.
-    """
+    """Moyenne des 3 premières évals vs 3 dernières (chrono ancien→récent)."""
     if len(scores_chrono) < 2:
         return 'stable'
     first = _avg(scores_chrono[:3])
@@ -55,10 +53,8 @@ def _trend(scores_chrono: list) -> str:
 def _score_level(score: Decimal) -> str:
     if score < Decimal('8'):
         return LEVEL_CRITICAL
-    if score < Decimal('10'):
-        return LEVEL_WARNING
     if score < Decimal('12'):
-        return LEVEL_WATCH
+        return LEVEL_WARNING
     return LEVEL_GOOD
 
 
@@ -71,13 +67,19 @@ def compute_difficulty_score(
     period,
     *,
     notes_by_cs: dict | None = None,
-    qa_by_cs: dict | None = None,
+    fg_by_cs: dict | None = None,
 ) -> dict:
     """
-    Score de difficulté pour un élève dans une matière sur une période.
+    Score de difficulté d'un élève dans une matière sur une période.
 
-    notes_by_cs / qa_by_cs : dicts pré-chargés {cs_id: [objet, ...]}
-    Si None → requêtes individuelles (mode fiche élève isolée).
+    Source unique du signal formatif : FormativeGrade (l'onglet « Formatif » de
+    la page Notes) — plus de QuickAssessment. On mêle notes officielles (60 %)
+    et formatif (40 %). En dessous de MIN_DATA_POINTS données, l'élève n'est pas
+    jugé (niveau « insufficient ») pour éviter les fausses alertes.
+
+    notes_by_cs : {cs_id: [Note, ...]}
+    fg_by_cs    : {cs_id: [(value, max_grade, date), ...]}
+    Si None → requêtes individuelles (fiche élève isolée).
     """
     # ── Notes officielles ────────────────────────────────────────
     if notes_by_cs is not None:
@@ -85,78 +87,77 @@ def compute_difficulty_score(
     else:
         raw_notes = list(
             Note.objects.filter(
-                class_subject=class_subject,
-                student=student,
-                period=period,
-                is_cancelled=False,
+                class_subject=class_subject, student=student,
+                period=period, is_cancelled=False,
             ).order_by('position')
         )
-
     official_norm = [_normalize(n.value, class_subject.max_grade) for n in raw_notes]
     official_avg  = _avg(official_norm)
 
-    # ── Évaluations rapides ──────────────────────────────────────
-    if qa_by_cs is not None:
-        raw_qa = qa_by_cs.get(class_subject.pk, [])
+    # ── Notes formatives (source unique du formatif) ─────────────
+    if fg_by_cs is not None:
+        raw_fg = fg_by_cs.get(class_subject.pk, [])
     else:
-        raw_qa = list(
-            QuickAssessment.objects.filter(
-                class_subject=class_subject,
-                student=student,
-                period=period,
-                teacher=teacher,
-            ).order_by('assessed_at', 'created_at')
+        raw_fg = list(
+            FormativeGrade.objects.filter(
+                evaluation__class_subject=class_subject,
+                evaluation__period=period,
+                student=student, is_absent=False, value__isnull=False,
+            ).values_list('value', 'evaluation__max_grade', 'evaluation__date')
         )
+    formative_norm = [_normalize(v, mx) for (v, mx, _d) in raw_fg]
+    formative_avg  = _avg(formative_norm)
 
-    quick_norm = [_normalize(qa.value, qa.max_value) for qa in raw_qa]
-    quick_avg  = _avg(quick_norm)
+    data_points = len(official_norm) + len(formative_norm)
 
     # ── Score pondéré ────────────────────────────────────────────
-    if official_avg is not None and quick_avg is not None:
+    if official_avg is not None and formative_avg is not None:
         score = (
-            official_avg * WEIGHT_OFFICIAL + quick_avg * WEIGHT_QUICK
+            official_avg * WEIGHT_OFFICIAL + formative_avg * WEIGHT_FORMATIVE
         ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     elif official_avg is not None:
         score = official_avg
-    elif quick_avg is not None:
-        score = quick_avg
+    elif formative_avg is not None:
+        score = formative_avg
     else:
         score = None
 
-    # ── Tendance : fusion chrono notes + évals rapides ───────────
-    import datetime as _dt
-    from django.utils import timezone as _tz
-    all_chrono = sorted(
-        [(n.entered_at, _normalize(n.value, class_subject.max_grade)) for n in raw_notes]
-        + [(_tz.make_aware(_dt.datetime(qa.assessed_at.year, qa.assessed_at.month, qa.assessed_at.day)),
-            _normalize(qa.value, qa.max_value)) for qa in raw_qa],
-        key=lambda t: t[0],
+    # ── Niveau (garde-fou anti fausses alertes) ──────────────────
+    if score is None or data_points == 0:
+        level = None
+    elif data_points < MIN_DATA_POINTS:
+        level = LEVEL_INSUFFICIENT
+    else:
+        level = _score_level(score)
+
+    # ── Tendance : notes + formatif, du plus ancien au plus récent ──
+    chrono = sorted(
+        [(n.entered_at.date() if n.entered_at else None,
+          _normalize(n.value, class_subject.max_grade)) for n in raw_notes]
+        + [(d, _normalize(v, mx)) for (v, mx, d) in raw_fg],
+        key=lambda t: (t[0] is None, t[0] or _date.min),
     )
-    trend = _trend([v for _, v in all_chrono]) if len(all_chrono) >= 2 else 'stable'
+    trend = _trend([v for _, v in chrono]) if len(chrono) >= 2 else 'stable'
 
     return {
-        'score':             score,
-        'level':             _score_level(score) if score is not None else None,
-        'official_avg':      official_avg,
-        'quick_avg':         quick_avg,
-        'trend':             trend,
-        'assessments_count': len(raw_qa),
-        'notes_count':       len(raw_notes),
+        'score':           score,
+        'level':           level,
+        'official_avg':    official_avg,
+        'formative_avg':   formative_avg,
+        'trend':           trend,
+        'data_points':     data_points,
+        'formative_count': len(formative_norm),
+        'notes_count':     len(official_norm),
     }
 
 
 # ─── Rapport complet d'une classe ────────────────────────────────────────────
 
 def get_class_difficulty_report(teacher, school_class, period) -> list:
-    """
-    Rapport trié par score global ascendant (pire élève en premier).
-    2 requêtes SQL pour toute la classe — zéro N+1.
-    """
+    """Rapport par élève (pire d'abord). 3 requêtes SQL pour toute la classe."""
     my_cs = list(
         ClassSubject.objects.filter(
-            school_class=school_class,
-            teacher=teacher,
-            is_active=True,
+            school_class=school_class, teacher=teacher, is_active=True,
         ).select_related('subject').order_by('order', 'subject__name')
     )
     if not my_cs:
@@ -169,21 +170,20 @@ def get_class_difficulty_report(teacher, school_class, period) -> list:
     for n in (
         Note.objects
         .filter(class_subject_id__in=cs_ids, period=period, is_cancelled=False)
-        .select_related('student')
         .order_by('position')
     ):
         notes_map[n.student_id][n.class_subject_id].append(n)
 
-    # Requête 2 — évaluations rapides
-    qa_map: dict = defaultdict(lambda: defaultdict(list))
-    for qa in (
-        QuickAssessment.objects
-        .filter(class_subject_id__in=cs_ids, period=period, teacher=teacher)
-        .select_related('student')
-        .order_by('assessed_at', 'created_at')
+    # Requête 2 — notes formatives (valeurs brutes)
+    fg_map: dict = defaultdict(lambda: defaultdict(list))
+    for sid, csid, val, mx, d in (
+        FormativeGrade.objects
+        .filter(evaluation__class_subject_id__in=cs_ids, evaluation__period=period,
+                is_absent=False, value__isnull=False)
+        .values_list('student_id', 'evaluation__class_subject_id',
+                     'value', 'evaluation__max_grade', 'evaluation__date')
     ):
-        if qa.student_id:
-            qa_map[qa.student_id][qa.class_subject_id].append(qa)
+        fg_map[sid][csid].append((val, mx, d))
 
     from apps.students.models import Student
     students = list(
@@ -193,29 +193,33 @@ def get_class_difficulty_report(teacher, school_class, period) -> list:
     results = []
     for student in students:
         cs_scores = {}
-        subject_scores = []
+        judged_scores = []
 
         for cs in my_cs:
-            score_dict = compute_difficulty_score(
-                student=student,
-                teacher=teacher,
-                class_subject=cs,
-                period=period,
+            sd = compute_difficulty_score(
+                student=student, teacher=teacher, class_subject=cs, period=period,
                 notes_by_cs={cs.pk: notes_map[student.pk].get(cs.pk, [])},
-                qa_by_cs={cs.pk: qa_map[student.pk].get(cs.pk, [])},
+                fg_by_cs={cs.pk: fg_map[student.pk].get(cs.pk, [])},
             )
-            score_dict['cs_id'] = cs.pk  # requis pour le formulaire d'éval rapide
-            cs_scores[cs.subject.name] = score_dict
-            if score_dict['score'] is not None:
-                subject_scores.append(score_dict['score'])
+            sd['cs_id']   = cs.pk
+            sd['subject'] = cs.subject.name
+            cs_scores[cs.subject.name] = sd
+            if sd['level'] in (LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_GOOD):
+                judged_scores.append(sd['score'])
 
-        global_score = _avg(subject_scores)
-        global_level = _score_level(global_score) if global_score is not None else None
+        if judged_scores:
+            global_score = _avg(judged_scores)
+            global_level = _score_level(global_score)
+        elif any(v['level'] == LEVEL_INSUFFICIENT for v in cs_scores.values()):
+            global_score, global_level = None, LEVEL_INSUFFICIENT
+        else:
+            global_score, global_level = None, None  # aucune donnée → ignoré
 
-        trends = [v['trend'] for v in cs_scores.values()]
-        if 'down' in trends:
+        judged_trends = [v['trend'] for v in cs_scores.values()
+                         if v['level'] in (LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_GOOD)]
+        if 'down' in judged_trends:
             global_trend = 'down'
-        elif 'up' in trends and 'stable' not in trends:
+        elif 'up' in judged_trends and 'stable' not in judged_trends:
             global_trend = 'up'
         else:
             global_trend = 'stable'

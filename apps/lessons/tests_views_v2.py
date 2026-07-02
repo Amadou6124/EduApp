@@ -89,6 +89,29 @@ class UnitViewsV2Test(TestCase):
         self.assertEqual(resp.status_code, 422)
         self.assertEqual(Unit.objects.count(), 0)
 
+    def test_upload_pasted_text_creates_skeleton(self):
+        text = 'Les types de phrases en français : déclarative, interrogative, exclamative.'
+        with patch('apps.lessons.views.call_architect', return_value=ARCH), \
+             patch('apps.lessons.views.launch_unit_generation'):
+            resp = self.client.post(reverse('lessons:unit-upload'), {
+                'pasted_text': text,
+                'selected_class_id': '1', 'selected_subject_name': 'Français',
+                'selected_subject_type': 'literary', 'selected_level': 'fondamental_1',
+            })
+        self.assertEqual(resp.status_code, 302)             # même sortie que le fichier
+        unit = Unit.objects.get()
+        self.assertEqual(unit.source_type, 'text')
+        self.assertEqual(unit.subject, 'Français')
+        self.assertEqual(unit.lessons.count(), 2)
+        self.assertTrue(unit.source_file.name.endswith('.txt'))
+
+    def test_upload_pasted_text_too_short(self):
+        resp = self.client.post(reverse('lessons:unit-upload'), {
+            'pasted_text': 'trop court', 'selected_class_id': '1',
+            'selected_subject_name': 'Français'})
+        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(Unit.objects.count(), 0)
+
     # ── unit_upload GET (assistant peuplé depuis les ClassSubject du prof) ────────
     def test_upload_get_lists_teacher_classes(self):
         from apps.schools.models import SchoolClass, Subject, ClassSubject

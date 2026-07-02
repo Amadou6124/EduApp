@@ -16,6 +16,7 @@ from apps.lessons.services import (
     call_architect, extract_content_from_file, _create_unit_skeleton,
     launch_unit_generation, is_generation_active,
 )
+from apps.lessons import versioning, quality, lifecycle, analytics
 from apps.schools.models import SchoolClass, ClassSubject, EducationLevel
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,12 @@ def _build_classes_data(teacher):
 
 # ─── Déploiement toggle par classe (PARTAGÉ v1/v2 — utilisé par le déploiement v2) ─
 
+def _is_validated(lesson):
+    """La leçon est validée si sa version live porte le tampon de validation."""
+    cv = lesson.active_content_version
+    return bool(cv and cv.validated_at)
+
+
 @teacher_required
 @require_POST
 def lesson_deploy_toggle(request, lesson_id, class_id):
@@ -99,6 +106,20 @@ def lesson_deploy_toggle(request, lesson_id, class_id):
         school=school, status=LessonStatus.READY,
     )
     school_class = get_object_or_404(SchoolClass, pk=class_id, school=school)
+
+    # Gate : on ne publie pas une leçon non validée (une non validée n'a de toute
+    # façon aucun déploiement actif → tout toggle = tentative d'activation).
+    if not _is_validated(lesson):
+        existing = LessonDeployment.objects.filter(
+            lesson=lesson, school_class=school_class).first()
+        resp = render(request, 'lessons/partials/deploy_card.html', {
+            'lesson': lesson, 'class': school_class,
+            'is_deployed': bool(existing and existing.is_active),
+            'student_count': 0,
+        })
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': "Valide d'abord la leçon avant de la publier.", 'type': 'error'}})
+        return resp
 
     deployment, created = LessonDeployment.objects.get_or_create(
         lesson=lesson,
@@ -178,14 +199,20 @@ def unit_upload(request):
     # pas saisis : mêmes noms que le v1.
     errors = {}
     source_file = request.FILES.get('source_file')
+    pasted_text = request.POST.get('pasted_text', '').strip()
     source_type = None
-    if not source_file:
-        errors['source_file'] = 'Fichier requis.'
-    else:
+    if source_file:
         try:
             source_type = validate_lesson_file(source_file)
         except ValueError as e:
             errors['source_file'] = str(e)
+    elif pasted_text:
+        if len(pasted_text) < 40:
+            errors['source_file'] = 'Texte trop court — colle un cours complet.'
+        else:
+            source_type = 'text'
+    else:
+        errors['source_file'] = 'Ajoute un fichier ou colle le texte du cours.'
 
     selected_class_id = request.POST.get('selected_class_id', '').strip()
     subject_name  = request.POST.get('selected_subject_name', '').strip()
@@ -200,21 +227,29 @@ def unit_upload(request):
     if errors:
         return render(request, 'lessons/unit_upload.html',
                       {'school': school, 'classes_data': _build_classes_data(request.user),
-                       'errors': errors}, status=422)
+                       'errors': errors, 'pasted_text': pasted_text}, status=422)
 
     # Extraction synchrone via fichier temporaire (extract attend un CHEMIN ; le
     # fichier uploadé est en mémoire). Le worker re-extraira depuis source_file.path.
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            for chunk in source_file.chunks():
-                tmp.write(chunk)
-            tmp_path = tmp.name
-        content = extract_content_from_file(tmp_path, source_type)
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-    source_file.seek(0)  # rembobiner pour la sauvegarde sur l'Unit
+    if source_type == 'text':
+        # Texte collé : contenu direct pour l'Architecte + fichier .txt sauvé sur
+        # l'unité (le worker re-extraira via extract_content_from_file(..., 'text')).
+        from django.core.files.base import ContentFile
+        content = pasted_text
+        source_file = ContentFile(pasted_text.encode('utf-8'), name='cours.txt')
+    else:
+        # Fichier : extraction via fichier temporaire (extract attend un CHEMIN).
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                for chunk in source_file.chunks():
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+            content = extract_content_from_file(tmp_path, source_type)
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        source_file.seek(0)  # rembobiner pour la sauvegarde sur l'Unit
 
     # Temps 1 — Architecte (synchrone, ~10s)
     try:
@@ -223,14 +258,14 @@ def unit_upload(request):
         logger.error('Architecte upload échoué: %s', e)
         return render(request, 'lessons/unit_upload.html',
                       {'school': school, 'classes_data': _build_classes_data(request.user),
-                       'errors': {'architecte': "L'analyse du document a échoué. Réessayez."}},
-                      status=502)
+                       'errors': {'architecte': "L'analyse du document a échoué. Réessayez."},
+                       'pasted_text': pasted_text}, status=502)
 
     if structure.get('error') == 'unreadable':
         return render(request, 'lessons/unit_upload.html',
                       {'school': school, 'classes_data': _build_classes_data(request.user),
-                       'errors': {'architecte': structure.get('message', 'Document illisible.')}},
-                      status=422)
+                       'errors': {'architecte': structure.get('message', 'Document illisible.')},
+                       'pasted_text': pasted_text}, status=422)
 
     unit = _create_unit_skeleton(
         structure,
@@ -254,18 +289,103 @@ def _teacher_classes(teacher, school):
     )
 
 
-@teacher_required
-def unit_list(request):
-    """Liste des Unités v2 de l'enseignant (les leçons v2 vivent sous leur Unité)."""
+LIBRARY_FILTERS = ('all', 'to_validate', 'ready', 'archived')
+
+
+def _library_context(request):
+    """Bibliothèque « Mes leçons » : cartes-unité enrichies (statut + classes de
+    déploiement), recherche (?q) et filtre (?filter). Lit GET (liste) ou POST
+    (après archive, via hx-include). Une seule requête pour les déploiements."""
     school = get_school(request)
+    src = request.POST if request.method == 'POST' else request.GET
+    q = src.get('q', '').strip()
+    flt = src.get('filter', 'all')
+    if flt not in LIBRARY_FILTERS:
+        flt = 'all'
+
     units = (Unit.objects.filter(teacher=request.user, school=school)
-             .order_by('-created_at').prefetch_related('lessons'))
-    units_data = []
+             .order_by('-created_at')
+             .prefetch_related('lessons', 'lessons__active_content_version'))
+    if q:
+        units = units.filter(Q(title__icontains=q) | Q(subject__icontains=q))
+
+    # Déploiements actifs (1 requête) : lesson_id → [noms de classes]
+    deploy_map = {}
+    for lid, cname in (LessonDeployment.objects
+                       .filter(lesson__unit__teacher=request.user, is_active=True,
+                               school_class__isnull=False)
+                       .values_list('lesson_id', 'school_class__name')):
+        deploy_map.setdefault(lid, []).append(cname)
+
+    cards, counts = [], {'to_validate': 0, 'ready': 0, 'archived': 0}
     for u in units:
         lessons = list(u.lessons.all())
-        ready = sum(1 for l in lessons if l.status == LessonStatus.READY)
-        units_data.append({'unit': u, 'total': len(lessons), 'ready': ready})
-    return render(request, 'lessons/unit_list.html', {'units_data': units_data})
+        ready = [l for l in lessons if l.status == LessonStatus.READY and not l.is_archived]
+        processing = any(l.status == LessonStatus.PROCESSING for l in lessons)
+        all_archived = bool(lessons) and all(l.is_archived for l in lessons)
+        if all_archived:
+            status = 'archived'
+        elif ready:
+            status = 'ready' if all(_is_validated(l) for l in ready) else 'to_validate'
+        else:
+            status = 'draft'
+        if status in counts:
+            counts[status] += 1
+
+        classes = []
+        for l in lessons:
+            for cname in deploy_map.get(l.id, []):
+                if cname not in classes:
+                    classes.append(cname)
+
+        cards.append({
+            'unit': u, 'status': status, 'classes': classes,
+            'ready': len(ready), 'processing': processing,
+            'total': sum(1 for l in lessons if not l.is_archived),
+        })
+
+    # Filtre par statut : « archivées » isolé, sinon on masque les archivées.
+    if flt == 'archived':
+        cards = [c for c in cards if c['status'] == 'archived']
+    else:
+        cards = [c for c in cards if c['status'] != 'archived']
+        if flt in ('to_validate', 'ready'):
+            cards = [c for c in cards if c['status'] == flt]
+
+    return {'cards': cards, 'q': q, 'filter': flt, 'counts': counts}
+
+
+@teacher_required
+def unit_list(request):
+    """Bibliothèque « Mes leçons » de l'enseignant (les leçons vivent sous leur Unité)."""
+    ctx = _library_context(request)
+    if request.headers.get('HX-Request'):
+        return render(request, 'lessons/partials/library_cards.html', ctx)
+    return render(request, 'lessons/unit_list.html', ctx)
+
+
+@teacher_required
+@require_POST
+def unit_archive(request, unit_id):
+    """Archive toute l'unité (soft-delete Phase 4 : dépublie + garde tout)."""
+    unit = get_object_or_404(Unit, id=unit_id, teacher=request.user, school=get_school(request))
+    for l in unit.lessons.filter(is_archived=False):
+        lifecycle.archive_lesson(l)
+    resp = render(request, 'lessons/partials/library_cards.html', _library_context(request))
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Unité archivée.', 'type': 'success'}})
+    return resp
+
+
+@teacher_required
+@require_POST
+def unit_unarchive(request, unit_id):
+    """Restaure une unité archivée (les leçons redeviennent visibles, non publiées)."""
+    unit = get_object_or_404(Unit, id=unit_id, teacher=request.user, school=get_school(request))
+    for l in unit.lessons.filter(is_archived=True):
+        lifecycle.unarchive_lesson(l)
+    resp = render(request, 'lessons/partials/library_cards.html', _library_context(request))
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Unité restaurée.', 'type': 'success'}})
+    return resp
 
 
 @teacher_required
@@ -285,6 +405,8 @@ def unit_detail(request, unit_id):
     )
     ctx['deploy_lessons'] = [{
         'lesson': l,
+        'validated': _is_validated(l),
+        'deployed_any': any((l.id, c.id) in deployed for c in classes),
         'classes': [{'obj': c, 'is_deployed': (l.id, c.id) in deployed,
                      'student_count': c.student_count} for c in classes],
     } for l in ready_lessons]
@@ -436,3 +558,221 @@ def unit_lesson_merge(request, unit_id, lesson_id):
     cur.delete()
     _reindex_lessons(unit)
     return _unit_edit_partial(request, unit)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase 6 — Révision / Validation
+# Le prof relit à plat (corrigés visibles), résout les drapeaux (structurel + IA),
+# puis valide EN UNE FOIS. Aucun mode élève obligatoire. Valider = publish_draft.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _index_flags(flags):
+    idx = {}
+    for f in flags:
+        idx.setdefault((f['block'], f['item_id']), []).append(f)
+    return idx
+
+
+def _correct_indices(q):
+    """Index(s) de la bonne réponse : answer_index (mcq_single) ou answer_indices."""
+    single = q.get('answer_index')
+    if isinstance(single, int) and not isinstance(single, bool):
+        return [single]
+    multi = q.get('answer_indices')
+    return multi if isinstance(multi, list) else []
+
+
+def _quiz_view(q, block, idx):
+    return {'quiz': q, 'flags': idx.get((block, q.get('id')), []),
+            'correct': _correct_indices(q)}
+
+
+def _review_context(lesson, draft, flags):
+    content = quality.content_of(draft)
+    idx = _index_flags(flags)
+
+    concepts = []
+    for c in (content['concepts'] or []):
+        if not isinstance(c, dict):
+            continue
+        quizzes = [_quiz_view(q, 'concepts', idx)
+                   for q in (c.get('quiz') or []) if isinstance(q, dict)]
+        concepts.append({'concept': c, 'quizzes': quizzes,
+                         'has_flags': any(x['flags'] for x in quizzes)})
+
+    exam = content['exam'] or {}
+    exam_questions = [_quiz_view(q, 'exam', idx)
+                      for q in (exam.get('questions') or []) if isinstance(q, dict)]
+
+    return {
+        'lesson':         lesson,
+        'unit':           lesson.unit,
+        'concepts':       concepts,
+        'exam':           exam,
+        'exam_questions': exam_questions,
+        'exam_flags':     idx.get(('exam', 'exam'), []),
+        'has_reading':    bool(content.get('reading')),
+        'has_story':      bool(content.get('story')),
+        'flag_count':     len(flags),
+        'error_count':    sum(1 for f in flags if f['severity'] == 'error'),
+        'warn_count':     sum(1 for f in flags if f['severity'] == 'warn'),
+        'validated':      _is_validated(lesson),
+        'ai_pending':     draft.ai_flags is None,
+    }
+
+
+def _get_teacher_lesson(request, lesson_id):
+    return get_object_or_404(
+        Lesson, pk=lesson_id, teacher=request.user, school=get_school(request))
+
+
+def _render_review_body(request, lesson):
+    draft = versioning.open_draft(lesson)
+    return render(request, 'lessons/partials/review_body.html',
+                  _review_context(lesson, draft, quality.review_flags(lesson)))
+
+
+@teacher_required
+def lesson_review(request, lesson_id):
+    """Page de révision (survol à plat, corrigés, drapeaux). Ouvre le brouillon."""
+    lesson = _get_teacher_lesson(request, lesson_id)
+    draft = versioning.open_draft(lesson)
+    ctx = _review_context(lesson, draft, quality.review_flags(lesson))
+    return render(request, 'lessons/review.html', ctx)
+
+
+@teacher_required
+def lesson_ai_flags(request, lesson_id):
+    """HTMX (load) : lance la critique IA une fois (cachée) puis renvoie le corps à jour."""
+    lesson = _get_teacher_lesson(request, lesson_id)
+    quality.compute_ai_flags(lesson)
+    return _render_review_body(request, lesson)
+
+
+@teacher_required
+@require_POST
+def lesson_dismiss_flag(request, lesson_id):
+    """« C'est correct » : retire un doute IA du cache."""
+    lesson = _get_teacher_lesson(request, lesson_id)
+    draft = versioning.open_draft(lesson)
+    item_id, code = request.POST.get('item_id'), request.POST.get('code')
+    draft.ai_flags = [f for f in (draft.ai_flags or [])
+                      if not (f.get('item_id') == item_id and f.get('code') == code)]
+    draft.save(update_fields=['ai_flags', 'updated_at'])
+    return _render_review_body(request, lesson)
+
+
+@teacher_required
+@require_POST
+def lesson_regen_block(request, lesson_id):
+    """↻ Régénérer un bloc (noyau/lecture/histoire) dans le brouillon + invalider l'IA."""
+    lesson = _get_teacher_lesson(request, lesson_id)
+    block = request.POST.get('block')
+    try:
+        versioning.regenerate_block(lesson, block)
+        msg, typ = 'Bloc régénéré ✓', 'success'
+    except Exception as e:
+        logger.warning('Régénération bloc %s échouée : %s', block, e)
+        msg, typ = 'Régénération impossible, réessaie.', 'error'
+    draft = versioning.open_draft(lesson)
+    if typ == 'success':
+        draft.ai_flags = None                 # contenu changé → recalcul IA
+        draft.save(update_fields=['ai_flags', 'updated_at'])
+    resp = _render_review_body(request, lesson)
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': msg, 'type': typ}})
+    return resp
+
+
+@teacher_required
+@require_POST
+def lesson_validate(request, lesson_id):
+    """Valider et publier EN UNE FOIS. Gate serveur : erreurs structurelles bloquantes."""
+    lesson = _get_teacher_lesson(request, lesson_id)
+    errors = quality.blocking_errors(lesson)
+    if errors:
+        resp = _render_review_body(request, lesson)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': f'{len(errors)} erreur(s) à corriger avant de valider.', 'type': 'error'}})
+        return resp
+    versioning.publish_draft(lesson, validated_by=request.user)
+    if lesson.status != LessonStatus.READY:
+        lesson.status = LessonStatus.READY
+        lesson.save(update_fields=['status', 'updated_at'])
+    resp = HttpResponse(status=204)
+    resp['HX-Redirect'] = (reverse('lessons:unit-detail', args=[lesson.unit_id])
+                           if lesson.unit_id else reverse('lessons:unit-list'))
+    return resp
+
+
+# ─── Phase 9 — Résultats (boucle de retour) ──────────────────────────────────
+
+def _mastery_tier(rate):
+    """Palier de couleur pour un taux de réussite 0..1."""
+    if rate is None:
+        return 'none'
+    if rate >= 0.70:
+        return 'good'
+    if rate >= 0.40:
+        return 'mid'
+    return 'low'
+
+
+@teacher_required
+def lesson_results(request, lesson_id):
+    """Résultats élèves d'une leçon : participation, réussite, maîtrise PAR CONCEPT
+    et PAR QUESTION (l'item qui coince), et élèves à aider. Lecture seule."""
+    lesson = _get_teacher_lesson(request, lesson_id)
+
+    deployed_classes = list(
+        LessonDeployment.objects
+        .filter(lesson=lesson, is_active=True, school_class__isnull=False)
+        .values_list('school_class__name', flat=True).distinct())
+
+    summary = analytics.lesson_results(lesson)
+    for st in summary['students']:
+        st['exam_pct'] = round(st['exam_score'] * 100) if st['exam_score'] is not None else None
+        st['quiz_pct'] = round(st['quiz_accuracy'] * 100) if st['quiz_accuracy'] is not None else None
+
+    # Mappings depuis le contenu live : concept_id → nom, quiz_id → énoncé.
+    cv = lesson.active_content_version
+    concept_names, instr_map = {}, {}
+    if cv:
+        for c in (cv.concepts_data or []):
+            concept_names[c.get('id')] = c.get('name') or c.get('id')
+        for q in ((cv.exam_data or {}).get('questions') or []):
+            instr_map[q.get('id')] = q.get('instruction') or q.get('id')
+
+    # Questions groupées par concept (les items qui coincent).
+    questions_by_concept = {}
+    for q in analytics.question_breakdown(lesson):
+        q = {**q, 'instruction': instr_map.get(q['quiz_id'], q['quiz_id']),
+             'fail_pct': round((q['fail_rate'] or 0) * 100)}
+        questions_by_concept.setdefault(q['concept_id'], []).append(q)
+
+    concepts = []
+    for cb in analytics.concept_breakdown(lesson):
+        cid, rate = cb['concept_id'], cb['rate']
+        concepts.append({
+            'name': concept_names.get(cid, cid), 'rate': rate,
+            'pct': round((rate or 0) * 100), 'tier': _mastery_tier(rate),
+            'correct': cb['correct'], 'total': cb['total'],
+            'questions': questions_by_concept.get(cid, []),
+        })
+    concepts.sort(key=lambda c: (c['rate'] if c['rate'] is not None else 1), reverse=True)
+
+    strug = analytics.strugglers(lesson)
+    for s in strug:
+        s['pct'] = round((s['mastery'] or 0) * 100)
+
+    avg = summary['avg_exam_score']
+    return render(request, 'lessons/results.html', {
+        'lesson': lesson,
+        'deployed_classes': deployed_classes,
+        'summary': summary,
+        'participation': (round(summary['started'] / summary['cohort'] * 100)
+                          if summary['cohort'] else 0),
+        'avg_pct': round(avg * 100) if avg is not None else None,
+        'concepts': concepts,
+        'has_concepts': bool(concepts),
+        'strugglers': strug,
+    })

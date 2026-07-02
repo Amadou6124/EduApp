@@ -13,6 +13,8 @@
     selectedSubject: null,
     file: null, fileName: '', fileSize: '', fileIsImg: false,
     isDragging: false,
+    inputMode: '{{ pasted_text|yesno:"text,file" }}',
+    pastedText: '{{ pasted_text|escapejs }}',
     title: '',
     selectClass(id, name, level, levelLabel) {
         this.selectedClass = { id, name, level, levelLabel };
@@ -28,7 +30,7 @@
         const dt = new DataTransfer(); dt.items.add(f); this.$refs.fileInput.files = dt.files;
     },
     clearFile() { this.file = null; this.fileName = ''; this.fileSize = ''; this.fileIsImg = false; this.$refs.fileInput.value = ''; },
-    get canSubmit() { return this.selectedClass && this.selectedSubject && this.file; }
+    get canSubmit() { return this.selectedClass && this.selectedSubject && (this.file || this.pastedText.trim().length >= 40); }
 }" class="max-w-lg mx-auto pb-24 lg:pb-8">
 
   {% csrf_token %}
@@ -181,8 +183,31 @@
       </div>
     </div>
 
+    {# Choix de la source : fichier ou texte collé #}
+    <div class="flex bg-gray-100 rounded-xl p-1 gap-1 mb-4">
+      <button type="button" @click="inputMode='file'; pastedText=''"
+              class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition"
+              :class="inputMode==='file' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500'">
+        <i data-lucide="upload" class="w-4 h-4"></i> Importer un fichier
+      </button>
+      <button type="button" @click="inputMode='text'; clearFile()"
+              class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition"
+              :class="inputMode==='text' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500'">
+        <i data-lucide="clipboard" class="w-4 h-4"></i> Coller le texte
+      </button>
+    </div>
+
+    {# Zone texte collé #}
+    <div x-show="inputMode==='text'" class="mb-5">
+      <textarea name="pasted_text" x-model="pastedText" rows="8"
+                placeholder="Colle ici le cours (depuis Word, ChatGPT, un manuel…)"
+                class="w-full rounded-2xl border border-gray-200 p-4 text-sm text-gray-700 leading-relaxed
+                       focus:outline-none focus:ring-2 focus:ring-primary-500/30 resize-none"></textarea>
+      <p class="text-xs text-gray-400 mt-2 flex items-center gap-1.5"><i data-lucide="info" class="w-3.5 h-3.5"></i> L'IA détecte la structure (unité + leçons).</p>
+    </div>
+
     {# Drag & drop animé #}
-    <div class="mb-5" @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false" @drop="handleDrop">
+    <div x-show="inputMode==='file'" class="mb-5" @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false" @drop="handleDrop">
       <div x-show="file" class="rounded-2xl border-2 border-dashed border-green-300 bg-green-50 p-5 flex items-center gap-4 animate-fade-in-up"
            style="animation-fill-mode:both">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" :class="fileIsImg ? 'bg-blue-100' : 'bg-red-100'">
@@ -232,7 +257,7 @@
                    flex items-center justify-center gap-2.5 hover:bg-primary-700 active:scale-[0.98]
                    transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100">
       <i data-lucide="sparkles" class="w-5 h-5 shrink-0"></i>
-      Analyser le document
+      Analyser le cours
     </button>
     <p class="text-xs text-gray-400 text-center mt-2.5">
       L'IA détecte la structure (unité + leçons). Vous validez avant la génération.

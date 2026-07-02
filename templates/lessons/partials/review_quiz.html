@@ -1,0 +1,26 @@
+{% load i18n %}
+{% comment %}Requiert : item {quiz, flags, correct}, lesson.{% endcomment %}
+<div class="rounded-lg border p-3 {% if item.flags %}border-amber-200 bg-amber-50/40{% else %}border-gray-100 bg-gray-50{% endif %}">
+  <p class="text-sm text-gray-800 mb-2">{% firstof item.quiz.instruction item.quiz.prompt item.quiz.question "Question" %}</p>
+
+  {% if item.quiz.options %}
+    <div class="space-y-1">
+      {% for opt in item.quiz.options %}
+      <div class="flex items-center gap-2 text-xs px-2 py-1.5 rounded {% if forloop.counter0 in item.correct %}bg-green-50 text-green-700 font-medium{% else %}text-gray-500{% endif %}">
+        {% if forloop.counter0 in item.correct %}<i data-lucide="check" class="w-3.5 h-3.5 shrink-0"></i>{% else %}<span class="w-3.5 h-3.5 shrink-0"></span>{% endif %}
+        <span>{{ opt }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  {% elif item.quiz.answer == True or item.quiz.answer == False %}
+    <p class="text-xs text-green-700 font-medium">Réponse : {% if item.quiz.answer %}Vrai{% else %}Faux{% endif %}</p>
+  {% elif item.quiz.answers %}
+    <p class="text-xs text-green-700 font-medium">Réponse(s) : {{ item.quiz.answers|join:", " }}</p>
+  {% elif item.quiz.answer != None %}
+    <p class="text-xs text-green-700 font-medium">Réponse : {{ item.quiz.answer }}</p>
+  {% else %}
+    <p class="text-[11px] text-gray-400 italic">{{ item.quiz.type|default:"quiz" }} — aperçu détaillé à venir</p>
+  {% endif %}
+
+  {% for f in item.flags %}{% include "lessons/partials/review_flag.html" %}{% endfor %}
+</div>

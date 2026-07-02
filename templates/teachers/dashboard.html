@@ -3,7 +3,6 @@
 
 {% block title %}Mon tableau de bord{% endblock %}
 
-{# ── Avatar initiales dans le header ────────────────────── #}
 {% block header_actions %}
   <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
        style="background-color: {{ avatar_bg }}; color: {{ avatar_text }};">
@@ -11,272 +10,169 @@
   </div>
 {% endblock %}
 
-{# ── Titre header : "Bonjour Prénom 👋" ─────────────────── #}
 {% block page_title %}Bonjour {{ first_name }}{% endblock %}
 {% block page_subtitle %}{% endblock %}
 
 {% block content %}
-<div class="space-y-5 max-w-2xl mx-auto">
+<div class="max-w-5xl mx-auto pb-4">
 
-  {# ══════════════════════════════════════════════════════ #}
-  {# SECTION 1 — Contexte du jour                         #}
-  {# ══════════════════════════════════════════════════════ #}
-  <div class="rounded-2xl p-4 text-white"
-       style="background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%);">
-    <div class="flex items-center gap-2 mb-1">
-      <i data-lucide="calendar" class="w-4 h-4 shrink-0"></i>
-      <span class="text-sm font-medium">{{ today_label }}</span>
-    </div>
-    <p class="text-xs" style="color:rgba(255,255,255,0.8)">
-      {% if active_period %}
-        {{ active_period.name }}
-        {% if active_year %} · {{ active_year.name }}{% endif %}
-      {% elif active_year %}
-        {{ active_year.name }}
-      {% else %}
-        Aucune année scolaire active
-      {% endif %}
+  {# ── Contexte du jour + état de saisie ─────────────────── #}
+  <div class="flex items-center justify-between gap-3 mb-4">
+    <p class="text-sm text-gray-500">
+      {{ today_label }}{% if active_period %} · {{ active_period.name }}{% endif %}
     </p>
-  </div>
-
-  {# ══════════════════════════════════════════════════════ #}
-  {# SECTION 2 — Stats rapides (grille 2×2)               #}
-  {# ══════════════════════════════════════════════════════ #}
-  <div class="grid grid-cols-2 gap-3">
-
-    <div class="bg-white rounded-2xl border border-gray-200 p-4">
-      <div class="flex items-center gap-2 mb-1">
-        <i data-lucide="book-open" class="w-5 h-5 text-primary-600 shrink-0"></i>
-        <span class="text-xs text-gray-500 font-medium">Mes classes</span>
-      </div>
-      <p class="text-2xl font-bold text-gray-900">{{ nb_classes }}</p>
-    </div>
-
-    <div class="bg-white rounded-2xl border border-gray-200 p-4">
-      <div class="flex items-center gap-2 mb-1">
-        <i data-lucide="users" class="w-5 h-5 text-indigo-500 shrink-0"></i>
-        <span class="text-xs text-gray-500 font-medium">Total élèves</span>
-      </div>
-      <p class="text-2xl font-bold text-gray-900">{{ total_students }}</p>
-    </div>
-
-    <div class="bg-white rounded-2xl border border-gray-200 p-4">
-      <div class="flex items-center gap-2 mb-1">
-        <i data-lucide="check-circle" class="w-5 h-5 text-green-500 shrink-0"></i>
-        <span class="text-xs text-gray-500 font-medium">Notes saisies</span>
-      </div>
-      <p class="text-2xl font-bold {% if notes_pct >= 80 %}text-green-600{% elif notes_pct >= 40 %}text-amber-600{% else %}text-gray-900{% endif %}">
-        {{ notes_pct }}%
-      </p>
-    </div>
-
-    <div class="bg-white rounded-2xl border border-gray-200 p-4">
-      <div class="flex items-center gap-2 mb-1">
-        <i data-lucide="alert-circle" class="w-5 h-5 text-amber-500 shrink-0"></i>
-        <span class="text-xs text-gray-500 font-medium">Absences auj.</span>
-      </div>
-      <p class="text-2xl font-bold {% if absences_today > 0 %}text-red-600{% else %}text-green-600{% endif %}">
-        {{ absences_today }}
-      </p>
-    </div>
-
-  </div>
-
-  {# ══════════════════════════════════════════════════════ #}
-  {# SECTION 3 — Mes classes                              #}
-  {# ══════════════════════════════════════════════════════ #}
-  <div>
-    <h2 class="text-base font-semibold text-gray-800 mb-3">Mes classes</h2>
-
-    {% if class_cards %}
-      <div class="space-y-3">
-        {% for card in class_cards %}
-        <div class="bg-white rounded-2xl border border-gray-200 p-4 space-y-3">
-
-          {# Nom + badge niveau #}
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <h3 class="font-semibold text-gray-900 text-sm leading-tight">
-                {{ card.class.name }}
-              </h3>
-              <p class="text-xs text-gray-500 mt-0.5">
-                {{ card.student_count }} élève{{ card.student_count|pluralize }}
-                · {{ card.class.get_level_display_verbose }}
-              </p>
-            </div>
-            <span class="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold
-                         {{ card.level_badge }}">
-              {{ card.class.get_level_display }}
-            </span>
-          </div>
-
-          {# Mes matières #}
-          {% if card.my_subjects %}
-          <div>
-            <p class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1.5">
-              Mes matières
-            </p>
-            <div class="flex flex-wrap gap-1.5">
-              {% for cs in card.my_subjects %}
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                           bg-primary-600/10 text-primary-600 text-[11px] font-medium">
-                {{ cs.subject.name }}
-                <span class="opacity-60">coeff {{ cs.coefficient|floatformat:0 }}</span>
-              </span>
-              {% endfor %}
-            </div>
-          </div>
-          {% endif %}
-
-          {# Barre de progression notes #}
-          {% if active_period %}
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-[11px] text-gray-500">Progression notes</span>
-              <span class="text-[11px] font-semibold
-                           {% if card.notes_pct >= 80 %}text-green-600
-                           {% elif card.notes_pct >= 40 %}text-amber-600
-                           {% else %}text-gray-500{% endif %}">
-                {{ card.notes_pct }}%
-              </span>
-            </div>
-            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-500
-                          {% if card.notes_pct >= 80 %}bg-green-400
-                          {% elif card.notes_pct >= 40 %}bg-amber-400
-                          {% else %}bg-gray-300{% endif %}"
-                   style="width: {{ card.notes_pct|floatformat:0 }}%">
-              </div>
-            </div>
-          </div>
-          {% endif %}
-
-          {# Boutons d'action #}
-          <div class="flex gap-2 pt-1">
-            {% if active_period %}
-            <a href="{% url 'notes:class' card.class.pk active_period.pk %}"
-               class="flex-1 flex items-center justify-center gap-1.5 min-h-[44px]
-                      rounded-xl bg-primary-600 text-white text-xs font-semibold
-                      hover:bg-primary-700 active:scale-95 transition">
-              <i data-lucide="pen-line" class="w-4 h-4 shrink-0"></i>
-              Saisir notes
-            </a>
-            {% endif %}
-            <a href="{% url 'teacher:attendance-class' card.class.pk %}"
-               class="flex-1 flex items-center justify-center gap-1.5 min-h-[44px]
-                      rounded-xl border border-gray-200 bg-white text-gray-700
-                      text-xs font-semibold hover:bg-gray-50 active:scale-95 transition">
-              <i data-lucide="calendar-check" class="w-4 h-4 shrink-0"></i>
-              Absences
-            </a>
-          </div>
-
-        </div>
-        {% endfor %}
-      </div>
-
-    {% else %}
-      <div class="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-        <i data-lucide="book-open" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i>
-        <p class="text-sm font-medium text-gray-500">Aucune classe assignée</p>
-        <p class="text-xs text-gray-400 mt-1">
-          Contactez le directeur pour être affecté à des classes.
-        </p>
-      </div>
+    {% if active_period %}
+      {% if saisie_open %}
+      <span class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
+        <span class="w-2 h-2 rounded-full bg-green-400"></span> Saisie ouverte
+      </span>
+      {% else %}
+      <span class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 px-2.5 py-1 rounded-full">
+        <span class="w-2 h-2 rounded-full bg-red-400"></span> Saisie fermée
+      </span>
+      {% endif %}
     {% endif %}
   </div>
 
-  {# ══════════════════════════════════════════════════════ #}
-  {# SECTION 4 — Actions rapides                          #}
-  {# ══════════════════════════════════════════════════════ #}
-  <div>
-    <h2 class="text-base font-semibold text-gray-800 mb-3">Actions rapides</h2>
-    <div class="space-y-2">
+  <div class="lg:grid lg:grid-cols-3 lg:gap-4 space-y-4 lg:space-y-0">
 
-      <a href="{% url 'notes:dashboard' %}"
-         class="flex items-center gap-3 w-full min-h-[56px] px-4 rounded-xl
-                bg-white border border-gray-200 hover:bg-gray-50
-                active:scale-[0.98] transition">
-        <span class="w-9 h-9 rounded-lg bg-primary-600/10 flex items-center justify-center shrink-0">
-          <i data-lucide="pen-line" class="w-4 h-4 text-primary-600"></i>
-        </span>
-        <span class="text-sm font-medium text-gray-800">Saisir des notes</span>
-        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 ml-auto shrink-0"></i>
-      </a>
+    {# ══════════ COLONNE PRINCIPALE ══════════ #}
+    <div class="lg:col-span-2 space-y-4">
 
-      <a href="{% url 'teacher:attendance-list' %}"
-         class="flex items-center gap-3 w-full min-h-[56px] px-4 rounded-xl
-                bg-white border border-gray-200 hover:bg-gray-50
-                active:scale-[0.98] transition">
-        <span class="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
-          <i data-lucide="calendar-check" class="w-4 h-4 text-green-600"></i>
-        </span>
-        <span class="text-sm font-medium text-gray-800">Prendre les absences</span>
-        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 ml-auto shrink-0"></i>
-      </a>
-
-      <a href="{% url 'teacher:students' %}"
-         class="flex items-center gap-3 w-full min-h-[56px] px-4 rounded-xl
-                bg-white border border-gray-200 hover:bg-gray-50
-                active:scale-[0.98] transition">
-        <span class="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
-          <i data-lucide="users" class="w-4 h-4 text-purple-600"></i>
-        </span>
-        <span class="text-sm font-medium text-gray-800">Voir mes élèves</span>
-        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 ml-auto shrink-0"></i>
-      </a>
-
-    </div>
-  </div>
-
-  {# ══════════════════════════════════════════════════════ #}
-  {# SECTION 5 — Observations récentes                    #}
-  {# ══════════════════════════════════════════════════════ #}
-  {% if recent_observations %}
-  <div>
-    <h2 class="text-base font-semibold text-gray-800 mb-3">Mes observations récentes</h2>
-    <div class="space-y-2">
-      {% for item in recent_observations %}
-      <div class="bg-white rounded-2xl border border-gray-200 p-4">
-        <div class="flex items-start justify-between gap-2 mb-1">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0
-                         {{ item.badge_css }}">
-              {{ item.badge_label }}
+      {# ── À suivre : élèves en difficulté ── #}
+      {% if top_struggling %}
+      <div class="rounded-2xl border border-red-200 bg-red-50 p-4">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <span class="text-sm font-semibold text-red-700 flex items-center gap-1.5">
+            <i data-lucide="activity" class="w-4 h-4 shrink-0"></i> À suivre
+          </span>
+          <span class="text-xs text-red-600">{{ total_critical }} en difficulté · {{ total_warning }} à surveiller</span>
+        </div>
+        <div class="space-y-2">
+          {% for s in top_struggling %}
+          <a href="{% url 'teacher:student-detail' s.student.pk %}"
+             class="flex items-center gap-2.5 bg-white rounded-xl px-3 py-2 hover:shadow-sm active:scale-[0.99] transition">
+            <span class="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                  style="background:{{ s.student.get_avatar_colors.0 }};color:{{ s.student.get_avatar_colors.1 }}">
+              {{ s.student.get_initials }}
             </span>
-            <span class="text-sm font-medium text-gray-800 truncate">
-              {{ item.obs.student.full_name }}
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-900 truncate">{{ s.student.full_name }}</p>
+              <p class="text-[11px] text-gray-400 truncate">{{ s.class.name }}{% if s.subject %} · {{ s.subject }}{% endif %}</p>
+            </div>
+            <span class="text-xs font-semibold flex items-center gap-1 shrink-0
+                         {% if s.level == 'critical' %}text-red-600{% else %}text-amber-600{% endif %}">
+              {% if s.trend == 'down' %}<i data-lucide="trending-down" class="w-3.5 h-3.5"></i>
+              {% elif s.trend == 'up' %}<i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+              {% else %}<i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>{% endif %}
+              {{ s.score|floatformat:"-2" }}
+            </span>
+          </a>
+          {% endfor %}
+        </div>
+        <a href="{% url 'teacher:difficulty' %}"
+           class="flex items-center justify-end gap-1 mt-3 text-sm font-medium text-red-600 hover:text-red-700 transition">
+          Voir tout le suivi <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </a>
+      </div>
+      {% elif active_period %}
+      <div class="rounded-2xl border border-green-100 bg-white p-6 text-center">
+        <i data-lucide="check-circle" class="w-10 h-10 mx-auto text-green-400 mb-2"></i>
+        <p class="text-sm font-medium text-gray-700">Aucun élève en difficulté</p>
+        <p class="text-xs text-gray-400 mt-0.5">On vous alerte dès qu'un élève commence à décrocher.</p>
+      </div>
+      {% endif %}
+
+      {# ── Mes classes ── #}
+      {% if class_cards %}
+      <div>
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2.5">Mes classes · {{ nb_classes }}</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {% for card in class_cards %}
+          <div class="bg-white rounded-xl border border-gray-200 p-3">
+            <p class="text-sm font-medium text-gray-900 truncate">{{ card.class.name }}</p>
+            <p class="text-[11px] text-gray-400 truncate mt-0.5 mb-2.5">
+              {{ card.student_count }} élève{{ card.student_count|pluralize }}{% for cs in card.my_subjects %} · {{ cs.subject.short_name|default:cs.subject.name }}{% endfor %}
+            </p>
+            <div class="flex gap-2">
+              {% if active_period %}
+              <a href="{% url 'notes:class' card.class.pk active_period.pk %}"
+                 class="flex-1 text-center text-xs font-medium text-primary-600 bg-primary-50 rounded-lg py-1.5 hover:bg-primary-100 transition">Saisir</a>
+              {% endif %}
+              <a href="{% url 'teacher:attendance-class' card.class.pk %}"
+                 class="flex-1 text-center text-xs font-medium text-gray-600 bg-gray-50 rounded-lg py-1.5 hover:bg-gray-100 transition">Appel</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <div class="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+        <i data-lucide="book-open" class="w-10 h-10 mx-auto text-gray-300 mb-3"></i>
+        <p class="text-sm font-medium text-gray-500">Aucune classe assignée</p>
+        <p class="text-xs text-gray-400 mt-1">Contactez le directeur pour être affecté à des classes.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    {# ══════════ COLONNE LATÉRALE ══════════ #}
+    <div class="space-y-4">
+
+      {# ── À saisir ── #}
+      {% if active_period and class_cards %}
+      <div class="bg-white rounded-2xl border border-gray-200 p-4">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <span class="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+            <i data-lucide="pen-line" class="w-4 h-4 text-primary-600 shrink-0"></i> À saisir
+          </span>
+          <span class="text-xs text-gray-400">{{ classes_complete }} / {{ nb_classes }} complètes</span>
+        </div>
+        <div class="space-y-2.5">
+          {% for card in class_cards %}
+          <div class="flex items-center gap-2">
+            <span class="flex-1 text-sm text-gray-700 truncate">{{ card.class.name }}</span>
+            <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden shrink-0">
+              <div class="h-full rounded-full {% if card.notes_pct >= 100 %}bg-green-500{% elif card.notes_pct >= 40 %}bg-amber-400{% else %}bg-gray-300{% endif %}"
+                   style="width: {{ card.notes_pct }}%"></div>
+            </div>
+            <span class="text-[11px] w-8 text-right {% if card.notes_pct >= 100 %}text-green-600 font-semibold{% else %}text-gray-400{% endif %}">
+              {% if card.notes_pct >= 100 %}OK{% else %}{{ card.notes_pct }}%{% endif %}
             </span>
           </div>
-          {% if item.obs.is_read %}
-          <span class="shrink-0 flex items-center gap-1 text-[10px] text-green-600 font-medium">
-            <i data-lucide="check-circle" class="w-3 h-3"></i> Lu
-          </span>
-          {% else %}
-          <span title="Le directeur n'a pas encore consulté cette observation"
-                class="shrink-0 flex items-center gap-1 text-[10px] text-gray-400 font-medium cursor-help">
-            <i data-lucide="clock" class="w-3 h-3"></i> En attente
-          </span>
-          {% endif %}
+          {% endfor %}
         </div>
-        <p class="text-xs text-gray-500 truncate">{{ item.excerpt }}</p>
-        <p class="text-[10px] text-gray-400 mt-1">
-          {{ item.obs.created_at|date:"d/m/Y à H:i" }}
-        </p>
+        <a href="{% url 'notes:dashboard' %}"
+           class="flex items-center justify-end gap-1 mt-3 text-sm font-medium text-primary-600 hover:text-primary-700 transition">
+          Ouvrir les notes <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </a>
       </div>
-      {% endfor %}
+      {% endif %}
+
+      {# ── Observations récentes ── #}
+      {% if recent_observations %}
+      <div class="bg-white rounded-2xl border border-gray-200 p-4">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <span class="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+            <i data-lucide="message-square" class="w-4 h-4 text-gray-400 shrink-0"></i> Observations
+          </span>
+          <a href="{% url 'teacher:observations' %}" class="text-xs font-medium text-primary-600 hover:text-primary-700">Tout voir</a>
+        </div>
+        <div class="divide-y divide-gray-100">
+          {% for item in recent_observations %}
+          <div class="py-2.5 first:pt-0 last:pb-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 {{ item.badge_css }}">{{ item.badge_label }}</span>
+              <span class="text-sm text-gray-800 truncate">{{ item.obs.student.full_name }}</span>
+              {% if not item.obs.is_read %}<span class="ml-auto shrink-0 text-[10px] text-gray-400 flex items-center gap-0.5"><i data-lucide="clock" class="w-3 h-3"></i> en attente</span>{% endif %}
+            </div>
+            <p class="text-xs text-gray-500 truncate">{{ item.excerpt }}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
     </div>
-    <a href="{% url 'teacher:observations' %}"
-       class="flex items-center justify-end gap-1 mt-3 text-sm font-medium
-              text-primary-600 hover:text-primary-700 transition">
-      Voir toutes mes observations
-      <i data-lucide="arrow-right" class="w-4 h-4"></i>
-    </a>
+
   </div>
-  {% endif %}
-
-  {# Espace pour la bottom nav #}
-  <div class="h-4"></div>
-
 </div>
 {% endblock %}

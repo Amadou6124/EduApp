@@ -1,0 +1,19 @@
+{% load i18n %}
+{% comment %}Requiert : f {severity, code, message, item_id}, lesson.{% endcomment %}
+<div class="mt-2 rounded-lg border px-3 py-2 {% if f.severity == 'error' %}border-red-200 bg-red-50{% else %}border-amber-200 bg-amber-50{% endif %}">
+  <p class="text-xs mb-1.5 flex items-start gap-1.5 {% if f.severity == 'error' %}text-red-700{% else %}text-amber-800{% endif %}">
+    {% if f.severity == 'error' %}<i data-lucide="alert-octagon" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>
+    {% else %}<i data-lucide="bot" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>{% endif %}
+    <span>{{ f.message }}</span>
+  </p>
+  {% if f.severity == 'warn' and f.code == 'ai_doubt' %}
+  <button hx-post="{% url 'lessons:review-dismiss' lesson.id %}"
+          hx-vals='{"item_id":"{{ f.item_id }}","code":"{{ f.code }}"}'
+          hx-target="#review-body" hx-swap="outerHTML"
+          class="text-xs font-medium text-amber-800 bg-white border border-amber-200 rounded px-2.5 py-1 hover:bg-amber-100 transition">
+    C'est correct
+  </button>
+  {% elif f.severity == 'error' %}
+  <span class="text-[11px] text-red-600">→ Régénère le bloc pour corriger.</span>
+  {% endif %}
+</div>
