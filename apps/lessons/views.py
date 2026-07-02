@@ -306,6 +306,7 @@ def unit_detail(request, unit_id):
     )
     ctx['deploy_lessons'] = [{
         'lesson': l,
+        'validated': _is_validated(l),
         'classes': [{'obj': c, 'is_deployed': (l.id, c.id) in deployed,
                      'student_count': c.student_count} for c in classes],
     } for l in ready_lessons]
