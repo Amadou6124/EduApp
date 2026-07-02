@@ -42,6 +42,17 @@ class StructuralCheckTest(SimpleTestCase):
             {'id': 'q1', 'options': ['a', 'b'], 'answer_indices': [5]}]}]}
         self.assertIn('index_oob', self._codes(c))
 
+    def test_mcq_single_index_out_of_bounds(self):
+        # mcq_single utilise answer_index (singulier) — le type le plus courant.
+        c = {'concepts': [{'id': 'c1', 'quiz': [
+            {'id': 'q1', 'type': 'mcq_single', 'options': ['a', 'b'], 'answer_index': 7}]}]}
+        self.assertIn('index_oob', self._codes(c))
+
+    def test_mcq_single_valid_no_flag(self):
+        c = {'concepts': [{'id': 'c1', 'quiz': [
+            {'id': 'q1', 'type': 'mcq_single', 'options': ['a', 'b'], 'answer_index': 1}]}]}
+        self.assertEqual(quality.structural_check(c), [])
+
     def test_ordering_not_a_permutation(self):
         c = {'concepts': [{'id': 'c1', 'quiz': [
             {'id': 'q1', 'items': ['x', 'y', 'z'], 'correct_order': [0, 0, 1]}]}]}

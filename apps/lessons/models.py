@@ -363,6 +363,10 @@ class LessonContentDraft(models.Model):
     color = models.CharField(_('couleur'), max_length=9, blank=True)
     guide = models.CharField(_('guide'), max_length=50, blank=True)
 
+    # Cache des drapeaux de la critique IA (Phase 6) : calculés une fois, réutilisés ;
+    # null = à (re)calculer (première révision, ou après une édition/régénération).
+    ai_flags = models.JSONField(_('drapeaux IA'), null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
