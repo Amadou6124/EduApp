@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load i18n %}
 
-{% block title %}Élèves en difficulté{% endblock %}
+{% block title %}Suivi des élèves{% endblock %}
 
 {% block breadcrumb %}
 <a href="{% url 'teacher:dashboard' %}"
@@ -10,82 +10,20 @@
 </a>
 {% endblock %}
 
-{% block page_title %}Mes élèves{% endblock %}
-
+{% block page_title %}Suivi des élèves{% endblock %}
 {% block page_subtitle %}
-{% if total_struggling > 0 %}
-<p class="text-sm text-amber-600 mt-0.5 font-medium">
-  {{ total_struggling }} élève{{ total_struggling|pluralize }} nécessite{{ total_struggling|pluralize:'nt' }} attention
-</p>
-{% else %}
-<p class="text-sm text-green-600 mt-0.5 font-medium">Toutes les classes sont au vert</p>
-{% endif %}
+<p class="text-sm text-gray-500 mt-0.5">Repérer tôt ceux qui décrochent{% if active_period %} · {{ active_period.name }}{% endif %}</p>
 {% endblock %}
 
 {% block content %}
-<div x-data="{
-    qaPanel: false,
-    qaStudentId: null,
-    qaStudentName: '',
-    qaSubjects: [],
-    qaSelectedCsId: null,
-    qaType: 'oral',
-    openQA(studentId, studentName, subjects) {
-        this.qaStudentId = studentId;
-        this.qaStudentName = studentName;
-        this.qaSubjects = subjects;
-        this.qaSelectedCsId = subjects.length ? subjects[0].id : null;
-        this.qaType = 'oral';
-        this.qaPanel = true;
-    },
-    handleScoreUpdate(d) {
-        const card = document.getElementById('difficulty-card-' + d.student_id);
-        if (!card) return;
-        const lvl = d.level || 'good';
-        const bg  = {critical:'bg-red-50',  warning:'bg-amber-50',  watch:'bg-yellow-50',  good:'bg-green-50'};
-        const bd  = {critical:'border-red-200',warning:'border-amber-200',watch:'border-yellow-100',good:'border-green-100'};
-        const cl  = {critical:'text-red-600',warning:'text-amber-600',watch:'text-yellow-600',good:'text-green-600'};
-        ['bg-red-50','bg-amber-50','bg-yellow-50','bg-green-50'].forEach(c=>card.classList.remove(c));
-        ['border-red-200','border-amber-200','border-yellow-100','border-green-100'].forEach(c=>card.classList.remove(c));
-        card.classList.add(bg[lvl], bd[lvl]);
-        const s = card.querySelector('.js-score');
-        if (s) {
-            ['text-red-600','text-amber-600','text-yellow-600','text-green-600'].forEach(c=>s.classList.remove(c));
-            s.classList.add(cl[lvl]);
-            if (d.score !== null) s.textContent = parseFloat(d.score).toFixed(2)+'/20';
-        }
-        const t = card.querySelector('.js-trend');
-        if (t) {
-            if (d.trend==='down'){t.className='js-trend text-red-600 font-black text-lg leading-none';t.title='Tendance en baisse';t.textContent='↓';}
-            else if(d.trend==='up'){t.className='js-trend text-green-600 font-bold text-lg leading-none';t.title='Tendance en hausse';t.textContent='↑';}
-            else{t.className='js-trend text-gray-400 text-lg leading-none';t.title='';t.textContent='→';}
-        }
-    }
-}"
-@score-updated.window="handleScoreUpdate($event.detail)"
-    class="max-w-2xl mx-auto space-y-4">
+<div class="max-w-2xl mx-auto space-y-4">
 
-  {# ── Résumé global ────────────────────────────────────── #}
-  {% if total_struggling > 0 and active_period %}
-  <div class="flex items-center gap-2 flex-wrap">
-    {% if total_critical > 0 %}
-    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                 bg-red-100 text-red-700 text-sm font-semibold">
-      <span class="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
-      {{ total_critical }} Critique{{ total_critical|pluralize }}
-    </span>
-    {% endif %}
-    {% if total_warning > 0 %}
-    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                 bg-amber-100 text-amber-700 text-sm font-semibold">
-      <span class="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
-      {{ total_warning }} En attention
-    </span>
-    {% endif %}
-  </div>
-  {% endif %}
+  {# Retour mobile (breadcrumb desktop = hidden lg:block) #}
+  <a href="{% url 'teacher:dashboard' %}"
+     class="lg:hidden inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> Tableau de bord
+  </a>
 
-  {# ── Sans période active ──────────────────────────────── #}
   {% if not active_period %}
   <div class="bg-white rounded-2xl border border-gray-200 p-10 text-center">
     <i data-lucide="calendar-off" class="w-12 h-12 mx-auto text-gray-300 mb-3"></i>
@@ -93,31 +31,42 @@
     <p class="text-xs text-gray-400 mt-1">Contactez le directeur pour activer une période.</p>
   </div>
 
-  {# ── Tout au vert ─────────────────────────────────────── #}
-  {% elif total_struggling == 0 %}
-  <div class="bg-white rounded-2xl border border-green-100 p-10 text-center">
-    <i data-lucide="check-circle" class="w-16 h-16 mx-auto text-green-400 mb-4"></i>
-    <p class="text-base font-semibold text-gray-800 mb-1">Tous vos élèves progressent bien</p>
-    <p class="text-sm text-gray-400">Continuez le bon travail !</p>
+  {% else %}
+
+  {# ── Tuiles résumé (honnêtes) ─────────────────────────── #}
+  <div class="grid grid-cols-3 gap-2">
+    <div class="rounded-xl p-3 {% if total_critical %}bg-red-50{% else %}bg-gray-50{% endif %}">
+      <p class="text-2xl font-semibold {% if total_critical %}text-red-600{% else %}text-gray-400{% endif %}">{{ total_critical }}</p>
+      <p class="text-[11px] mt-0.5 {% if total_critical %}text-red-600{% else %}text-gray-400{% endif %}">En difficulté</p>
+    </div>
+    <div class="rounded-xl p-3 {% if total_warning %}bg-amber-50{% else %}bg-gray-50{% endif %}">
+      <p class="text-2xl font-semibold {% if total_warning %}text-amber-600{% else %}text-gray-400{% endif %}">{{ total_warning }}</p>
+      <p class="text-[11px] mt-0.5 {% if total_warning %}text-amber-600{% else %}text-gray-400{% endif %}">À surveiller</p>
+    </div>
+    <div class="rounded-xl p-3 bg-gray-50">
+      <p class="text-2xl font-semibold text-gray-400">{{ total_insufficient }}</p>
+      <p class="text-[11px] mt-0.5 text-gray-400">Peu de données</p>
+    </div>
   </div>
 
-  {# ── Accordéons par classe ─────────────────────────────── #}
+  {% if total_flagged == 0 %}
+  <div class="bg-white rounded-2xl border border-green-100 p-10 text-center">
+    <i data-lucide="check-circle" class="w-16 h-16 mx-auto text-green-400 mb-4"></i>
+    <p class="text-base font-semibold text-gray-800 mb-1">Aucun élève en difficulté</p>
+    <p class="text-sm text-gray-400">On vous alerte dès qu'un élève commence à décrocher.</p>
+  </div>
+
   {% else %}
+
+  {# ── Accordéons par classe (difficulté + à surveiller) ── #}
   {% for cd in classes_data %}
-  {% if cd.total_struggling > 0 %}
+  {% if cd.flagged_count > 0 %}
   <div x-data="{ open: {% if cd.critical_count > 0 %}true{% else %}false{% endif %} }"
        class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
 
-    {# En-tête cliquable #}
     <button @click="open = !open"
-            class="w-full flex items-center justify-between px-4 py-3.5
-                   hover:bg-gray-50 transition text-left">
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold {{ cd.level_badge }}">
-          {{ cd.school_class.get_level_display }}
-        </span>
-        <span class="text-sm font-semibold text-gray-800 truncate">{{ cd.school_class.name }}</span>
-      </div>
+            class="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 transition text-left">
+      <span class="text-sm font-semibold text-gray-800 truncate">{{ cd.school_class.name }}</span>
       <div class="flex items-center gap-2 shrink-0 ml-3">
         {% if cd.critical_count %}
         <span class="flex items-center gap-1 text-xs font-bold text-red-600">
@@ -129,75 +78,25 @@
           <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>{{ cd.warning_count }}
         </span>
         {% endif %}
-        {% if cd.watch_count %}
-        <span class="flex items-center gap-1 text-xs font-bold text-yellow-600">
-          <span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>{{ cd.watch_count }}
-        </span>
-        {% endif %}
-        <i data-lucide="chevron-down"
-           class="w-4 h-4 text-gray-400 transition-transform duration-200"
+        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform duration-200"
            :class="open ? 'rotate-180' : ''"></i>
       </div>
     </button>
 
-    {# Corps #}
-    <div x-show="open"
-         x-cloak
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         class="border-t border-gray-100 divide-y divide-gray-50">
-
-      {# Critiques #}
-      {% if cd.critical_students %}
-      <div class="px-4 py-3 space-y-2">
-        <p class="text-[11px] font-bold text-red-600 uppercase tracking-widest mb-2">Critiques</p>
-        {% for r in cd.critical_students %}
-        {% include "teachers/partials/difficulty_student_card.html" %}
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {# En attention #}
-      {% if cd.warning_students %}
-      <div class="px-4 py-3 space-y-2">
-        <p class="text-[11px] font-bold text-amber-600 uppercase tracking-widest mb-2">En attention</p>
-        {% for r in cd.warning_students %}
-        {% include "teachers/partials/difficulty_student_card.html" %}
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {# À surveiller #}
-      {% if cd.watch_students %}
-      <div class="px-4 py-3 space-y-2">
-        <p class="text-[11px] font-bold text-yellow-600 uppercase tracking-widest mb-2">À surveiller</p>
-        {% for r in cd.watch_students %}
-        {% include "teachers/partials/difficulty_student_card.html" %}
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {# Lien → vue détail classe #}
-      <div class="px-4 py-3">
-        <a href="{% url 'teacher:difficulty-class' cd.school_class.pk %}"
-           class="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl
-                  border border-gray-200 text-xs text-gray-500
-                  hover:bg-gray-50 hover:text-primary-600 transition">
-          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-          Voir tous les élèves de {{ cd.school_class.name }}
-        </a>
-      </div>
-
+    <div x-show="open" x-cloak class="border-t border-gray-100 p-3 space-y-2">
+      {% for r in cd.critical_students %}{% include "teachers/partials/difficulty_student_card.html" %}{% endfor %}
+      {% for r in cd.warning_students %}{% include "teachers/partials/difficulty_student_card.html" %}{% endfor %}
+      <a href="{% url 'teacher:difficulty-class' cd.school_class.pk %}"
+         class="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl border border-gray-200 text-xs text-gray-500 hover:bg-gray-50 hover:text-primary-600 transition">
+        <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Voir toute la classe
+      </a>
     </div>
   </div>
   {% endif %}
   {% endfor %}
+
   {% endif %}
-
-  <div class="h-4"></div>
-
-  {% include "teachers/partials/quick_assessment_form.html" %}
+  {% endif %}
 
 </div>
 {% endblock %}

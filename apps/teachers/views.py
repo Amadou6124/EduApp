@@ -609,7 +609,7 @@ def observation_create(request, student_id):
 def difficulty_dashboard(request):
     from .services import (
         get_class_difficulty_report,
-        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_WATCH,
+        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_INSUFFICIENT,
     )
 
     user   = request.user
@@ -631,40 +631,39 @@ def difficulty_dashboard(request):
     )
 
     classes_data = []
-    total_critical = 0
-    total_warning  = 0
+    total_critical = total_warning = total_insufficient = 0
 
     for sc in classes:
         report = get_class_difficulty_report(user, sc, active_period) if active_period else []
 
-        critical = sum(1 for r in report if r['level'] == LEVEL_CRITICAL)
-        warning  = sum(1 for r in report if r['level'] == LEVEL_WARNING)
-        watch    = sum(1 for r in report if r['level'] == LEVEL_WATCH)
+        critical     = [r for r in report if r['level'] == LEVEL_CRITICAL]
+        warning      = [r for r in report if r['level'] == LEVEL_WARNING]
+        insufficient = [r for r in report if r['level'] == LEVEL_INSUFFICIENT]
 
-        total_critical += critical
-        total_warning  += warning
+        total_critical     += len(critical)
+        total_warning      += len(warning)
+        total_insufficient += len(insufficient)
 
         classes_data.append({
-            'school_class':      sc,
-            'level_badge':       LEVEL_BADGE.get(sc.level, 'bg-gray-100 text-gray-600'),
-            'report':            report,
-            'critical_count':    critical,
-            'warning_count':     warning,
-            'watch_count':       watch,
-            'total_struggling':  critical + warning + watch,
-            'critical_students': [r for r in report if r['level'] == LEVEL_CRITICAL],
-            'warning_students':  [r for r in report if r['level'] == LEVEL_WARNING],
-            'watch_students':    [r for r in report if r['level'] == LEVEL_WATCH],
+            'school_class':       sc,
+            'critical_students':  critical,
+            'warning_students':   warning,
+            'critical_count':     len(critical),
+            'warning_count':      len(warning),
+            'insufficient_count': len(insufficient),
+            'flagged_count':      len(critical) + len(warning),
         })
 
-    classes_data.sort(key=lambda c: -c['critical_count'])
+    # Classes les plus critiques d'abord.
+    classes_data.sort(key=lambda c: (-c['critical_count'], -c['warning_count']))
 
     return render(request, 'teachers/difficulty_dashboard.html', {
-        'classes_data':     classes_data,
-        'total_critical':   total_critical,
-        'total_warning':    total_warning,
-        'total_struggling': sum(c['total_struggling'] for c in classes_data),
-        'active_period':    active_period,
+        'classes_data':       classes_data,
+        'total_critical':     total_critical,
+        'total_warning':      total_warning,
+        'total_insufficient': total_insufficient,
+        'total_flagged':      total_critical + total_warning,
+        'active_period':      active_period,
     })
 
 
@@ -673,7 +672,7 @@ def difficulty_dashboard(request):
 def difficulty_class(request, class_id):
     from .services import (
         get_class_difficulty_report,
-        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_WATCH, LEVEL_GOOD,
+        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_INSUFFICIENT, LEVEL_GOOD,
     )
 
     user   = request.user
@@ -692,13 +691,15 @@ def difficulty_class(request, class_id):
             or active_year.periods.order_by('-order').first()
         )
 
-    report_full = (
-        get_class_difficulty_report(user, school_class, active_period)
-        if active_period else []
-    )
+    # On ignore les élèves sans aucune donnée (level None).
+    report_full = [
+        r for r in (get_class_difficulty_report(user, school_class, active_period)
+                    if active_period else [])
+        if r['level'] is not None
+    ]
 
     active_filter = request.GET.get('level', 'all')
-    valid_filters = {LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_WATCH, LEVEL_GOOD}
+    valid_filters = {LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_INSUFFICIENT, LEVEL_GOOD}
     if active_filter in valid_filters:
         report = [r for r in report_full if r['level'] == active_filter]
     else:
@@ -713,11 +714,11 @@ def difficulty_class(request, class_id):
     )
 
     counts = {
-        'all':      len(report_full),
-        'critical': sum(1 for r in report_full if r['level'] == LEVEL_CRITICAL),
-        'warning':  sum(1 for r in report_full if r['level'] == LEVEL_WARNING),
-        'watch':    sum(1 for r in report_full if r['level'] == LEVEL_WATCH),
-        'good':     sum(1 for r in report_full if r['level'] == LEVEL_GOOD),
+        'all':          len(report_full),
+        'critical':     sum(1 for r in report_full if r['level'] == LEVEL_CRITICAL),
+        'warning':      sum(1 for r in report_full if r['level'] == LEVEL_WARNING),
+        'insufficient': sum(1 for r in report_full if r['level'] == LEVEL_INSUFFICIENT),
+        'good':         sum(1 for r in report_full if r['level'] == LEVEL_GOOD),
     }
 
     return render(request, 'teachers/difficulty_class.html', {
