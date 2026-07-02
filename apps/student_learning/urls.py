@@ -9,10 +9,10 @@ urlpatterns = [
     path('logout/', views.learn_logout, name='logout'),
     path('', views.learn_dashboard, name='dashboard'),
     # (v1 retiré : lesson reader, story v1, quiz v1, flashcards — remplacés par le portail v2)
-    # Notes & Rangs (orthogonal — conservé)
-    path('grades/', views.learn_grades, name='grades'),
+    # (affichage clair Notes/Profil retiré ; plomberie données préservée dans views.py
+    #  — student_grades_context / student_stats — pour rebrancher les futures pages dark)
+    # PDF bulletin (plomberie conservée, sera re-liée depuis la future page Notes dark)
     path('grades/bulletin/<int:bulletin_id>/pdf/', views.learn_bulletin_pdf, name='bulletin-pdf'),
-    path('profile/', views.learn_profile, name='profile'),
 
     # v2 (Phase C) — vues RÉELLES (données de production, élève authentifié).
     path('v2/lesson/<int:lesson_id>/parcours/', views.learn_parcours_v2, name='parcours-v2'),

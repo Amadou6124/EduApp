@@ -10,7 +10,6 @@ from apps.core.student_auth import (
     authenticate_student, login_student, logout_student, student_required,
 )
 from apps.lessons.models import Lesson, LessonContentVersion, LessonDeployment, LessonStatus
-from apps.student_learning.services import student_stats, BADGES_CATALOG
 from apps.student_learning.models import (
     QuizAttempt, StoryAttempt,
     ConceptProgress, ExamAttempt, QuestionDraw,
@@ -104,26 +103,19 @@ def learn_dashboard(request):
     return render(request, 'student_learning/empty_v2.html', {'student': student})
 
 
-# ─── Profil (Phase 9) ────────────────────────────────────────────────────────
+# ─── PLOMBERIE Notes & Profil — données préservées (affichage clair v1 retiré) ──
+# L'ancien affichage clair (learn/base_student.html + grades.html + profile.html)
+# a été supprimé. La LOGIQUE DE DONNÉES est conservée ici pour rebrancher les
+# futures pages dark v2 :
+#   • Profil : student_stats(student) + BADGES_CATALOG (services.py) — déjà autonome.
+#   • Notes  : student_grades_context(student) ci-dessous.
 
-@student_required
-def learn_profile(request):
-    student = request.student
-    return render(request, 'learn/profile.html', {
-        'student': student,
-        'stats': student_stats(student),
-        'badges_catalog': BADGES_CATALOG,
-    })
+def student_grades_context(student) -> dict:
+    """PLOMBERIE Notes — à rebrancher sur la future page dark v2.
 
-
-# ─── Notes & Rangs (Phase 11) ────────────────────────────────────────────────
-
-@student_required
-def learn_grades(request):
-    """Rang, notes par matière (BulletinLine) et bulletins publiés de l'élève."""
+    Rang, notes par matière (BulletinLine) et bulletins publiés de l'élève.
+    Retourne le context dict — SANS render (l'affichage clair a été retiré)."""
     from apps.schools.models import Bulletin, Note
-
-    student = request.student
 
     bulletins = list(
         Bulletin.objects
@@ -150,14 +142,14 @@ def learn_grades(request):
             .order_by('class_subject__order', 'class_subject__subject__name')
         )
 
-    return render(request, 'learn/grades.html', {
+    return {
         'student': student,
         'bulletins': bulletins,
         'current_bulletin': current_bulletin,
         'rank_trend': rank_trend,
         'subject_lines': subject_lines,
         'has_pending_notes': Note.objects.filter(student=student, is_cancelled=False).exists(),
-    })
+    }
 
 
 @student_required
