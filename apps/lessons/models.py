@@ -223,6 +223,10 @@ class Lesson(models.Model):
     )
     view_count = models.PositiveIntegerField(_('vues'), default=0)
 
+    # Archivage (Phase 4) : soft-delete d'une leçon déjà utilisée (historique gardé).
+    is_archived = models.BooleanField(_('archivée'), default=False)
+    archived_at = models.DateTimeField(_('archivée le'), null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -315,6 +319,13 @@ class LessonContentVersion(models.Model):
         _('coût génération USD'),
         max_digits=8, decimal_places=6, default=0,
     )
+
+    # Tampon de validation (Phase 4) : qui a validé cette version, et quand.
+    validated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+', verbose_name=_('validée par'),
+    )
+    validated_at = models.DateTimeField(_('validée le'), null=True, blank=True)
 
     class Meta:
         verbose_name = _('version de contenu')

@@ -12,6 +12,7 @@ Primitives (pures, testables sans interface) :
   discard_draft(lesson)       → jette les edits non publiés
 """
 from django.db import transaction
+from django.utils import timezone
 
 from .models import Lesson, LessonContentVersion, LessonContentDraft
 
@@ -56,10 +57,13 @@ def edit_draft(lesson, **blocks):
 
 
 @transaction.atomic
-def publish_draft(lesson):
+def publish_draft(lesson, validated_by=None):
     """Fige le brouillon en une NOUVELLE LessonContentVersion immuable, bascule le
     live, puis supprime le brouillon. Atomique + verrou sur la leçon (numéro de
     version sans collision, même en concurrence).
+
+    validated_by : si fourni, pose le tampon « validé par / le » sur la version
+    (c'est le geste de validation du prof).
 
     Retourne la nouvelle version. Lève ValueError s'il n'y a pas de brouillon."""
     locked = Lesson.objects.select_for_update().get(pk=lesson.pk)
@@ -80,6 +84,8 @@ def publish_draft(lesson):
         story_data=draft.story_data,
         color=draft.color,
         guide=draft.guide,
+        validated_by=validated_by,
+        validated_at=(timezone.now() if validated_by else None),
     )
     locked.active_content_version = version
     locked.save(update_fields=['active_content_version', 'updated_at'])
