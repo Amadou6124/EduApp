@@ -324,3 +324,40 @@ class LessonContentVersion(models.Model):
 
     def __str__(self):
         return f'{self.lesson.title} — v{self.version}'
+
+
+class LessonContentDraft(models.Model):
+    """Espace de travail MUTABLE pour éditer / enrichir une leçon avant publication
+    (Phase 1). Invisible aux élèves : seul Lesson.active_content_version est servi.
+
+    Un seul brouillon par leçon. « Publier » le fige en une LessonContentVersion
+    immuable (append-only) et bascule le live — les versions passées et la
+    progression des élèves (PROTECT) ne sont jamais touchées. Éditer ne change
+    RIEN pour l'élève tant qu'on n'a pas publié."""
+    lesson = models.OneToOneField(
+        Lesson, on_delete=models.CASCADE,
+        related_name='content_draft',
+        verbose_name=_('leçon'),
+    )
+    based_on_version = models.PositiveSmallIntegerField(
+        _('forké depuis la version'), null=True, blank=True,
+        help_text=_('Version live au moment de l\'ouverture du brouillon.'),
+    )
+
+    # Mêmes blocs que LessonContentVersion, mais MUTABLES.
+    concepts_data = models.JSONField(_('concepts'), null=True, blank=True)
+    reading_data = models.JSONField(_('lecture'), null=True, blank=True)
+    exam_data = models.JSONField(_('examen'), null=True, blank=True)
+    story_data = models.JSONField(_('histoire'), null=True, blank=True)
+    color = models.CharField(_('couleur'), max_length=9, blank=True)
+    guide = models.CharField(_('guide'), max_length=50, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('brouillon de contenu')
+        verbose_name_plural = _('brouillons de contenu')
+
+    def __str__(self):
+        return f'Brouillon — {self.lesson.title}'
