@@ -11,6 +11,8 @@ urlpatterns = [
     # v2 — upload d'unité (le v1 a été retiré : list/upload/detail/status/retry/preview)
     path('unit/',                        views.unit_list,     name='unit-list'),
     path('unit/upload/',                 views.unit_upload,   name='unit-upload'),
+    path('unit/<int:unit_id>/archive/',   views.unit_archive,   name='unit-archive'),
+    path('unit/<int:unit_id>/unarchive/', views.unit_unarchive, name='unit-unarchive'),
     path('unit/<int:unit_id>/',          views.unit_detail,   name='unit-detail'),
     path('unit/<int:unit_id>/generate/', views.unit_generate, name='unit-generate'),
     path('unit/<int:unit_id>/status/',   views.unit_status,   name='unit-status'),

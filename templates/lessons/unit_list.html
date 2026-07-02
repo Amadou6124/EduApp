@@ -1,16 +1,17 @@
 {% extends "base.html" %}
 {% load i18n %}
 
-{% block title %}Mes unités{% endblock %}
-{% block page_title %}Mes unités{% endblock %}
+{% block title %}Mes leçons{% endblock %}
+{% block page_title %}Mes leçons{% endblock %}
 {% block page_subtitle %}
-<p class="text-sm text-gray-500 mt-0.5">{{ units_data|length }} unité{{ units_data|length|pluralize }} · portail v2</p>
+<p class="text-sm text-gray-500 mt-0.5">Ta bibliothèque — redéployable dans n'importe quelle classe, chaque année.</p>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto">
+<div class="max-w-3xl mx-auto"
+     x-data="{ q: '{{ q|escapejs }}', filter: '{{ filter }}' }">
 
-  <div class="flex justify-end mb-5">
+  <div class="flex justify-end mb-4">
     <a href="{% url 'lessons:unit-upload' %}"
        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
               bg-primary-600 text-white text-sm font-semibold
@@ -20,47 +21,43 @@
     </a>
   </div>
 
-  {% if units_data %}
-  <div class="space-y-3">
-    {% for item in units_data %}
-    <a href="{% url 'lessons:unit-detail' item.unit.id %}"
-       class="flex items-center gap-4 bg-white rounded-2xl border border-gray-200 p-4
-              hover:border-primary-300 hover:shadow-sm transition-all duration-150">
-      <div class="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
-        <i data-lucide="book-open" class="w-6 h-6 text-primary-600"></i>
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-semibold text-gray-900 truncate">{{ item.unit.title }}</p>
-        <p class="text-xs text-gray-400 mt-0.5 truncate">
-          {{ item.unit.subject }} · {{ item.unit.get_level_display }}
-        </p>
-      </div>
-      <div class="shrink-0 text-right">
-        {% if item.total and item.ready == item.total %}
-          <span class="px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold">{{ item.ready }}/{{ item.total }} prête{{ item.ready|pluralize }}</span>
-        {% elif item.total %}
-          <span class="px-2.5 py-1 rounded-full bg-primary-50 text-primary-600 text-xs font-semibold">{{ item.ready }}/{{ item.total }}</span>
-        {% else %}
-          <span class="px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 text-xs font-semibold">brouillon</span>
-        {% endif %}
-        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 inline-block align-middle ml-1"></i>
-      </div>
-    </a>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="flex flex-col items-center justify-center text-center py-20">
-    <div class="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-4">
-      <i data-lucide="book-open" class="w-8 h-8 text-primary-600"></i>
+  {# Recherche : hors de la zone swappée → garde le focus pendant la frappe #}
+  <form x-ref="libform"
+        hx-get="{% url 'lessons:unit-list' %}"
+        hx-target="#library-cards" hx-swap="innerHTML"
+        hx-trigger="refresh, keyup changed delay:300ms from:input[name=q], search from:input[name=q]"
+        hx-indicator="#lib-skeleton"
+        @submit.prevent
+        class="mb-4">
+    <input type="hidden" name="filter" :value="filter">
+    <div class="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5
+                focus-within:border-primary-300 focus-within:ring-2 focus-within:ring-primary-100 transition">
+      <i data-lucide="search" class="w-4 h-4 text-gray-400 shrink-0"></i>
+      <input name="q" x-model="q" type="search" autocomplete="off"
+             placeholder="Rechercher une leçon…"
+             class="flex-1 min-w-0 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none">
     </div>
-    <h3 class="text-gray-800 font-bold text-lg mb-1">Aucune unité v2 pour l'instant</h3>
-    <p class="text-sm text-gray-500 mb-5 max-w-xs">Crée ta première leçon v2 : importe un document, l'IA génère le parcours (concepts, quiz, histoire, examen).</p>
-    <a href="{% url 'lessons:unit-upload' %}"
-       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 active:scale-[0.97] transition-all duration-150">
-      <i data-lucide="sparkles" class="w-4 h-4"></i> Créer une leçon
-    </a>
+  </form>
+
+  <div class="relative">
+    {# Squelette de chargement (sur chaque swap HTMX) — pointer-events-none #}
+    <div id="lib-skeleton"
+         class="htmx-indicator pointer-events-none absolute inset-0 z-10 space-y-2.5 pt-11">
+      {% for _ in "123" %}
+      <div class="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 p-4">
+        <div class="w-11 h-11 rounded-xl bg-gray-100 animate-pulse shrink-0"></div>
+        <div class="flex-1 space-y-2">
+          <div class="h-3 w-2/5 rounded bg-gray-100 animate-pulse"></div>
+          <div class="h-2.5 w-3/5 rounded bg-gray-100 animate-pulse"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div id="library-cards">
+      {% include "lessons/partials/library_cards.html" %}
+    </div>
   </div>
-  {% endif %}
 
 </div>
 {% endblock %}

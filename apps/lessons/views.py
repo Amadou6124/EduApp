@@ -16,7 +16,7 @@ from apps.lessons.services import (
     call_architect, extract_content_from_file, _create_unit_skeleton,
     launch_unit_generation, is_generation_active,
 )
-from apps.lessons import versioning, quality
+from apps.lessons import versioning, quality, lifecycle
 from apps.schools.models import SchoolClass, ClassSubject, EducationLevel
 
 logger = logging.getLogger(__name__)
@@ -289,18 +289,103 @@ def _teacher_classes(teacher, school):
     )
 
 
-@teacher_required
-def unit_list(request):
-    """Liste des Unités v2 de l'enseignant (les leçons v2 vivent sous leur Unité)."""
+LIBRARY_FILTERS = ('all', 'to_validate', 'ready', 'archived')
+
+
+def _library_context(request):
+    """Bibliothèque « Mes leçons » : cartes-unité enrichies (statut + classes de
+    déploiement), recherche (?q) et filtre (?filter). Lit GET (liste) ou POST
+    (après archive, via hx-include). Une seule requête pour les déploiements."""
     school = get_school(request)
+    src = request.POST if request.method == 'POST' else request.GET
+    q = src.get('q', '').strip()
+    flt = src.get('filter', 'all')
+    if flt not in LIBRARY_FILTERS:
+        flt = 'all'
+
     units = (Unit.objects.filter(teacher=request.user, school=school)
-             .order_by('-created_at').prefetch_related('lessons'))
-    units_data = []
+             .order_by('-created_at')
+             .prefetch_related('lessons', 'lessons__active_content_version'))
+    if q:
+        units = units.filter(Q(title__icontains=q) | Q(subject__icontains=q))
+
+    # Déploiements actifs (1 requête) : lesson_id → [noms de classes]
+    deploy_map = {}
+    for lid, cname in (LessonDeployment.objects
+                       .filter(lesson__unit__teacher=request.user, is_active=True,
+                               school_class__isnull=False)
+                       .values_list('lesson_id', 'school_class__name')):
+        deploy_map.setdefault(lid, []).append(cname)
+
+    cards, counts = [], {'to_validate': 0, 'ready': 0, 'archived': 0}
     for u in units:
         lessons = list(u.lessons.all())
-        ready = sum(1 for l in lessons if l.status == LessonStatus.READY)
-        units_data.append({'unit': u, 'total': len(lessons), 'ready': ready})
-    return render(request, 'lessons/unit_list.html', {'units_data': units_data})
+        ready = [l for l in lessons if l.status == LessonStatus.READY and not l.is_archived]
+        processing = any(l.status == LessonStatus.PROCESSING for l in lessons)
+        all_archived = bool(lessons) and all(l.is_archived for l in lessons)
+        if all_archived:
+            status = 'archived'
+        elif ready:
+            status = 'ready' if all(_is_validated(l) for l in ready) else 'to_validate'
+        else:
+            status = 'draft'
+        if status in counts:
+            counts[status] += 1
+
+        classes = []
+        for l in lessons:
+            for cname in deploy_map.get(l.id, []):
+                if cname not in classes:
+                    classes.append(cname)
+
+        cards.append({
+            'unit': u, 'status': status, 'classes': classes,
+            'ready': len(ready), 'processing': processing,
+            'total': sum(1 for l in lessons if not l.is_archived),
+        })
+
+    # Filtre par statut : « archivées » isolé, sinon on masque les archivées.
+    if flt == 'archived':
+        cards = [c for c in cards if c['status'] == 'archived']
+    else:
+        cards = [c for c in cards if c['status'] != 'archived']
+        if flt in ('to_validate', 'ready'):
+            cards = [c for c in cards if c['status'] == flt]
+
+    return {'cards': cards, 'q': q, 'filter': flt, 'counts': counts}
+
+
+@teacher_required
+def unit_list(request):
+    """Bibliothèque « Mes leçons » de l'enseignant (les leçons vivent sous leur Unité)."""
+    ctx = _library_context(request)
+    if request.headers.get('HX-Request'):
+        return render(request, 'lessons/partials/library_cards.html', ctx)
+    return render(request, 'lessons/unit_list.html', ctx)
+
+
+@teacher_required
+@require_POST
+def unit_archive(request, unit_id):
+    """Archive toute l'unité (soft-delete Phase 4 : dépublie + garde tout)."""
+    unit = get_object_or_404(Unit, id=unit_id, teacher=request.user, school=get_school(request))
+    for l in unit.lessons.filter(is_archived=False):
+        lifecycle.archive_lesson(l)
+    resp = render(request, 'lessons/partials/library_cards.html', _library_context(request))
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Unité archivée.', 'type': 'success'}})
+    return resp
+
+
+@teacher_required
+@require_POST
+def unit_unarchive(request, unit_id):
+    """Restaure une unité archivée (les leçons redeviennent visibles, non publiées)."""
+    unit = get_object_or_404(Unit, id=unit_id, teacher=request.user, school=get_school(request))
+    for l in unit.lessons.filter(is_archived=True):
+        lifecycle.unarchive_lesson(l)
+    resp = render(request, 'lessons/partials/library_cards.html', _library_context(request))
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Unité restaurée.', 'type': 'success'}})
+    return resp
 
 
 @teacher_required

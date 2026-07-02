@@ -1,0 +1,136 @@
+{% load i18n %}
+{# Chips de filtre : état actif piloté par Alpine (wrapper x-data), compteurs frais du serveur #}
+<div class="flex gap-1.5 mb-4 overflow-x-auto pb-0.5">
+  <button type="button"
+          @click="filter='all'; $nextTick(() => htmx.trigger($refs.libform, 'refresh'))"
+          :class="filter==='all' ? 'bg-primary-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'"
+          class="shrink-0 text-xs font-medium rounded-lg px-3 py-2 transition">Toutes</button>
+  <button type="button"
+          @click="filter='to_validate'; $nextTick(() => htmx.trigger($refs.libform, 'refresh'))"
+          :class="filter==='to_validate' ? 'bg-primary-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'"
+          class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium rounded-lg px-3 py-2 transition">
+    À valider
+    {% if counts.to_validate %}<span :class="filter==='to_validate' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-700'" class="rounded px-1.5 text-[11px] font-semibold">{{ counts.to_validate }}</span>{% endif %}
+  </button>
+  <button type="button"
+          @click="filter='ready'; $nextTick(() => htmx.trigger($refs.libform, 'refresh'))"
+          :class="filter==='ready' ? 'bg-primary-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'"
+          class="shrink-0 text-xs font-medium rounded-lg px-3 py-2 transition">Prêtes</button>
+  <button type="button"
+          @click="filter='archived'; $nextTick(() => htmx.trigger($refs.libform, 'refresh'))"
+          :class="filter==='archived' ? 'bg-primary-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'"
+          class="shrink-0 text-xs font-medium rounded-lg px-3 py-2 transition">Archivées</button>
+</div>
+
+{% if cards %}
+<div class="space-y-2.5">
+  {% for card in cards %}
+  <div class="flex items-center gap-3 rounded-2xl border p-4 transition-all duration-150
+              {% if card.status == 'to_validate' %}bg-amber-50/60 border-amber-100 hover:border-amber-200
+              {% elif card.status == 'archived' %}bg-gray-50 border-gray-100
+              {% else %}bg-white border-gray-200 hover:border-primary-300 hover:shadow-sm{% endif %}">
+
+    <a href="{% url 'lessons:unit-detail' card.unit.id %}" class="flex items-start gap-3.5 flex-1 min-w-0">
+      {# Icône selon le statut #}
+      <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0
+                  {% if card.status == 'to_validate' %}bg-amber-100
+                  {% elif card.status == 'archived' %}bg-gray-100
+                  {% else %}bg-primary-50{% endif %}">
+        {% if card.processing %}
+          <i data-lucide="loader-2" class="w-5 h-5 text-primary-600 animate-spin"></i>
+        {% elif card.status == 'archived' %}
+          <i data-lucide="archive" class="w-5 h-5 text-gray-400"></i>
+        {% elif card.status == 'to_validate' %}
+          <i data-lucide="book-open" class="w-5 h-5 text-amber-600"></i>
+        {% else %}
+          <i data-lucide="book-open" class="w-5 h-5 text-primary-600"></i>
+        {% endif %}
+      </div>
+
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="text-sm font-semibold text-gray-900 truncate">{{ card.unit.title }}</p>
+          {% if card.status == 'ready' %}
+            <span class="shrink-0 text-[10px] font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded-lg">✓ validée</span>
+          {% elif card.status == 'to_validate' %}
+            <span class="shrink-0 text-[10px] font-semibold bg-white text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg">À valider</span>
+          {% elif card.status == 'archived' %}
+            <span class="shrink-0 text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg">Archivée</span>
+          {% elif card.processing %}
+            <span class="shrink-0 text-[10px] font-semibold bg-primary-50 text-primary-600 px-2 py-0.5 rounded-lg">Génération…</span>
+          {% else %}
+            <span class="shrink-0 text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg">Brouillon</span>
+          {% endif %}
+        </div>
+        <p class="text-xs text-gray-400 mt-0.5 truncate">
+          {{ card.unit.subject }} · {{ card.unit.get_level_display }}
+        </p>
+        {% if card.status == 'to_validate' %}
+          <p class="text-xs text-amber-700 font-medium mt-1.5 inline-flex items-center gap-1">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Réviser et valider avant de publier
+          </p>
+        {% elif card.classes %}
+          <p class="text-xs text-gray-500 mt-1.5 inline-flex items-center gap-1.5">
+            <i data-lucide="users" class="w-3.5 h-3.5 text-gray-400"></i>
+            Déployée&nbsp;: {{ card.classes|join:" · " }}
+          </p>
+        {% endif %}
+      </div>
+    </a>
+
+    {# Action de rangement (hors du lien : pas d'ancre imbriquée) #}
+    {% if card.status == 'archived' %}
+      <button type="button"
+              hx-post="{% url 'lessons:unit-unarchive' card.unit.id %}"
+              hx-include="[name=q],[name=filter]"
+              hx-target="#library-cards" hx-swap="innerHTML" hx-indicator="#lib-skeleton"
+              class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600
+                     border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-white transition">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Restaurer
+      </button>
+    {% else %}
+      <button type="button"
+              hx-post="{% url 'lessons:unit-archive' card.unit.id %}"
+              hx-include="[name=q],[name=filter]"
+              hx-target="#library-cards" hx-swap="innerHTML" hx-indicator="#lib-skeleton"
+              hx-confirm="Archiver « {{ card.unit.title }} » ? Elle sera dépubliée de toutes les classes — tu pourras la restaurer à tout moment."
+              class="shrink-0 p-2 rounded-lg text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition"
+              title="Archiver">
+        <i data-lucide="archive" class="w-4 h-4"></i>
+      </button>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+{# États vides — dépend du contexte #}
+<div class="flex flex-col items-center justify-center text-center py-16">
+  <div class="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mb-4">
+    <i data-lucide="{% if filter == 'archived' %}archive{% elif q %}search-x{% else %}book-open{% endif %}" class="w-8 h-8 text-gray-300"></i>
+  </div>
+  {% if q %}
+    <h3 class="text-gray-800 font-bold text-lg mb-1">Aucun résultat</h3>
+    <p class="text-sm text-gray-500 max-w-xs">Aucune leçon ne correspond à ta recherche.</p>
+  {% elif filter == 'archived' %}
+    <h3 class="text-gray-800 font-bold text-lg mb-1">Aucune leçon archivée</h3>
+    <p class="text-sm text-gray-500 max-w-xs">Les leçons que tu ranges apparaîtront ici.</p>
+  {% elif filter == 'to_validate' %}
+    <h3 class="text-gray-800 font-bold text-lg mb-1">Rien à valider</h3>
+    <p class="text-sm text-gray-500 max-w-xs">Toutes tes leçons prêtes sont validées. 🎉</p>
+  {% elif filter == 'ready' %}
+    <h3 class="text-gray-800 font-bold text-lg mb-1">Aucune leçon validée</h3>
+    <p class="text-sm text-gray-500 max-w-xs">Valide une leçon pour la retrouver ici, prête à déployer.</p>
+  {% else %}
+    <h3 class="text-gray-800 font-bold text-lg mb-1">Ta bibliothèque est vide</h3>
+    <p class="text-sm text-gray-500 mb-5 max-w-xs">Crée ta première leçon : importe un document ou colle ton cours, l'IA génère le parcours (concepts, quiz, histoire, examen).</p>
+    <a href="{% url 'lessons:unit-upload' %}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 active:scale-[0.97] transition-all duration-150">
+      <i data-lucide="sparkles" class="w-4 h-4"></i> Créer une leçon
+    </a>
+  {% endif %}
+</div>
+{% endif %}
+
+{# Ré-initialise les icônes lucide après un swap HTMX #}
+<script>if (window.lucide) lucide.createIcons();</script>
