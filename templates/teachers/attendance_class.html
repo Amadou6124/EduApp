@@ -28,6 +28,7 @@ function attendanceGrid(students, existing) {
       students.map(s => [s.id, existing[s.id] || 'present'])
     ),
     saved: false,
+    dirty: false,
 
     toggle(id) {
       const cur = this.statuses[id];
@@ -35,6 +36,13 @@ function attendanceGrid(students, existing) {
                         : cur === 'absent'  ? 'late'
                         : 'present';
       this.saved = false;
+      this.dirty = true;
+    },
+
+    // Le bouton n'apparaît que s'il y a quelque chose à enregistrer :
+    // une absence/retard présent, ou une modification faite (dont un retrait).
+    get hasSomethingToSave() {
+      return this.dirty || this.absentCount > 0 || this.lateCount > 0;
     },
 
     cardClass(id) {
@@ -189,8 +197,9 @@ function attendanceGrid(students, existing) {
     <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
     {% csrf_token %}
 
-    {# Mobile : fixé juste au-dessus de la bottom nav #}
-    <div class="lg:hidden fixed bottom-16 left-0 right-0 z-20
+    {# Mobile : fixé juste au-dessus de la bottom nav — n'apparaît que s'il y a à enregistrer #}
+    <div x-show="hasSomethingToSave" x-cloak
+         class="lg:hidden fixed bottom-16 left-0 right-0 z-20
                 bg-white/90 backdrop-blur-sm border-t border-gray-100 px-4 py-2.5">
       <button type="submit"
               :disabled="saved"
@@ -210,8 +219,8 @@ function attendanceGrid(students, existing) {
       </button>
     </div>
 
-    {# Desktop : dans le flux normal #}
-    <div class="hidden lg:block mt-4 pb-4">
+    {# Desktop : dans le flux normal — n'apparaît que s'il y a à enregistrer #}
+    <div x-show="hasSomethingToSave" x-cloak class="hidden lg:block mt-4 pb-4">
       <button type="submit"
               :disabled="saved"
               :class="saved ? 'bg-green-600' : 'bg-primary-600 hover:bg-primary-700'"
