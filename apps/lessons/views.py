@@ -199,14 +199,20 @@ def unit_upload(request):
     # pas saisis : mêmes noms que le v1.
     errors = {}
     source_file = request.FILES.get('source_file')
+    pasted_text = request.POST.get('pasted_text', '').strip()
     source_type = None
-    if not source_file:
-        errors['source_file'] = 'Fichier requis.'
-    else:
+    if source_file:
         try:
             source_type = validate_lesson_file(source_file)
         except ValueError as e:
             errors['source_file'] = str(e)
+    elif pasted_text:
+        if len(pasted_text) < 40:
+            errors['source_file'] = 'Texte trop court — colle un cours complet.'
+        else:
+            source_type = 'text'
+    else:
+        errors['source_file'] = 'Ajoute un fichier ou colle le texte du cours.'
 
     selected_class_id = request.POST.get('selected_class_id', '').strip()
     subject_name  = request.POST.get('selected_subject_name', '').strip()
@@ -221,21 +227,29 @@ def unit_upload(request):
     if errors:
         return render(request, 'lessons/unit_upload.html',
                       {'school': school, 'classes_data': _build_classes_data(request.user),
-                       'errors': errors}, status=422)
+                       'errors': errors, 'pasted_text': pasted_text}, status=422)
 
     # Extraction synchrone via fichier temporaire (extract attend un CHEMIN ; le
     # fichier uploadé est en mémoire). Le worker re-extraira depuis source_file.path.
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            for chunk in source_file.chunks():
-                tmp.write(chunk)
-            tmp_path = tmp.name
-        content = extract_content_from_file(tmp_path, source_type)
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-    source_file.seek(0)  # rembobiner pour la sauvegarde sur l'Unit
+    if source_type == 'text':
+        # Texte collé : contenu direct pour l'Architecte + fichier .txt sauvé sur
+        # l'unité (le worker re-extraira via extract_content_from_file(..., 'text')).
+        from django.core.files.base import ContentFile
+        content = pasted_text
+        source_file = ContentFile(pasted_text.encode('utf-8'), name='cours.txt')
+    else:
+        # Fichier : extraction via fichier temporaire (extract attend un CHEMIN).
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                for chunk in source_file.chunks():
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+            content = extract_content_from_file(tmp_path, source_type)
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        source_file.seek(0)  # rembobiner pour la sauvegarde sur l'Unit
 
     # Temps 1 — Architecte (synchrone, ~10s)
     try:
@@ -244,14 +258,14 @@ def unit_upload(request):
         logger.error('Architecte upload échoué: %s', e)
         return render(request, 'lessons/unit_upload.html',
                       {'school': school, 'classes_data': _build_classes_data(request.user),
-                       'errors': {'architecte': "L'analyse du document a échoué. Réessayez."}},
-                      status=502)
+                       'errors': {'architecte': "L'analyse du document a échoué. Réessayez."},
+                       'pasted_text': pasted_text}, status=502)
 
     if structure.get('error') == 'unreadable':
         return render(request, 'lessons/unit_upload.html',
                       {'school': school, 'classes_data': _build_classes_data(request.user),
-                       'errors': {'architecte': structure.get('message', 'Document illisible.')}},
-                      status=422)
+                       'errors': {'architecte': structure.get('message', 'Document illisible.')},
+                       'pasted_text': pasted_text}, status=422)
 
     unit = _create_unit_skeleton(
         structure,
