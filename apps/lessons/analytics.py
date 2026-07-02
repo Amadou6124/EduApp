@@ -119,6 +119,32 @@ def concept_breakdown(lesson):
     ]
 
 
+def question_breakdown(lesson):
+    """Taux d'échec PAR QUESTION d'examen (depuis la meilleure tentative de chaque
+    élève). Plus fin que le concept : dit au prof QUEL item bloque. Trié échec
+    décroissant. L'énoncé (instruction) est ajouté par la vue depuis exam_data."""
+    tally = {}   # quiz_id -> {concept_id, total, wrong}
+    for att in _best_exam_by_student(lesson).values():
+        for ans in (att.answers or []):
+            if not isinstance(ans, dict):
+                continue
+            qid = ans.get('quiz_id')
+            if not qid:
+                continue
+            t = tally.setdefault(qid, {'concept_id': ans.get('concept_id'), 'total': 0, 'wrong': 0})
+            t['total'] += 1
+            if not ans.get('is_correct'):
+                t['wrong'] += 1
+    rows = [
+        {'quiz_id': qid, 'concept_id': t['concept_id'],
+         'total': t['total'], 'wrong': t['wrong'],
+         'fail_rate': round(t['wrong'] / t['total'], 2) if t['total'] else None}
+        for qid, t in tally.items()
+    ]
+    rows.sort(key=lambda q: (q['fail_rate'] or 0), reverse=True)
+    return rows
+
+
 def strugglers(lesson, threshold=0.5):
     """Signal séparé (Option A) : élèves ayant travaillé mais sous le seuil de maîtrise."""
     out = []

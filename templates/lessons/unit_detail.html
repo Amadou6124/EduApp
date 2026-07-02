@@ -57,6 +57,12 @@
         {% else %}
           <p class="text-xs text-gray-400">Aucune classe assignée à cette matière.</p>
         {% endif %}
+        {% if item.deployed_any %}
+          <a href="{% url 'lessons:results' item.lesson.id %}"
+             class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 transition">
+            <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i> Voir les résultats des élèves
+          </a>
+        {% endif %}
       {% else %}
         <div class="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
           <i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i>

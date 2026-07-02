@@ -16,7 +16,7 @@ from apps.lessons.services import (
     call_architect, extract_content_from_file, _create_unit_skeleton,
     launch_unit_generation, is_generation_active,
 )
-from apps.lessons import versioning, quality, lifecycle
+from apps.lessons import versioning, quality, lifecycle, analytics
 from apps.schools.models import SchoolClass, ClassSubject, EducationLevel
 
 logger = logging.getLogger(__name__)
@@ -406,6 +406,7 @@ def unit_detail(request, unit_id):
     ctx['deploy_lessons'] = [{
         'lesson': l,
         'validated': _is_validated(l),
+        'deployed_any': any((l.id, c.id) in deployed for c in classes),
         'classes': [{'obj': c, 'is_deployed': (l.id, c.id) in deployed,
                      'student_count': c.student_count} for c in classes],
     } for l in ready_lessons]
@@ -701,3 +702,77 @@ def lesson_validate(request, lesson_id):
     resp['HX-Redirect'] = (reverse('lessons:unit-detail', args=[lesson.unit_id])
                            if lesson.unit_id else reverse('lessons:unit-list'))
     return resp
+
+
+# ─── Phase 9 — Résultats (boucle de retour) ──────────────────────────────────
+
+def _mastery_tier(rate):
+    """Palier de couleur pour un taux de réussite 0..1."""
+    if rate is None:
+        return 'none'
+    if rate >= 0.70:
+        return 'good'
+    if rate >= 0.40:
+        return 'mid'
+    return 'low'
+
+
+@teacher_required
+def lesson_results(request, lesson_id):
+    """Résultats élèves d'une leçon : participation, réussite, maîtrise PAR CONCEPT
+    et PAR QUESTION (l'item qui coince), et élèves à aider. Lecture seule."""
+    lesson = _get_teacher_lesson(request, lesson_id)
+
+    deployed_classes = list(
+        LessonDeployment.objects
+        .filter(lesson=lesson, is_active=True, school_class__isnull=False)
+        .values_list('school_class__name', flat=True).distinct())
+
+    summary = analytics.lesson_results(lesson)
+    for st in summary['students']:
+        st['exam_pct'] = round(st['exam_score'] * 100) if st['exam_score'] is not None else None
+        st['quiz_pct'] = round(st['quiz_accuracy'] * 100) if st['quiz_accuracy'] is not None else None
+
+    # Mappings depuis le contenu live : concept_id → nom, quiz_id → énoncé.
+    cv = lesson.active_content_version
+    concept_names, instr_map = {}, {}
+    if cv:
+        for c in (cv.concepts_data or []):
+            concept_names[c.get('id')] = c.get('name') or c.get('id')
+        for q in ((cv.exam_data or {}).get('questions') or []):
+            instr_map[q.get('id')] = q.get('instruction') or q.get('id')
+
+    # Questions groupées par concept (les items qui coincent).
+    questions_by_concept = {}
+    for q in analytics.question_breakdown(lesson):
+        q = {**q, 'instruction': instr_map.get(q['quiz_id'], q['quiz_id']),
+             'fail_pct': round((q['fail_rate'] or 0) * 100)}
+        questions_by_concept.setdefault(q['concept_id'], []).append(q)
+
+    concepts = []
+    for cb in analytics.concept_breakdown(lesson):
+        cid, rate = cb['concept_id'], cb['rate']
+        concepts.append({
+            'name': concept_names.get(cid, cid), 'rate': rate,
+            'pct': round((rate or 0) * 100), 'tier': _mastery_tier(rate),
+            'correct': cb['correct'], 'total': cb['total'],
+            'questions': questions_by_concept.get(cid, []),
+        })
+    concepts.sort(key=lambda c: (c['rate'] if c['rate'] is not None else 1), reverse=True)
+
+    strug = analytics.strugglers(lesson)
+    for s in strug:
+        s['pct'] = round((s['mastery'] or 0) * 100)
+
+    avg = summary['avg_exam_score']
+    return render(request, 'lessons/results.html', {
+        'lesson': lesson,
+        'deployed_classes': deployed_classes,
+        'summary': summary,
+        'participation': (round(summary['started'] / summary['cohort'] * 100)
+                          if summary['cohort'] else 0),
+        'avg_pct': round(avg * 100) if avg is not None else None,
+        'concepts': concepts,
+        'has_concepts': bool(concepts),
+        'strugglers': strug,
+    })

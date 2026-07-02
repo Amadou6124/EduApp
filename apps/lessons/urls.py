@@ -28,4 +28,7 @@ urlpatterns = [
     path('<int:lesson_id>/review/dismiss/',      views.lesson_dismiss_flag,  name='review-dismiss'),
     path('<int:lesson_id>/review/regenerate/',   views.lesson_regen_block,   name='review-regen'),
     path('<int:lesson_id>/validate/',            views.lesson_validate,      name='validate'),
+
+    # Phase 9 — résultats (boucle de retour)
+    path('<int:lesson_id>/results/',             views.lesson_results,       name='results'),
 ]
