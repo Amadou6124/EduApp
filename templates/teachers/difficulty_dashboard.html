@@ -61,7 +61,7 @@
   {# ── Accordéons par classe (difficulté + à surveiller) ── #}
   {% for cd in classes_data %}
   {% if cd.flagged_count > 0 %}
-  <div x-data="{ open: {% if cd.critical_count > 0 %}true{% else %}false{% endif %} }"
+  <div x-data="{ open: false }"
        class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
 
     <button @click="open = !open"
