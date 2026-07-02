@@ -178,6 +178,38 @@ def teacher_dashboard(request):
         for sc in classes
     ]
 
+    # ── « À suivre » : élèves en difficulté agrégés sur toutes mes classes ──
+    from .services import get_class_difficulty_report, LEVEL_CRITICAL, LEVEL_WARNING
+    total_critical = total_warning = 0
+    struggling = []
+    if active_period:
+        for sc in classes:
+            for r in get_class_difficulty_report(user, sc, active_period):
+                if r['level'] == LEVEL_CRITICAL:
+                    total_critical += 1
+                elif r['level'] == LEVEL_WARNING:
+                    total_warning += 1
+                else:
+                    continue
+                weak = min(
+                    (sd for sd in r['scores'].values() if sd['score'] is not None),
+                    key=lambda sd: sd['score'], default=None,
+                )
+                struggling.append({
+                    'student': r['student'],
+                    'class':   sc,
+                    'score':   r['global_score'],
+                    'level':   r['level'],
+                    'trend':   r['trend'],
+                    'subject': weak['subject'] if weak else '',
+                })
+    struggling.sort(key=lambda s: s['score'] if s['score'] is not None else 99)
+    top_struggling = struggling[:3]
+
+    # ── « À saisir » : état de la saisie + classes à compléter ──
+    saisie_open      = bool(active_period and active_period.is_notes_open)
+    classes_complete = sum(1 for c in class_cards if c['notes_pct'] >= 100)
+
     avatar_bg, avatar_text = user.get_avatar_colors()
     first_name = user.full_name.split()[0] if user.full_name else '—'
 
@@ -197,6 +229,11 @@ def teacher_dashboard(request):
         'notes_pct':           notes_pct,
         'absences_today':      absences_today,
         'recent_observations': recent_observations,
+        'saisie_open':         saisie_open,
+        'classes_complete':    classes_complete,
+        'total_critical':      total_critical,
+        'total_warning':       total_warning,
+        'top_struggling':      top_struggling,
         'active_section':      'teacher_home',
     })
 
