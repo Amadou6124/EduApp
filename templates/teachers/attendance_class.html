@@ -14,17 +14,6 @@
 {% block page_title %}{{ school_class.name }}{% endblock %}
 {% block page_subtitle %}<p class="text-sm text-gray-500 mt-0.5">{{ today_label }}</p>{% endblock %}
 
-{# ── Sélecteur de date (header droite) ─────────────────── #}
-{% block header_actions %}
-<input type="date"
-       value="{{ selected_date|date:'Y-m-d' }}"
-       max="{{ today|date:'Y-m-d' }}"
-       onchange="window.location.href = '?date=' + this.value"
-       class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600
-              focus:outline-none focus:ring-2 focus:ring-primary-500/30
-              cursor-pointer bg-white">
-{% endblock %}
-
 {# ── Fonction Alpine définie dans le head ──────────────── #}
 {% block extra_head %}
 <script>
@@ -110,6 +99,12 @@ function attendanceGrid(students, existing) {
   )"
   class="max-w-2xl mx-auto">
 
+  {# Retour mobile (sur desktop la flèche est dans la barre du haut) #}
+  <a href="{% url 'teacher:attendance-list' %}?date={{ selected_date|date:'Y-m-d' }}"
+     class="lg:hidden inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> Absences
+  </a>
+
   {# ══════════════════════════════════════════════════════ #}
   {# COMPTEUR STICKY (sous le header)                     #}
   {# ══════════════════════════════════════════��═══════════ #}
@@ -141,7 +136,7 @@ function attendanceGrid(students, existing) {
   {# GRILLE ÉLÈVES                                        #}
   {# ══════════════════════════════════════════════════════ #}
   {% if nb_students %}
-  <div class="grid grid-cols-3 sm:grid-cols-4 gap-3 pb-36 lg:pb-6">
+  <div class="grid grid-cols-3 sm:grid-cols-4 gap-3 pb-32 lg:pb-6">
     <template x-for="student in students" :key="student.id">
       <button type="button"
               @click="toggle(student.id)"
@@ -157,10 +152,10 @@ function attendanceGrid(students, existing) {
           <span x-text="student.initials"></span>
         </div>
 
-        {# Nom court (1ère partie) #}
-        <span class="text-sm font-medium text-gray-800 text-center leading-tight
-                     w-full truncate px-1"
-              x-text="student.short">
+        {# Nom complet (distingue les homonymes) — 2 lignes max #}
+        <span class="text-xs font-medium text-gray-800 text-center leading-tight
+                     w-full px-0.5 line-clamp-2 min-h-8"
+              x-text="student.name">
         </span>
 
         {# Badge statut #}
@@ -196,13 +191,13 @@ function attendanceGrid(students, existing) {
 
     {# Mobile : fixé juste au-dessus de la bottom nav #}
     <div class="lg:hidden fixed bottom-16 left-0 right-0 z-20
-                bg-white border-t border-gray-200 px-4 py-3 shadow-lg">
+                bg-white/90 backdrop-blur-sm border-t border-gray-100 px-4 py-2.5">
       <button type="submit"
               :disabled="saved"
               :class="saved
                 ? 'bg-green-600 hover:bg-green-600'
                 : 'bg-primary-600 hover:bg-primary-700'"
-              class="w-full min-h-[52px] rounded-xl text-white font-semibold text-sm
+              class="w-full h-11 rounded-xl text-white font-semibold text-sm
                      flex items-center justify-center gap-2 transition
                      disabled:cursor-default active:scale-[0.99]">
         <template x-if="saved">

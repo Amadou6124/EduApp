@@ -2203,6 +2203,10 @@ p {
   min-height: 0px;
 }
 
+.min-h-8 {
+  min-height: 2rem;
+}
+
 .min-h-\[120px\] {
   min-height: 120px;
 }
@@ -4107,10 +4111,6 @@ p {
 
 .pb-32 {
   padding-bottom: 8rem;
-}
-
-.pb-36 {
-  padding-bottom: 9rem;
 }
 
 .pb-4 {
