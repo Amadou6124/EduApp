@@ -9,7 +9,7 @@
 
   <a href="{% url 'lessons:unit-list' %}"
      class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
-    <i data-lucide="arrow-left" class="w-4 h-4"></i> Mes unités
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> Mes leçons
   </a>
 
   {# En-tête fixe de l'unité (ne change pas au polling) #}
@@ -32,21 +32,42 @@
   {% if deploy_lessons %}
   <div class="mt-8">
     <h3 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
-      <i data-lucide="graduation-cap" class="w-4 h-4 text-primary-600"></i> Déployer aux classes
+      <i data-lucide="graduation-cap" class="w-4 h-4 text-primary-600"></i> Réviser &amp; déployer
     </h3>
-    <p class="text-xs text-gray-400 mb-4">Publie une leçon : elle apparaît dans le parcours des élèves de la classe.</p>
+    <p class="text-xs text-gray-400 mb-4">Valide chaque leçon, puis publie-la aux classes de tes élèves.</p>
 
     {% for item in deploy_lessons %}
     <div class="mb-5">
-      <p class="text-sm font-semibold text-gray-900 mb-2 truncate">{{ item.lesson.title }}</p>
-      {% if item.classes %}
-        <div class="space-y-2">
-          {% for c in item.classes %}
-            {% include "lessons/partials/deploy_card.html" with lesson=item.lesson class=c.obj is_deployed=c.is_deployed student_count=c.student_count %}
-          {% endfor %}
-        </div>
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <p class="text-sm font-semibold text-gray-900 truncate">{{ item.lesson.title }}</p>
+        <a href="{% url 'lessons:review' item.lesson.id %}"
+           class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium border rounded-lg px-2.5 py-1.5 transition
+                  {% if item.validated %}text-gray-600 border-gray-200 hover:bg-gray-50{% else %}text-white bg-primary-600 border-primary-600 hover:bg-primary-700{% endif %}">
+          <i data-lucide="{% if item.validated %}eye{% else %}shield-check{% endif %}" class="w-3.5 h-3.5"></i>
+          {% if item.validated %}Réviser{% else %}Réviser et valider{% endif %}
+        </a>
+      </div>
+      {% if item.validated %}
+        {% if item.classes %}
+          <div class="space-y-2">
+            {% for c in item.classes %}
+              {% include "lessons/partials/deploy_card.html" with lesson=item.lesson class=c.obj is_deployed=c.is_deployed student_count=c.student_count %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-xs text-gray-400">Aucune classe assignée à cette matière.</p>
+        {% endif %}
+        {% if item.deployed_any %}
+          <a href="{% url 'lessons:results' item.lesson.id %}"
+             class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 transition">
+            <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i> Voir les résultats des élèves
+          </a>
+        {% endif %}
       {% else %}
-        <p class="text-xs text-gray-400">Aucune classe assignée à cette matière.</p>
+        <div class="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i>
+          À valider avant de pouvoir la publier aux classes.
+        </div>
       {% endif %}
     </div>
     {% endfor %}

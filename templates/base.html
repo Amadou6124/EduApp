@@ -135,9 +135,9 @@
         <a href="{% url 'lessons:unit-list' %}"
            class="nav-link {% if request.resolver_match.url_name == 'unit-list' or request.resolver_match.url_name == 'unit-detail' or request.resolver_match.url_name == 'unit-upload' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Mes unités'">
+           :title="$store.sidebar.open ? '' : 'Mes leçons'">
           <i data-lucide="sparkles" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Mes unités</span>
+          <span x-show="$store.sidebar.open">Mes leçons</span>
         </a>
 
         <a href="{% url 'notes:dashboard' %}"
@@ -585,7 +585,7 @@
                 {% elif app == 'accounting' %}{% if url == 'emargement' %}Émargement{% elif url == 'salaires' %}Paie mensuelle{% elif url == 'depenses' %}Dépenses{% else %}Finances{% endif %}
                 {% elif app == 'team' %}Équipe
                 {% elif app == 'settings' %}Paramètres
-                {% elif app == 'lessons' %}Mes unités
+                {% elif app == 'lessons' %}Mes leçons
                 {% elif app == 'teacher' %}{% if url == 'attendance-list' or url == 'attendance-class' %}Absences{% elif url == 'difficulty' or url == 'difficulty-class' %}Suivi élèves{% elif url == 'students' or url == 'student-detail' %}Mes élèves{% elif url == 'notifications' %}Notifications{% else %}Tableau de bord{% endif %}
                 {% elif app == 'promoter' %}{% if url == 'ecoles' or url == 'school-detail' %}Mes écoles{% elif url == 'finances' %}Finances{% else %}Synthèse{% endif %}
                 {% endif %}
@@ -863,7 +863,7 @@
           <a href="{% url 'teacher:difficulty' %}" @click="$store.teacherMoreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
             <i data-lucide="activity" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Suivi</span></a>
           <a href="{% url 'lessons:unit-list' %}" @click="$store.teacherMoreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
-            <i data-lucide="sparkles" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Mes unités</span></a>
+            <i data-lucide="sparkles" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Mes leçons</span></a>
         </div>
       </div>
     </div>

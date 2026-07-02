@@ -3,7 +3,7 @@ Portail Professeur — apps/teachers/
 Namespace URL : teacher
 """
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import login_required
@@ -178,6 +178,38 @@ def teacher_dashboard(request):
         for sc in classes
     ]
 
+    # ── « À suivre » : élèves en difficulté agrégés sur toutes mes classes ──
+    from .services import get_class_difficulty_report, LEVEL_CRITICAL, LEVEL_WARNING
+    total_critical = total_warning = 0
+    struggling = []
+    if active_period:
+        for sc in classes:
+            for r in get_class_difficulty_report(user, sc, active_period):
+                if r['level'] == LEVEL_CRITICAL:
+                    total_critical += 1
+                elif r['level'] == LEVEL_WARNING:
+                    total_warning += 1
+                else:
+                    continue
+                weak = min(
+                    (sd for sd in r['scores'].values() if sd['score'] is not None),
+                    key=lambda sd: sd['score'], default=None,
+                )
+                struggling.append({
+                    'student': r['student'],
+                    'class':   sc,
+                    'score':   r['global_score'],
+                    'level':   r['level'],
+                    'trend':   r['trend'],
+                    'subject': weak['subject'] if weak else '',
+                })
+    struggling.sort(key=lambda s: s['score'] if s['score'] is not None else 99)
+    top_struggling = struggling[:3]
+
+    # ── « À saisir » : état de la saisie + classes à compléter ──
+    saisie_open      = bool(active_period and active_period.is_notes_open)
+    classes_complete = sum(1 for c in class_cards if c['notes_pct'] >= 100)
+
     avatar_bg, avatar_text = user.get_avatar_colors()
     first_name = user.full_name.split()[0] if user.full_name else '—'
 
@@ -197,6 +229,11 @@ def teacher_dashboard(request):
         'notes_pct':           notes_pct,
         'absences_today':      absences_today,
         'recent_observations': recent_observations,
+        'saisie_open':         saisie_open,
+        'classes_complete':    classes_complete,
+        'total_critical':      total_critical,
+        'total_warning':       total_warning,
+        'top_struggling':      top_struggling,
         'active_section':      'teacher_home',
     })
 
@@ -214,6 +251,14 @@ def attendance_list(request):
     school = get_school(request)
     today  = date.today()
 
+    # Date d'émargement : aujourd'hui par défaut, jamais dans le futur.
+    try:
+        selected_date = datetime.strptime(request.GET.get('date', ''), '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        selected_date = today
+    if selected_date > today:
+        selected_date = today
+
     all_class_ids = _teacher_class_ids(user, school)
 
     classes = list(
@@ -223,32 +268,36 @@ def attendance_list(request):
         .order_by('level', 'name')
     )
 
-    # Classes ayant au moins 1 enregistrement aujourd'hui (1 requête)
-    done_today = set(
-        Attendance.objects.filter(
-            school=school,
-            school_class_id__in=all_class_ids,
-            date=today,
-        ).values_list('school_class_id', flat=True).distinct()
-    )
+    # Absences notées par classe à la date choisie (1 requête). Purement factuel :
+    # sans emploi du temps, on ne peut pas savoir quelles classes « doivent »
+    # être émargées — on n'affiche donc ni obligation ni « en attente ».
+    counts = {
+        r['school_class_id']: r['n']
+        for r in (Attendance.objects
+                  .filter(school=school, school_class_id__in=all_class_ids, date=selected_date)
+                  .values('school_class_id')
+                  .annotate(n=Count('id')))
+    }
 
     class_items = [
         {
             'class':         sc,
             'student_count': sc.student_count,
-            'done':          sc.pk in done_today,
-            'level_badge':   LEVEL_BADGE.get(sc.level, 'bg-gray-100 text-gray-600'),
+            'absent_count':  counts.get(sc.pk, 0),
         }
         for sc in classes
     ]
 
+    is_today = selected_date == today
     return render(request, 'teachers/attendance_list.html', {
         'school':         school,
         'class_items':    class_items,
-        'today':          today,
-        'today_label':    _date_label(today),
-        'nb_done':        len(done_today),
-        'nb_total':       len(class_items),
+        'selected_date':  selected_date,
+        'date_label':     _date_label(selected_date),
+        'is_today':       is_today,
+        'is_yesterday':   selected_date == today - timedelta(days=1),
+        'prev_date':      (selected_date - timedelta(days=1)).isoformat(),
+        'next_date':      None if is_today else (selected_date + timedelta(days=1)).isoformat(),
         'active_section': 'teacher_attendance',
     })
 
@@ -459,6 +508,7 @@ def teacher_students(request):
 def teacher_student_detail(request, student_id):
     from .models import StudentObservation
     from datetime import date as date_cls
+    from apps.schools.services.bulletin_calculator import BulletinCalculator, round2
 
     user   = request.user
     school = get_school(request)
@@ -468,15 +518,22 @@ def teacher_student_detail(request, student_id):
     if student.school_class_id not in class_ids:
         return HttpResponse(status=403)
 
-    # Période active
+    # Périodes de l'année active + période affichée (commutable via ?period=)
     today = date_cls.today()
     active_year = school.school_years.filter(is_active=True).first()
+    periods = list(active_year.periods.order_by('order')) if active_year else []
+
     active_period = None
-    if active_year:
-        active_period = (
-            active_year.periods.filter(start_date__lte=today, end_date__gte=today).first()
-            or active_year.periods.order_by('-order').first()
-        )
+    if periods:
+        requested = request.GET.get('period')
+        if requested:
+            active_period = next((p for p in periods if str(p.pk) == requested), None)
+        if not active_period:
+            active_period = (
+                next((p for p in periods if p.is_notes_open), None)
+                or next((p for p in periods if p.start_date <= today <= p.end_date), None)
+                or periods[0]
+            )
 
     # Matières du prof dans la classe de l'élève
     my_subjects = list(
@@ -486,7 +543,7 @@ def teacher_student_detail(request, student_id):
         .order_by('order', 'subject__name')
     )
 
-    # Notes de l'élève pour ces matières dans la période active
+    # Notes de l'élève pour ces matières dans la période affichée
     notes_by_cs: dict[int, list] = {}
     if active_period and my_subjects:
         cs_ids = [cs.pk for cs in my_subjects]
@@ -496,13 +553,21 @@ def teacher_student_detail(request, student_id):
                   .order_by('position')):
             notes_by_cs.setdefault(n.class_subject_id, []).append(n)
 
+    # Moyenne par matière = formule officielle du bulletin (source unique) →
+    # cohérent avec la saisie et le bulletin, jamais une moyenne « à plat ».
+    calc = BulletinCalculator()
     subject_notes = []
     for cs in my_subjects:
-        notes = notes_by_cs.get(cs.pk, [])
-        avg = None
-        if notes:
-            avg = round(sum(n.value for n in notes) / len(notes), 2)
-        subject_notes.append({'cs': cs, 'notes': notes, 'avg': avg})
+        by_pos = {n.position: n for n in notes_by_cs.get(cs.pk, [])}
+        note_classe = by_pos.get(1)
+        note_compo  = by_pos.get(2)
+        raw = calc.calculate_subject_average([note_classe, note_compo], cs.max_grade)
+        subject_notes.append({
+            'cs':          cs,
+            'note_classe': note_classe,
+            'note_compo':  note_compo,
+            'avg':         round2(raw) if raw is not None else None,
+        })
 
     # Observations du prof sur cet élève
     raw_obs = list(
@@ -522,6 +587,7 @@ def teacher_student_detail(request, student_id):
 
     return render(request, 'teachers/student_detail.html', {
         'student':       student,
+        'periods':       periods,
         'active_period': active_period,
         'subject_notes': subject_notes,
         'observations':  observations,
@@ -580,7 +646,7 @@ def observation_create(request, student_id):
 def difficulty_dashboard(request):
     from .services import (
         get_class_difficulty_report,
-        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_WATCH,
+        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_INSUFFICIENT,
     )
 
     user   = request.user
@@ -602,40 +668,39 @@ def difficulty_dashboard(request):
     )
 
     classes_data = []
-    total_critical = 0
-    total_warning  = 0
+    total_critical = total_warning = total_insufficient = 0
 
     for sc in classes:
         report = get_class_difficulty_report(user, sc, active_period) if active_period else []
 
-        critical = sum(1 for r in report if r['level'] == LEVEL_CRITICAL)
-        warning  = sum(1 for r in report if r['level'] == LEVEL_WARNING)
-        watch    = sum(1 for r in report if r['level'] == LEVEL_WATCH)
+        critical     = [r for r in report if r['level'] == LEVEL_CRITICAL]
+        warning      = [r for r in report if r['level'] == LEVEL_WARNING]
+        insufficient = [r for r in report if r['level'] == LEVEL_INSUFFICIENT]
 
-        total_critical += critical
-        total_warning  += warning
+        total_critical     += len(critical)
+        total_warning      += len(warning)
+        total_insufficient += len(insufficient)
 
         classes_data.append({
-            'school_class':      sc,
-            'level_badge':       LEVEL_BADGE.get(sc.level, 'bg-gray-100 text-gray-600'),
-            'report':            report,
-            'critical_count':    critical,
-            'warning_count':     warning,
-            'watch_count':       watch,
-            'total_struggling':  critical + warning + watch,
-            'critical_students': [r for r in report if r['level'] == LEVEL_CRITICAL],
-            'warning_students':  [r for r in report if r['level'] == LEVEL_WARNING],
-            'watch_students':    [r for r in report if r['level'] == LEVEL_WATCH],
+            'school_class':       sc,
+            'critical_students':  critical,
+            'warning_students':   warning,
+            'critical_count':     len(critical),
+            'warning_count':      len(warning),
+            'insufficient_count': len(insufficient),
+            'flagged_count':      len(critical) + len(warning),
         })
 
-    classes_data.sort(key=lambda c: -c['critical_count'])
+    # Classes les plus critiques d'abord.
+    classes_data.sort(key=lambda c: (-c['critical_count'], -c['warning_count']))
 
     return render(request, 'teachers/difficulty_dashboard.html', {
-        'classes_data':     classes_data,
-        'total_critical':   total_critical,
-        'total_warning':    total_warning,
-        'total_struggling': sum(c['total_struggling'] for c in classes_data),
-        'active_period':    active_period,
+        'classes_data':       classes_data,
+        'total_critical':     total_critical,
+        'total_warning':      total_warning,
+        'total_insufficient': total_insufficient,
+        'total_flagged':      total_critical + total_warning,
+        'active_period':      active_period,
     })
 
 
@@ -644,7 +709,7 @@ def difficulty_dashboard(request):
 def difficulty_class(request, class_id):
     from .services import (
         get_class_difficulty_report,
-        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_WATCH, LEVEL_GOOD,
+        LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_INSUFFICIENT, LEVEL_GOOD,
     )
 
     user   = request.user
@@ -663,13 +728,15 @@ def difficulty_class(request, class_id):
             or active_year.periods.order_by('-order').first()
         )
 
-    report_full = (
-        get_class_difficulty_report(user, school_class, active_period)
-        if active_period else []
-    )
+    # On ignore les élèves sans aucune donnée (level None).
+    report_full = [
+        r for r in (get_class_difficulty_report(user, school_class, active_period)
+                    if active_period else [])
+        if r['level'] is not None
+    ]
 
     active_filter = request.GET.get('level', 'all')
-    valid_filters = {LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_WATCH, LEVEL_GOOD}
+    valid_filters = {LEVEL_CRITICAL, LEVEL_WARNING, LEVEL_INSUFFICIENT, LEVEL_GOOD}
     if active_filter in valid_filters:
         report = [r for r in report_full if r['level'] == active_filter]
     else:
@@ -684,11 +751,11 @@ def difficulty_class(request, class_id):
     )
 
     counts = {
-        'all':      len(report_full),
-        'critical': sum(1 for r in report_full if r['level'] == LEVEL_CRITICAL),
-        'warning':  sum(1 for r in report_full if r['level'] == LEVEL_WARNING),
-        'watch':    sum(1 for r in report_full if r['level'] == LEVEL_WATCH),
-        'good':     sum(1 for r in report_full if r['level'] == LEVEL_GOOD),
+        'all':          len(report_full),
+        'critical':     sum(1 for r in report_full if r['level'] == LEVEL_CRITICAL),
+        'warning':      sum(1 for r in report_full if r['level'] == LEVEL_WARNING),
+        'insufficient': sum(1 for r in report_full if r['level'] == LEVEL_INSUFFICIENT),
+        'good':         sum(1 for r in report_full if r['level'] == LEVEL_GOOD),
     }
 
     return render(request, 'teachers/difficulty_class.html', {

@@ -1,76 +1,43 @@
 {% comment %}
-Carte élève — suivi difficulté.
-Requiert : r (dict rapport), openQA() dans le scope Alpine parent.
+Carte élève — suivi difficulté. Toute la carte est un lien vers la fiche élève.
+Requiert : r (dict rapport avec student, level, global_score, trend, scores).
 {% endcomment %}
-<div id="difficulty-card-{{ r.student.pk }}" class="rounded-xl border p-3
-    {% if r.level == 'critical' %}bg-red-50 border-red-200
-    {% elif r.level == 'warning' %}bg-amber-50 border-amber-200
-    {% elif r.level == 'watch' %}bg-yellow-50 border-yellow-100
-    {% else %}bg-green-50 border-green-100{% endif %}">
-
+{% load i18n %}
+<a href="{% url 'teacher:student-detail' r.student.pk %}"
+   class="block rounded-xl border p-3 hover:shadow-sm active:scale-[0.99] transition
+   {% if r.level == 'critical' %}bg-red-50 border-red-200
+   {% elif r.level == 'warning' %}bg-amber-50 border-amber-200
+   {% elif r.level == 'insufficient' %}bg-gray-50 border-gray-200
+   {% else %}bg-green-50 border-green-100{% endif %}">
   <div class="flex items-center gap-3">
-    {# Avatar #}
     <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
          style="background:{{ r.student.get_avatar_colors.0 }};color:{{ r.student.get_avatar_colors.1 }}">
       {{ r.student.get_initials }}
     </div>
 
-    {# Infos #}
     <div class="flex-1 min-w-0">
-      <div class="flex items-center justify-between gap-2">
-        <p class="text-sm font-semibold text-gray-900 truncate">{{ r.student.full_name }}</p>
-        <div class="flex items-center gap-1.5 shrink-0">
-          {% if r.global_score is not None %}
-          <span class="js-score text-sm font-bold
-              {% if r.level == 'critical' %}text-red-600
-              {% elif r.level == 'warning' %}text-amber-600
-              {% elif r.level == 'watch' %}text-yellow-600
-              {% else %}text-green-600{% endif %}">
-            {{ r.global_score|floatformat:"-2" }}/20
-          </span>
-          {% endif %}
-          {% if r.trend == 'down' %}
-          <span class="js-trend text-red-600 font-black text-lg leading-none" title="Tendance en baisse">↓</span>
-          {% elif r.trend == 'up' %}
-          <span class="js-trend text-green-600 font-bold text-lg leading-none" title="Tendance en hausse">↑</span>
-          {% else %}
-          <span class="js-trend text-gray-400 text-lg leading-none">→</span>
-          {% endif %}
-        </div>
-      </div>
-
-      {# Matières + scores #}
-      {% if r.scores %}
-      <p class="text-xs text-gray-500 mt-0.5 truncate">
-        {% for subject_name, sd in r.scores.items %}
-        {% if sd.score is not None %}
-        <span>{{ subject_name }}: <span class="font-semibold
-            {% if sd.score < 8 %}text-red-600
-            {% elif sd.score < 10 %}text-amber-600
-            {% else %}text-gray-700{% endif %}">{{ sd.score|floatformat:"-2" }}</span></span>{% if not forloop.last %} · {% endif %}
+      <p class="text-sm font-semibold text-gray-900 truncate">{{ r.student.full_name }}</p>
+      <p class="text-[11px] mt-0.5 flex items-center gap-1 truncate
+         {% if r.trend == 'down' %}text-red-600{% elif r.trend == 'up' %}text-green-600{% else %}text-gray-400{% endif %}">
+        {% if r.level == 'insufficient' %}
+          <i data-lucide="minus" class="w-3.5 h-3.5 shrink-0"></i> {% trans "Pas assez de données" %}
+        {% elif r.trend == 'down' %}
+          <i data-lucide="trending-down" class="w-3.5 h-3.5 shrink-0"></i> {% trans "en baisse" %}
+        {% elif r.trend == 'up' %}
+          <i data-lucide="trending-up" class="w-3.5 h-3.5 shrink-0"></i> {% trans "remonte" %}
+        {% else %}
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5 shrink-0"></i> {% trans "stable" %}
         {% endif %}
-        {% endfor %}
+        {% for subject_name, sd in r.scores.items %}{% if sd.score is not None %}<span class="text-gray-400 font-normal">· {{ subject_name }} {{ sd.score|floatformat:"-2" }}</span>{% endif %}{% endfor %}
       </p>
-      {% endif %}
     </div>
-  </div>
 
-  {# Actions #}
-  <div class="flex items-center gap-2 mt-2.5">
-    <button type="button"
-            @click="openQA({{ r.student.pk }}, '{{ r.student.full_name|escapejs }}', [{% for sn, sd in r.scores.items %}{id: {{ sd.cs_id }}, name: '{{ sn|escapejs }}'}{% if not forloop.last %},{% endif %}{% endfor %}])"
-            class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg
-                   bg-white border border-gray-300 text-xs font-medium text-gray-700
-                   hover:bg-gray-50 active:scale-[0.99] transition">
-      <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-      Éval rapide
-    </button>
-    <a href="{% url 'teacher:student-detail' r.student.pk %}"
-       class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg
-              bg-white border border-gray-300 text-xs font-medium text-gray-700
-              hover:bg-gray-50 active:scale-[0.99] transition">
-      <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-      Fiche élève
-    </a>
+    {% if r.global_score is not None %}
+    <span class="text-sm font-bold shrink-0
+        {% if r.level == 'critical' %}text-red-600
+        {% elif r.level == 'warning' %}text-amber-600
+        {% else %}text-gray-500{% endif %}">{{ r.global_score|floatformat:"-2" }}</span>
+    {% endif %}
+    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 shrink-0"></i>
   </div>
-</div>
+</a>

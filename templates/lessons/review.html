@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Réviser — {{ lesson.title }}{% endblock %}
+{% block page_title %}Réviser{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+
+  {% if unit %}
+  <a href="{% url 'lessons:unit-detail' unit.id %}"
+     class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> {{ unit.title }}
+  </a>
+  {% endif %}
+
+  <h2 class="text-xl font-bold text-gray-900 leading-tight">{{ lesson.title }}</h2>
+  <p class="text-sm text-gray-500 mt-0.5 mb-4">
+    {% if unit %}{{ unit.subject }} · {{ unit.get_level_display }}{% endif %}
+  </p>
+
+  {% include "lessons/partials/review_body.html" %}
+</div>
+{% endblock %}

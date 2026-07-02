@@ -4,7 +4,7 @@ Contexte : cs, period, school_class, positions, columns[{pos,name,editable}], ro
 {% endcomment %}
 {% load i18n l10n %}
 
-{% if not can_enter %}
+{% if not can_enter and not read_only %}
   <div class="card p-8 text-center">
     <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
       <i data-lucide="lock" class="w-6 h-6 text-amber-500"></i>
@@ -44,11 +44,19 @@ Contexte : cs, period, school_class, positions, columns[{pos,name,editable}], ro
 
   <div x-data="notesTable" x-on:note-saved.window="onNoteSaved($event.detail)" x-on:note-cancelled.window="onNoteCancelled($event.detail)">
 
+    {# Bandeau lecture seule : période fermée, on consulte au lieu d'éditer #}
+    {% if read_only %}
+    <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-3">
+      <i data-lucide="eye" class="w-4 h-4 text-gray-500 shrink-0"></i>
+      <span class="text-xs text-gray-600"><span class="font-semibold text-gray-800">{% trans "Lecture seule." %}</span> {{ reason|default:"Saisie fermée" }} {% trans "— vous consultez les notes enregistrées." %}</span>
+    </div>
+    {% endif %}
+
     {# Barre d'infos : système + recherche + ajout d'évaluation #}
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
       <div class="flex items-center gap-2 text-xs text-gray-500">
         <span class="px-2 py-1 rounded-md bg-gray-100 text-gray-600 font-medium">{% trans "Note de classe + Composition" %}</span>
-        <span class="flex items-center gap-1"><i data-lucide="save" class="w-3.5 h-3.5"></i> {% trans "sauvegarde auto" %}</span>
+        {% if not read_only %}<span class="flex items-center gap-1"><i data-lucide="save" class="w-3.5 h-3.5"></i> {% trans "sauvegarde auto" %}</span>{% endif %}
       </div>
       <div class="flex items-center gap-2">
         <div class="relative">
@@ -89,7 +97,7 @@ Contexte : cs, period, school_class, positions, columns[{pos,name,editable}], ro
                 </div>
               </td>
               {% for cell in r.cells %}
-                {% include "notes/partials/note_cell.html" with cs=cs student=r.student period=period position=cell.pos note=cell.note can_enter=can_enter %}
+                {% include "notes/partials/note_cell.html" with cs=cs student=r.student period=period position=cell.pos note=cell.note can_enter=can_enter level=cell.level %}
               {% endfor %}
               <td class="text-center px-2 py-1.5 min-w-[64px]">
                 <span x-text="getStudentAvg({{ r.student.pk }}) !== null ? getStudentAvg({{ r.student.pk }}) : '—'"
@@ -101,11 +109,18 @@ Contexte : cs, period, school_class, positions, columns[{pos,name,editable}], ro
       </table>
     </div>
 
+    {% if read_only %}
+    <p class="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
+      <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+      {% trans "Lecture seule — la saisie est fermée pour cette période." %}
+    </p>
+    {% else %}
     <p class="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
       <i data-lucide="keyboard" class="w-3.5 h-3.5"></i>
       <span class="hidden sm:inline">{% trans "Entrée valide · Tab → cellule suivante · ↑↓ même colonne · couleur = niveau" %}</span>
       <span class="sm:hidden">{% trans "Sauvegarde automatique" %}</span>
     </p>
+    {% endif %}
   </div>
 
   <script>

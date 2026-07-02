@@ -1,0 +1,40 @@
+{% comment %}
+Liste des notes en lecture seule (mobile) — consultation, jamais d'édition.
+Inclus depuis notes_class.html (block sm:hidden) : bascule « Voir la liste »
+quand la période est ouverte, ET affichage direct quand elle est fermée.
+Requiert : rows [{student, cells[{note, level}], avg, avg_level}], active_cs.
+{% endcomment %}
+{% load i18n l10n %}
+
+<div class="border border-gray-200 rounded-xl overflow-hidden bg-white" x-data="{ q: '' }">
+
+  <div class="p-2 border-b border-gray-100">
+    <div class="relative">
+      <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+      <input x-model="q" type="text" placeholder="{% trans 'Rechercher un élève…' %}" class="input-field h-9 pl-9 text-sm w-full">
+    </div>
+  </div>
+
+  <div class="flex items-center px-3 py-2 bg-gray-50 text-[11px] text-gray-400">
+    <span class="flex-1 min-w-0">{% trans "Élève" %}</span>
+    <span class="w-12 text-center shrink-0">{% trans "Cl." %}</span>
+    <span class="w-12 text-center shrink-0">{% trans "Compo" %}</span>
+    <span class="w-11 text-center shrink-0 text-primary-600">{% trans "Moy." %}</span>
+  </div>
+
+  {% for r in rows %}
+  <div x-show="q === '' || '{{ r.student.full_name|lower|escapejs }}'.includes(q.toLowerCase().trim())"
+       class="flex items-center px-3 py-2.5 border-t border-gray-100 text-[13px]">
+    <span class="flex-1 min-w-0 text-gray-800 truncate pr-2">{{ r.student.full_name }}</span>
+    {% with c0=r.cells.0 c1=r.cells.1 %}
+    <span class="w-12 text-center shrink-0 {% if c0.level == 'low' %}text-red-600 font-medium{% elif c0.level == 'mid' %}text-amber-600 font-medium{% elif c0.level == 'high' %}text-green-700 font-medium{% else %}text-gray-300{% endif %}">{% if c0.note and not c0.note.is_cancelled %}{{ c0.note.value|unlocalize }}{% else %}—{% endif %}</span>
+    <span class="w-12 text-center shrink-0 {% if c1.level == 'low' %}text-red-600 font-medium{% elif c1.level == 'mid' %}text-amber-600 font-medium{% elif c1.level == 'high' %}text-green-700 font-medium{% else %}text-gray-300{% endif %}">{% if c1.note and not c1.note.is_cancelled %}{{ c1.note.value|unlocalize }}{% else %}—{% endif %}</span>
+    {% endwith %}
+    <span class="w-11 text-center shrink-0 {% if r.avg_level == 'low' %}text-red-600 font-bold{% elif r.avg_level == 'mid' %}text-amber-600 font-bold{% elif r.avg_level == 'high' %}text-green-700 font-bold{% else %}text-gray-300{% endif %}">{% if r.avg is not None %}{{ r.avg }}{% else %}—{% endif %}</span>
+  </div>
+  {% endfor %}
+
+  <p class="text-[11px] text-gray-400 px-3 py-2 border-t border-gray-100 flex items-center gap-1.5">
+    <i data-lucide="eye" class="w-3.5 h-3.5"></i> {% trans "Lecture seule" %}
+  </p>
+</div>

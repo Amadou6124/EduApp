@@ -25,7 +25,7 @@ from apps.students.models import Student
 from .models import (
     ClassSubject, Note, NoteType, NoteEntryGrant, Period, SchoolYear,
 )
-from .permissions import can_enter_notes
+from .permissions import can_enter_notes, can_enter_formatif
 
 
 # ─────────────────────────────────────────────────────────────
@@ -53,6 +53,28 @@ def _compute_student_avg(cs, note_list):
     from apps.schools.services.bulletin_calculator import BulletinCalculator, round2
     raw = BulletinCalculator().calculate_subject_average(note_list, cs.max_grade)
     return round2(raw)
+
+
+def _level(value, max_grade):
+    """Niveau colorimétrique d'une note pour l'affichage lecture seule.
+
+    Aligné exactement sur colorClass de la grille éditable : <50 % rouge,
+    <60 % ambre, sinon vert. None si pas de note.
+    """
+    if value is None:
+        return None
+    try:
+        v = float(value)
+        m = float(max_grade or 20)
+    except (TypeError, ValueError):
+        return None
+    if m <= 0:
+        return None
+    if v < m / 2:
+        return 'low'
+    if v < m * 0.6:
+        return 'mid'
+    return 'high'
 
 
 def _compute_class_stats(rows):
@@ -111,8 +133,13 @@ def _build_table_data(cs, students, period, force_min_cols=2):
     for student in students:
         snotes    = notes_by_student.get(student.pk, {})
         note_list = [snotes.get(pos) for pos in positions]
-        # Cellules ordonnées pour le template (évite l'accès dict par variable)
-        cells = [{'pos': pos, 'note': snotes.get(pos)} for pos in positions]
+        # Cellules ordonnées pour le template (évite l'accès dict par variable).
+        # level = couleur pré-calculée pour l'affichage lecture seule.
+        cells = []
+        for pos in positions:
+            n   = snotes.get(pos)
+            val = n.value if (n and not n.is_cancelled) else None
+            cells.append({'pos': pos, 'note': n, 'level': _level(val, cs.max_grade)})
         # Valeurs JSON pour Alpine.js (avg temps réel)
         notes_js = json.dumps({
             str(pos): str(snotes[pos].value)
@@ -120,11 +147,13 @@ def _build_table_data(cs, students, period, force_min_cols=2):
             else ''
             for pos in positions
         })
+        avg = _compute_student_avg(cs, note_list)
         rows.append({
             'student':   student,
             'cells':     cells,
             'note_list': note_list,
-            'avg':       _compute_student_avg(cs, note_list),
+            'avg':       avg,
+            'avg_level': _level(avg, cs.max_grade),
             'notes_js':  notes_js,
         })
 
@@ -426,6 +455,10 @@ def notes_class(request, class_id, period_id):
         is_director = request.user.is_superuser or request.role in (UserRole.DIRECTOR, UserRole.STAFF)
         has_grant = False
 
+    # Lecture seule : l'utilisateur a accès à la matière (assigné/délégué/direction)
+    # mais ne peut pas saisir (période fermée) → il consulte au lieu d'être bloqué.
+    read_only = bool(active_cs) and not can_enter and can_enter_formatif(user, active_cs)
+
     return render(request, 'notes/notes_class.html', {
         'school':           school,
         'school_class':     school_class,
@@ -437,6 +470,7 @@ def notes_class(request, class_id, period_id):
         'reason':           reason,
         'is_director':      is_director,
         'has_grant':        has_grant,
+        'read_only':        read_only,
         'positions':        positions,
         'columns':          columns,
         'rows':             rows,
@@ -472,11 +506,12 @@ def _render_subject_tabs(request, school_class, period, cs):
     )
     positions, columns, rows, class_stats = _build_table_data(cs, students, period)
     is_director, has_grant = _grant_status(request, cs, period)
+    read_only = not can_enter and can_enter_formatif(request.user, cs)
     return render(request, 'notes/partials/subject_tabs.html', {
         'cs': cs, 'period': period, 'school_class': school_class,
         'positions': positions, 'columns': columns, 'rows': rows,
         'class_stats': class_stats, 'can_enter': can_enter, 'reason': reason,
-        'is_director': is_director, 'has_grant': has_grant,
+        'is_director': is_director, 'has_grant': has_grant, 'read_only': read_only,
     })
 
 

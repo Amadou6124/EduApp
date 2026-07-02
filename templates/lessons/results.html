@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Résultats · {{ lesson.title }}{% endblock %}
+{% block page_title %}Résultats{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <a href="{% if lesson.unit_id %}{% url 'lessons:unit-detail' lesson.unit_id %}{% else %}{% url 'lessons:unit-list' %}{% endif %}"
+     class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i> {{ lesson.title|truncatechars:40 }}
+  </a>
+
+  <h2 class="text-xl font-bold text-gray-900 leading-tight">{{ lesson.title }}</h2>
+  <p class="text-sm text-gray-500 mt-0.5 mb-6">
+    {% if deployed_classes %}
+      Déployée dans {{ deployed_classes|join:" · " }}
+    {% else %}
+      Non déployée
+    {% endif %}
+  </p>
+
+  {% if not deployed_classes %}
+  {# ── Pas déployée : rien à mesurer ── #}
+  <div class="flex flex-col items-center text-center py-16">
+    <div class="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mb-4">
+      <i data-lucide="rocket" class="w-8 h-8 text-gray-300"></i>
+    </div>
+    <h3 class="text-gray-800 font-bold text-lg mb-1">Pas encore de résultats</h3>
+    <p class="text-sm text-gray-500 max-w-xs mb-5">Déploie cette leçon dans une classe pour suivre ce que tes élèves réussissent.</p>
+    <a href="{% if lesson.unit_id %}{% url 'lessons:unit-detail' lesson.unit_id %}{% else %}{% url 'lessons:unit-list' %}{% endif %}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition">
+      <i data-lucide="graduation-cap" class="w-4 h-4"></i> Déployer la leçon
+    </a>
+  </div>
+
+  {% elif summary.started == 0 %}
+  {# ── Déployée mais personne n'a commencé ── #}
+  <div class="flex flex-col items-center text-center py-16">
+    <div class="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mb-4">
+      <i data-lucide="hourglass" class="w-8 h-8 text-gray-300"></i>
+    </div>
+    <h3 class="text-gray-800 font-bold text-lg mb-1">Personne n'a encore commencé</h3>
+    <p class="text-sm text-gray-500 max-w-xs">Les {{ summary.cohort }} élève{{ summary.cohort|pluralize }} de la classe verront la leçon dans leur portail. Les résultats s'afficheront ici dès leurs premières réponses.</p>
+  </div>
+
+  {% else %}
+  {# ── Bandeau de stats ── #}
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
+    <div class="border border-gray-200 rounded-xl p-3.5 bg-white">
+      <p class="text-2xl font-bold text-gray-900 leading-none">{{ summary.cohort }}</p>
+      <p class="text-xs text-gray-500 mt-1.5">élèves attendus</p>
+    </div>
+    <div class="border border-gray-200 rounded-xl p-3.5 bg-white">
+      <p class="text-2xl font-bold text-gray-900 leading-none">{{ summary.started }}<span class="text-sm text-gray-400 font-normal"> / {{ summary.cohort }}</span></p>
+      <p class="text-xs text-gray-500 mt-1.5">ont commencé</p>
+    </div>
+    <div class="border border-gray-200 rounded-xl p-3.5 bg-white">
+      <p class="text-2xl font-bold text-green-700 leading-none">{{ summary.passed }}</p>
+      <p class="text-xs text-gray-500 mt-1.5">ont réussi l'examen</p>
+    </div>
+    <div class="border border-gray-200 rounded-xl p-3.5 bg-white">
+      <p class="text-2xl font-bold text-gray-900 leading-none">{% if avg_pct is not None %}{{ avg_pct }}<span class="text-sm text-gray-400 font-normal">%</span>{% else %}<span class="text-gray-300">—</span>{% endif %}</p>
+      <p class="text-xs text-gray-500 mt-1.5">score moyen</p>
+    </div>
+  </div>
+
+  {# ── Maîtrise par concept (+ questions qui coincent) ── #}
+  {% if has_concepts %}
+  <div class="border border-gray-200 rounded-2xl p-5 bg-white mb-4">
+    <h3 class="text-sm font-bold text-gray-800">Ce qu'ils ont compris</h3>
+    <p class="text-xs text-gray-400 mt-0.5 mb-4">Taux de réussite par concept, à l'examen. Déplie pour voir les questions qui coincent.</p>
+
+    <div class="space-y-4">
+      {% for c in concepts %}
+      <div>
+        <div class="flex items-baseline justify-between gap-2 mb-1.5">
+          <span class="text-sm text-gray-700 inline-flex items-center gap-2">
+            {{ c.name }}
+            {% if c.tier == 'low' %}<span class="text-[9px] font-bold uppercase tracking-wide bg-red-50 text-red-600 px-1.5 py-0.5 rounded">à reprendre</span>{% endif %}
+          </span>
+          <span class="text-xs font-bold shrink-0
+            {% if c.tier == 'good' %}text-green-700{% elif c.tier == 'mid' %}text-amber-600{% else %}text-red-600{% endif %}">{{ c.pct }}%</span>
+        </div>
+        <div class="h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div class="h-full rounded-full {% if c.tier == 'good' %}bg-green-500{% elif c.tier == 'mid' %}bg-amber-500{% else %}bg-red-500{% endif %}"
+               style="width: {{ c.pct }}%"></div>
+        </div>
+
+        {% if c.questions %}
+        <details class="mt-2 group">
+          <summary class="list-none cursor-pointer inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition select-none">
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 transition-transform group-open:rotate-90"></i>
+            {{ c.questions|length }} question{{ c.questions|length|pluralize }} évaluée{{ c.questions|length|pluralize }}
+          </summary>
+          <div class="mt-2 space-y-2 pl-4 border-l border-gray-100">
+            {% for q in c.questions %}
+            <div class="flex items-start justify-between gap-3">
+              <p class="text-xs text-gray-600 leading-snug">{{ q.instruction }}</p>
+              <span class="shrink-0 text-[11px] font-semibold
+                {% if q.fail_pct >= 60 %}text-red-600{% elif q.fail_pct >= 30 %}text-amber-600{% else %}text-gray-400{% endif %}">
+                {{ q.fail_pct }}% ratée
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="border border-gray-200 rounded-2xl p-5 bg-white mb-4 text-center">
+    <p class="text-sm text-gray-500">La maîtrise par concept apparaîtra après les premiers <strong>examens</strong> passés par les élèves.</p>
+  </div>
+  {% endif %}
+
+  {# ── À aider en priorité ── #}
+  {% if strugglers %}
+  <div class="border border-amber-100 rounded-2xl p-5 bg-amber-50/60 mb-4">
+    <h3 class="text-sm font-bold text-gray-800">À aider en priorité</h3>
+    <p class="text-xs text-gray-400 mt-0.5 mb-3">Ont travaillé mais restent sous 50 % de maîtrise.</p>
+    <div class="space-y-2">
+      {% for s in strugglers %}
+      <a href="{% url 'teacher:student-detail' s.student.id %}"
+         class="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 hover:shadow-sm transition">
+        <div class="w-7 h-7 rounded-full bg-primary-50 text-primary-600 text-[11px] font-bold flex items-center justify-center shrink-0">
+          {{ s.student.get_initials }}
+        </div>
+        <span class="flex-1 min-w-0 text-sm text-gray-800 truncate">{{ s.student.full_name }}</span>
+        <span class="text-xs font-bold text-red-600 shrink-0">{{ s.pct }}%</span>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 shrink-0"></i>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Tous les élèves (repliable) ── #}
+  <details class="border border-gray-200 rounded-2xl bg-white group">
+    <summary class="list-none cursor-pointer flex items-center justify-between p-4 select-none">
+      <span class="text-sm font-bold text-gray-800">Tous les élèves</span>
+      <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"></i>
+    </summary>
+    <div class="px-4 pb-2">
+      <div class="divide-y divide-gray-100">
+        {% for st in summary.students %}
+        <div class="flex items-center gap-3 py-2.5">
+          <span class="flex-1 min-w-0 text-sm text-gray-800 truncate">{{ st.student.full_name }}</span>
+          {% if not st.started %}
+            <span class="text-xs text-gray-400 shrink-0">pas commencé</span>
+          {% else %}
+            {% if st.quiz_pct is not None %}<span class="text-xs text-gray-500 shrink-0" title="Précision aux quiz">quiz {{ st.quiz_pct }}%</span>{% endif %}
+            {% if st.exam_pct is not None %}
+              <span class="text-xs font-semibold shrink-0 {% if st.exam_passed %}text-green-700{% else %}text-red-600{% endif %}" title="Examen">
+                exam {{ st.exam_pct }}%
+              </span>
+            {% else %}
+              <span class="text-xs text-gray-400 shrink-0">examen non passé</span>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </details>
+
+  {% endif %}
+</div>
+{% endblock %}
