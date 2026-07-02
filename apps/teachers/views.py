@@ -459,6 +459,7 @@ def teacher_students(request):
 def teacher_student_detail(request, student_id):
     from .models import StudentObservation
     from datetime import date as date_cls
+    from apps.schools.services.bulletin_calculator import BulletinCalculator, round2
 
     user   = request.user
     school = get_school(request)
@@ -468,15 +469,22 @@ def teacher_student_detail(request, student_id):
     if student.school_class_id not in class_ids:
         return HttpResponse(status=403)
 
-    # Période active
+    # Périodes de l'année active + période affichée (commutable via ?period=)
     today = date_cls.today()
     active_year = school.school_years.filter(is_active=True).first()
+    periods = list(active_year.periods.order_by('order')) if active_year else []
+
     active_period = None
-    if active_year:
-        active_period = (
-            active_year.periods.filter(start_date__lte=today, end_date__gte=today).first()
-            or active_year.periods.order_by('-order').first()
-        )
+    if periods:
+        requested = request.GET.get('period')
+        if requested:
+            active_period = next((p for p in periods if str(p.pk) == requested), None)
+        if not active_period:
+            active_period = (
+                next((p for p in periods if p.is_notes_open), None)
+                or next((p for p in periods if p.start_date <= today <= p.end_date), None)
+                or periods[0]
+            )
 
     # Matières du prof dans la classe de l'élève
     my_subjects = list(
@@ -486,7 +494,7 @@ def teacher_student_detail(request, student_id):
         .order_by('order', 'subject__name')
     )
 
-    # Notes de l'élève pour ces matières dans la période active
+    # Notes de l'élève pour ces matières dans la période affichée
     notes_by_cs: dict[int, list] = {}
     if active_period and my_subjects:
         cs_ids = [cs.pk for cs in my_subjects]
@@ -496,13 +504,21 @@ def teacher_student_detail(request, student_id):
                   .order_by('position')):
             notes_by_cs.setdefault(n.class_subject_id, []).append(n)
 
+    # Moyenne par matière = formule officielle du bulletin (source unique) →
+    # cohérent avec la saisie et le bulletin, jamais une moyenne « à plat ».
+    calc = BulletinCalculator()
     subject_notes = []
     for cs in my_subjects:
-        notes = notes_by_cs.get(cs.pk, [])
-        avg = None
-        if notes:
-            avg = round(sum(n.value for n in notes) / len(notes), 2)
-        subject_notes.append({'cs': cs, 'notes': notes, 'avg': avg})
+        by_pos = {n.position: n for n in notes_by_cs.get(cs.pk, [])}
+        note_classe = by_pos.get(1)
+        note_compo  = by_pos.get(2)
+        raw = calc.calculate_subject_average([note_classe, note_compo], cs.max_grade)
+        subject_notes.append({
+            'cs':          cs,
+            'note_classe': note_classe,
+            'note_compo':  note_compo,
+            'avg':         round2(raw) if raw is not None else None,
+        })
 
     # Observations du prof sur cet élève
     raw_obs = list(
@@ -522,6 +538,7 @@ def teacher_student_detail(request, student_id):
 
     return render(request, 'teachers/student_detail.html', {
         'student':       student,
+        'periods':       periods,
         'active_period': active_period,
         'subject_notes': subject_notes,
         'observations':  observations,
