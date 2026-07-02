@@ -93,3 +93,69 @@ def publish_draft(lesson):
 def discard_draft(lesson):
     """Jette le brouillon (edits non publiés). Idempotent."""
     LessonContentDraft.objects.filter(lesson=lesson).delete()
+
+
+# ── Phase 2 : régénération ciblée d'UN bloc via l'IA ──────────────────────────
+
+REGEN_BLOCKS = ('noyau', 'lecture', 'histoire')
+
+
+def regenerate_block(lesson, block, source=None):
+    """Régénère UN seul bloc via l'IA et l'écrit dans le BROUILLON (sans publier).
+
+    Granularité (contrainte du pipeline) :
+      - 'noyau'    → concepts + exam (+ color/guide)  [un seul appel IA]
+      - 'lecture'  → reading
+      - 'histoire' → story  (réutilise guide + concepts courants du brouillon)
+
+    source : portion de document (str OU blocs image) ; si None, ré-extraite depuis
+    l'unité. N'écrit QUE dans le brouillon → le prof valide ensuite (publish_draft).
+    Le coût IA est additionné sur la leçon (et l'unité). Retourne le brouillon.
+    """
+    from decimal import Decimal
+    from . import services
+
+    if block not in REGEN_BLOCKS:
+        raise ValueError(f'Bloc inconnu : {block!r}')
+
+    meta = services._lesson_meta(lesson)
+    if source is None:
+        unit = lesson.unit
+        if not (unit and unit.source_file):
+            raise ValueError('Source indisponible pour régénérer ce bloc.')
+        source = services.extract_content_from_file(unit.source_file.path, unit.source_type)
+
+    draft = open_draft(lesson)   # garantit un espace de travail (copie de la live)
+    costs = []
+
+    if block == 'noyau':
+        noyau = services.call_noyau(meta['title'], meta['summary'], source, cost_sink=costs)
+        edit_draft(
+            lesson,
+            concepts_data=noyau['concepts'], exam_data=noyau['exam'],
+            color=noyau.get('color', ''), guide=noyau.get('guide', ''),
+        )
+    elif block == 'lecture':
+        lect = services.call_lecture(
+            meta['title'], meta['summary'], source,
+            meta.get('direction', 'ltr'), cost_sink=costs,
+        )
+        edit_draft(lesson, reading_data=lect['reading'])
+    else:  # histoire — s'appuie sur les concepts/guide courants
+        hist = services.call_histoire(
+            meta['title'], meta['summary'], source,
+            guide=(draft.guide or ''), concepts=(draft.concepts_data or []),
+            cost_sink=costs,
+        )
+        edit_draft(lesson, story_data=hist['story'])
+
+    total = sum(costs)
+    if total:
+        lesson.generation_cost_usd = (lesson.generation_cost_usd or Decimal('0')) + total
+        lesson.save(update_fields=['generation_cost_usd', 'updated_at'])
+        unit = lesson.unit
+        if unit:
+            unit.generation_cost_usd = (unit.generation_cost_usd or Decimal('0')) + total
+            unit.save(update_fields=['generation_cost_usd', 'updated_at'])
+
+    return open_draft(lesson)

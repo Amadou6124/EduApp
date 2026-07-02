@@ -9,6 +9,8 @@ Prouve les 5 invariants :
 
 Lancement : python manage.py test apps.lessons.tests_versioning
 """
+from unittest.mock import patch
+
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
@@ -127,3 +129,112 @@ class VersioningTest(TestCase):
         self.assertEqual(self.lesson.active_content_version_id, self.v1.id)  # live intact
         # idempotent
         versioning.discard_draft(self.lesson)
+
+
+class RegenBlockTest(TestCase):
+    """Phase 2 — régénération ciblée d'un bloc (IA mockée, 0 appel réel)."""
+
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            phone_number='70009002', full_name='Prof Test', password='x')
+        self.lesson = Lesson.objects.create(
+            teacher=self.teacher, title='Le relief', summary='Résumé',
+            subject='Géographie', level='fondamental_2',
+            format_version=2, status=LessonStatus.READY,
+        )
+        self.v1 = LessonContentVersion.objects.create(
+            lesson=self.lesson, version=1,
+            concepts_data=[{'id': 'c1', 'name': 'Concept 1'}],
+            reading_data={'title': 'Lecture 1'},
+            exam_data={'pass_mark': 0.6, 'questions': []},
+            story_data={'scene': 'v1'},
+            color='#111111', guide='Sory',
+        )
+        self.lesson.active_content_version = self.v1
+        self.lesson.save(update_fields=['active_content_version'])
+
+    def _assert_live_unchanged(self):
+        """Aucune publication : le live reste v1, aucune nouvelle version."""
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.active_content_version_id, self.v1.id)
+        self.assertEqual(self.lesson.content_versions.count(), 1)
+
+    def test_regen_noyau_writes_draft_only(self):
+        noyau = {'color': '#222', 'guide': 'Awa',
+                 'concepts': [{'id': 'c1', 'name': 'Concept RÉVISÉ'}],
+                 'exam': {'pass_mark': 0.7, 'questions': [{'id': 'e1'}]}}
+        with patch.object(versioning_services(), 'call_noyau', return_value=noyau):
+            versioning.regenerate_block(self.lesson, 'noyau', source='doc')
+
+        draft = LessonContentDraft.objects.get(lesson=self.lesson)
+        self.assertEqual(draft.concepts_data, noyau['concepts'])
+        self.assertEqual(draft.exam_data, noyau['exam'])
+        self.assertEqual(draft.guide, 'Awa')
+        # les autres blocs restent hérités de la live
+        self.assertEqual(draft.reading_data, {'title': 'Lecture 1'})
+        self.assertEqual(draft.story_data, {'scene': 'v1'})
+        self._assert_live_unchanged()
+
+    def test_regen_lecture_only_touches_reading(self):
+        with patch.object(versioning_services(), 'call_lecture',
+                          return_value={'reading': {'title': 'Lecture RÉVISÉE'}}):
+            versioning.regenerate_block(self.lesson, 'lecture', source='doc')
+
+        draft = LessonContentDraft.objects.get(lesson=self.lesson)
+        self.assertEqual(draft.reading_data, {'title': 'Lecture RÉVISÉE'})
+        # concepts inchangés (hérités de la live)
+        self.assertEqual(draft.concepts_data, [{'id': 'c1', 'name': 'Concept 1'}])
+        self._assert_live_unchanged()
+
+    def test_regen_histoire_uses_current_concepts(self):
+        svc = versioning_services()
+        with patch.object(svc, 'call_histoire',
+                          return_value={'story': {'scene': 'RÉVISÉE'}}) as m:
+            versioning.regenerate_block(self.lesson, 'histoire', source='doc')
+
+        # call_histoire a reçu les concepts + guide COURANTS (copiés de la live)
+        _, kwargs = m.call_args
+        self.assertEqual(kwargs['concepts'], [{'id': 'c1', 'name': 'Concept 1'}])
+        self.assertEqual(kwargs['guide'], 'Sory')
+        draft = LessonContentDraft.objects.get(lesson=self.lesson)
+        self.assertEqual(draft.story_data, {'scene': 'RÉVISÉE'})
+        self._assert_live_unchanged()
+
+    def test_regen_then_publish_merges_correctly(self):
+        noyau = {'color': '#222', 'guide': 'Awa',
+                 'concepts': [{'id': 'c1', 'name': 'RÉVISÉ'}], 'exam': {'pass_mark': 0.7}}
+        with patch.object(versioning_services(), 'call_noyau', return_value=noyau):
+            versioning.regenerate_block(self.lesson, 'noyau', source='doc')
+        v2 = versioning.publish_draft(self.lesson)
+
+        self.assertEqual(v2.version, 2)
+        self.assertEqual(v2.concepts_data, noyau['concepts'])   # bloc régénéré
+        self.assertEqual(v2.reading_data, {'title': 'Lecture 1'})  # bloc hérité
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.active_content_version_id, v2.id)
+        self.v1.refresh_from_db()
+        self.assertEqual(self.v1.concepts_data, [{'id': 'c1', 'name': 'Concept 1'}])  # v1 figée
+
+    def test_regen_invalid_block_raises(self):
+        with self.assertRaises(ValueError):
+            versioning.regenerate_block(self.lesson, 'exam', source='doc')
+
+    def test_regen_adds_cost(self):
+        from decimal import Decimal
+
+        def _noyau(*a, cost_sink=None, **k):
+            if cost_sink is not None:
+                cost_sink.append(Decimal('0.0007'))
+            return {'color': '#222', 'guide': 'Awa', 'concepts': [], 'exam': {}}
+
+        with patch.object(versioning_services(), 'call_noyau', side_effect=_noyau):
+            versioning.regenerate_block(self.lesson, 'noyau', source='doc')
+
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.generation_cost_usd, Decimal('0.0007'))
+
+
+def versioning_services():
+    """Le module services vu par versioning.regenerate_block (pour patcher les call_*)."""
+    from apps.lessons import services
+    return services
