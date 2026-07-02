@@ -8,6 +8,8 @@
 
   <!-- Manrope (self-hosted, variable font) -->
   <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+  <!-- Space Grotesk (self-hosted) — wordmark nom d'école -->
+  <link rel="stylesheet" href="{% static 'vendor/fonts/space-grotesk/space-grotesk.css' %}">
 
   <!-- Tailwind CSS (build local) -->
   <link rel="stylesheet" href="{% static 'css/output.css' %}">
@@ -38,35 +40,58 @@
     <aside :class="$store.sidebar.open ? 'w-64' : 'w-16'"
            class="hidden lg:flex flex-col bg-white border-r border-gray-200 min-h-screen fixed top-0 left-0 z-30 transition-all duration-300 overflow-hidden">
 
-      <!-- ── Logo + Toggle ── -->
-      <div class="border-b border-gray-200 shrink-0">
+      <!-- ── Ancre école + Toggle ── -->
+      <div class="border-b border-gray-200 shrink-0" x-data="{ schoolMenu: false }" @keydown.escape.window="schoolMenu = false">
 
-        <!-- État ouvert -->
-        <div x-show="$store.sidebar.open" class="flex items-center justify-between px-4 py-5">
-          <a href="/" class="flex items-center gap-2.5 min-w-0">
-            <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0">
-              E
-            </div>
-            <span class="font-bold text-lg text-gray-900 truncate">EduApp</span>
-          </a>
-          <button @click="$store.sidebar.toggle()"
-                  title="Réduire"
+        <!-- État ouvert : nom d'école (switcher) + réduire -->
+        <div x-show="$store.sidebar.open" class="relative flex items-center gap-1 px-3 py-3">
+          {% if user_memberships %}
+          <button type="button" @click="schoolMenu = !schoolMenu"
+                  class="flex items-center gap-1.5 min-w-0 flex-1 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors text-left">
+            <span class="font-wordmark text-[15px] font-bold tracking-tight text-primary-700 truncate flex-1">{% if school %}{{ school.nav_name }}{% else %}EduApp{% endif %}</span>
+            <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-gray-400 shrink-0"></i>
+          </button>
+          {% else %}
+          <div class="flex items-center min-w-0 flex-1 px-2 py-1.5">
+            <span class="font-wordmark text-[15px] font-bold tracking-tight text-primary-700 truncate">{% if school %}{{ school.nav_name }}{% else %}EduApp{% endif %}</span>
+          </div>
+          {% endif %}
+          <button @click="$store.sidebar.toggle()" title="Réduire"
                   class="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition shrink-0">
             <i data-lucide="panel-left-close" class="w-4 h-4"></i>
           </button>
-        </div>
-        {% if school %}
-          <p x-show="$store.sidebar.open" class="text-xs text-gray-400 -mt-2 pb-3 truncate pl-[54px] pr-4">{{ school.name }}</p>
-        {% endif %}
 
-        <!-- État fermé -->
-        <div x-show="!$store.sidebar.open" x-cloak class="flex flex-col items-center py-3 gap-2">
-          <a href="/"
-             class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-            E
-          </a>
-          <button @click="$store.sidebar.toggle()"
-                  title="Développer"
+          {% if user_memberships %}
+          <!-- Dropdown switcher école -->
+          <div x-show="schoolMenu" x-cloak @click.away="schoolMenu = false"
+               class="absolute top-full left-3 right-3 mt-1 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-50"
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 -translate-y-1"
+               x-transition:enter-end="opacity-100 translate-y-0">
+            <div class="px-3 pt-1 pb-0.5"><p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">École active</p></div>
+            <div class="px-1.5 pb-1">
+              <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary-50">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-primary-700 shrink-0"></i>
+                <span class="truncate text-sm font-medium text-primary-700">{{ request.school.name }}</span>
+              </div>
+              {% for m in user_memberships %}
+              <form method="post" action="{% url 'accounts:switch-school' m.school_id %}">
+                {% csrf_token %}
+                <button type="submit" class="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left">
+                  <i data-lucide="building-2" class="w-4 h-4 shrink-0 text-gray-400"></i>
+                  <span class="truncate">{{ m.school.name }}</span>
+                  <span class="ml-auto text-[10px] text-gray-400 shrink-0">{{ m.get_role_display }}</span>
+                </button>
+              </form>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- État fermé : développer -->
+        <div x-show="!$store.sidebar.open" x-cloak class="flex justify-center py-3">
+          <button @click="$store.sidebar.toggle()" title="Développer{% if school %} — {{ school.name }}{% endif %}"
                   class="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
             <i data-lucide="panel-left-open" class="w-4 h-4"></i>
           </button>
@@ -96,75 +121,56 @@
 
         <!-- Mon tableau de bord -->
         <a href="{% url 'teacher:dashboard' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'teacher' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'teacher' and request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Tableau de bord'">
           <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">Mon tableau de bord</span>
         </a>
 
-        <!-- Mes unités (v2 — portail élève) -->
+        {# ── Ma classe ── #}
+        <p class="nav-section" x-show="$store.sidebar.open">Ma classe</p>
+        <div x-show="!$store.sidebar.open" x-cloak class="mx-auto my-1 w-5 h-px bg-gray-200"></div>
+
         <a href="{% url 'lessons:unit-list' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'unit-list' or request.resolver_match.url_name == 'unit-detail' or request.resolver_match.url_name == 'unit-upload' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.url_name == 'unit-list' or request.resolver_match.url_name == 'unit-detail' or request.resolver_match.url_name == 'unit-upload' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mes unités'">
           <i data-lucide="sparkles" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">Mes unités</span>
         </a>
 
-        <!-- Mes notes -->
         <a href="{% url 'notes:dashboard' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'notes' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'notes' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mes notes'">
           <i data-lucide="book-open" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">Mes notes</span>
         </a>
 
-        <!-- Absences -->
-        <a href="{% url 'teacher:attendance-list' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
-           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Absences'">
-          <i data-lucide="calendar-x" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Absences</span>
-        </a>
-
-        <!-- Suivi élèves -->
-        <a href="{% url 'teacher:difficulty' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
-           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Suivi élèves'">
-          <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Suivi élèves</span>
-        </a>
-
-        <!-- Mes élèves (lecture seule) -->
         <a href="{% url 'teacher:students' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'students' or request.resolver_match.url_name == 'student-detail' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.url_name == 'students' or request.resolver_match.url_name == 'student-detail' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mes élèves'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">Mes élèves</span>
         </a>
 
-        {% if request.role != 'teacher' %}
-        <!-- Bulletins -->
-        <a href="{% url 'bulletins:main' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'bulletins' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+        <a href="{% url 'teacher:difficulty' %}"
+           class="nav-link {% if request.resolver_match.url_name == 'difficulty' or request.resolver_match.url_name == 'difficulty-class' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Bulletins'">
-          <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Bulletins</span>
+           :title="$store.sidebar.open ? '' : 'Suivi élèves'">
+          <i data-lucide="activity" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Suivi élèves</span>
         </a>
-        {% endif %}
+
+        <a href="{% url 'teacher:attendance-list' %}"
+           class="nav-link {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}is-active{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Absences'">
+          <i data-lucide="calendar-x" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Absences</span>
+        </a>
 
         {% else %}
         {# ══ Navigation DIRECTEUR / STAFF / PROMOTEUR ══════════════════ #}
@@ -172,24 +178,21 @@
         {% if request.role == 'promoter' %}
         {# Promoteur : 3 items — Synthèse | Mes écoles | Finances #}
         <a href="{% url 'promoter:synthese' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'synthese' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.url_name == 'synthese' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Synthèse'">
           <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">Synthèse</span>
         </a>
         <a href="{% url 'promoter:ecoles' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mes écoles'">
           <i data-lucide="building-2" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">Mes écoles</span>
         </a>
         <a href="{% url 'promoter:finances' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'finances' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.url_name == 'finances' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Finances'">
           <i data-lucide="bar-chart-2" class="w-5 h-5 shrink-0"></i>
@@ -199,8 +202,7 @@
         {% elif request.role == 'parent' %}
         {# Parent : uniquement son espace #}
         <a href="{% url 'parent:dashboard' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'parent' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'parent' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Mon espace'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
@@ -208,42 +210,39 @@
         </a>
 
         {% else %}
-        <!-- Dashboard -->
+        <!-- Tableau de bord -->
         <a href="{% url 'dashboard:main' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'dashboard' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Dashboard'">
+           :title="$store.sidebar.open ? '' : 'Tableau de bord'">
           <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">{% trans "Dashboard" %}</span>
+          <span x-show="$store.sidebar.open">{% trans "Tableau de bord" %}</span>
         </a>
 
-        <!-- Classes -->
+        {# ── Scolarité ── #}
+        <p class="nav-section" x-show="$store.sidebar.open">Scolarité</p>
+        <div x-show="!$store.sidebar.open" x-cloak class="mx-auto my-1 w-5 h-px bg-gray-200"></div>
+
         <a href="{% url 'schools:class-list' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'schools' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'schools' and 'announcement' not in request.resolver_match.url_name %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Classes'">
           <i data-lucide="school" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">{% trans "Classes" %}</span>
         </a>
 
-        <!-- Élèves -->
         <a href="{% url 'students:list' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'students' and request.resolver_match.url_name != 'suivi' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'students' and request.resolver_match.url_name != 'suivi' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Élèves'">
           <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open" class="flex-1">{% trans "Élèves" %}</span>
+          <span x-show="$store.sidebar.open">{% trans "Élèves" %}</span>
         </a>
 
-        <!-- Suivi élèves -->
         <a href="{% url 'students:suivi' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'suivi' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.url_name == 'suivi' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Suivi'">
+           :title="$store.sidebar.open ? '' : 'Suivi élèves'">
           <i data-lucide="activity" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open" class="flex-1">Suivi élèves</span>
           {% if unread_observations_count %}
@@ -256,78 +255,50 @@
           {% endif %}
         </a>
 
-        <!-- Paiements -->
-        <a href="{% url 'payments:dashboard' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'payments' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
-           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Paiements'">
-          <i data-lucide="credit-card" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">{% trans "Paiements" %}</span>
-        </a>
-
-        <!-- Notes -->
         <a href="{% url 'notes:dashboard' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'notes' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'notes' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Notes'">
           <i data-lucide="book-open" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">{% trans "Notes" %}</span>
         </a>
 
-        <!-- Bulletins -->
         <a href="{% url 'bulletins:main' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'bulletins' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'bulletins' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Bulletins'">
           <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
           <span x-show="$store.sidebar.open">{% trans "Bulletins" %}</span>
         </a>
 
-        <!-- Annonces -->
-        <a href="{% url 'schools:announcement-list' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'announcement-list' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+        {# ── Finances ── #}
+        <p class="nav-section" x-show="$store.sidebar.open">Finances</p>
+        <div x-show="!$store.sidebar.open" x-cloak class="mx-auto my-1 w-5 h-px bg-gray-200"></div>
+
+        <a href="{% url 'payments:dashboard' %}"
+           class="nav-link {% if request.resolver_match.app_name == 'payments' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Annonces'">
-          <i data-lucide="megaphone" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Annonces</span>
+           :title="$store.sidebar.open ? '' : 'Paiements'">
+          <i data-lucide="credit-card" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">{% trans "Paiements" %}</span>
         </a>
 
-        <!-- Équipe -->
-        {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
-        <a href="{% url 'team:list' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'team' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
-           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Équipe'">
-          <i data-lucide="users-round" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Équipe</span>
-        </a>
-        {% endif %}
-
-        <!-- Comptabilité (module activé + droit) -->
         {% if request.school.accounting_enabled %}
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:dashboard' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.app_name == 'accounting' and request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'staff-list' or request.resolver_match.url_name == 'staff-remuneration' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.app_name == 'accounting' and request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'bilan' or request.resolver_match.url_name == 'staff-list' or request.resolver_match.url_name == 'staff-remuneration' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Comptabilité'">
-          <i data-lucide="calculator" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Comptabilité</span>
+           :title="$store.sidebar.open ? '' : 'Finances'">
+          <i data-lucide="wallet" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Finances</span>
         </a>
         {% endif %}
         {% endif %}
 
-        <!-- Émargement (module activé + droit pointage) -->
         {% if request.school.accounting_enabled %}
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_record_emargement or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:emargement' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'emargement' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.url_name == 'emargement' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Émargement'">
           <i data-lucide="clipboard-check" class="w-5 h-5 shrink-0"></i>
@@ -336,12 +307,10 @@
         {% endif %}
         {% endif %}
 
-        <!-- Paie mensuelle (module activé + droit comptable) -->
         {% if request.school.accounting_enabled %}
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:salaires' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'salaires' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.url_name == 'salaires' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Paie mensuelle'">
           <i data-lucide="banknote" class="w-5 h-5 shrink-0"></i>
@@ -350,12 +319,10 @@
         {% endif %}
         {% endif %}
 
-        <!-- Dépenses (module activé + droit comptable) -->
         {% if request.school.accounting_enabled %}
         {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
         <a href="{% url 'accounting:depenses' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'depenses' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+           class="nav-link {% if request.resolver_match.url_name == 'depenses' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
            :title="$store.sidebar.open ? '' : 'Dépenses'">
           <i data-lucide="receipt" class="w-5 h-5 shrink-0"></i>
@@ -364,18 +331,28 @@
         {% endif %}
         {% endif %}
 
-        <!-- Bilan financier (module activé + droit comptable) -->
-        {% if request.school.accounting_enabled %}
-        {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
-        <a href="{% url 'accounting:bilan' %}"
-           class="flex items-center py-2 rounded-lg transition
-                  {% if request.resolver_match.url_name == 'bilan' %}bg-primary-50 text-primary-700 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}"
+        {# Bilan fusionné dans « Finances · Vue d'ensemble » #}
+
+        {# ── Administration ── #}
+        <p class="nav-section" x-show="$store.sidebar.open">Administration</p>
+        <div x-show="!$store.sidebar.open" x-cloak class="mx-auto my-1 w-5 h-px bg-gray-200"></div>
+
+        <a href="{% url 'schools:announcement-list' %}"
+           class="nav-link {% if request.resolver_match.url_name == 'announcement-list' %}is-active{% endif %}"
            :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
-           :title="$store.sidebar.open ? '' : 'Bilan financier'">
-          <i data-lucide="bar-chart-3" class="w-5 h-5 shrink-0"></i>
-          <span x-show="$store.sidebar.open">Bilan financier</span>
+           :title="$store.sidebar.open ? '' : 'Annonces'">
+          <i data-lucide="megaphone" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Annonces</span>
         </a>
-        {% endif %}
+
+        {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+        <a href="{% url 'team:list' %}"
+           class="nav-link {% if request.resolver_match.app_name == 'team' %}is-active{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Équipe'">
+          <i data-lucide="users-round" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Équipe</span>
+        </a>
         {% endif %}
 
         {% endif %}{# fin if promoter #}
@@ -395,6 +372,19 @@
           </div>
         {% endif %}
       </nav>
+
+      <!-- ── Paramètres (réglages école) — fixe en bas ── -->
+      {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+      <div class="px-3 pt-2 shrink-0">
+        <a href="{% url 'settings:general' %}"
+           class="nav-link {% if request.resolver_match.app_name == 'settings' %}is-active{% endif %}"
+           :class="$store.sidebar.open ? 'px-3 gap-3' : 'justify-center'"
+           :title="$store.sidebar.open ? '' : 'Paramètres'">
+          <i data-lucide="settings" class="w-5 h-5 shrink-0"></i>
+          <span x-show="$store.sidebar.open">Paramètres</span>
+        </a>
+      </div>
+      {% endif %}
 
       <!-- ── Menu Utilisateur (bas sidebar) ── -->
       <div x-data="{ sidebarMenu: false, langOpen: false, infoOpen: false, menuLeft: '0px', menuBottom: '0px' }"
@@ -468,16 +458,6 @@
             {% endfor %}
           </div>
           <div class="border-t border-gray-100 my-1 mx-3"></div>
-          {% endif %}
-
-          <!-- Paramètres -->
-          {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
-          <a href="{% url 'settings:general' %}"
-             @click="sidebarMenu = false"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors mx-1.5">
-            <i data-lucide="settings" class="w-4 h-4 shrink-0 text-gray-400"></i>
-            <span>Paramètres</span>
-          </a>
           {% endif %}
 
           <!-- Langue -->
@@ -573,120 +553,63 @@
     <!-- CONTENU PRINCIPAL                              -->
     <!-- ════════════════════════════════════════════════ -->
     <main :class="{% block sidebar_margin %}$store.sidebar.open ? 'lg:ml-64' : 'lg:ml-16'{% endblock %}"
-          class="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 transition-all duration-300 animate-fade-in">
+          class="flex-1 min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 transition-all duration-300 animate-fade-in">
 
       <!-- ─── HEADER ────────────────────────────────── -->
       <header class="bg-white border-b border-gray-200 sticky top-0 z-20">
 
-        {# ── Header mobile ENSEIGNANT : avatar | école | cloche ── #}
-        {% if request.role == 'teacher' %}
-        <div class="flex lg:hidden items-center justify-between px-4 min-h-[56px]">
+        {# ── Header unifié : desktop (tous) + mobile (tous) — titres dans le contenu ── #}
+        <div class="flex items-center justify-between gap-3 px-4 lg:px-6 min-h-[52px] sm:min-h-[56px]">
 
-          <!-- Avatar → paramètres -->
-          <a href="{% url 'settings:general' %}"
-             class="w-9 h-9 rounded-full bg-primary-600 flex items-center justify-center
-                    text-white text-sm font-bold shrink-0 active:opacity-80">
-            {{ request.user.full_name|first|upper }}
-          </a>
-
-          <!-- Nom école (cliquable si multi-école) -->
-          <div class="flex-1 flex justify-center mx-3 min-w-0 relative" x-data="{ schoolMenu: false }">
-            {% if user_memberships %}
-            <button type="button" @click="schoolMenu = !schoolMenu"
-                    class="flex items-center gap-1 text-sm font-semibold text-gray-800 truncate max-w-full">
-              <span class="truncate">{% if request.school %}{{ request.school.name|truncatechars:16 }}{% endif %}</span>
-              <i data-lucide="chevron-down" class="w-4 h-4 shrink-0 text-gray-400 transition-transform"
-                 :class="schoolMenu ? 'rotate-180' : ''"></i>
-            </button>
-            <div x-show="schoolMenu" x-cloak @click.away="schoolMenu = false"
-                 class="absolute top-full mt-3 left-1/2 -translate-x-1/2 w-[260px]
-                        bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-50"
-                 x-transition:enter="transition ease-out duration-150"
-                 x-transition:enter-start="opacity-0 -translate-y-2"
-                 x-transition:enter-end="opacity-100 translate-y-0">
-              <div class="flex items-center gap-2 px-3 py-1.5 mx-1.5 rounded-lg bg-primary-50">
-                <i data-lucide="check" class="w-3.5 h-3.5 text-primary-700 shrink-0"></i>
-                <span class="truncate text-sm font-medium text-primary-700">{{ request.school.name }}</span>
-              </div>
-              {% for m in user_memberships %}
-              <form method="post" action="{% url 'accounts:switch-school' m.school_id %}" class="mx-1.5">
-                {% csrf_token %}
-                <button type="submit"
-                        class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 text-left">
-                  <i data-lucide="building-2" class="w-4 h-4 shrink-0 text-gray-400"></i>
-                  <span class="truncate">{{ m.school.name }}</span>
-                  <span class="ml-auto text-[10px] text-gray-400 shrink-0">{{ m.get_role_display }}</span>
-                </button>
-              </form>
-              {% endfor %}
+          {# Gauche : fil d'Ariane (desktop) · ancre école (mobile non-teacher) #}
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="lg:hidden flex items-center min-w-0">
+              {% if user_memberships %}
+              <button type="button" @click="$store.accountSheet.open = true" class="flex items-center gap-1 min-w-0">
+                <span class="font-wordmark text-[15px] font-bold tracking-tight text-primary-700 truncate max-w-[180px]">{% if request.school %}{{ request.school.nav_name }}{% endif %}</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 shrink-0 text-gray-400"></i>
+              </button>
+              {% else %}
+              <span class="font-wordmark text-[15px] font-bold tracking-tight text-primary-700 truncate max-w-[200px]">{% if request.school %}{{ request.school.nav_name }}{% endif %}</span>
+              {% endif %}
             </div>
-            {% else %}
-            <span class="text-sm font-semibold text-gray-800 truncate">
-              {% if request.school %}{{ request.school.name|truncatechars:20 }}{% endif %}
-            </span>
-            {% endif %}
+            <div class="hidden lg:block min-w-0">{% block breadcrumb %}
+              <span class="text-sm text-gray-500 truncate">
+                {% with app=request.resolver_match.app_name url=request.resolver_match.url_name %}
+                {% if app == 'dashboard' %}Tableau de bord
+                {% elif app == 'students' %}{% if url == 'suivi' %}Suivi élèves{% else %}Élèves{% endif %}
+                {% elif app == 'schools' %}{% if url == 'announcement-list' %}Annonces{% else %}Classes{% endif %}
+                {% elif app == 'payments' %}Paiements
+                {% elif app == 'notes' %}Notes
+                {% elif app == 'bulletins' %}Bulletins
+                {% elif app == 'accounting' %}{% if url == 'emargement' %}Émargement{% elif url == 'salaires' %}Paie mensuelle{% elif url == 'depenses' %}Dépenses{% else %}Finances{% endif %}
+                {% elif app == 'team' %}Équipe
+                {% elif app == 'settings' %}Paramètres
+                {% elif app == 'lessons' %}Mes unités
+                {% elif app == 'teacher' %}{% if url == 'attendance-list' or url == 'attendance-class' %}Absences{% elif url == 'difficulty' or url == 'difficulty-class' %}Suivi élèves{% elif url == 'students' or url == 'student-detail' %}Mes élèves{% elif url == 'notifications' %}Notifications{% else %}Tableau de bord{% endif %}
+                {% elif app == 'promoter' %}{% if url == 'ecoles' or url == 'school-detail' %}Mes écoles{% elif url == 'finances' %}Finances{% else %}Synthèse{% endif %}
+                {% endif %}
+                {% endwith %}
+              </span>
+            {% endblock %}</div>
           </div>
 
-          <!-- Cloche — notifications enseignant -->
-          <a href="{% url 'teacher:notifications' %}"
-             class="relative shrink-0 p-2 text-gray-400 hover:text-gray-600
-                    hover:bg-gray-100 rounded-lg transition">
-            <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
-            {% if teacher_unread_count %}
-            <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
-                         bg-red-500 rounded-full text-white text-[9px] font-bold
-                         flex items-center justify-center leading-none">
-              {{ teacher_unread_count }}
-            </span>
-            {% endif %}
-          </a>
-        </div>
-        {% endif %}
-
-        {# ── Header : desktop (tous) + mobile non-teacher — responsive 2 lignes mobile ── #}
-        <div class="{% if request.role == 'teacher' %}hidden lg:flex{% else %}flex{% endif %}
-                    flex-col lg:flex-row lg:items-center lg:justify-between
-                    px-4 lg:px-6 py-2.5 lg:py-3 min-h-[56px] sm:min-h-[64px] gap-1 lg:gap-0">
-
-          {# Ligne 1 : titre (+ actions mobile à droite) #}
-          <div class="flex items-center gap-3 min-w-0 lg:flex-1">
-            {% block breadcrumb %}{% endblock %}
-            <div class="min-w-0 flex-1">
-              <h1 class="text-lg lg:text-2xl font-semibold text-gray-900 leading-tight truncate">{% block page_title %}{% endblock %}</h1>
-              <div class="hidden lg:block">{% block page_subtitle %}{% if page_subtitle %}<p class="text-sm text-gray-500 mt-0.5 truncate animate-fade-in">{{ page_subtitle }}</p>{% endif %}{% endblock %}</div>
-            </div>
-
-            {# Actions MOBILE (directeur/staff) : recherche · cloche (sans badge) · avatar #}
-            {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
-            <div class="flex items-center gap-0.5 shrink-0 lg:hidden">
-              <button type="button" @click="$store.search.open = true" aria-label="Rechercher"
-                      class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 rounded-lg">
-                <i data-lucide="search" class="w-5 h-5"></i>
-              </button>
-              <button type="button" aria-label="Notifications"
-                      class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 rounded-lg">
-                <i data-lucide="bell" class="w-5 h-5"></i>
-              </button>
-              <button type="button" @click="$store.accountSheet.open = true" aria-label="Mon compte"
-                      :aria-expanded="$store.accountSheet.open"
-                      class="ml-1 w-9 h-9 rounded-full bg-primary-600 text-white text-sm font-bold flex items-center justify-center shrink-0 active:opacity-80">
-                {{ request.user.full_name|first|upper }}
-              </button>
-            </div>
-            {% endif %}
-          </div>
-
-          {# Actions DESKTOP : header_actions + badge année + cloche (sans badge) #}
-          <div class="hidden lg:flex items-center gap-2 shrink-0 ml-4">
-            {% block header_actions %}{% endblock %}
+          {# Droite : actions globales (badge année · recherche · cloche · compte) #}
+          <div class="flex items-center gap-0.5 lg:gap-2 shrink-0">
             {% if badge_year %}
             <a href="{% url 'settings:school-years' %}"
-               class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg
-                      bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-600
+               class="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
+                      border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-gray-600
                       transition-colors whitespace-nowrap">
-              <i data-lucide="calendar" class="w-3.5 h-3.5 shrink-0"></i>
+              <i data-lucide="calendar" class="w-3.5 h-3.5 shrink-0 text-primary-500"></i>
               <span>{{ badge_year.name }}{% if badge_year.period_name %} · {{ badge_year.period_name }}{% endif %}</span>
             </a>
+            {% endif %}
+            {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+            <button type="button" @click="$store.search.open = true" aria-label="Rechercher"
+                    class="lg:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 rounded-lg">
+              <i data-lucide="search" class="w-5 h-5"></i>
+            </button>
             {% endif %}
             {% if request.role == 'teacher' %}
             <a href="{% url 'teacher:notifications' %}"
@@ -706,22 +629,12 @@
               <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
             </button>
             {% endif %}
-          </div>
-
-          {# Ligne 2 MOBILE (directeur/staff) : école · année · période — toujours visible #}
-          {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
-          <div class="lg:hidden flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
-            {% if user_memberships %}
-            <button type="button" @click="$store.accountSheet.open = true" class="flex items-center gap-1 min-w-0 max-w-[55%]">
-              <span class="truncate">{{ request.school.name }}</span>
-              <i data-lucide="chevron-down" class="w-3 h-3 shrink-0 text-gray-400"></i>
+            <button type="button" @click="$store.accountSheet.open = true" aria-label="Mon compte"
+                    :aria-expanded="$store.accountSheet.open"
+                    class="lg:hidden ml-1 w-9 h-9 rounded-full bg-primary-600 text-white text-sm font-bold flex items-center justify-center shrink-0 active:opacity-80">
+              {{ request.user.full_name|first|upper }}
             </button>
-            {% else %}
-            <span class="truncate max-w-[55%]">{{ request.school.name }}</span>
-            {% endif %}
-            {% if badge_year %}<span class="text-gray-300">·</span><span class="shrink-0">{{ badge_year.name }}</span>{% if badge_year.period_name %}<span class="text-gray-300">·</span><span class="shrink-0 truncate">{{ badge_year.period_name }}</span>{% endif %}{% endif %}
           </div>
-          {% endif %}
         </div>
       </header>
 
@@ -742,192 +655,184 @@
       {% endif %}
 
       <div class="px-6 lg:px-8 py-6">
+        {% block page_header %}
+        <div class="flex items-start justify-between gap-4 mb-6">
+          <div class="min-w-0 flex-1">
+            <h1 class="text-xl lg:text-2xl font-semibold text-gray-900 leading-tight">{% block page_title %}{% endblock %}</h1>
+            {% block page_subtitle %}{% if page_subtitle %}<p class="text-sm text-gray-500 mt-1">{{ page_subtitle }}</p>{% endif %}{% endblock %}
+          </div>
+          <div class="flex items-center gap-2 shrink-0">{% block header_actions %}{% endblock %}</div>
+        </div>
+        {% endblock %}
         {% block content %}{% endblock %}
       </div>
     </main>
   </div>
 
-  <!-- ─── Navigation mobile (bottom bar) ───────────── -->
-  <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-30
-              bg-white border-t border-gray-200
-              shadow-[0_-4px_12px_rgba(0,0,0,0.08)]
-              rounded-t-2xl overflow-hidden
-              flex min-h-[68px]"
-       style="padding-bottom: env(safe-area-inset-bottom)"
-       x-data>
+  <!-- ─── Navigation mobile : pill flottant + FAB ───────────── -->
+  <div class="lg:hidden fixed inset-x-0 bottom-0 z-50" style="padding-bottom: env(safe-area-inset-bottom)" x-data>
+    <div class="flex items-center gap-3 px-3 pb-3">
 
-    {% if request.role == 'teacher' %}
-    {# ── Nav mobile ENSEIGNANT : Accueil | Notes | Absences | Suivi ── #}
+      <nav class="flex-1 flex items-center justify-around h-16 px-1.5
+                  bg-white border border-gray-200 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
 
-    {# Accueil — actif UNIQUEMENT sur teacher:dashboard #}
-    <a href="{% url 'teacher:dashboard' %}"
-       class="flex-1 flex flex-col items-center justify-center">
-      {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'teacher' %}
-      <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-xl px-3 py-1">
-        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-primary-600"></i>
-        <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Accueil</span>
-      </span>
-      {% else %}
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
-        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-gray-400"></i>
-        <span class="text-[10px] text-gray-400 whitespace-nowrap">Accueil</span>
-      </span>
-      {% endif %}
-    </a>
+        {% if request.role == 'teacher' %}
+        {# Accueil · Notes · Absences #}
+        <a href="{% url 'teacher:dashboard' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'teacher' %}
+          <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-2xl px-3 py-1.5">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-primary-600"></i>
+            <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Accueil</span>
+          </span>
+          {% else %}
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-gray-400"></i>
+            <span class="text-[10px] text-gray-400 whitespace-nowrap">Accueil</span>
+          </span>
+          {% endif %}
+        </a>
+        <a href="{% url 'notes:dashboard' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          {% if request.resolver_match.app_name == 'notes' %}
+          <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-2xl px-3 py-1.5">
+            <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-primary-600"></i>
+            <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Notes</span>
+          </span>
+          {% else %}
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5">
+            <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-gray-400"></i>
+            <span class="text-[10px] text-gray-400 whitespace-nowrap">Notes</span>
+          </span>
+          {% endif %}
+        </a>
+        <a href="{% url 'teacher:attendance-list' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}
+          <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-2xl px-3 py-1.5">
+            <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-primary-600"></i>
+            <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Absences</span>
+          </span>
+          {% else %}
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5">
+            <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-gray-400"></i>
+            <span class="text-[10px] text-gray-400 whitespace-nowrap">Absences</span>
+          </span>
+          {% endif %}
+        </a>
 
-    {# Notes #}
-    <a href="{% url 'notes:dashboard' %}"
-       class="flex-1 flex flex-col items-center justify-center">
-      {% if request.resolver_match.app_name == 'notes' %}
-      <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-xl px-3 py-1">
-        <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-primary-600"></i>
-        <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Notes</span>
-      </span>
-      {% else %}
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
-        <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-gray-400"></i>
-        <span class="text-[10px] text-gray-400 whitespace-nowrap">Notes</span>
-      </span>
-      {% endif %}
-    </a>
+        {% elif request.role == 'promoter' %}
+        <a href="{% url 'promoter:synthese' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5 {% if request.resolver_match.url_name == 'synthese' %}bg-primary-600/10 rounded-2xl{% endif %}">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 {% if request.resolver_match.url_name == 'synthese' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+            <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.url_name == 'synthese' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Synthèse</span>
+          </span>
+        </a>
+        <a href="{% url 'promoter:ecoles' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5 {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}bg-primary-600/10 rounded-2xl{% endif %}">
+            <i data-lucide="building-2" class="w-5 h-5 shrink-0 {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+            <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Mes écoles</span>
+          </span>
+        </a>
+        <a href="{% url 'promoter:finances' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5 {% if request.resolver_match.url_name == 'finances' %}bg-primary-600/10 rounded-2xl{% endif %}">
+            <i data-lucide="bar-chart-2" class="w-5 h-5 shrink-0 {% if request.resolver_match.url_name == 'finances' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+            <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.url_name == 'finances' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Finances</span>
+          </span>
+        </a>
 
-    {# Absences #}
-    <a href="{% url 'teacher:attendance-list' %}"
-       class="flex-1 flex flex-col items-center justify-center">
-      {% if request.resolver_match.url_name == 'attendance-list' or request.resolver_match.url_name == 'attendance-class' %}
-      <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-xl px-3 py-1">
-        <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-primary-600"></i>
-        <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">Absences</span>
-      </span>
-      {% else %}
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1">
-        <i data-lucide="calendar-x" class="w-5 h-5 shrink-0 text-gray-400"></i>
-        <span class="text-[10px] text-gray-400 whitespace-nowrap">Absences</span>
-      </span>
-      {% endif %}
-    </a>
+        {% elif request.role == 'parent' %}
+        <a href="{% url 'parent:dashboard' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5 {% if request.resolver_match.app_name == 'parent' %}bg-primary-600/10 rounded-2xl{% endif %}">
+            <i data-lucide="users" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'parent' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+            <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'parent' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Mon espace</span>
+          </span>
+        </a>
 
-    {# Plus (enseignant) — ouvre la bottom-sheet #}
-    <button type="button"
-            @click="$store.teacherMoreSheet.open = true"
-            :aria-expanded="$store.teacherMoreSheet.open"
-            aria-haspopup="dialog" aria-label="Plus de pages"
-            :class="$store.teacherMoreSheet.open ? 'text-primary-600' : 'text-gray-400'"
-            class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px]">
-      <i data-lucide="menu" class="w-5 h-5 shrink-0"></i>
-      <span class="text-[10px] whitespace-nowrap">Plus</span>
-    </button>
-
-    {% elif request.role == 'promoter' %}
-    {# ── Nav mobile PROMOTEUR : Synthèse | Mes écoles | Finances ── #}
-    <a href="{% url 'promoter:synthese' %}" class="flex-1 flex flex-col items-center justify-center">
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.url_name == 'synthese' %}bg-primary-600/10 rounded-xl{% endif %}">
-        <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 {% if request.resolver_match.url_name == 'synthese' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
-        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.url_name == 'synthese' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Synthèse</span>
-      </span>
-    </a>
-    <a href="{% url 'promoter:ecoles' %}" class="flex-1 flex flex-col items-center justify-center">
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}bg-primary-600/10 rounded-xl{% endif %}">
-        <i data-lucide="building-2" class="w-5 h-5 shrink-0 {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
-        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.url_name == 'ecoles' or request.resolver_match.url_name == 'school-detail' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Mes écoles</span>
-      </span>
-    </a>
-    <a href="{% url 'promoter:finances' %}" class="flex-1 flex flex-col items-center justify-center">
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.url_name == 'finances' %}bg-primary-600/10 rounded-xl{% endif %}">
-        <i data-lucide="bar-chart-2" class="w-5 h-5 shrink-0 {% if request.resolver_match.url_name == 'finances' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
-        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.url_name == 'finances' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Finances</span>
-      </span>
-    </a>
-
-    {% elif request.role == 'parent' %}
-    {# ── Nav mobile PARENT : un seul item centré ── #}
-    <a href="{% url 'parent:dashboard' %}"
-       class="flex-1 flex flex-col items-center justify-center">
-      <span class="flex flex-col items-center gap-0.5 px-3 py-1 {% if request.resolver_match.app_name == 'parent' %}bg-primary-600/10 rounded-xl{% endif %}">
-        <i data-lucide="users" class="w-5 h-5 shrink-0 {% if request.resolver_match.app_name == 'parent' %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
-        <span class="text-[10px] whitespace-nowrap {% if request.resolver_match.app_name == 'parent' %}font-semibold text-primary-600{% else %}text-gray-400{% endif %}">Mon espace</span>
-      </span>
-    </a>
-
-    {% else %}
-    {# ── Nav mobile DIRECTEUR / STAFF : Accueil | Élèves | Paiements | Notes | Plus ── #}
-
-    {# Accueil #}
-    <a href="{% url 'dashboard:main' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'dashboard' %}text-primary-600{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.app_name == 'dashboard' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
-        <i data-lucide="layout-dashboard" class="w-6 h-6 shrink-0"></i>
-      </div>
-      <span class="text-[11px] font-medium">{% trans "Accueil" %}</span>
-    </a>
-
-    {# Élèves #}
-    <a href="{% url 'students:list' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'students' %}text-primary-600{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.app_name == 'students' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
-        <i data-lucide="users" class="w-6 h-6 shrink-0"></i>
-        {% if unread_observations_count %}
-        <span class="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full
-                     bg-red-500 text-white text-[9px] font-bold
-                     flex items-center justify-center leading-none">
-          {{ unread_observations_count }}
-        </span>
+        {% else %}
+        {# Directeur / staff : Accueil · Élèves · Paiements · Notes #}
+        <a href="{% url 'dashboard:main' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          {% if request.resolver_match.app_name == 'dashboard' %}
+          <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-2xl px-3 py-1.5">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-primary-600"></i>
+            <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">{% trans "Accueil" %}</span>
+          </span>
+          {% else %}
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0 text-gray-400"></i>
+            <span class="text-[10px] text-gray-400 whitespace-nowrap">{% trans "Accueil" %}</span>
+          </span>
+          {% endif %}
+        </a>
+        <a href="{% url 'students:list' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          {% if request.resolver_match.app_name == 'students' %}
+          <span class="relative flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-2xl px-3 py-1.5">
+            <i data-lucide="users" class="w-5 h-5 shrink-0 text-primary-600"></i>
+            <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">{% trans "Élèves" %}</span>
+            {% if unread_observations_count %}<span class="absolute -top-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">{{ unread_observations_count }}</span>{% endif %}
+          </span>
+          {% else %}
+          <span class="relative flex flex-col items-center gap-0.5 px-3 py-1.5">
+            <i data-lucide="users" class="w-5 h-5 shrink-0 text-gray-400"></i>
+            <span class="text-[10px] text-gray-400 whitespace-nowrap">{% trans "Élèves" %}</span>
+            {% if unread_observations_count %}<span class="absolute -top-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">{{ unread_observations_count }}</span>{% endif %}
+          </span>
+          {% endif %}
+        </a>
+        <a href="{% url 'payments:dashboard' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          {% if request.resolver_match.app_name == 'payments' %}
+          <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-2xl px-3 py-1.5">
+            <i data-lucide="credit-card" class="w-5 h-5 shrink-0 text-primary-600"></i>
+            <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">{% trans "Paiements" %}</span>
+          </span>
+          {% else %}
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5">
+            <i data-lucide="credit-card" class="w-5 h-5 shrink-0 text-gray-400"></i>
+            <span class="text-[10px] text-gray-400 whitespace-nowrap">{% trans "Paiements" %}</span>
+          </span>
+          {% endif %}
+        </a>
+        <a href="{% url 'notes:dashboard' %}" class="flex-1 flex flex-col items-center justify-center active:scale-95 transition-transform">
+          {% if request.resolver_match.app_name == 'notes' %}
+          <span class="flex flex-col items-center gap-0.5 bg-primary-600/10 rounded-2xl px-3 py-1.5">
+            <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-primary-600"></i>
+            <span class="text-[10px] font-semibold text-primary-600 whitespace-nowrap">{% trans "Notes" %}</span>
+          </span>
+          {% else %}
+          <span class="flex flex-col items-center gap-0.5 px-3 py-1.5">
+            <i data-lucide="book-open" class="w-5 h-5 shrink-0 text-gray-400"></i>
+            <span class="text-[10px] text-gray-400 whitespace-nowrap">{% trans "Notes" %}</span>
+          </span>
+          {% endif %}
+        </a>
         {% endif %}
-      </div>
-      <span class="text-[11px] font-medium">{% trans "Élèves" %}</span>
-    </a>
 
-    {# Paiements #}
-    <a href="{% url 'payments:dashboard' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'payments' %}text-primary-600{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.app_name == 'payments' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
-        <i data-lucide="credit-card" class="w-6 h-6 shrink-0"></i>
-      </div>
-      <span class="text-[11px] font-medium">{% trans "Paiements" %}</span>
-    </a>
+      </nav>
 
-    {# Notes #}
-    <a href="{% url 'notes:dashboard' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-1
-              {% if request.resolver_match.app_name == 'notes' %}text-primary-600{% else %}text-gray-400{% endif %}">
-      <div class="relative">
-        {% if request.resolver_match.app_name == 'notes' %}<span class="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-600"></span>{% endif %}
-        <i data-lucide="book-open" class="w-6 h-6 shrink-0"></i>
-      </div>
-      <span class="text-[11px] font-medium">{% trans "Notes" %}</span>
-    </a>
+      {# FAB — centre de commande (morph + → ×). Directeur/staff + enseignant #}
+      {% if request.role == 'teacher' %}
+      <button type="button" @click="$store.teacherMoreSheet.open = !$store.teacherMoreSheet.open"
+              :aria-expanded="$store.teacherMoreSheet.open" aria-haspopup="dialog" aria-label="Actions et pages"
+              class="shrink-0 w-16 h-16 rounded-full bg-primary-600 text-white shadow-[0_8px_24px_rgba(79,70,229,0.45)] flex items-center justify-center active:scale-95 transition-transform">
+        <i data-lucide="plus" class="w-6 h-6 transition-transform duration-200 ease-out" :class="$store.teacherMoreSheet.open ? 'rotate-45' : ''"></i>
+      </button>
+      {% elif request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+      <button type="button" @click="$store.moreSheet.open = !$store.moreSheet.open"
+              :aria-expanded="$store.moreSheet.open" aria-haspopup="dialog" aria-label="Actions et pages"
+              class="shrink-0 w-16 h-16 rounded-full bg-primary-600 text-white shadow-[0_8px_24px_rgba(79,70,229,0.45)] flex items-center justify-center active:scale-95 transition-transform">
+        <i data-lucide="plus" class="w-6 h-6 transition-transform duration-200 ease-out" :class="$store.moreSheet.open ? 'rotate-45' : ''"></i>
+      </button>
+      {% endif %}
 
-    {# Plus (directeur/staff) — ouvre la bottom-sheet #}
-    {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
-    <button type="button"
-            @click="$store.moreSheet.open = true"
-            :aria-expanded="$store.moreSheet.open"
-            aria-haspopup="dialog" aria-label="Plus de pages"
-            :class="$store.moreSheet.open ? 'text-primary-600' : 'text-gray-400'"
-            class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px]">
-      <i data-lucide="menu" class="w-6 h-6 shrink-0"></i>
-      <span class="text-[11px] font-medium">{% trans "Plus" %}</span>
-    </button>
-    {% endif %}
-
-    {% endif %}{# fin if teacher #}
-  </nav>
+    </div>
+  </div>
 
   <!-- ════════════════════════════════════════════════ -->
-  <!-- BOTTOM-SHEET « PLUS » (mobile enseignant)       -->
+  <!-- COMMAND CENTER « + » (mobile enseignant)       -->
   {% if request.role == 'teacher' %}
   <div x-data
        x-effect="document.body.classList.toggle('overflow-hidden', $store.teacherMoreSheet.open)"
        @keydown.escape.window="$store.teacherMoreSheet.open = false"
        :class="$store.teacherMoreSheet.open ? '' : 'pointer-events-none'"
-       class="lg:hidden fixed inset-0 z-50"
-       role="dialog" aria-modal="true" aria-label="Menu Plus enseignant">
+       class="lg:hidden fixed inset-0 z-40"
+       role="dialog" aria-modal="true" aria-label="Actions et pages">
 
     {# Backdrop #}
     <div x-show="$store.teacherMoreSheet.open" x-cloak
@@ -938,72 +843,45 @@
          @click="$store.teacherMoreSheet.open = false"
          class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
-    {# Panneau slide-up — safe-area incluse #}
+    {# Carte grille — émerge au-dessus du pill (container transform) #}
     <div x-show="$store.teacherMoreSheet.open" x-cloak
          x-transition:enter="transition ease-out duration-250"
-         x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:enter-start="opacity-0 translate-y-6 scale-95"
+         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
          x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+         x-transition:leave-end="opacity-0 translate-y-6 scale-95"
          x-ref="teacherSheet" tabindex="-1"
          x-effect="$store.teacherMoreSheet.open && $nextTick(() => $refs.teacherSheet.focus())"
-         style="padding-bottom: env(safe-area-inset-bottom)"
-         class="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
-
-      {# Poignée + titre + fermer #}
-      <div class="sticky top-0 bg-white px-5 pt-2.5 pb-3 border-b border-gray-100">
-        <div class="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3"></div>
-        <div class="flex items-center justify-between">
-          <h2 class="text-base font-semibold text-gray-900">Plus</h2>
-          <button type="button" @click="$store.teacherMoreSheet.open = false" aria-label="Fermer"
-                  class="min-h-[44px] min-w-[44px] -mr-2 flex items-center justify-center text-gray-400 rounded-lg">
-            <i data-lucide="x" class="w-5 h-5"></i>
-          </button>
+         class="absolute inset-x-0 bottom-0 px-3 origin-bottom"
+         style="padding-bottom: calc(5.75rem + env(safe-area-inset-bottom))">
+      <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 p-4 max-h-[64vh] overflow-y-auto">
+        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">Aller à</p>
+        <div class="grid grid-cols-4 gap-2">
+          <a href="{% url 'teacher:students' %}" @click="$store.teacherMoreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="users" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Mes élèves</span></a>
+          <a href="{% url 'teacher:difficulty' %}" @click="$store.teacherMoreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="activity" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Suivi</span></a>
+          <a href="{% url 'lessons:unit-list' %}" @click="$store.teacherMoreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="sparkles" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Mes unités</span></a>
         </div>
-      </div>
-
-      <div class="px-3 py-3 space-y-5">
-
-        {# ── NAVIGATION ── #}
-        <div>
-          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Navigation</p>
-          <a href="{% url 'teacher:students' %}"   class="sheet-item"><i data-lucide="users"></i> Mes élèves</a>
-          <a href="{% url 'teacher:difficulty' %}" class="sheet-item"><i data-lucide="activity"></i> Suivi difficulté</a>
-          <a href="{% url 'lessons:unit-list' %}"   class="sheet-item"><i data-lucide="sparkles"></i> Mes unités</a>
-        </div>
-
-        {# ── PIED : nom + déconnexion ── #}
-        <div class="border-t border-gray-100 pt-3">
-          <div class="flex items-center gap-3 px-3 py-2">
-            <span class="w-9 h-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
-              {{ request.user.full_name|first|upper }}
-            </span>
-            <div class="min-w-0">
-              <p class="text-sm font-semibold text-gray-900 truncate leading-tight">{{ request.user.full_name }}</p>
-              <p class="text-xs text-gray-400 truncate">Enseignant</p>
-            </div>
-          </div>
-          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
-            <button type="submit" class="sheet-item text-red-600 hover:bg-red-50 w-full text-left"><i data-lucide="log-out" class="text-red-400"></i> Se déconnecter</button>
-          </form>
-        </div>
-
       </div>
     </div>
   </div>
   {% endif %}
 
   <!-- ════════════════════════════════════════════════ -->
-  <!-- BOTTOM-SHEET « PLUS » (mobile directeur/staff) -->
-  <!-- Montée hors du bloc content — survit aux partials HTMX -->
+  <!-- COMMAND CENTER « + » (mobile directeur/staff) -->
+  <!-- Hors du bloc content — survit aux partials HTMX -->
   {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
   <div x-data
        x-effect="document.body.classList.toggle('overflow-hidden', $store.moreSheet.open)"
        @keydown.escape.window="$store.moreSheet.open = false"
        :class="$store.moreSheet.open ? '' : 'pointer-events-none'"
-       class="lg:hidden fixed inset-0 z-50"
-       role="dialog" aria-modal="true" aria-label="Menu Plus">
+       class="lg:hidden fixed inset-0 z-40"
+       role="dialog" aria-modal="true" aria-label="Actions et navigation">
 
-    {# Backdrop — porte sa propre transition #}
+    {# Backdrop #}
     <div x-show="$store.moreSheet.open" x-cloak
          x-transition:enter="transition-opacity ease-out duration-200"
          x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
@@ -1012,77 +890,64 @@
          @click="$store.moreSheet.open = false"
          class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
-    {# Panneau slide-up — safe-area incluse #}
+    {# Carte grille — émerge au-dessus du pill (container transform) #}
     <div x-show="$store.moreSheet.open" x-cloak
          x-transition:enter="transition ease-out duration-250"
-         x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:enter-start="opacity-0 translate-y-6 scale-95"
+         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
          x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+         x-transition:leave-end="opacity-0 translate-y-6 scale-95"
          x-ref="sheet" tabindex="-1"
          x-effect="$store.moreSheet.open && $nextTick(() => $refs.sheet.focus())"
-         style="padding-bottom: env(safe-area-inset-bottom)"
-         class="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+         class="absolute inset-x-0 bottom-0 px-3 origin-bottom"
+         style="padding-bottom: calc(5.75rem + env(safe-area-inset-bottom))">
+      <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 p-4 max-h-[68vh] overflow-y-auto">
 
-      {# Poignée + titre + fermer #}
-      <div class="sticky top-0 bg-white px-5 pt-2.5 pb-3 border-b border-gray-100">
-        <div class="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3"></div>
-        <div class="flex items-center justify-between">
-          <h2 class="text-base font-semibold text-gray-900">Plus</h2>
-          <button type="button" @click="$store.moreSheet.open = false" aria-label="Fermer"
-                  class="min-h-[44px] min-w-[44px] -mr-2 flex items-center justify-center text-gray-400 rounded-lg">
-            <i data-lucide="x" class="w-5 h-5"></i>
-          </button>
-        </div>
-      </div>
-
-      <div class="px-3 py-3 space-y-5">
-
-        {# ── GESTION ── #}
-        <div>
-          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Gestion</p>
-          <a href="{% url 'schools:class-list' %}"          class="sheet-item"><i data-lucide="school"></i> Classes</a>
-          <a href="{% url 'bulletins:main' %}"              class="sheet-item"><i data-lucide="file-text"></i> Bulletins</a>
-          <a href="{% url 'students:suivi' %}"              class="sheet-item"><i data-lucide="activity"></i> Suivi élèves</a>
-          <a href="{% url 'schools:announcement-list' %}"   class="sheet-item"><i data-lucide="megaphone"></i> Annonces</a>
+        {# Actions rapides — icône indigo #}
+        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">Actions rapides</p>
+        <div class="grid grid-cols-4 gap-2 mb-4">
+          <a href="{% url 'payments:dashboard' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="banknote" class="w-6 h-6 text-primary-600"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Encaisser</span></a>
+          <a href="{% url 'students:list' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="user-plus" class="w-6 h-6 text-primary-600"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Inscrire</span></a>
+          <a href="{% url 'schools:announcement-list' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="megaphone" class="w-6 h-6 text-primary-600"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Annonce</span></a>
+          <a href="{% url 'notes:dashboard' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="pencil" class="w-6 h-6 text-primary-600"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Saisir notes</span></a>
         </div>
 
-        {# ── FINANCES (gardes serveur identiques sidebar) ── #}
-        {% if request.school.accounting_enabled %}
-        {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting or request.user.staff_permission.can_record_emargement %}
-        <div>
-          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Finances</p>
+        {# Aller à — icône grise #}
+        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">Aller à</p>
+        <div class="grid grid-cols-4 gap-2">
+          <a href="{% url 'schools:class-list' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="school" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Classes</span></a>
+          <a href="{% url 'bulletins:main' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="file-text" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Bulletins</span></a>
+          <a href="{% url 'students:suivi' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="activity" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Suivi</span></a>
+          {% if request.school.accounting_enabled %}
           {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
-            <a href="{% url 'accounting:dashboard' %}" class="sheet-item"><i data-lucide="calculator"></i> Comptabilité</a>
+          <a href="{% url 'accounting:dashboard' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="calculator" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Compta</span></a>
           {% endif %}
           {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_record_emargement or request.user.staff_permission.can_manage_accounting %}
-            <a href="{% url 'accounting:emargement' %}" class="sheet-item"><i data-lucide="clipboard-check"></i> Émargement</a>
+          <a href="{% url 'accounting:emargement' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="clipboard-check" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Émargement</span></a>
           {% endif %}
           {% if request.role == 'director' or request.user.is_superuser or request.user.staff_permission.can_manage_accounting %}
-            <a href="{% url 'accounting:salaires' %}" class="sheet-item"><i data-lucide="banknote"></i> Paie mensuelle</a>
-            <a href="{% url 'accounting:depenses' %}" class="sheet-item"><i data-lucide="receipt"></i> Dépenses</a>
-            <a href="{% url 'accounting:bilan' %}"    class="sheet-item"><i data-lucide="bar-chart-2"></i> Bilan financier</a>
+          <a href="{% url 'accounting:salaires' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="wallet" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Paie</span></a>
+          <a href="{% url 'accounting:depenses' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="receipt" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Dépenses</span></a>
+          <a href="{% url 'accounting:bilan' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="bar-chart-3" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Bilan</span></a>
           {% endif %}
-        </div>
-        {% endif %}
-        {% endif %}
-
-        {# ── ADMINISTRATION ── #}
-        <div>
-          <p class="px-3 mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Administration</p>
-          <a href="{% url 'team:list' %}"        class="sheet-item"><i data-lucide="users-round"></i> Équipe</a>
-          <a href="{% url 'settings:general' %}" class="sheet-item"><i data-lucide="settings"></i> Paramètres</a>
-        </div>
-
-        {# ── PIED : compte + déconnexion ── #}
-        <div class="border-t border-gray-100 pt-3">
-          <div class="flex items-center gap-3 px-3 py-2">
-            <span class="w-9 h-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-bold shrink-0">{{ request.user.full_name|first|upper }}</span>
-            <div class="min-w-0">
-              <p class="text-sm font-semibold text-gray-900 truncate leading-tight">{{ request.user.full_name }}</p>
-              <p class="text-xs text-gray-400 truncate">{{ active_role_display }}</p>
-            </div>
-          </div>
-          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit" class="sheet-item text-red-600 hover:bg-red-50 w-full text-left"><i data-lucide="log-out" class="text-red-400"></i> Se déconnecter</button></form>
+          {% endif %}
+          <a href="{% url 'team:list' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="users-round" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Équipe</span></a>
+          <a href="{% url 'settings:settings-home' %}" @click="$store.moreSheet.open = false" class="flex flex-col items-center gap-1.5 py-2.5 rounded-2xl active:bg-gray-50 transition-colors">
+            <i data-lucide="settings" class="w-6 h-6 text-gray-500"></i><span class="text-[10px] text-gray-600 text-center leading-tight">Réglages</span></a>
         </div>
       </div>
     </div>
@@ -1092,7 +957,7 @@
   <!-- ════════════════════════════════════════════════ -->
   <!-- MINI-SHEET COMPTE (mobile directeur/staff)      -->
   <!-- Montée hors du bloc content -->
-  {% if request.role == 'director' or request.role == 'staff' or request.user.is_superuser %}
+  {% if request.user.is_authenticated %}
   <div x-data
        x-effect="document.body.classList.toggle('overflow-hidden', $store.accountSheet.open)"
        @keydown.escape.window="$store.accountSheet.open = false"
@@ -1215,6 +1080,46 @@
   <script>
     document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
     document.addEventListener('htmx:afterSwap', () => lucide.createIcons());
+  </script>
+
+  {# ── Garde-fou global anti double-soumission HTMX (requêtes mutantes) ── #}
+  {# Verrouille l'élément déclencheur (form→ses submits, ou le bouton/lien lui-même) #}
+  {# pendant la requête → pas de doublon au double-clic. Ignore les boutons pilotés #}
+  {# par Alpine (:disabled), qui gèrent leur propre verrou (encaissement, inscription). #}
+  <script>
+    (function () {
+      function alpineBound(b) { return b.hasAttribute(':disabled') || b.hasAttribute('x-bind:disabled'); }
+      function lock(b)   { b.disabled = true;  b.style.pointerEvents = 'none'; b.style.opacity = '0.6'; }
+      function unlock(b) { b.disabled = false; b.style.pointerEvents = '';     b.style.opacity = ''; }
+      function targets(elt) {
+        if (!elt || !elt.tagName) return [];
+        var sel = 'button[type=submit], button:not([type]), input[type=submit]';
+        var list;
+        if (elt.tagName === 'FORM') {
+          list = Array.prototype.slice.call(elt.querySelectorAll(sel));
+          if (elt.id) list = list.concat(Array.prototype.slice.call(document.querySelectorAll('[form="' + elt.id + '"]')));
+        } else if (elt.matches && elt.matches('button, input[type=submit], input[type=button], a, [role=button]')) {
+          list = [elt];   // déclencheur direct (hx-post sur un bouton/lien, même type=button)
+        } else {
+          list = [];
+        }
+        return list.filter(function (b) { return !b.disabled && !alpineBound(b); });
+      }
+      document.addEventListener('htmx:beforeRequest', function (e) {
+        var cfg = e.detail.requestConfig || {};
+        if ((cfg.verb || 'get').toLowerCase() === 'get') return;   // seulement POST/PUT/PATCH/DELETE
+        var t = targets(e.detail.elt);
+        t.forEach(lock);
+        e.detail.elt.__locked = t;
+      });
+      function release(e) {
+        var t = e.detail.elt && e.detail.elt.__locked;
+        if (t) { t.forEach(unlock); e.detail.elt.__locked = null; }
+      }
+      ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError', 'htmx:timeout'].forEach(function (ev) {
+        document.addEventListener(ev, release);
+      });
+    })();
   </script>
 
   {# ── Alpine stores ── #}

@@ -1,118 +1,57 @@
 {% load humanize %}
-<div id="receipt-section">
+<div id="receipt-section" class="space-y-4">
 
-  <!-- ── Cards mode ──────────────────────────────────────────────── -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-
-    <!-- Card Standard -->
-    <button type="button"
-            hx-post="{% url 'settings:receipt' %}"
-            hx-vals='{"action": "set_mode", "receipt_mode": "standard"}'
-            hx-target="#receipt-section"
-            hx-swap="outerHTML"
-            hx-indicator="#receipt-indicator"
-            class="relative text-left p-5 rounded-xl border-2 transition-all
-                   {% if school.receipt_mode == 'standard' %}border-primary-600 bg-primary-50{% else %}border-gray-200 bg-white hover:border-gray-300{% endif %}">
-      {% if school.receipt_mode == 'standard' %}
-        <span class="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary-600 flex items-center justify-center">
-          <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-          </svg>
-        </span>
-      {% else %}
-        <span class="absolute top-3 right-3 w-5 h-5 rounded-full border-2 border-gray-300"></span>
-      {% endif %}
-      <div class="w-9 h-9 rounded-lg bg-primary-600/10 flex items-center justify-center mb-3">
-        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
+  {# ── Aperçu du reçu standard ──────────────────────────────── #}
+  <div class="card p-5">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center shrink-0">
+        <i data-lucide="receipt" class="w-4 h-4 text-primary-600"></i>
       </div>
-      <p class="font-semibold text-gray-900 text-sm">Reçu standard EduApp</p>
-      <p class="text-xs text-gray-500 mt-1">Modèle intégré, prêt à l'emploi</p>
-      <span class="mt-3 inline-block text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-        Recommandé
-      </span>
-    </button>
-
-    <!-- Card Personnalisé -->
-    <button type="button"
-            hx-post="{% url 'settings:receipt' %}"
-            hx-vals='{"action": "set_mode", "receipt_mode": "custom"}'
-            hx-target="#receipt-section"
-            hx-swap="outerHTML"
-            hx-indicator="#receipt-indicator"
-            class="relative text-left p-5 rounded-xl border-2 transition-all
-                   {% if school.receipt_mode == 'custom' %}border-primary-600 bg-primary-50{% else %}border-gray-200 bg-white hover:border-gray-300{% endif %}">
-      {% if school.receipt_mode == 'custom' %}
-        <span class="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary-600 flex items-center justify-center">
-          <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-          </svg>
-        </span>
-      {% else %}
-        <span class="absolute top-3 right-3 w-5 h-5 rounded-full border-2 border-gray-300"></span>
-      {% endif %}
-      <div class="w-9 h-9 rounded-lg bg-gold-500/10 flex items-center justify-center mb-3">
-        <svg class="w-5 h-5 text-gold-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-        </svg>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900">Aperçu du reçu</h3>
+        <p class="text-xs text-gray-400">Modèle standard EduApp — logo, coordonnées et signataire repris automatiquement.</p>
       </div>
-      <p class="font-semibold text-gray-900 text-sm">Reçu personnalisé</p>
-      <p class="text-xs text-gray-500 mt-1">Uploadez votre propre modèle PDF</p>
-      <span class="mt-3 inline-block text-[11px] font-semibold text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
-        PDF natif requis
-      </span>
-    </button>
-
+    </div>
+    {% include "settings/partials/receipt_standard_preview.html" %}
   </div>
 
-  <!-- Indicateur chargement -->
-  <span id="receipt-indicator" class="htmx-indicator block text-center text-sm text-gray-400 mb-4">
-    Mise à jour…
-  </span>
-
-  <!-- ── Contenu selon mode ───────────────────────────────────────── -->
-  {% if school.receipt_mode == 'standard' %}
-    {% include "settings/partials/receipt_standard_preview.html" %}
-
-    <!-- ── Titre signataire ─────────────────────────────────────── -->
-    <div class="mt-6 pt-6 border-t border-gray-100">
-      <h3 class="text-sm font-semibold text-gray-800 mb-1">Titre du signataire</h3>
-      <p class="text-xs text-gray-400 mb-3">Affiché en bas du reçu, sous la zone de signature.</p>
-
-      <form hx-post="{% url 'settings:receipt' %}"
-            hx-target="#receipt-section"
-            hx-swap="outerHTML"
-            class="flex gap-2 items-center flex-wrap">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="save_signer">
-        <input type="text" name="receipt_signer_title"
-               value="{{ school.receipt_signer_title|default:'Le Caissier / Directeur' }}"
-               placeholder="Ex : Le Directeur"
-               id="signer-input"
-               class="input-field flex-1 min-w-[200px]">
-        <button type="submit" class="btn-primary text-sm shrink-0">
-          <i data-lucide="check" class="w-4 h-4"></i>
-          Enregistrer
-        </button>
-      </form>
-
-      <!-- Suggestions rapides -->
-      <div class="flex flex-wrap gap-2 mt-3">
-        {% for label in signer_suggestions %}
-          <button type="button"
-                  onclick="document.getElementById('signer-input').value = '{{ label }}'"
-                  class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors">
-            {{ label }}
-          </button>
-        {% endfor %}
+  {# ── Titre du signataire ──────────────────────────────────── #}
+  <div class="card p-5">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center shrink-0">
+        <i data-lucide="pen-line" class="w-4 h-4 text-primary-600"></i>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900">Titre du signataire</h3>
+        <p class="text-xs text-gray-400">Affiché en bas du reçu, sous la zone de signature.</p>
       </div>
     </div>
 
-  {% else %}
-    {% include "settings/partials/receipt_custom_flow.html" %}
-  {% endif %}
+    <form hx-post="{% url 'settings:receipt' %}"
+          hx-target="#receipt-section" hx-swap="outerHTML"
+          class="flex gap-2 items-center flex-wrap">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_signer">
+      <input type="text" name="receipt_signer_title"
+             value="{{ school.receipt_signer_title|default:'Le Caissier / Directeur' }}"
+             placeholder="Ex : Le Directeur" id="signer-input"
+             class="input-field flex-1 min-w-[200px]">
+      <button type="submit" class="btn-primary text-sm shrink-0 min-h-[44px]">
+        <i data-lucide="check" class="w-4 h-4"></i>
+        Enregistrer
+      </button>
+    </form>
 
+    <div class="flex flex-wrap gap-2 mt-3">
+      {% for label in signer_suggestions %}
+        <button type="button"
+                onclick="document.getElementById('signer-input').value = '{{ label }}'"
+                class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors">
+          {{ label }}
+        </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <script>if(window.lucide)lucide.createIcons();</script>
 </div>

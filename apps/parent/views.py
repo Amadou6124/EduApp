@@ -384,7 +384,7 @@ def parent_annonces(request):
     class_ids   = [l.student.school_class_id for l in links if l.student.school_class_id]
     school_ids  = list({l.student.school_id for l in links})
 
-    announcements = (
+    announcements = list(
         SchoolAnnouncement.objects
         .filter(is_published=True)
         .filter(
@@ -395,6 +395,16 @@ def parent_annonces(request):
         .select_related('school', 'target_class', 'target_student', 'author')
         .order_by('-published_at')
     )
+
+    # Ouvrir le fil = lire les annonces → marque les notifs liées comme lues
+    # (sinon les accusés de lecture côté direction sous-comptent).
+    ann_ids = [a.pk for a in announcements]
+    if ann_ids:
+        from django.contrib.contenttypes.models import ContentType
+        ct = ContentType.objects.get_for_model(SchoolAnnouncement)
+        request.user.notifications.filter(
+            content_type=ct, object_id__in=ann_ids, is_read=False,
+        ).update(is_read=True)
 
     schools_map = OrderedDict()
     for ann in announcements:

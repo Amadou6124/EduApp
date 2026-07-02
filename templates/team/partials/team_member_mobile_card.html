@@ -1,0 +1,34 @@
+{% load i18n %}
+{# Carte membre (mobile) — contexte : r {user, role, is_active, subjects, class_count, perm} · is_director #}
+{% with u=r.user colors=r.user.get_avatar_colors %}
+<div id="team-card-{{ u.pk }}" class="bg-white border border-gray-200 rounded-xl p-3.5 flex items-center gap-3 {% if not r.is_active %}opacity-60{% endif %}">
+  <a href="{% url 'team:detail' u.pk %}" class="flex items-center gap-3 flex-1 min-w-0">
+    <span class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style="background-color:{{ colors.0 }};color:{{ colors.1 }}">{{ u.get_initials }}</span>
+    <span class="min-w-0 flex-1">
+      <span class="flex items-center gap-2">
+        <span class="font-medium text-gray-900 truncate">{{ u.full_name }}</span>
+        {% if r.role == 'director' %}<span class="badge-warning shrink-0">Dir.</span>{% elif r.role == 'staff' %}<span class="badge-purple shrink-0">Staff</span>{% else %}<span class="badge-info shrink-0">Ens.</span>{% endif %}
+      </span>
+      <span class="block text-xs text-gray-400 truncate mt-0.5">
+        {% if r.role == 'teacher' %}{% if r.subjects %}{% for cs in r.subjects|slice:":2" %}{{ cs.subject.short_name|default:cs.subject.name }}{% if not forloop.last %}, {% endif %}{% endfor %} · {{ r.class_count }} classe{{ r.class_count|pluralize }}{% else %}Aucune matière{% endif %}
+        {% elif r.role == 'staff' %}{{ u.job_title|default:"Staff administratif" }}
+        {% else %}Accès complet{% endif %}
+        {% if not r.is_active %} · <span class="text-gray-400">désactivé</span>{% endif %}
+      </span>
+    </span>
+  </a>
+  {% if is_director %}
+  <div class="relative shrink-0" x-data="{ menu: false }" @click.outside="menu = false">
+    <button type="button" @click="menu = !menu" class="p-2 text-gray-400 rounded-lg" aria-label="Actions"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+    <div x-show="menu" x-cloak class="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-20">
+      {% if r.is_active %}
+        <button type="button" @click="menu = false; openEditPanel({{ u.pk }})" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><i data-lucide="pencil" class="w-4 h-4"></i> Modifier</button>
+        <button type="button" @click="menu = false; confirmDeactivate({{ u.pk }}, '{{ u.full_name|escapejs }}')" class="w-full text-left px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"><i data-lucide="user-x" class="w-4 h-4"></i> Désactiver</button>
+      {% else %}
+        <button type="button" @click="menu = false; reactivate({{ u.pk }})" class="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"><i data-lucide="user-check" class="w-4 h-4"></i> Réactiver</button>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endwith %}

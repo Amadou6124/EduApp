@@ -84,6 +84,7 @@
                   {% elif n.category == 'bulletin' %}bg-primary-100
                   {% elif n.category == 'payment' %}bg-green-100
                   {% elif n.category == 'observation' %}bg-purple-100
+                  {% elif n.category == 'reminder' %}bg-amber-100
                   {% elif n.category == 'info' %}bg-blue-100
                   {% else %}bg-gray-100{% endif %}">
         {% if n.category == 'absence' %}
@@ -94,6 +95,8 @@
           <i data-lucide="wallet" class="w-4 h-4 text-green-600"></i>
         {% elif n.category == 'observation' %}
           <i data-lucide="message-circle" class="w-4 h-4 text-purple-600"></i>
+        {% elif n.category == 'reminder' %}
+          <i data-lucide="alarm-clock" class="w-4 h-4 text-amber-600"></i>
         {% elif n.category == 'info' %}
           <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
         {% else %}

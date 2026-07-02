@@ -1,25 +1,27 @@
 {% comment %}
-Paramètres attendus :
-  section   — identifiant de la section (ex: 'general')
-  label     — libellé affiché (ex: 'Général')
-  available — True si disponible, False si coming soon
-  icon      — nom d'icône Lucide (ex: 'settings', 'palette', 'calendar')
+Item de nav paramètres (sidebar desktop).
+  section, label, icon, available — comme avant.
+  value (optionnel) — valeur actuelle en sous-titre. value_unit (optionnel) — unité.
+Filtrable par la recherche (q du scope parent Alpine).
 {% endcomment %}
-
 {% if available %}
   {% with url_name='settings:'|add:section %}
   <a href="{% url url_name %}"
-     class="flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-sm transition-colors
-            {% if active_section == section %}bg-primary-50 text-primary-700 font-medium{% else %}text-gray-700 hover:bg-gray-100 hover:text-gray-900{% endif %}">
-    <i data-lucide="{{ icon }}"
-       class="w-4 h-4 shrink-0 {% if active_section == section %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
-    <span>{{ label }}</span>
+     x-show="q === '' || '{{ label|lower|escapejs }}'.includes(q.toLowerCase().trim())"
+     class="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-colors
+            {% if active_section == section %}bg-primary-50{% else %}hover:bg-gray-100{% endif %}">
+    <i data-lucide="{{ icon }}" class="w-4 h-4 shrink-0 {% if active_section == section %}text-primary-600{% else %}text-gray-400{% endif %}"></i>
+    <span class="min-w-0">
+      <span class="block {% if active_section == section %}text-primary-700 font-medium{% else %}text-gray-700{% endif %} truncate">{{ label }}</span>
+      {% if value %}<span class="block text-[11px] {% if active_section == section %}text-primary-500{% else %}text-gray-400{% endif %} truncate">{{ value }}{% if value_unit %} {{ value_unit }}{% endif %}</span>{% endif %}
+    </span>
   </a>
   {% endwith %}
 {% else %}
-  <span class="flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg text-sm text-gray-400 cursor-default select-none">
+  <span x-show="q === '' || '{{ label|lower|escapejs }}'.includes(q.toLowerCase().trim())"
+        class="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-gray-400 cursor-default select-none">
     <i data-lucide="{{ icon }}" class="w-4 h-4 shrink-0 text-gray-300"></i>
-    <span class="flex-1">{{ label }}</span>
-    <span class="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded font-medium tracking-wide leading-none shrink-0">Bientôt</span>
+    <span class="flex-1 truncate">{{ label }}</span>
+    <span class="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded font-medium leading-none shrink-0">Bientôt</span>
   </span>
 {% endif %}

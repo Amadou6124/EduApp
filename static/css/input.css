@@ -16,6 +16,17 @@
   h2 { @apply text-xl  font-semibold tracking-tight text-gray-900; } /* 20 / 600 */
   h3 { @apply text-base font-semibold text-gray-900; }               /* 16 / 600 */
   p  { @apply text-sm text-gray-600 leading-relaxed; }               /* 14 / 400 */
+
+  /* Alpine : masque les éléments avant initialisation.
+     Global (compilé dans output.css) → couvre toutes les bases, y compris
+     base_parent / base_student qui ne déclarent pas la règle en inline. */
+  [x-cloak] { display: none !important; }
+
+  /* Focus clavier visible sur le châssis (header · sidebar · nav).
+     Microstate « premium » qui manquait — l'anneau épouse le radius natif. */
+  :where(header, aside, nav) :is(a, button):focus-visible {
+    @apply outline-none ring-2 ring-primary-500/40;
+  }
 }
 
 /* ════════════════════════════════════════════════════════
@@ -64,6 +75,26 @@
     @apply btn bg-gold-500 text-white font-semibold
            hover:bg-gold-600
            focus:ring-2 focus:ring-gold-500/30;
+  }
+
+  /* ─────────────── SIDEBAR — items de navigation ─────────────── */
+  /* Item de nav (source unique : repos · hover · actif + barre d'accent). */
+  .nav-link {
+    @apply relative flex items-center w-full py-2 rounded-lg
+           text-gray-600 transition-colors duration-150
+           hover:bg-gray-50 hover:text-gray-900;
+  }
+  .nav-link.is-active {
+    @apply bg-primary-50 text-primary-700 font-semibold hover:bg-primary-50;
+  }
+  /* Barre d'accent à gauche de l'item actif (état, jamais décoratif). */
+  .nav-link.is-active::before {
+    content: "";
+    @apply absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary-600;
+  }
+  /* Label de section (masqué en mode replié via x-show). */
+  .nav-section {
+    @apply px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400;
   }
 
   /* ─────────────── FORMULAIRES ─────────────── */
@@ -128,6 +159,11 @@
     @apply bg-gray-50 px-4 py-3 text-left
            text-xs font-semibold uppercase tracking-wider text-gray-500;
   }
+  /* Override d'alignement : sans ça, .data-table thead th (spécificité 0,1,2)
+     écrase les utilitaires .text-right / .text-center (0,1,0) → en-têtes décalés
+     par rapport aux cellules. Ces sélecteurs ciblés (0,2,2) rétablissent l'alignement. */
+  .data-table thead th.text-right  { text-align: right; }
+  .data-table thead th.text-center { text-align: center; }
   .data-table tbody tr {
     @apply border-b border-gray-100 transition-colors hover:bg-gray-50/50;
   }
@@ -197,6 +233,11 @@
 
   /* Skeleton loading */
   .skeleton { @apply bg-gray-200 rounded animate-pulse; }
+
+  /* Masque la barre de scroll (carrousels, listes horizontales).
+     Global (était isolé dans student.css, donc inopérant hors portail élève). */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
   @keyframes fadeIn {
     from { opacity: 0; }

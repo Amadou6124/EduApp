@@ -1,86 +1,63 @@
 {% load i18n %}
 {% if subjects %}
-  <div class="space-y-2">
+  <div class="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
     {% for subject in subjects %}
     <div x-data="{ edit: false }"
-         class="flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition">
-      <div class="flex items-center gap-3 min-w-0">
-        <!-- Badge coloré -->
-        <span class="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-              style="background-color: {{ subject.color }};">
-          {{ subject.short_name|truncatechars:3 }}
-        </span>
-        <div class="min-w-0">
-          <p class="text-sm font-semibold text-gray-900 truncate">{{ subject.name }}</p>
-          <p class="text-xs text-gray-400">{{ subject.short_name }}</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-1 flex-shrink-0">
-        <!-- Modifier -->
-        <button type="button" @click="edit = true"
-                class="p-1.5 text-gray-300 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-          </svg>
+         x-show="cq === '' || '{{ subject.name|lower|escapejs }} {{ subject.short_name|lower|escapejs }}'.includes(cq.toLowerCase().trim())"
+         class="group inline-flex items-center gap-2 border border-gray-200 rounded-full pl-2.5 pr-1 py-1 hover:border-gray-300 transition">
+      <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ subject.color }};"></span>
+      <span class="text-sm text-gray-800">{{ subject.name }}</span>
+      <span class="text-[10px] font-mono text-gray-400">{{ subject.short_name }}</span>
+      <span class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <button type="button" @click="edit = true" class="p-1 text-gray-300 hover:text-primary-600 rounded-full" title="Modifier">
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
         </button>
-        <!-- Supprimer (soft delete) -->
         <button type="button"
                 @click="$store.confirm.show({
-                  title: 'Supprimer {{ subject.name }}',
+                  title: 'Supprimer {{ subject.name|escapejs }}',
                   message: 'Cette matière sera désactivée dans toute l\'école.',
                   confirmText: 'Supprimer', confirmIcon: 'trash-2', confirmClass: 'btn-danger',
                   icon: 'alert-triangle', iconBg: 'bg-red-50', iconColor: 'text-red-500',
-                  onConfirm: () => htmx.ajax('DELETE', '{% url "settings:subject-delete" subject.id %}', {target: '#subject-list', swap: 'innerHTML'})
+                  onConfirm: () => htmx.ajax('DELETE', '{% url 'settings:subject-delete' subject.id %}', {target: '#subject-list', swap: 'innerHTML'})
                 })"
-                class="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-          </svg>
+                class="p-1 text-gray-300 hover:text-red-500 rounded-full" title="Supprimer">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
         </button>
-      </div>
+      </span>
 
-      <!-- Modal édition -->
-      <div x-show="edit" x-cloak
-           @click.self="edit = false" @keydown.escape.window="edit = false"
-           class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-        <form hx-post="{% url 'settings:subject-update' subject.id %}"
-              hx-target="#subject-list" hx-swap="innerHTML"
-              @click.stop
-              class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-sm p-5 space-y-3 text-left">
-          {% csrf_token %}
-          <h4 class="text-sm font-semibold text-gray-900">Modifier la matière</h4>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Nom complet <span class="text-red-500">*</span></label>
-            <input name="name" value="{{ subject.name }}" required maxlength="100"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-          </div>
-          <div class="grid grid-cols-2 gap-3">
+      {# Modal édition #}
+      <template x-teleport="body">
+        <div x-show="edit" x-cloak @keydown.escape.window="edit = false"
+             class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" @click.self="edit = false">
+          <form hx-post="{% url 'settings:subject-update' subject.id %}"
+                hx-target="#subject-list" hx-swap="innerHTML" @click.stop
+                class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-sm p-5 space-y-3 text-left">
+            {% csrf_token %}
+            <h4 class="text-sm font-semibold text-gray-900">Modifier la matière</h4>
             <div>
-              <label class="block text-xs font-semibold text-gray-600 mb-1">Abréviation <span class="text-red-500">*</span></label>
-              <input name="short_name" value="{{ subject.short_name }}" required maxlength="10"
-                     class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+              <label class="block text-xs font-medium text-gray-600 mb-1">Nom <span class="text-red-400">*</span></label>
+              <input name="name" value="{{ subject.name }}" required maxlength="100" class="input-field w-full text-sm">
             </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-600 mb-1">Couleur</label>
-              <input name="color" value="{{ subject.color }}" maxlength="7"
-                     x-bind:style="'background-color:'+$el.value"
-                     class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Abréviation <span class="text-gray-400 font-normal">auto</span></label>
+                <input name="short_name" value="{{ subject.short_name }}" maxlength="10" class="input-field w-full text-sm">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Couleur <span class="text-gray-400 font-normal">auto</span></label>
+                <input name="color" value="{{ subject.color }}" maxlength="7" x-bind:style="'background-color:'+$el.value" class="input-field w-full text-sm text-white">
+              </div>
             </div>
-          </div>
-          <div class="flex gap-2 pt-1">
-            <button type="submit"
-                    class="flex-1 bg-primary-600 text-white text-xs font-semibold rounded-lg py-2.5 hover:bg-primary-700 transition">Enregistrer</button>
-            <button type="button" @click="edit = false"
-                    class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg py-2.5 transition">Annuler</button>
-          </div>
-        </form>
-      </div>
+            <div class="flex gap-2 pt-1">
+              <button type="submit" class="btn-primary flex-1 justify-center text-sm">Enregistrer</button>
+              <button type="button" @click="edit = false" class="btn-secondary flex-1 justify-center text-sm">Annuler</button>
+            </div>
+          </form>
+        </div>
+      </template>
     </div>
     {% endfor %}
   </div>
 {% else %}
-  <div class="text-center py-10 text-gray-400">
-    <p class="text-sm">Aucune matière configurée.</p>
-    <p class="text-xs mt-1">Ajoutez-en une ou utilisez les suggestions.</p>
-  </div>
+  <p class="text-sm text-gray-400 py-4">Aucune matière — ajoutez-en une (bouton « Matière ») ou via les suggestions.</p>
 {% endif %}

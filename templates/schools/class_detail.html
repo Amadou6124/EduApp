@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}{{ school_class.name }}{% endblock %}
+{% block page_title %}{{ school_class.name }}{% endblock %}
+
+{% block header_actions %}
+  <div class="flex items-center gap-2">
+    <a href="{% url 'bulletins:main' %}?class={{ school_class.id }}"
+       class="flex items-center gap-2 px-4 h-10 bg-white border border-gray-200 text-gray-600 hover:border-primary-600 hover:text-primary-600 text-sm font-medium rounded-lg transition"
+       title="{% trans 'Bilan officiel : bulletins, moyenne générale pondérée, classement' %}">
+      <i data-lucide="file-text" class="w-4 h-4 shrink-0"></i><span class="hidden sm:inline">{% trans "Bulletins" %}</span>
+    </a>
+    <a href="{% url 'students:list' %}?class_id={{ school_class.id }}"
+       class="flex items-center gap-2 px-4 h-10 bg-white border border-gray-200 text-gray-600 hover:border-primary-600 hover:text-primary-600 text-sm font-medium rounded-lg transition">
+      <i data-lucide="users" class="w-4 h-4 shrink-0"></i><span class="hidden sm:inline">{% trans "Voir élèves" %}</span>
+    </a>
+    <button type="button"
+            hx-get="{% url 'schools:class-edit-modal' school_class.id %}" hx-target="#modal-edit-content" hx-swap="innerHTML"
+            hx-on::after-request="if(event.detail.successful) window.dispatchEvent(new CustomEvent('open-edit-modal'))"
+            class="btn-primary h-10">
+      <i data-lucide="pencil" class="w-4 h-4"></i><span class="hidden sm:inline">{% trans "Modifier" %}</span>
+    </button>
+  </div>
+{% endblock %}
+
+{% block content %}
+{% with k=cockpit.kpis %}
+<div x-data="{ tab: 'overview', showEditModal: false }"
+     @open-edit-modal.window="showEditModal = true"
+     @close-edit-modal.window="showEditModal = false; setTimeout(() => location.reload(), 250)"
+     @keydown.escape.window="showEditModal = false">
+
+  {# Fil d'ariane + méta #}
+  <div class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+    <a href="{% url 'schools:class-list' %}" class="hover:text-primary-600 flex items-center gap-1"><i data-lucide="arrow-left" class="w-4 h-4"></i> {% trans "Classes" %}</a>
+    <span class="text-gray-300">/</span>
+    <span class="badge-neutral">{{ school_class.get_level_display }}</span>
+    {% if school_class.max_capacity and school_class.is_full %}<span class="badge-danger">{% trans "Complet" %}</span>
+    {% elif school_class.max_capacity %}<span class="badge-success">{% trans "Disponible" %}</span>{% endif %}
+  </div>
+
+  {# ════ KPIs (honnêtes : pas de faux taux de présence) ════ #}
+  <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+    <div class="kpi">
+      <div class="flex items-center gap-3">
+        <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0"><i data-lucide="users" class="w-5 h-5"></i></div>
+        <div class="min-w-0">
+          <p class="kpi-value">{{ k.effectif }}</p>
+          <p class="kpi-label"><span class="text-blue-500">{{ k.boys }} G</span> · <span class="text-pink-500">{{ k.girls }} F</span></p>
+        </div>
+      </div>
+    </div>
+    <div class="kpi">
+      <div class="flex items-center gap-3">
+        <div class="kpi-icon bg-gray-50 text-gray-600 shrink-0"><i data-lucide="layout-grid" class="w-5 h-5"></i></div>
+        <div class="min-w-0">
+          <p class="kpi-value">{% if k.max_capacity %}{{ k.effectif }}<span class="text-sm text-gray-400">/{{ k.max_capacity }}</span>{% else %}—{% endif %}</p>
+          <p class="kpi-label">{% trans "Remplissage" %}</p>
+        </div>
+      </div>
+    </div>
+    <div class="kpi">
+      <div class="flex items-center gap-3">
+        <div class="kpi-icon bg-amber-50 text-amber-500 shrink-0"><i data-lucide="calendar-x" class="w-5 h-5"></i></div>
+        <div class="min-w-0">
+          <p class="kpi-value {% if k.absences %}text-amber-600{% endif %}">{{ k.absences }}</p>
+          <p class="kpi-label">{% trans "Absences" %} · {{ k.window_days }} j{% if k.retards %} · {{ k.retards }} ret.{% endif %}</p>
+        </div>
+      </div>
+    </div>
+    <div class="kpi" title="{% trans 'Moyenne simple, toutes périodes confondues (indicative). La moyenne générale officielle (pondérée par coefficients) est dans les bulletins.' %}">
+      <div class="flex items-center gap-3">
+        <div class="kpi-icon bg-gray-50 text-gray-600 shrink-0"><i data-lucide="book-open" class="w-5 h-5"></i></div>
+        <div class="min-w-0">
+          <p class="kpi-value {% if k.moyenne == None %}{% elif k.moyenne < 10 %}text-red-600{% elif k.moyenne < 12 %}text-amber-600{% else %}text-green-600{% endif %}">{% if k.moyenne != None %}{{ k.moyenne }}<span class="text-sm text-gray-400">/20</span>{% else %}—{% endif %}</p>
+          <p class="kpi-label">{% trans "Moy. indicative" %}</p>
+        </div>
+      </div>
+    </div>
+    <div class="kpi col-span-2 lg:col-span-1">
+      <div class="flex items-center gap-3">
+        <div class="kpi-icon bg-green-50 text-green-600 shrink-0"><i data-lucide="wallet" class="w-5 h-5"></i></div>
+        <div class="min-w-0">
+          <p class="kpi-value {% if k.recouvrement == None %}{% elif k.recouvrement < 50 %}text-red-600{% elif k.recouvrement < 80 %}text-amber-600{% else %}text-green-600{% endif %}">{% if k.recouvrement != None %}{{ k.recouvrement }}%{% else %}—{% endif %}</p>
+          <p class="kpi-label">{% trans "Recouvrement" %}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ════ Onglets ════ #}
+  <div class="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto scrollbar-hide">
+    <button type="button" @click="tab='overview'" :class="tab==='overview' ? 'border-primary-600 text-gray-900 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'" class="px-4 py-2.5 text-sm border-b-2 -mb-px whitespace-nowrap transition-colors">{% trans "Vue d'ensemble" %}</button>
+    <button type="button" @click="tab='students'" :class="tab==='students' ? 'border-primary-600 text-gray-900 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'" class="px-4 py-2.5 text-sm border-b-2 -mb-px whitespace-nowrap transition-colors">{% trans "Élèves" %} <span class="text-gray-400">{{ cockpit.roster|length }}</span></button>
+    <button type="button" @click="tab='subjects'" :class="tab==='subjects' ? 'border-primary-600 text-gray-900 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'" class="px-4 py-2.5 text-sm border-b-2 -mb-px whitespace-nowrap transition-colors">{% trans "Matières" %} <span class="text-gray-400">{{ cockpit.class_subjects|length }}</span></button>
+  </div>
+
+  {# ════ Onglet : Vue d'ensemble ════ #}
+  <div x-show="tab==='overview'" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    {# Élèves à risque #}
+    <div class="card p-5">
+      <div class="flex items-center gap-2 text-sm font-semibold text-red-600 mb-3">
+        <i data-lucide="alert-triangle" class="w-4 h-4"></i> {% trans "Élèves à risque" %}
+        <span class="text-gray-400 font-normal">· {% trans "moy. < 10 ou ≥ 3 absences" %}</span>
+      </div>
+      {% if cockpit.at_risk %}
+        <div class="divide-y divide-gray-100">
+          {% for r in cockpit.at_risk %}
+          <a href="{% url 'students:detail' r.student.id %}" class="flex items-center justify-between py-2 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition">
+            <span class="text-sm text-gray-800 truncate">{{ r.student.full_name }}</span>
+            <span class="text-xs shrink-0 flex items-center gap-2">
+              {% if r.moyenne != None %}<span class="{% if r.moyenne < 10 %}text-red-600{% else %}text-gray-500{% endif %}">{{ r.moyenne }}/20</span>{% endif %}
+              {% if r.absences %}<span class="text-amber-600">{{ r.absences }} abs.</span>{% endif %}
+            </span>
+          </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-sm text-gray-400 py-4 text-center">{% trans "Aucun élève à risque 🎉" %}</p>
+      {% endif %}
+    </div>
+
+    {# Moyenne par matière (indicative, toutes périodes) #}
+    <div class="card p-5">
+      <div class="mb-3">
+        <span class="text-sm font-semibold text-gray-900">{% trans "Moyenne par matière" %}</span>
+        <span class="text-xs text-gray-400 font-normal ml-1">· {% trans "indicative" %}</span>
+      </div>
+      {% if cockpit.subjects_avg %}
+        <div class="flex flex-col gap-2.5">
+          {% for s in cockpit.subjects_avg %}
+          <div class="flex items-center gap-3 text-sm">
+            <span class="w-28 shrink-0 text-gray-600 truncate">{{ s.subject }}</span>
+            <span class="flex-1 min-w-0 h-2 rounded-full bg-gray-100 overflow-hidden">
+              <span class="block h-full rounded-full {% if s.moyenne < 10 %}bg-red-500{% elif s.moyenne < 12 %}bg-amber-400{% else %}bg-green-500{% endif %}" style="width:{% widthratio s.moyenne 20 100 %}%"></span>
+            </span>
+            <span class="w-10 text-right tabular-nums text-gray-700">{{ s.moyenne }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-sm text-gray-400 py-4 text-center">{% trans "Aucune note saisie." %}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ════ Onglet : Élèves (roster pédagogique) ════ #}
+  <div x-show="tab==='students'" x-cloak>
+    {% if cockpit.roster %}
+      {# Desktop : table #}
+      <div class="hidden lg:block table-card">
+        <table class="data-table">
+          <thead><tr><th>{% trans "Élève" %}</th><th class="text-center">{% trans "Genre" %}</th><th class="text-right">{% trans "Moyenne" %}</th><th class="text-right">{% trans "Absences" %}</th><th class="text-right">{% trans "Solde" %}</th></tr></thead>
+          <tbody>
+            {% for r in cockpit.roster %}
+            <tr class="cursor-pointer {% if r.at_risk %}bg-red-50/50{% endif %}" onclick="window.location.href='{% url 'students:detail' r.student.id %}'">
+              <td class="font-medium text-gray-900">{{ r.student.full_name }}</td>
+              <td class="text-center">{% if r.student.gender == 'M' %}<span class="text-blue-500 text-xs">G</span>{% elif r.student.gender == 'F' %}<span class="text-pink-500 text-xs">F</span>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
+              <td class="text-right tabular-nums {% if r.moyenne != None and r.moyenne < 10 %}text-red-600 font-medium{% else %}text-gray-700{% endif %}">{% if r.moyenne != None %}{{ r.moyenne }}{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
+              <td class="text-right tabular-nums {% if r.absences %}text-amber-600{% else %}text-gray-400{% endif %}">{{ r.absences }}</td>
+              <td class="text-right tabular-nums">{% if r.balance == None %}<span class="text-gray-300">—</span>{% elif r.balance > 0 %}<span class="text-red-600">{{ r.balance|floatformat:0|intcomma }}</span>{% else %}<span class="text-green-600">{% trans "à jour" %}</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {# Mobile : cards #}
+      <div class="lg:hidden space-y-2.5">
+        {% for r in cockpit.roster %}
+        <a href="{% url 'students:detail' r.student.id %}" class="block bg-white border rounded-xl p-3.5 {% if r.at_risk %}border-red-100{% else %}border-gray-200{% endif %} active:bg-gray-50 transition">
+          <div class="flex items-center justify-between">
+            <span class="font-medium text-gray-900">{{ r.student.full_name }}</span>
+            {% if r.student.gender == 'M' %}<span class="text-blue-500 text-xs">G</span>{% elif r.student.gender == 'F' %}<span class="text-pink-500 text-xs">F</span>{% endif %}
+          </div>
+          <div class="flex items-center gap-4 text-xs text-gray-500 mt-1.5">
+            <span>{% trans "moy" %} {% if r.moyenne != None %}<span class="{% if r.moyenne < 10 %}text-red-600{% endif %}">{{ r.moyenne }}</span>{% else %}—{% endif %}</span>
+            <span>{% trans "abs" %} <span class="{% if r.absences %}text-amber-600{% endif %}">{{ r.absences }}</span></span>
+            <span>{% if r.balance == None %}—{% elif r.balance > 0 %}<span class="text-red-600">{{ r.balance|floatformat:0|intcomma }} F</span>{% else %}<span class="text-green-600">{% trans "à jour" %}</span>{% endif %}</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-400 py-10 text-center">{% trans "Aucun élève dans cette classe." %}</p>
+    {% endif %}
+  </div>
+
+  {# ════ Onglet : Matières & enseignants ════ #}
+  <div x-show="tab==='subjects'" x-cloak>
+    {% if cockpit.class_subjects %}
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>{% trans "Matière" %}</th><th>{% trans "Enseignant" %}</th><th class="text-center">{% trans "Coef." %}</th><th class="text-right">{% trans "Volume" %}</th></tr></thead>
+          <tbody>
+            {% for cs in cockpit.class_subjects %}
+            <tr>
+              <td class="font-medium text-gray-900">{{ cs.subject.name }}</td>
+              <td class="text-gray-600">{% if cs.teacher %}{{ cs.teacher.full_name }}{% else %}<span class="text-amber-500 text-xs">{% trans "non assigné" %}</span>{% endif %}</td>
+              <td class="text-center text-gray-600">{{ cs.coefficient|floatformat:"-2" }}</td>
+              <td class="text-right text-gray-500">{% if cs.duration_hours %}{{ cs.duration_hours|floatformat:"-1" }} h{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-400 py-10 text-center">{% trans "Aucune matière configurée." %}</p>
+    {% endif %}
+  </div>
+
+  {# ════ Slide-over édition (téléporté) ════ #}
+  <template x-teleport="body">
+    <div>
+      <div x-show="showEditModal" x-cloak @click="showEditModal=false" x-transition.opacity class="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[55]"></div>
+      <div x-show="showEditModal" x-cloak
+           x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+           class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white shadow-2xl border-l border-gray-200 z-[60] flex flex-col">
+        <div id="modal-edit-content" class="h-full overflow-y-auto"></div>
+      </div>
+    </div>
+  </template>
+
+</div>
+{% endwith %}
+{% endblock %}

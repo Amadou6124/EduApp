@@ -1,0 +1,31 @@
+{% load i18n humanize %}
+{# Carte classe (mobile) : corps → cockpit ; « Voir élèves » → roster ; crayon → édition. #}
+<div class="bg-white border border-gray-200 rounded-xl p-3.5">
+  <a href="{% url 'schools:class-detail' school_class.id %}" class="block">
+  <div class="flex items-center justify-between gap-2">
+    <span class="font-medium text-gray-900">{{ school_class.name }}</span>
+    <span class="badge-neutral shrink-0">{{ school_class.get_level_display }}</span>
+  </div>
+  <div class="flex items-center justify-between text-xs text-gray-400 mt-2">
+    <span>{{ school_class.student_count }}{% if school_class.max_capacity %} / {{ school_class.max_capacity }}{% endif %} {% trans "élèves" %} · <span class="text-blue-500">{{ school_class.boys }} G</span> · <span class="text-pink-500">{{ school_class.girls }} F</span></span>
+    <span>{{ school_class.annual_fee|intcomma }} F</span>
+  </div>
+  {% if school_class.max_capacity %}
+    <div class="h-1.5 rounded-full bg-gray-100 mt-2 overflow-hidden">
+      <div class="h-full rounded-full {% if school_class.is_full %}bg-red-500{% else %}bg-primary-600{% endif %}" style="width:{% widthratio school_class.student_count school_class.max_capacity 100 %}%"></div>
+    </div>
+  {% endif %}
+  </a>
+  <div class="flex items-center gap-2 mt-3">
+    <a href="{% url 'students:list' %}?class_id={{ school_class.id }}"
+       class="flex-1 h-9 border border-primary-600 text-primary-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 active:bg-primary-50 transition">
+      <i data-lucide="users" class="w-4 h-4"></i> {% trans "Voir élèves" %}
+    </a>
+    <button type="button"
+            hx-get="{% url 'schools:class-edit-modal' school_class.id %}" hx-target="#modal-edit-content" hx-swap="innerHTML"
+            hx-on::after-request="if(event.detail.successful) window.dispatchEvent(new CustomEvent('open-edit-modal'))"
+            class="h-9 px-3 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg border border-gray-200 transition" title="{% trans 'Modifier' %}">
+      <i data-lucide="pencil" class="w-4 h-4"></i>
+    </button>
+  </div>
+</div>

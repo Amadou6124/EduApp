@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from .models import (
     School, SchoolClass, SchoolType,
     SchoolYear, Period, PeriodType,
-    Subject, ClassSubject, NoteSystem,
+    Subject, ClassSubject,
     BulletinConfig,
 )
 
@@ -19,21 +19,21 @@ class SchoolClassForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={
                 'placeholder': _('Ex : 6ème A, CP1, Terminale S'),
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-gray-800',
+                'class': 'input-field',
                 'autofocus': True,
             }),
             'level': forms.Select(attrs={
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-gray-800 bg-white',
+                'class': 'input-field bg-white cursor-pointer',
             }),
             'annual_fee': forms.NumberInput(attrs={
                 'placeholder': _('Ex : 150000'),
                 'min': '0',
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-gray-800',
+                'class': 'input-field pr-14',
             }),
             'max_capacity': forms.NumberInput(attrs={
                 'placeholder': _('Optionnel'),
                 'min': '1',
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-gray-800',
+                'class': 'input-field',
             }),
         }
         labels = {
@@ -61,24 +61,23 @@ class GeneralSettingsForm(forms.ModelForm):
 
     class Meta:
         model = School
-        fields = ['name', 'phone_number', 'email',
-                  'address', 'city', 'country',
-                  'current_school_year', 'school_type']
+        fields = ['logo', 'name', 'short_name', 'phone_number', 'email',
+                  'address', 'city', 'country', 'school_type']
         widgets = {
             'name':                forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : École Primaire Sainte Marie'}),
+            'short_name':          forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : EPF Sundiata'}),
             'phone_number':        forms.TextInput(attrs={'class': _F, 'placeholder': '+223 00 00 00 00'}),
             'email':               forms.EmailInput(attrs={'class': _F, 'placeholder': 'contact@ecole.ml'}),
             'address':             forms.TextInput(attrs={'class': _F, 'placeholder': 'Rue Soundiata Keïta, Hamdallaye', 'list': 'countries-list'}),
             'city':                forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Bamako'}),
             'country':             forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Mali', 'list': 'countries-list'}),
-            'current_school_year': forms.TextInput(attrs={'class': _F, 'placeholder': '2024-2025'}),
             'school_type':         forms.Select(attrs={'class': _S}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['school_type'].choices = [('', '— Sélectionner —')] + list(SchoolType.choices)
-        for f in ['email', 'address', 'city', 'current_school_year', 'school_type']:
+        for f in ['phone_number', 'email', 'address', 'city', 'school_type']:
             self.fields[f].required = False
 
     def clean_name(self):
@@ -88,10 +87,16 @@ class GeneralSettingsForm(forms.ModelForm):
         return v
 
     def clean_phone_number(self):
-        v = self.cleaned_data.get('phone_number', '').strip()
-        if not v:
-            raise forms.ValidationError('Le numéro de téléphone est obligatoire.')
-        return v
+        return self.cleaned_data.get('phone_number', '').strip()
+
+    def clean_logo(self):
+        logo = self.cleaned_data.get('logo')
+        if logo and hasattr(logo, 'content_type'):
+            if logo.content_type not in ('image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'):
+                raise forms.ValidationError('Format invalide. Utilisez PNG, JPG ou SVG.')
+            if logo.size > 2 * 1024 * 1024:
+                raise forms.ValidationError('Le logo ne doit pas dépasser 2 Mo.')
+        return logo
 
 
 class AppearanceForm(forms.ModelForm):
@@ -110,13 +115,6 @@ class AppearanceForm(forms.ModelForm):
         return logo
 
 
-class ReceiptModeForm(forms.ModelForm):
-
-    class Meta:
-        model = School
-        fields = ['receipt_mode']
-
-
 class ReceiptSignerForm(forms.ModelForm):
 
     class Meta:
@@ -127,22 +125,6 @@ class ReceiptSignerForm(forms.ModelForm):
                 'class': _F, 'placeholder': 'Ex : Le Directeur',
             }),
         }
-
-
-class ReceiptUploadForm(forms.ModelForm):
-
-    class Meta:
-        model = School
-        fields = ['receipt_template_pdf']
-
-    def clean_receipt_template_pdf(self):
-        pdf = self.cleaned_data.get('receipt_template_pdf')
-        if pdf and hasattr(pdf, 'content_type'):
-            if pdf.content_type != 'application/pdf':
-                raise forms.ValidationError('Seuls les fichiers PDF natifs sont acceptés.')
-            if pdf.size > 10 * 1024 * 1024:
-                raise forms.ValidationError('Le fichier ne doit pas dépasser 10 Mo.')
-        return pdf
 
 
 # ── Années scolaires + Périodes ────────────────────────────────────────────
@@ -187,18 +169,24 @@ class SubjectForm(forms.ModelForm):
         fields = ['name', 'short_name', 'color']
         widgets = {
             'name':       forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Mathématiques'}),
-            'short_name': forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Maths', 'maxlength': '10'}),
+            'short_name': forms.TextInput(attrs={'class': _F, 'placeholder': 'Auto', 'maxlength': '10'}),
             'color':      forms.TextInput(attrs={
-                'class': _F, 'placeholder': '#1E3A5F', 'maxlength': '7',
+                'class': _F, 'placeholder': 'Auto', 'maxlength': '7',
                 'x-bind:style': "'background-color:'+$el.value",
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Abréviation + couleur : optionnelles → générées auto (Subject.save) si vides.
+        self.fields['short_name'].required = False
+        self.fields['color'].required = False
 
     def clean_color(self):
         color = self.cleaned_data.get('color', '').strip()
         if color and not re.match(r'^#[0-9A-Fa-f]{6}$', color):
             raise forms.ValidationError('Format invalide. Utilisez #RRGGBB.')
-        return color or '#1E3A5F'
+        return color
 
 
 # ── Bulletin config ────────────────────────────────────────────────────────
@@ -214,9 +202,9 @@ class BulletinConfigForm(forms.ModelForm):
             'bulletin_title',
             'show_logo',
             'paper_format',
-            'show_rank', 'show_class_average',
+            'show_rank',
             'show_first_average', 'show_appreciations',
-            'show_annual_averages', 'show_last_average',
+            'show_last_average',
             'footer_left', 'footer_right',
         ]
         widgets = {
@@ -229,6 +217,13 @@ class BulletinConfigForm(forms.ModelForm):
             'paper_format':   forms.Select(attrs={'class': _S}),
             'footer_left':    forms.TextInput(attrs={'class': _F, 'placeholder': "Le Parent"}),
             'footer_right':   forms.TextInput(attrs={'class': _F, 'placeholder': "Le Directeur"}),
+            # Interrupteurs (cases masquées + piste stylée dans le template)
+            'show_ministry_header': forms.CheckboxInput(attrs={'class': 'sr-only peer', 'x-model': 'ministry'}),
+            'show_logo':            forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
+            'show_rank':            forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
+            'show_first_average':   forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
+            'show_appreciations':   forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
+            'show_last_average':    forms.CheckboxInput(attrs={'class': 'sr-only peer'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -242,19 +237,16 @@ class ClassSubjectForm(forms.ModelForm):
     class Meta:
         model  = ClassSubject
         fields = [
-            'subject', 'coefficient', 'note_system',
-            'coeff_devoirs', 'coeff_compo', 'max_grade',
-            'teacher', 'order',
+            'subject', 'coefficient', 'max_grade',
+            'duration_hours', 'teacher', 'order',
         ]
         widgets = {
-            'subject':       forms.Select(attrs={'class': _S}),
-            'coefficient':   forms.NumberInput(attrs={'class': _F, 'step': '0.1', 'min': '0.1'}),
-            'note_system':   forms.Select(attrs={'class': _S}),
-            'coeff_devoirs': forms.NumberInput(attrs={'class': _F, 'step': '0.01', 'min': '0', 'max': '1'}),
-            'coeff_compo':   forms.NumberInput(attrs={'class': _F, 'step': '0.01', 'min': '0', 'max': '1'}),
-            'max_grade':     forms.NumberInput(attrs={'class': _F, 'step': '0.01', 'min': '1'}),
-            'teacher':       forms.Select(attrs={'class': _S}),
-            'order':         forms.NumberInput(attrs={'class': _F, 'min': '0'}),
+            'subject':        forms.Select(attrs={'class': _S}),
+            'coefficient':    forms.NumberInput(attrs={'class': _F, 'step': '0.1', 'min': '0.1'}),
+            'max_grade':      forms.NumberInput(attrs={'class': _F, 'step': '0.01', 'min': '1'}),
+            'duration_hours': forms.NumberInput(attrs={'class': _F, 'step': '0.5', 'min': '0.5'}),
+            'teacher':        forms.Select(attrs={'class': _S}),
+            'order':          forms.NumberInput(attrs={'class': _F, 'min': '0'}),
         }
 
     def __init__(self, school, school_class, *args, **kwargs):

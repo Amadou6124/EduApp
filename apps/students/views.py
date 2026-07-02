@@ -41,13 +41,13 @@ logger = logging.getLogger(__name__)
 
 
 
-def _students_qs(school, filter_type='all', class_id=None):
+def _students_qs(school, status='all', class_id=None, no_parent=False):
     """
     Queryset de la liste élèves, annoté par le helper CENTRAL (nouveau modèle) :
     chaque élève porte fee_status / fee_due / fee_paid / fee_balance / has_fee_account.
     Les élèves SANS fiche ont fee_status='no_fee' (badge neutre, jamais rouge).
-    Filtres Impayés/Partiel/Soldés = notion de FICHE → les sans-fiche en sont EXCLUS,
-    mais restent visibles dans « Tous ».
+    Filtres COMBINABLES (axes indépendants) : statut paiement × classe × sans-parent.
+    `status` ∈ {paid,partial,unpaid,no_fee} ; 'all' = pas de filtre statut.
     """
     from apps.finance.services import annotate_students_with_fees
     qs = (
@@ -57,13 +57,12 @@ def _students_qs(school, filter_type='all', class_id=None):
         .order_by('full_name')
     )
     qs = annotate_students_with_fees(qs)
-    if filter_type == 'no_parent':
-        qs = qs.filter(parent_phone_number='')
-    elif filter_type in ('unpaid', 'partial', 'paid'):
-        # fee_status ∈ {paid,partial,unpaid,no_fee} → filtrer dessus exclut no_fee.
-        qs = qs.filter(fee_status=filter_type)
-    elif filter_type == 'class' and class_id:
+    if status in ('unpaid', 'partial', 'paid', 'no_fee'):
+        qs = qs.filter(fee_status=status)
+    if class_id:
         qs = qs.filter(school_class_id=class_id)
+    if no_parent:
+        qs = qs.filter(parent_phone_number='')
     return qs
 
 
@@ -87,6 +86,39 @@ def compute_student_stats(school):
     }
 
 
+def _student_list_page(request, school):
+    """Lit les filtres combinables (statut × classe × sans-parent × recherche) dans la
+    query-string et renvoie le contexte PAGINÉ partagé par la page complète et le
+    rafraîchissement HTMX (#student-list-area). 30 élèves / page."""
+    status    = request.GET.get('status', 'all')
+    class_id  = request.GET.get('class_id') or None
+    no_parent = request.GET.get('no_parent') in ('1', 'true', 'on')
+    query     = request.GET.get('q', '').strip()
+
+    qs = _students_qs(school, status, class_id, no_parent)
+    if query:
+        # Recherche insensible casse + accents (normalisation Python). Échelle école.
+        nq = norm_name(query)
+        items = [
+            s for s in qs
+            if nq in norm_name(s.full_name)
+            or nq in norm_name(s.school_class.name if s.school_class else '')
+            or nq in norm_name(s.access_code)
+        ]
+    else:
+        items = list(qs)
+
+    page = Paginator(items, 30).get_page(request.GET.get('page'))
+    return {
+        'students':  page,
+        'page_obj':  page,
+        'status':    status,
+        'class_id':  class_id,
+        'no_parent': no_parent,
+        'q':         query,
+    }
+
+
 # ── Vues principales ──────────────────────────────────────────────────────────
 
 @login_required
@@ -94,11 +126,9 @@ def student_list(request):
     if request.user.role == UserRole.TEACHER:
         return redirect('teacher:dashboard')
     school = get_school(request)
-    filter_type = request.GET.get('filter', 'all')
-    class_id    = request.GET.get('class_id')
-    students    = list(_students_qs(school, filter_type, class_id))
-    stats       = compute_student_stats(school)
-    classes     = SchoolClass.objects.filter(school=school, is_active=True).order_by('level', 'name')
+    ctx = _student_list_page(request, school)
+
+    classes = SchoolClass.objects.filter(school=school, is_active=True).order_by('level', 'name')
     # ── Données pour Alpine — passées comme OBJETS Python ──────────────────────
     # IMPORTANT : on laisse {% … json_script %} encoder UNE seule fois côté template.
     # Surtout PAS de json.dumps ici, sinon double encodage → JSON.parse renvoie une
@@ -107,14 +137,11 @@ def student_list(request):
         {'id': c.id, 'name': c.name, 'annual_fee': int(c.annual_fee), 'level': c.level}
         for c in classes
     ]
-    nb_classes = len(classes)  # queryset évalué par classes_data — pas de SQL supplémentaire
-
     # Catalogue de frais + gabarits pour le panneau enrichi (lot 4a).
     fees_data, schedule_data, default_template_count = _enrollment_catalog_data(school)
 
-    return render(request, 'students/student_list.html', {
-        'students':      students,
-        'stats':         stats,
+    ctx.update({
+        'stats':         compute_student_stats(school),
         'form':          StudentCreateForm(school=school),
         'classes':       classes,
         'classes_data':  classes_data,
@@ -122,9 +149,12 @@ def student_list(request):
         'schedule_data': schedule_data,
         'default_template_count': default_template_count,
         'school':        school,
-        'filter_type':   filter_type,
-        'page_subtitle': f"{stats['total']} élève{'s' if stats['total'] != 1 else ''} · {nb_classes} classe{'s' if nb_classes != 1 else ''}",
+        'status_pills': [
+            ('all', 'Tous'), ('paid', 'Soldé'), ('partial', 'Partiel'),
+            ('unpaid', 'Impayé'), ('no_fee', 'Sans fiche'),
+        ],
     })
+    return render(request, 'students/student_list.html', ctx)
 
 
 def _enrollment_catalog_data(school):
@@ -267,13 +297,10 @@ def student_create(request):
             logger.info('[SMS] Notification parent à envoyer — élève : %s', student.full_name)
 
         if request.htmx:
-            students = list(_students_qs(school))
-            stats    = compute_student_stats(school)
-            response = render(request, 'students/partials/student_list_refresh.html', {
-                'students':        students,
-                'stats':           stats,
-                'success_message': f'{student.full_name} inscrit(e) — Code : {student.access_code}',
-            })
+            ctx = _student_list_page(request, school)
+            ctx['stats'] = compute_student_stats(school)
+            ctx['success_message'] = f'{student.full_name} inscrit(e) — Code : {student.access_code}'
+            response = render(request, 'students/partials/student_list_refresh.html', ctx)
             response['HX-Trigger'] = json.dumps({
                 'close-panel': True,
                 'showToast':   {'message': 'Élève inscrit avec succès.', 'type': 'success'},
@@ -286,6 +313,73 @@ def student_create(request):
     return redirect('students:list')
 
 
+def _rail_summary(student, school, active_period):
+    """KPIs « coup d'œil » du rail profil : statut/solde/% payé, prochaine échéance,
+    moyenne (période active), absences 30j, observations non lues. Mono-élève → pas de N+1."""
+    from apps.finance.services import student_fee_summary
+    from apps.finance.models import StudentFeeAccount, FeeDebtKind
+    from apps.schools.models import Note
+    from apps.teachers.models import Attendance, StudentObservation
+    today = timezone.now().date()
+
+    summary = student_fee_summary(student)  # {due,paid,balance,status,has_overdue} | None
+    pct_paid = 0
+    if summary and summary['due']:
+        pct_paid = int(round(summary['paid'] * 100 / summary['due']))
+
+    # Prochaine échéance = tranche de scolarité non soldée la plus proche (échue ou à venir).
+    next_inst = None
+    acc = (StudentFeeAccount.objects
+           .filter(enrollment__student=student, enrollment__status='active', enrollment__school=school)
+           .prefetch_related('debts__installments__allocations').first())
+    if acc:
+        pend = [i for d in acc.debts.all() if d.kind == FeeDebtKind.TUITION
+                for i in d.installments.all() if i.balance() > 0]
+        pend.sort(key=lambda i: i.due_date)
+        next_inst = pend[0] if pend else None
+
+    moyenne = None
+    if active_period:
+        vals = list(Note.objects.filter(student=student, period=active_period, is_cancelled=False)
+                    .values_list('value', flat=True))
+        if vals:
+            moyenne = round(sum(vals) / len(vals), 1)
+
+    return {
+        'fee_status':     summary['status'] if summary else 'no_fee',
+        'fee_balance':    summary['balance'] if summary else None,
+        'fee_paid':       summary['paid'] if summary else None,
+        'fee_due':        summary['due'] if summary else None,
+        'pct_paid':       pct_paid,
+        'has_overdue':    summary['has_overdue'] if summary else False,
+        'next_inst':      next_inst,
+        'moyenne':        moyenne,
+        'absences_count': Attendance.objects.filter(student=student, date__gte=today - timedelta(days=30)).count(),
+        'unread_obs':     StudentObservation.objects.filter(student=student, school=school, is_private=False, is_read=False).count(),
+    }
+
+
+def _notes_by_subject(student, period):
+    """Notes de la période regroupées par matière, avec moyenne par matière (onglet Scolarité)."""
+    from apps.schools.models import Note
+    if not period:
+        return []
+    notes = list(
+        Note.objects.filter(student=student, period=period, is_cancelled=False)
+        .select_related('class_subject', 'class_subject__subject')
+        .order_by('class_subject__order', 'class_subject__subject__name', 'entered_at')
+    )
+    groups = {}
+    for n in notes:
+        groups.setdefault(n.class_subject.subject.name, []).append(n)
+    out = []
+    for subject, ns in groups.items():
+        vals = [n.value for n in ns]
+        out.append({'subject': subject, 'notes': ns,
+                    'avg': round(sum(vals) / len(vals), 1) if vals else None})
+    return out
+
+
 @login_required
 def student_detail(request, student_id):
     school = get_school(request)
@@ -294,91 +388,109 @@ def student_detail(request, student_id):
         id=student_id, school=school,
     )
 
-    observations = None
+    observations = []
     if request.role in (UserRole.DIRECTOR, UserRole.STAFF) or request.user.is_superuser:
         from apps.teachers.models import StudentObservation
         observations = list(
             StudentObservation.objects
             .filter(student=student, school=school, is_private=False)
-            .select_related('student', 'student__school_class', 'teacher', 'read_by')
-            .order_by('-created_at')
+            .select_related('teacher', 'read_by').order_by('-created_at')
         )
 
-    guardians = (
-        student.guardians.select_related('guardian')
-        .order_by('-is_primary', 'created_at')
-    )
+    guardians = student.guardians.select_related('guardian').order_by('-is_primary', 'created_at')
 
-    # ── Enrichissement fiche (mono-élève → requêtes directes, pas de N+1) ──
     from apps.teachers.models import Attendance
-    from apps.schools.models import Note, Period
-
+    from apps.schools.models import Period
     today = timezone.now().date()
     absences_recentes = list(
-        Attendance.objects
-        .filter(student=student, date__gte=today - timedelta(days=30))
-        .select_related('teacher')
-        .order_by('-date')
+        Attendance.objects.filter(student=student, date__gte=today - timedelta(days=30))
+        .select_related('teacher').order_by('-date')
     )
 
-    active_period = (
-        Period.objects
-        .filter(school_year__school=school, school_year__is_active=True)
-        .order_by('-is_notes_open', 'order')
-        .first()
-    )
-    notes_periode = []
-    if active_period:
-        notes_periode = list(
-            Note.objects
-            .filter(student=student, period=active_period, is_cancelled=False)
-            .select_related('class_subject', 'class_subject__subject')
-            .order_by('class_subject__order', 'class_subject__subject__name', 'entered_at')
-        )
+    active_period = (Period.objects
+                     .filter(school_year__school=school, school_year__is_active=True)
+                     .order_by('-is_notes_open', 'order').first())
+    periods = list(Period.objects
+                   .filter(school_year__school=school, school_year__is_active=True).order_by('order'))
+    notes_by_subject = _notes_by_subject(student, active_period)
+    recent_notes = sorted(
+        (n for grp in notes_by_subject for n in grp['notes']),
+        key=lambda n: n.entered_at, reverse=True,
+    )[:5]
 
-    notifs_parents = list(
-        student.notifications
-        .select_related('recipient')
-        .order_by('-created_at')[:20]
-    )
+    notifs_parents = list(student.notifications.select_related('recipient').order_by('-created_at')[:20])
 
-    # ── Fiche financière par année (lot 3) ────────────────────────────────────
-    # Fiche accrochée à l'enrollment ACTIVE (= inscription de l'année courante).
-    # Optionnelle : un élève dont la fiche n'a pas encore été générée (anciens non
-    # régénérés) n'en a pas → le template affiche un état neutre, sans planter.
+    # Fiche financière de l'enrollment ACTIVE — optionnelle (état neutre si absente).
     from apps.finance.models import StudentFeeAccount
     from apps.finance.services import timeline_families
     fee_account = (
         StudentFeeAccount.objects
-        .filter(enrollment__student=student, enrollment__status='active',
-                enrollment__school=school)
+        .filter(enrollment__student=student, enrollment__status='active', enrollment__school=school)
         .select_related('enrollment__school_year')
         .prefetch_related('debts__installments__allocations')
-        .order_by('-enrollment__school_year__start_date')
-        .first()
+        .order_by('-enrollment__school_year__start_date').first()
     )
-    # Familles ordonnées (lot 5) — source unique partagée avec le re-render post-encaissement.
     fee_families = timeline_families(fee_account)
 
-    # Statut du badge en-tête (lot 6bis-A) : helper central. 'no_fee' si pas de fiche
-    # → badge NEUTRE (jamais rouge « Impayé ») dans student_profile_view.
-    from apps.finance.services import student_fee_summary
-    _summary = student_fee_summary(student)
-    fee_status = _summary['status'] if _summary else 'no_fee'
-
-    return render(request, 'students/student_detail.html', {
+    ctx = {
         'student':           student,
         'school':            school,
-        'fee_status':        fee_status,
         'observations':      observations,
         'guardians':         guardians,
         'absences_recentes': absences_recentes,
-        'notes_periode':     notes_periode,
         'active_period':     active_period,
+        'periods':           periods,
+        'notes_by_subject':  notes_by_subject,
+        'recent_notes':      recent_notes,
         'notifs_parents':    notifs_parents,
         'is_director':       request.role == UserRole.DIRECTOR or request.user.is_superuser,
         'fee_account':       fee_account,
         'fee_families':      fee_families,
+        'tabs': [
+            ('apercu', 'Aperçu'), ('finances', 'Finances'), ('scolarite', 'Scolarité'),
+            ('vie-scolaire', 'Vie scolaire'), ('parents', 'Parents'),
+        ],
+    }
+    ctx.update(_rail_summary(student, school, active_period))
+    return render(request, 'students/student_detail.html', ctx)
+
+
+@login_required
+def student_detail_rail(request, student_id):
+    """Rail identité + KPIs — rendu seul pour rafraîchissement HTMX après encaissement/édition."""
+    school = get_school(request)
+    student = get_object_or_404(
+        Student.objects.select_related('school_class').prefetch_related('payments'),
+        id=student_id, school=school,
+    )
+    from apps.schools.models import Period
+    from apps.finance.models import StudentFeeAccount
+    active_period = (Period.objects
+                     .filter(school_year__school=school, school_year__is_active=True)
+                     .order_by('-is_notes_open', 'order').first())
+    fee_account = (StudentFeeAccount.objects
+                   .filter(enrollment__student=student, enrollment__status='active',
+                           enrollment__school=school).first())
+    ctx = {'student': student, 'school': school, 'fee_account': fee_account,
+           'is_director': request.role == UserRole.DIRECTOR or request.user.is_superuser}
+    ctx.update(_rail_summary(student, school, active_period))
+    return render(request, 'students/partials/student_rail.html', ctx)
+
+
+@login_required
+def student_notes_period(request, student_id):
+    """Notes par matière pour une période donnée (sélecteur de l'onglet Scolarité)."""
+    school = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school)
+    from apps.schools.models import Period
+    pid = request.GET.get('period')
+    period = Period.objects.filter(id=pid, school_year__school=school).first() if pid else None
+    if not period:
+        period = (Period.objects.filter(school_year__school=school, school_year__is_active=True)
+                  .order_by('-is_notes_open', 'order').first())
+    return render(request, 'students/partials/notes_by_subject.html', {
+        'student': student, 'active_period': period,
+        'notes_by_subject': _notes_by_subject(student, period),
     })
 
 
@@ -403,7 +515,9 @@ def observation_mark_read(request, student_id, obs_id):
         obs.read_by = request.user
         obs.save(update_fields=['is_read', 'read_at', 'read_by'])
 
-    # Retourne la card complète re-rendue (swap closest .obs-card)
+    # Inbox (Suivi) → ligne dense ; fiche élève → card complète.
+    if request.GET.get('row'):
+        return render(request, 'students/partials/obs_row.html', {'o': obs})
     return render(request, 'students/partials/obs_card.html', {
         'obs': obs, 'student': obs.student,
     })
@@ -487,32 +601,30 @@ def student_update(request, student_id):
                 id=student_id, school=school,
             )
             if request.htmx:
-                resp = render(request, 'students/partials/student_profile_view.html', {
-                    'student': student,
-                    'success': True,
+                # Slide-over : pas de swap (204) → on ferme le panneau, rafraîchit le rail, toast.
+                resp = HttpResponse(status=204)
+                resp['HX-Trigger'] = json.dumps({
+                    'close-edit-panel': True,
+                    'refresh-rail':     True,
+                    'showToast': {'message': 'Fiche élève mise à jour.', 'type': 'success'},
                 })
-                resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Fiche élève mise à jour.', 'type': 'success'}})
                 return resp
             return redirect('students:detail', student_id=student.id)
 
-        # Erreurs de validation
+        # Erreurs de validation → on re-rend le formulaire dans le panneau.
         if request.htmx:
-            return render(request, 'students/partials/student_profile_edit.html', {
-                'student': student,
-                'form':    form,
+            return render(request, 'students/partials/student_edit_panel.html', {
+                'student': student, 'form': form,
             })
         return render(request, 'students/student_detail.html', {
-            'student': student,
-            'form':    form,
-            'school':  school,
+            'student': student, 'form': form, 'school': school,
         })
 
-    # GET
+    # GET → formulaire d'édition pour le slide-over.
     form = StudentUpdateForm(instance=student, school=school)
     if request.htmx:
-        return render(request, 'students/partials/student_profile_edit.html', {
-            'student': student,
-            'form':    form,
+        return render(request, 'students/partials/student_edit_panel.html', {
+            'student': student, 'form': form,
         })
     return redirect('students:detail', student_id=student.id)
 
@@ -577,27 +689,8 @@ def student_withdraw(request, student_id):
 @login_required
 def student_search(request):
     school = get_school(request)
-    query       = request.GET.get('q', '').strip()
-    filter_type = request.GET.get('filter', 'all')
-    class_id    = request.GET.get('class_id')
-    qs          = _students_qs(school, filter_type, class_id)
-
-    if query:
-        # Recherche insensible casse + accents (normalisation Python, sans
-        # extension PostgreSQL). Échelle école → filtrage en mémoire acceptable.
-        nq = norm_name(query)
-        students = [
-            s for s in qs
-            if nq in norm_name(s.full_name)
-            or nq in norm_name(s.school_class.name if s.school_class else '')
-            or nq in norm_name(s.access_code)
-        ]
-    else:
-        students = list(qs)
-
-    return render(request, 'students/partials/student_table_body.html', {
-        'students': students,
-    })
+    ctx = _student_list_page(request, school)
+    return render(request, 'students/partials/student_table_body.html', ctx)
 
 
 # ── Import Excel ──────────────────────────────────────────────────────────────
@@ -608,12 +701,12 @@ def student_import_template(request):
     ws = wb.active
     ws.title = 'Élèves'
 
-    NUM_COLS = 6
+    NUM_COLS = 7
 
     # ── Ligne 1 : instructions ────────────────────────────────────────
     ws.append([
         'OBLIGATOIRES : Nom complet, Classe  |  OPTIONNELLES : Téléphone parent, '
-        'Téléphone élève, Date de naissance, Lien parenté  |  '
+        'Téléphone élève, Date de naissance, Lien parenté, Genre (G/F)  |  '
         'Les paiements se gèrent directement dans l\'application.'
     ])
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=NUM_COLS)
@@ -914,13 +1007,10 @@ def student_import_confirm(request):
     build_fee_accounts_bulk(enrollments)
 
     if request.htmx:
-        students = list(_students_qs(school))
-        stats    = compute_student_stats(school)
-        response = render(request, 'students/partials/student_list_refresh.html', {
-            'students':        students,
-            'stats':           stats,
-            'success_message': f'{len(created)} élève(s) importé(s), {skipped} ignoré(s).',
-        })
+        ctx = _student_list_page(request, school)
+        ctx['stats'] = compute_student_stats(school)
+        ctx['success_message'] = f'{len(created)} élève(s) importé(s), {skipped} ignoré(s).'
+        response = render(request, 'students/partials/student_list_refresh.html', ctx)
         response['HX-Trigger'] = json.dumps({
             'close-import-modal': True,
             'showToast': {'message': f'{len(created)} élève(s) importé(s).', 'type': 'success'},
@@ -1080,12 +1170,28 @@ def _difficulty_flagged(school):
         Attendance.objects.filter(school=school, status='absent', date__gte=month_start)
         .values('student_id').annotate(n=Count('id')).values_list('student_id', 'n')
     )
+    # Moyenne académique = bulletin si généré (figé), sinon formatif (alerte précoce,
+    # avant la composition). Fusion : formatif par défaut, bulletin non nul prioritaire.
     bul_map = {}
     if active_period:
-        bul_map = dict(
+        from apps.schools.models import FormativeGrade
+        from decimal import Decimal
+        bulletin_raw = dict(
             Bulletin.objects.filter(student__school=school, is_cancelled=False, period=active_period)
             .values_list('student_id', 'general_average')
         )
+        acc = {}
+        for sid, mx, val in (
+            FormativeGrade.objects
+            .filter(evaluation__period=active_period, is_absent=False, value__isnull=False,
+                    student__school=school)
+            .values_list('student_id', 'evaluation__max_grade', 'value')
+        ):
+            acc.setdefault(sid, []).append(val / (mx or Decimal('20')) * 20)
+        bul_map = {sid: round(sum(v) / len(v), 2) for sid, v in acc.items()}
+        for sid, avg in bulletin_raw.items():
+            if avg is not None:
+                bul_map[sid] = avg
     obs_map = dict(
         StudentObservation.objects.filter(school=school, is_private=False, is_read=False)
         .values('student_id').annotate(n=Count('id')).values_list('student_id', 'n')
@@ -1172,7 +1278,8 @@ def tracking_observations(request):
     from apps.teachers.models import StudentObservation
 
     school = get_school(request)
-    filtre = request.GET.get('filtre', 'all')
+    filtre = request.GET.get('filtre', 'unread')   # défaut = les actionnables
+    class_id = request.GET.get('class')
 
     qs = (
         StudentObservation.objects
@@ -1184,10 +1291,13 @@ def tracking_observations(request):
         qs = qs.filter(is_read=False)
     elif filtre == 'shared':
         qs = qs.filter(is_visible_to_parent=True)
+    if class_id:
+        qs = qs.filter(student__school_class_id=class_id)
 
-    page = Paginator(qs, 50).get_page(request.GET.get('page', 1))
+    page = Paginator(qs, 25).get_page(request.GET.get('page', 1))
+    classes = school.classes.filter(is_active=True).order_by('level', 'name')
     return render(request, 'students/partials/tracking_observations.html', {
-        'observations': page, 'filtre': filtre,
+        'observations': page, 'filtre': filtre, 'class_id': class_id, 'classes': classes,
     })
 
 
@@ -1196,6 +1306,8 @@ def tracking_observations(request):
 def tracking_difficulty(request):
     """Élèves signalés : absences>=3/mois OU moy<10 OU observations non lues. 4 requêtes."""
     school = get_school(request)
+    niveau   = request.GET.get('niveau')     # critical | warning | watch
+    class_id = request.GET.get('class')
     abs_map, bul_map, obs_map, active_period, flagged_ids = _difficulty_flagged(school)
 
     students = (
@@ -1203,6 +1315,8 @@ def tracking_difficulty(request):
         .filter(id__in=flagged_ids, school=school, is_active=True)
         .select_related('school_class')
     )
+    if class_id:
+        students = students.filter(school_class_id=class_id)
 
     results = []
     for s in students:
@@ -1219,8 +1333,13 @@ def tracking_difficulty(request):
             'obs_unread': obs_count, 'score': score,
             'level': 'critical' if score >= 4 else ('warning' if score >= 2 else 'watch'),
         })
+    if niveau in ('critical', 'warning', 'watch'):
+        results = [r for r in results if r['level'] == niveau]
     results.sort(key=lambda x: -x['score'])
 
+    page = Paginator(results, 30).get_page(request.GET.get('page', 1))
+    classes = school.classes.filter(is_active=True).order_by('level', 'name')
     return render(request, 'students/partials/tracking_difficulty.html', {
-        'results': results, 'period': active_period,
+        'results': page, 'period': active_period,
+        'niveau': niveau, 'class_id': class_id, 'classes': classes,
     })

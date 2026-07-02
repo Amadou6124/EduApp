@@ -6,12 +6,11 @@ from . import settings_views
 app_name = 'settings'
 
 urlpatterns = [
-    # Redirection par défaut → Général
-    path('', RedirectView.as_view(pattern_name='settings:general', permanent=False), name='settings-home'),
+    # Index paramètres (drill-in mobile ; desktop = repère)
+    path('', settings_views.settings_home, name='settings-home'),
 
     # ── ÉCOLE ─────────────────────────────────────────────────────────
     path('general/',    settings_views.general,    name='general'),
-    path('appearance/', settings_views.appearance, name='appearance'),
 
     # Années scolaires
     path('school-years/',                         settings_views.school_years,        name='school-years'),
@@ -38,6 +37,8 @@ urlpatterns = [
     path('class-subjects/search/',                  settings_views.class_subjects_search, name='class-subjects-search'),
     path('classes/<int:class_id>/subjects/',        settings_views.class_subjects_panel, name='class-subjects'),
     path('classes/<int:class_id>/subjects/add/',    settings_views.class_subject_add,    name='class-subject-add'),
+    path('classes/<int:class_id>/subjects/copy/',   settings_views.class_subject_copy,   name='class-subject-copy'),
+    path('class-subjects/bulk/',                    settings_views.class_subject_bulk,   name='class-subject-bulk'),
     path('class-subjects/<int:cs_id>/update/',      settings_views.class_subject_update, name='class-subject-update'),
     path('class-subjects/<int:cs_id>/remove/',      settings_views.class_subject_remove, name='class-subject-remove'),
 
@@ -61,6 +62,10 @@ urlpatterns = [
 
     # ── DOCUMENTS ─────────────────────────────────────────────────────
     path('bulletin/', settings_views.bulletin, name='bulletin'),
+    path('bulletin/appreciations/add/',                   settings_views.appreciation_add,    name='appreciation-add'),
+    path('bulletin/appreciations/seed/',                  settings_views.appreciation_seed,   name='appreciation-seed'),
+    path('bulletin/appreciations/<int:scale_id>/save/',   settings_views.appreciation_update, name='appreciation-update'),
+    path('bulletin/appreciations/<int:scale_id>/delete/', settings_views.appreciation_delete, name='appreciation-delete'),
     path('headers/',  settings_views.coming_soon, {'section': 'headers'},  name='headers'),
 
     # ── COMMUNICATION ─────────────────────────────────────────────────

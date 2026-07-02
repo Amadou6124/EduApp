@@ -8,33 +8,34 @@ Carte d'un FeeType ACTIF. Root id=fee-card-<id> (cible des re-rendus variantes).
 Responsive : en-tête en ligne, variantes empilées sur mobile.
 {% endcomment %}
 
-<div id="fee-card-{{ fee.id }}" class="card p-4 sm:p-5">
+<div id="fee-card-{{ fee.id }}" class="rounded-xl border border-gray-200 bg-white p-4">
 
-  <div class="flex items-start gap-3">
+  {# En-tête : identité à gauche ; montant + actions à droite (sous le nom sur mobile). #}
+  <div class="flex flex-col sm:flex-row sm:items-start gap-3">
 
-    {# Icône décorative (NON cliquable) #}
-    <div class="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0 select-none" aria-hidden="true">
-      <i data-lucide="{{ fee.get_icon }}" class="w-5 h-5 text-primary-600"></i>
-    </div>
-
-    {# Nom + sous-ligne descriptive #}
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2 flex-wrap">
-        <h3 class="font-semibold text-gray-900 truncate">{{ fee.name }}</h3>
-        {% if fee.is_mandatory %}
-          <span class="badge-primary">Obligatoire</span>
-        {% else %}
-          <span class="text-[11px] text-gray-400 border border-gray-200 rounded-full px-2 py-0.5">Optionnel</span>
-        {% endif %}
+    {# Identité : icône + nom + sous-ligne #}
+    <div class="flex items-start gap-3 min-w-0 sm:flex-1">
+      <div class="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0 select-none" aria-hidden="true">
+        <i data-lucide="{{ fee.get_icon }}" class="w-5 h-5 text-primary-600"></i>
       </div>
-      <p class="text-xs text-gray-500 mt-0.5">
-        {% if fee.category == 'subscription' %}Abonnement · mensuel ou annuel
-        {% else %}Frais ponctuel · une fois par an{% endif %}
-      </p>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h3 class="font-semibold text-gray-900 truncate">{{ fee.name }}</h3>
+          {% if fee.is_mandatory %}
+            <span class="badge-primary">Obligatoire</span>
+          {% else %}
+            <span class="text-[11px] text-gray-400 border border-gray-200 rounded-full px-2 py-0.5">Optionnel</span>
+          {% endif %}
+        </div>
+        <p class="text-xs text-gray-500 mt-0.5">
+          {% if fee.category == 'subscription' %}Abonnement · mensuel ou annuel
+          {% else %}Frais ponctuel · une fois par an{% endif %}
+        </p>
+      </div>
     </div>
 
-    {# Zone montant / badge (selon le type) #}
-    <div class="shrink-0 flex items-center gap-2">
+    {# Montant + actions : à droite sur desktop, sous le nom (aligné) sur mobile #}
+    <div class="flex items-center gap-2 shrink-0 pl-[52px] sm:pl-0">
       {% if fee.has_variants %}
         <span class="badge-purple whitespace-nowrap">À variantes</span>
       {% else %}
@@ -48,10 +49,9 @@ Responsive : en-tête en ligne, variantes empilées sur mobile.
           <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">FCFA</span>
         </div>
       {% endif %}
-    </div>
 
-    {# Actions : éditer / désactiver #}
-    <div class="shrink-0 flex items-center gap-0.5">
+      {# Actions : éditer / désactiver #}
+      <div class="flex items-center gap-0.5 ml-auto">
       <button type="button"
               hx-get="{% url 'settings:fee-edit-form' fee.id %}"
               hx-target="#fee-modal-body" hx-swap="innerHTML"
@@ -73,6 +73,7 @@ Responsive : en-tête en ligne, variantes empilées sur mobile.
               title="Désactiver">
         <i data-lucide="eye-off" class="w-4 h-4"></i>
       </button>
+      </div>
     </div>
   </div>
 

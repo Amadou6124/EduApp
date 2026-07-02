@@ -20,6 +20,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import SchoolClass, School, EducationLevel, SchoolAnnouncement
 from .forms import SchoolClassForm
+from .cockpit import build_class_cockpit
 from apps.core.mixins import get_school, director_or_staff_required
 from apps.core.text import norm_name
 
@@ -68,20 +69,41 @@ def _classes_qs(school):
         SchoolClass.objects
         .filter(school=school, is_active=True)
         .select_related('school')
-        .annotate(student_count=Count('students', filter=Q(students__is_active=True)))
+        .annotate(
+            student_count=Count('students', filter=Q(students__is_active=True)),
+            boys=Count('students',  filter=Q(students__is_active=True, students__gender='M')),
+            girls=Count('students', filter=Q(students__is_active=True, students__gender='F')),
+        )
     )
 
 
 def compute_class_stats(classes):
-    total_students = sum(c.get_student_count() for c in classes)
-    classes_with_capacity = [c for c in classes if c.max_capacity]
-    avg_fill_rate = 0
-    if classes_with_capacity:
-        avg_fill_rate = round(
-            sum(min(c.get_student_count() / c.max_capacity * 100, 100) for c in classes_with_capacity)
-            / len(classes_with_capacity)
-        )
-    return total_students, avg_fill_rate
+    """Agrégats liste classes : effectif, parité, et métrique de capacité honnête
+    (places restantes + classes complètes — pas une moyenne plafonnée trompeuse)."""
+    with_cap = [c for c in classes if c.max_capacity]
+    return {
+        'total_classes':     len(classes),
+        'total_students':    sum(c.student_count for c in classes),
+        'boys':              sum(c.boys for c in classes),
+        'girls':             sum(c.girls for c in classes),
+        'places_restantes':  sum(max(c.max_capacity - c.student_count, 0) for c in with_cap),
+        'classes_completes': sum(1 for c in with_cap if c.student_count >= c.max_capacity),
+    }
+
+
+def _filter_classes(request, school):
+    """Classes filtrées : recherche (nom) × niveau × disponibilité (places libres)."""
+    qs = _classes_qs(school)
+    q     = request.GET.get('q', '').strip()
+    level = request.GET.get('level', '')
+    if q:
+        qs = qs.filter(name__icontains=q)
+    if level:
+        qs = qs.filter(level=level)
+    classes = sorted(qs, key=lambda c: (c.level, c.name))
+    if request.GET.get('dispo') in ('1', 'true', 'on'):
+        classes = [c for c in classes if not c.is_full]
+    return classes
 
 
 @login_required
@@ -89,18 +111,30 @@ def class_list(request):
     if request.user.role == UserRole.TEACHER:
         return redirect('teacher:dashboard')
     school = get_school(request)
-    classes = list(_classes_qs(school))
-    total_students, avg_fill_rate = compute_class_stats(classes)
-
-    form = SchoolClassForm()
-    nb_classes = len(classes)
+    all_classes = list(_classes_qs(school))
     return render(request, 'schools/class_list.html', {
-        'classes':        classes,
-        'form':           form,
+        'classes':        _filter_classes(request, school),
+        'form':           SchoolClassForm(),
         'school':         school,
-        'total_students': total_students,
-        'avg_fill_rate':  avg_fill_rate,
-        'page_subtitle':  f"{nb_classes} classe{'s' if nb_classes != 1 else ''} · {total_students} élève{'s' if total_students != 1 else ''}",
+        'cstats':         compute_class_stats(all_classes),
+        'levels':         EducationLevel.choices,
+        'q':              request.GET.get('q', ''),
+        'level':          request.GET.get('level', ''),
+        'dispo':          request.GET.get('dispo', ''),
+    })
+
+
+@login_required
+def class_detail(request, class_id):
+    """Cockpit de classe : KPIs, élèves à risque, moyenne par matière, roster, matières/profs."""
+    if request.user.role == UserRole.TEACHER:
+        return redirect('teacher:dashboard')
+    school = get_school(request)
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school, is_active=True)
+    return render(request, 'schools/class_detail.html', {
+        'school_class': school_class,
+        'cockpit':      build_class_cockpit(school, school_class),
+        'page_title':   school_class.name,
     })
 
 
@@ -157,13 +191,11 @@ def class_create(request):
     # Réponse succès (HTMX : liste rafraîchie + toast ; sinon page complète).
     if request.htmx:
         classes = list(_classes_qs(school))
-        total_students, avg_fill_rate = compute_class_stats(classes)
         resp = render(request, 'schools/partials/class_list_refresh.html', {
             'classes': classes,
             'form': SchoolClassForm(),
             'success_message': message,
-            'total_students': total_students,
-            'avg_fill_rate': avg_fill_rate,
+            'cstats': compute_class_stats(classes),
         })
         resp['HX-Trigger'] = json.dumps({'close-add-modal': True, 'showToast': {'message': str(message), 'type': 'success'}})
         return resp
@@ -213,15 +245,11 @@ def class_update(request, class_id):
 @login_required
 def class_search(request):
     school = get_school(request)
-    query = request.GET.get('q', '').strip()
-    classes = list(
-        _classes_qs(school).filter(name__icontains=query)
-        if query else
-        _classes_qs(school)
-    )
-
     return render(request, 'schools/partials/class_table_body.html', {
-        'classes': classes,
+        'classes': _filter_classes(request, school),
+        'q':     request.GET.get('q', ''),
+        'level': request.GET.get('level', ''),
+        'dispo': request.GET.get('dispo', ''),
     })
 
 
@@ -438,14 +466,12 @@ def class_import_confirm(request):
     if skipped:
         msg += f' {skipped} ignorée(s) (doublon).'
 
-    classes = list(SchoolClass.objects.filter(school=school, is_active=True).select_related('school'))
-    total_students, avg_fill_rate = compute_class_stats(classes)
+    classes = list(_classes_qs(school))
 
     resp = render(request, 'schools/partials/class_list_refresh.html', {
         'classes': classes,
         'success_message': msg,
-        'total_students': total_students,
-        'avg_fill_rate': avg_fill_rate,
+        'cstats': compute_class_stats(classes),
     })
     resp['HX-Trigger'] = json.dumps({'close-import-modal': True, 'showToast': {'message': msg, 'type': 'success'}})
     return resp
@@ -481,28 +507,141 @@ def class_delete(request, class_id):
 # ANNONCES
 # ─────────────────────────────────────────────────────────────────────
 
+def _annotate_read_receipts(announcements):
+    """Annote chaque annonce publiée : reach (parents notifiés) · read_count · read_pct.
+    Les notifs sont liées à l'annonce (target=ann) → accusés de lecture fiables."""
+    from django.contrib.contenttypes.models import ContentType
+    from apps.notifications.models import Notification
+
+    ids = [a.pk for a in announcements if a.is_published]
+    reach, read = {}, {}
+    if ids:
+        ct = ContentType.objects.get_for_model(SchoolAnnouncement)
+        reach = dict(
+            Notification.objects.filter(content_type=ct, object_id__in=ids)
+            .values('object_id').annotate(n=Count('id')).values_list('object_id', 'n')
+        )
+        read = dict(
+            Notification.objects.filter(content_type=ct, object_id__in=ids, is_read=True)
+            .values('object_id').annotate(n=Count('id')).values_list('object_id', 'n')
+        )
+    for a in announcements:
+        a.reach = reach.get(a.pk, 0)
+        a.read_count = read.get(a.pk, 0)
+        a.read_pct = round(a.read_count / a.reach * 100) if a.reach else 0
+
+
+def _publish_announcement(ann):
+    """Publie une annonce + notifie les parents ciblés (target=ann pour les accusés de lecture)."""
+    from django.utils import timezone
+    from apps.notifications.services import notify_bulk, notify_guardians
+    from apps.notifications.models import NotificationCategory
+    from apps.students.models import StudentGuardian
+
+    if ann.is_published:
+        return
+    ann.is_published = True
+    ann.published_at = timezone.now()
+    ann.save(update_fields=['is_published', 'published_at'])
+
+    school     = ann.school
+    notif_url  = reverse('parent:annonces')
+    notif_body = ann.body[:150]
+
+    if ann.audience == 'school':
+        ids = list(StudentGuardian.objects.filter(student__school=school).values_list('guardian_id', flat=True).distinct())
+        notify_bulk(ids, school, NotificationCategory.INFO, ann.title, notif_body, notif_url, target=ann)
+    elif ann.audience == 'class' and ann.target_class:
+        ids = list(StudentGuardian.objects.filter(student__school_class=ann.target_class).values_list('guardian_id', flat=True).distinct())
+        notify_bulk(ids, school, NotificationCategory.INFO, ann.title, notif_body, notif_url, target=ann)
+    elif ann.audience == 'student' and ann.target_student:
+        notify_guardians(ann.target_student, NotificationCategory.INFO, ann.title, notif_body, notif_url, target=ann)
+
+
 @login_required
 @director_or_staff_required
 def announcement_list(request):
     school = get_school(request)
-    announcements = (
+    from apps.students.models import Student
+
+    qs = (
         SchoolAnnouncement.objects
         .filter(school=school)
         .select_related('author', 'target_class', 'target_student')
         .order_by('-created_at')
     )
-    classes = SchoolClass.objects.filter(school=school, is_active=True).order_by('name')
-    from apps.students.models import Student
-    students = (
-        Student.objects
-        .filter(school=school, is_active=True)
-        .select_related('school_class')
-        .order_by('full_name')
-    )
-    return render(request, 'schools/announcements/list.html', {
+    status = request.GET.get('status', 'all')
+    if status == 'published':
+        qs = qs.filter(is_published=True)
+    elif status == 'draft':
+        qs = qs.filter(is_published=False)
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(Q(title__icontains=q) | Q(body__icontains=q))
+
+    announcements = list(qs)
+    _annotate_read_receipts(announcements)
+
+    ctx = {
         'announcements': announcements,
-        'classes':        classes,
-        'students':       students,
+        'classes':       SchoolClass.objects.filter(school=school, is_active=True).order_by('name'),
+        'students':      Student.objects.filter(school=school, is_active=True).select_related('school_class').order_by('full_name'),
+        'status':        status,
+        'q':             q,
+    }
+    if request.htmx:
+        return render(request, 'schools/announcements/partials/list_body.html', ctx)
+    return render(request, 'schools/announcements/list.html', ctx)
+
+
+def _err_toast(msg):
+    resp = HttpResponse(status=422)
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': msg, 'type': 'error'}})
+    return resp
+
+
+def _parse_announcement_form(request, school):
+    """Valide le formulaire annonce. Renvoie (data, None) ou (None, error_response)."""
+    from apps.students.models import Student
+    title    = request.POST.get('title', '').strip()
+    body     = request.POST.get('body', '').strip()
+    audience = request.POST.get('audience', 'school')
+    if not title:
+        return None, _err_toast('Le titre est requis.')
+    if not body:
+        return None, _err_toast('Le contenu est requis.')
+    if audience not in ('school', 'class', 'student'):
+        audience = 'school'
+    target_class = target_student = None
+    if audience == 'class':
+        class_id = request.POST.get('target_class_id', '').strip()
+        if not class_id:
+            return None, _err_toast('Sélectionnez une classe.')
+        target_class = get_object_or_404(SchoolClass, id=class_id, school=school)
+    if audience == 'student':
+        student_id = request.POST.get('target_student_id', '').strip()
+        if not student_id:
+            return None, _err_toast('Sélectionnez un élève.')
+        target_student = get_object_or_404(Student, id=student_id, school=school)
+    return {
+        'title': title, 'body': body, 'audience': audience,
+        'target_class': target_class, 'target_student': target_student,
+    }, None
+
+
+@login_required
+def announcement_form(request):
+    """Formulaire de composition (nouveau ou édition de brouillon) — chargé dans le panneau."""
+    school = get_school(request)
+    from apps.students.models import Student
+    ann = None
+    aid = request.GET.get('id')
+    if aid:
+        ann = get_object_or_404(SchoolAnnouncement, pk=aid, school=school, is_published=False)
+    return render(request, 'schools/announcements/partials/announcement_form.html', {
+        'ann':      ann,
+        'classes':  SchoolClass.objects.filter(school=school, is_active=True).order_by('name'),
+        'students': Student.objects.filter(school=school, is_active=True).select_related('school_class').order_by('full_name'),
     })
 
 
@@ -510,56 +649,48 @@ def announcement_list(request):
 @director_or_staff_required
 @require_http_methods(['POST'])
 def announcement_create(request):
-    school   = get_school(request)
-    title    = request.POST.get('title', '').strip()
-    body     = request.POST.get('body', '').strip()
-    audience = request.POST.get('audience', 'school')
+    school = get_school(request)
+    data, err = _parse_announcement_form(request, school)
+    if err:
+        return err
 
-    if not title:
-        resp = HttpResponse(status=422)
-        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Le titre est requis.', 'type': 'error'}})
-        return resp
-    if not body:
-        resp = HttpResponse(status=422)
-        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Le contenu est requis.', 'type': 'error'}})
-        return resp
-    if audience not in ('school', 'class', 'student'):
-        audience = 'school'
-
-    target_class   = None
-    target_student = None
-
-    if audience == 'class':
-        class_id = request.POST.get('target_class_id', '').strip()
-        if not class_id:
-            resp = HttpResponse(status=422)
-            resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Sélectionnez une classe.', 'type': 'error'}})
-            return resp
-        target_class = get_object_or_404(SchoolClass, id=class_id, school=school)
-
-    if audience == 'student':
-        student_id = request.POST.get('target_student_id', '').strip()
-        if not student_id:
-            resp = HttpResponse(status=422)
-            resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Sélectionnez un élève.', 'type': 'error'}})
-            return resp
-        from apps.students.models import Student
-        target_student = get_object_or_404(Student, id=student_id, school=school)
-
-    ann = SchoolAnnouncement.objects.create(
-        school=school,
-        author=request.user,
-        title=title,
-        body=body,
-        audience=audience,
-        target_class=target_class,
-        target_student=target_student,
-    )
+    ann = SchoolAnnouncement.objects.create(school=school, author=request.user, **data)
+    publish_now = request.POST.get('publish_now') in ('1', 'true', 'on')
+    if publish_now:
+        _publish_announcement(ann)
+    _annotate_read_receipts([ann])
 
     resp = render(request, 'schools/announcements/partials/announcement_card.html', {'ann': ann})
     resp['HX-Trigger'] = json.dumps({
         'close-announcement-panel': True,
-        'showToast': {'message': 'Brouillon créé.', 'type': 'success'},
+        'showToast': {'message': ('Annonce publiée et envoyée.' if publish_now else 'Brouillon créé.'), 'type': 'success'},
+    })
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def announcement_update(request, pk):
+    school = get_school(request)
+    ann    = get_object_or_404(SchoolAnnouncement, pk=pk, school=school, is_published=False)
+    data, err = _parse_announcement_form(request, school)
+    if err:
+        return err
+
+    for k, v in data.items():
+        setattr(ann, k, v)
+    ann.save()
+
+    publish_now = request.POST.get('publish_now') in ('1', 'true', 'on')
+    if publish_now:
+        _publish_announcement(ann)
+    _annotate_read_receipts([ann])
+
+    resp = render(request, 'schools/announcements/partials/announcement_card.html', {'ann': ann})
+    resp['HX-Trigger'] = json.dumps({
+        'close-announcement-panel': True,
+        'showToast': {'message': ('Brouillon publié.' if publish_now else 'Brouillon mis à jour.'), 'type': 'success'},
     })
     return resp
 
@@ -568,11 +699,6 @@ def announcement_create(request):
 @director_or_staff_required
 @require_http_methods(['POST'])
 def announcement_publish(request, pk):
-    from django.utils import timezone
-    from apps.notifications.services import notify_bulk, notify_guardians
-    from apps.notifications.models import NotificationCategory
-    from apps.students.models import StudentGuardian
-
     school = get_school(request)
     ann    = get_object_or_404(SchoolAnnouncement, pk=pk, school=school)
 
@@ -581,36 +707,8 @@ def announcement_publish(request, pk):
         resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Annonce déjà publiée.', 'type': 'error'}})
         return resp
 
-    ann.is_published = True
-    ann.published_at = timezone.now()
-    ann.save(update_fields=['is_published', 'published_at'])
-
-    notif_url  = reverse('parent:annonces')
-    notif_body = ann.body[:150]
-
-    if ann.audience == 'school':
-        ids = list(
-            StudentGuardian.objects
-            .filter(student__school=school)
-            .values_list('guardian_id', flat=True)
-            .distinct()
-        )
-        notify_bulk(ids, school, NotificationCategory.INFO, ann.title, notif_body, notif_url, target=ann)
-
-    elif ann.audience == 'class' and ann.target_class:
-        ids = list(
-            StudentGuardian.objects
-            .filter(student__school_class=ann.target_class)
-            .values_list('guardian_id', flat=True)
-            .distinct()
-        )
-        notify_bulk(ids, school, NotificationCategory.INFO, ann.title, notif_body, notif_url, target=ann)
-
-    elif ann.audience == 'student' and ann.target_student:
-        notify_guardians(
-            ann.target_student, NotificationCategory.INFO,
-            ann.title, notif_body, notif_url, target=ann,
-        )
+    _publish_announcement(ann)
+    _annotate_read_receipts([ann])
 
     resp = render(request, 'schools/announcements/partials/announcement_card.html', {'ann': ann})
     resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Annonce publiée et envoyée.', 'type': 'success'}})

@@ -22,7 +22,10 @@ urlpatterns = [
 
     # ── Phase 4 — Paie mensuelle ─────────────────────────────────
     path('salaires/', views.salary_dashboard, name='salaires'),
+    path('salaires/parametres/', views.salary_settings_save, name='salary-settings'),
     path('salaires/pay/', views.salary_pay, name='salary-pay'),
+    path('salaires/pay-all/', views.salary_pay_all, name='salary-pay-all'),
+    path('salaires/confirm-all/', views.salary_confirm_all, name='salary-confirm-all'),
     path('salaires/<int:payment_id>/confirm/', views.salary_confirm, name='salary-confirm'),
     path('salaires/<int:payment_id>/cancel/', views.salary_cancel, name='salary-cancel'),
     path('salaires/<int:payment_id>/pdf/', views.payslip_pdf, name='payslip-pdf'),
@@ -31,6 +34,9 @@ urlpatterns = [
     path('depenses/', views.expense_dashboard, name='depenses'),
     path('depenses/add/', views.expense_create, name='expense-create'),
     path('depenses/<int:expense_id>/cancel/', views.expense_cancel, name='expense-cancel'),
+    path('depenses/recurrentes/register/', views.recurring_register, name='recurring-register'),
+    path('depenses/recurrentes/add/', views.recurring_create, name='recurring-create'),
+    path('depenses/recurrentes/<int:rec_id>/delete/', views.recurring_delete, name='recurring-delete'),
 
     # ── Phase 6 — Bilan financier ────────────────────────────────
     path('bilan/', views.bilan_dashboard, name='bilan'),

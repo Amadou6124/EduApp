@@ -1,42 +1,94 @@
-{# Onglet Difficulté — cards par élève triées par score #}
+{# Onglet Difficulté — table de triage (desktop) / cards (mobile), paginée + filtres niveau/classe. #}
 <div>
+  {# Filtres #}
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="flex flex-wrap bg-gray-100 rounded-lg p-0.5">
+      <button hx-get="{% url 'students:suivi-difficulty' %}{% if class_id %}?class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if not niveau %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">Tous</button>
+      <button hx-get="{% url 'students:suivi-difficulty' %}?niveau=critical{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if niveau == 'critical' %}bg-white shadow-sm text-red-700{% else %}text-gray-500{% endif %}">Critique</button>
+      <button hx-get="{% url 'students:suivi-difficulty' %}?niveau=warning{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if niveau == 'warning' %}bg-white shadow-sm text-amber-700{% else %}text-gray-500{% endif %}">Attention</button>
+      <button hx-get="{% url 'students:suivi-difficulty' %}?niveau=watch{% if class_id %}&class={{ class_id }}{% endif %}" hx-target="#tracking-content"
+              class="px-3 py-1.5 rounded-md text-xs font-medium {% if niveau == 'watch' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500{% endif %}">À surveiller</button>
+    </div>
+    <select hx-get="{% url 'students:suivi-difficulty' %}{% if niveau %}?niveau={{ niveau }}{% endif %}" hx-target="#tracking-content" name="class"
+            class="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white">
+      <option value="">Toutes les classes</option>
+      {% for c in classes %}<option value="{{ c.id }}" {% if class_id == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </div>
+
   {% if period %}
-  <p class="text-xs text-gray-400 mb-4">Période active : <span class="font-medium text-gray-600">{{ period.name }}</span> · seuil absences ≥ 3/mois · moyenne &lt; 10</p>
+  <p class="text-xs text-gray-400 mb-3">Période active : <span class="font-medium text-gray-600">{{ period.name }}</span> · seuils : absences ≥ 3/mois · moyenne &lt; 10 · observations non lues</p>
   {% endif %}
 
   {% if results %}
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-    {% for r in results %}
-    <div class="bg-white rounded-2xl border p-4
-        {% if r.level == 'critical' %}border-red-200 bg-red-50/40{% elif r.level == 'warning' %}border-amber-200 bg-amber-50/40{% else %}border-yellow-100 bg-yellow-50/30{% endif %}">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-             style="background:{{ r.student.get_avatar_colors.0 }};color:{{ r.student.get_avatar_colors.1 }}">{{ r.student.get_initials }}</div>
-        <div class="flex-1 min-w-0">
-          <p class="font-semibold text-gray-900 truncate">{{ r.student.full_name }}</p>
-          <p class="text-xs text-gray-400">{{ r.student.school_class.name }}</p>
-        </div>
-        <span class="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold
-            {% if r.level == 'critical' %}bg-red-100 text-red-700{% elif r.level == 'warning' %}bg-amber-100 text-amber-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
-          {% if r.level == 'critical' %}Critique{% elif r.level == 'warning' %}Attention{% else %}À surveiller{% endif %}
-        </span>
-      </div>
-      <div class="space-y-1 text-xs">
-        <div class="flex justify-between"><span class="text-gray-400">Absences ce mois</span><span class="font-semibold {% if r.absences >= 3 %}text-red-600{% else %}text-gray-700{% endif %}">{{ r.absences }}</span></div>
-        <div class="flex justify-between"><span class="text-gray-400">Moyenne</span><span class="font-semibold {% if r.average and r.average < 10 %}text-red-600{% else %}text-gray-700{% endif %}">{% if r.average is not None %}{{ r.average|floatformat:"-2" }}/20{% else %}—{% endif %}</span></div>
-        <div class="flex justify-between"><span class="text-gray-400">Observations non lues</span><span class="font-semibold {% if r.obs_unread %}text-primary-600{% else %}text-gray-700{% endif %}">{{ r.obs_unread }}</span></div>
-      </div>
-      <a href="{% url 'students:detail' r.student.id %}" class="mt-3 w-full h-9 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-700 hover:text-primary-600 hover:border-primary-600 flex items-center justify-center gap-1.5 transition">
-        Voir la fiche <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-      </a>
+    {# Desktop : table dense triée par gravité #}
+    <div class="hidden lg:block table-card">
+      <table class="data-table">
+        <thead><tr>
+          <th>Élève</th><th>Classe</th><th class="text-center">Abs./mois</th><th class="text-center">Moyenne</th><th class="text-center">Obs.</th><th>Niveau</th><th class="w-8"></th>
+        </tr></thead>
+        <tbody>
+          {% for r in results %}
+          <tr class="cursor-pointer" onclick="window.location.href='{% url 'students:detail' r.student.id %}'">
+            <td>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background:{{ r.student.get_avatar_colors.0 }};color:{{ r.student.get_avatar_colors.1 }}">{{ r.student.get_initials }}</div>
+                <a href="{% url 'students:detail' r.student.id %}" onclick="event.stopPropagation()" class="font-medium text-gray-900 hover:text-primary-700">{{ r.student.full_name }}</a>
+              </div>
+            </td>
+            <td class="text-gray-600">{{ r.student.school_class.name }}</td>
+            <td class="text-center {% if r.absences >= 3 %}text-red-600 font-semibold{% else %}text-gray-500{% endif %}">{{ r.absences }}</td>
+            <td class="text-center {% if r.average and r.average < 10 %}text-red-600 font-semibold{% else %}text-gray-500{% endif %}">{% if r.average is not None %}{{ r.average|floatformat:"-2" }}{% else %}—{% endif %}</td>
+            <td class="text-center {% if r.obs_unread %}text-primary-600 font-semibold{% else %}text-gray-400{% endif %}">{{ r.obs_unread }}</td>
+            <td>
+              {% if r.level == 'critical' %}<span class="badge-danger">Critique</span>
+              {% elif r.level == 'warning' %}<span class="badge-warning">Attention</span>
+              {% else %}<span class="badge-neutral">À surveiller</span>{% endif %}
+            </td>
+            <td class="text-right"><i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 inline-block align-middle"></i></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    {% endfor %}
-  </div>
+
+    {# Mobile : cards #}
+    <div class="lg:hidden space-y-2.5">
+      {% for r in results %}
+      <a href="{% url 'students:detail' r.student.id %}" class="block rounded-xl border p-3.5 transition active:bg-gray-50
+          {% if r.level == 'critical' %}border-red-200 bg-red-50/40{% elif r.level == 'warning' %}border-amber-200 bg-amber-50/40{% else %}border-gray-200{% endif %}">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background:{{ r.student.get_avatar_colors.0 }};color:{{ r.student.get_avatar_colors.1 }}">{{ r.student.get_initials }}</div>
+          <div class="flex-1 min-w-0"><p class="font-medium text-gray-900 truncate">{{ r.student.full_name }}</p><p class="text-xs text-gray-400">{{ r.student.school_class.name }}</p></div>
+          {% if r.level == 'critical' %}<span class="badge-danger">Critique</span>{% elif r.level == 'warning' %}<span class="badge-warning">Attention</span>{% else %}<span class="badge-neutral">À surveiller</span>{% endif %}
+        </div>
+        <div class="flex gap-4 text-xs text-gray-500">
+          <span>Abs. <span class="font-semibold {% if r.absences >= 3 %}text-red-600{% else %}text-gray-700{% endif %}">{{ r.absences }}</span></span>
+          <span>Moy. <span class="font-semibold {% if r.average and r.average < 10 %}text-red-600{% else %}text-gray-700{% endif %}">{% if r.average is not None %}{{ r.average|floatformat:"-2" }}{% else %}—{% endif %}</span></span>
+          <span>Obs. <span class="font-semibold {% if r.obs_unread %}text-primary-600{% else %}text-gray-700{% endif %}">{{ r.obs_unread }}</span></span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+
+    {% if results.has_other_pages %}
+    <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+      <span>{{ results.start_index }}–{{ results.end_index }} sur {{ results.paginator.count }} signalés</span>
+      <div class="flex gap-2">
+        {% if results.has_previous %}<button hx-get="{% url 'students:suivi-difficulty' %}?{% if niveau %}niveau={{ niveau }}&{% endif %}{% if class_id %}class={{ class_id }}&{% endif %}page={{ results.previous_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Précédent</button>{% else %}<span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Précédent</span>{% endif %}
+        {% if results.has_next %}<button hx-get="{% url 'students:suivi-difficulty' %}?{% if niveau %}niveau={{ niveau }}&{% endif %}{% if class_id %}class={{ class_id }}&{% endif %}page={{ results.next_page_number }}" hx-target="#tracking-content" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition">Suivant</button>{% else %}<span class="px-3 py-1.5 rounded-lg border border-gray-100 text-gray-300">Suivant</span>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
   {% else %}
-  <div class="bg-white rounded-xl border border-green-100 p-10 text-center">
-    <i data-lucide="check-circle" class="w-12 h-12 mx-auto text-green-400 mb-3"></i>
-    <p class="text-sm font-medium text-gray-600">Aucun élève signalé</p>
-    <p class="text-xs text-gray-400 mt-1">Aucun élève ne dépasse les seuils d'alerte.</p>
-  </div>
+    <div class="flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mb-4"><i data-lucide="circle-check" class="w-7 h-7 text-green-500"></i></div>
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">Aucun élève signalé</h3>
+      <p class="text-sm text-gray-500">Aucun élève ne dépasse les seuils d'alerte{% if niveau or class_id %} pour ce filtre{% endif %}.</p>
+    </div>
   {% endif %}
 </div>

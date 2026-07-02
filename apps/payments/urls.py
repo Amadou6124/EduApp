@@ -8,6 +8,8 @@ urlpatterns = [
     path('',                                    views.payment_dashboard,        name='dashboard'),
     # Ancien flux d'encaissement (form/create non-alloués) supprimé au lot 6 :
     # l'unique flux est désormais finance:collect-* (allocation FIFO, lot 5).
+    path('remind/<int:student_id>/',            views.payment_remind,           name='remind'),
+    path('remind-all/',                         views.payment_remind_all,       name='remind-all'),
     path('student/<int:student_id>/history/',   views.payment_history,          name='history'),
     path('cancel/<int:payment_id>/',            views.payment_cancel,           name='cancel'),
     path('receipt/<int:payment_id>/',           views.payment_receipt_download, name='receipt'),

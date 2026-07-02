@@ -1,0 +1,85 @@
+{% load i18n %}
+{# Corps du slide-over « Modifier ». Chargé dans #edit-panel-body. Succès → 204 + events ; erreurs → re-rendu ici. #}
+<div class="flex flex-col h-full">
+  <div class="sticky top-0 bg-white z-10 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+    <h2 class="text-base font-semibold text-gray-900">Modifier la fiche</h2>
+    <button type="button" @click="editOpen = false" class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+      <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
+    </button>
+  </div>
+
+  <form hx-post="{% url 'students:update' student.id %}" hx-target="#edit-panel-body" hx-swap="innerHTML"
+        x-init="$nextTick(() => $el.querySelector('[name=full_name]')?.focus())"
+        class="flex-1 overflow-y-auto px-6 py-5">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom complet <span class="text-red-500">*</span></label>
+        <input type="text" name="full_name" required value="{{ form.full_name.value|default:'' }}"
+               class="input-field {% if form.full_name.errors %}is-error{% endif %}">
+        {% for error in form.full_name.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Classe <span class="text-red-500">*</span></label>
+        <select name="school_class" class="input-field {% if form.school_class.errors %}is-error{% endif %}">
+          {% for val, label in form.school_class.field.choices %}
+            <option value="{{ val }}" {% if val|stringformat:"s" == form.school_class.value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% for error in form.school_class.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Date de naissance</label>
+        <input type="date" name="date_of_birth" value="{{ form.date_of_birth.value|date:'Y-m-d'|default:'' }}"
+               class="input-field {% if form.date_of_birth.errors %}is-error{% endif %}">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone élève</label>
+        <input type="tel" name="phone_number" value="{{ form.phone_number.value|default:'' }}"
+               placeholder="07 00 00 00 00" class="input-field">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Téléphone parent</label>
+        <input type="tel" name="parent_phone_number" value="{{ form.parent_phone_number.value|default:'' }}"
+               placeholder="07 00 00 00 00" class="input-field">
+      </div>
+
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Lien de parenté</label>
+        <select name="parent_relationship" class="input-field">
+          <option value="">— Choisir —</option>
+          {% for val, label in form.parent_relationship.field.choices %}
+            {% if val %}<option value="{{ val }}" {% if val == form.parent_relationship.value %}selected{% endif %}>{{ label }}</option>{% endif %}
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
+        <textarea name="notes" rows="3" class="input-field resize-none" placeholder="Informations supplémentaires…">{{ form.notes.value|default:'' }}</textarea>
+      </div>
+    </div>
+
+    {% if form.non_field_errors %}
+      <div class="mt-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="flex gap-3 pt-5 mt-5 border-t border-gray-100">
+      <button type="button" @click="editOpen = false" class="btn-secondary flex-1">Annuler</button>
+      <button type="submit" class="btn-primary flex-1 min-h-[44px]">
+        <svg class="w-4 h-4 htmx-indicator animate-spin hidden" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        Sauvegarder
+      </button>
+    </div>
+  </form>
+</div>

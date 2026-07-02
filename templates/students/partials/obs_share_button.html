@@ -12,7 +12,7 @@
             class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition
                    bg-green-100 text-green-700 hover:bg-green-200">
       <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-      Visible par parent
+      <span class="hidden sm:inline">Visible par parent</span>
     </button>
   </form>
 
@@ -25,10 +25,11 @@
             class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition
                    bg-gray-100 text-gray-500 hover:bg-gray-200">
       <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
-      Partager au parent
+      <span class="hidden sm:inline">Partager au parent</span>
     </button>
 
-    {# Backdrop #}
+    {# Backdrop — téléporté vers body : passe au-dessus du nav, boutons jamais masqués #}
+    <template x-teleport="body">
     <div x-show="open" x-cloak
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0"
@@ -36,7 +37,7 @@
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50
+         class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]
                 flex items-end sm:items-center justify-center p-4"
          @click.self="open = false">
 
@@ -108,6 +109,7 @@
         </form>
       </div>
     </div>
+    </template>
   </div>
   {% endif %}
 

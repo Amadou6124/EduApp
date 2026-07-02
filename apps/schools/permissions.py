@@ -21,17 +21,37 @@ def can_enter_notes(user, class_subject, period) -> tuple[bool, str]:
     if user.is_superuser or user.role in (UserRole.DIRECTOR, UserRole.STAFF):
         return True, None
 
-    # Période fermée → seulement le directeur peut forcer
-    if not period.is_notes_open:
+    if user.role == UserRole.TEACHER:
+        # 1. Doit être assigné (enseignant de la matière) ou délégué sur la classe.
+        assigned = (
+            class_subject.teacher_id == user.pk
+            or class_subject.school_class.notes_delegates.filter(pk=user.pk).exists()
+        )
+        if not assigned:
+            return False, "Vous n'êtes pas assigné à cette matière pour cette classe."
+        # 2. Période ouverte globalement OU ouverture ciblée accordée par le directeur.
+        if period.is_notes_open:
+            return True, None
+        grant = (
+            class_subject.entry_grants
+            .filter(period=period)
+            .first()
+        )
+        if grant and grant.is_active():
+            return True, None
         return False, 'La saisie des notes est fermée pour cette période.'
 
-    if user.role == UserRole.TEACHER:
-        # Enseignant assigné directement à la matière de classe
-        if class_subject.teacher_id == user.pk:
-            return True, None
-        # Ou délégué sur la classe (notes_delegates M2M)
-        if class_subject.school_class.notes_delegates.filter(pk=user.pk).exists():
-            return True, None
-        return False, "Vous n'êtes pas assigné à cette matière pour cette classe."
-
     return False, "Votre rôle ne permet pas la saisie des notes."
+
+
+def can_enter_formatif(user, class_subject) -> bool:
+    """Flux formatif (hors bulletin) : l'enseignant assigné/délégué saisit à tout
+    moment (outil de suivi continu, sans gate de période). Directeur/staff : toujours."""
+    if user.is_superuser or user.role in (UserRole.DIRECTOR, UserRole.STAFF):
+        return True
+    if user.role == UserRole.TEACHER:
+        return (
+            class_subject.teacher_id == user.pk
+            or class_subject.school_class.notes_delegates.filter(pk=user.pk).exists()
+        )
+    return False

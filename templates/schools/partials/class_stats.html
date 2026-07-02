@@ -1,18 +1,32 @@
 {% load i18n %}
-<div class="card p-4">
-  <p class="text-xs text-gray-500 uppercase tracking-wide leading-tight">{% trans "Classes actives" %}</p>
-  <p class="text-3xl font-bold text-primary-600 mt-1">{{ classes|length }}</p>
+{# KPIs classes : .kpi (icône + hover = l'âme, cohérent avec Paiements). Métrique capacité honnête : places restantes + classes complètes (pas une moyenne plafonnée). #}
+
+<div class="kpi">
+  <div class="flex items-center gap-3">
+    <div class="kpi-icon bg-primary-50 text-primary-600 shrink-0"><i data-lucide="layout-grid" class="w-5 h-5"></i></div>
+    <div class="min-w-0">
+      <p class="kpi-value">{{ cstats.total_classes }}</p>
+      <p class="kpi-label">{% trans "Classes actives" %}{% if cstats.classes_completes %} · <span class="text-red-500">{{ cstats.classes_completes }} {% trans "complète" %}{{ cstats.classes_completes|pluralize }}</span>{% endif %}</p>
+    </div>
+  </div>
 </div>
-<div class="card p-4">
-  <p class="text-xs text-gray-500 uppercase tracking-wide leading-tight">{% trans "Élèves inscrits" %}</p>
-  <p class="text-3xl font-bold text-primary-600 mt-1">{{ total_students }}</p>
+
+<div class="kpi">
+  <div class="flex items-center gap-3">
+    <div class="kpi-icon bg-gray-50 text-gray-600 shrink-0"><i data-lucide="users" class="w-5 h-5"></i></div>
+    <div class="min-w-0">
+      <p class="kpi-value">{{ cstats.total_students }}</p>
+      <p class="kpi-label">{% trans "Élèves" %} · <span class="text-blue-500">{{ cstats.boys }} G</span> · <span class="text-pink-500">{{ cstats.girls }} F</span></p>
+    </div>
+  </div>
 </div>
-<div class="card p-4">
-  <p class="text-xs text-gray-500 uppercase tracking-wide leading-tight">{% trans "Taux remplissage" %}</p>
-  <p class="text-3xl font-bold mt-1
-            {% if avg_fill_rate >= 90 %}text-red-600
-            {% elif avg_fill_rate >= 70 %}text-orange-500
-            {% else %}text-green-600{% endif %}">
-    {{ avg_fill_rate }}%
-  </p>
+
+<div class="kpi">
+  <div class="flex items-center gap-3">
+    <div class="kpi-icon bg-green-50 text-green-600 shrink-0"><i data-lucide="user-plus" class="w-5 h-5"></i></div>
+    <div class="min-w-0">
+      <p class="kpi-value {% if cstats.places_restantes == 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ cstats.places_restantes }}</p>
+      <p class="kpi-label">{% trans "Places restantes" %}</p>
+    </div>
+  </div>
 </div>

@@ -2,228 +2,268 @@
 {% load i18n humanize %}
 
 {% block title %}{{ student.full_name }}{% endblock %}
-{% block page_title %}Fiche élève{% endblock %}
-
-{% block header_actions %}
-  <a href="{% url 'students:list' %}"
-     class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:border-primary-600 hover:text-primary-600 text-sm font-medium rounded-lg transition min-h-[44px]">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-    </svg>
-    Retour
-  </a>
-{% endblock %}
+{% block page_header %}{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-6">
+<div x-data="{ tab: 'apercu', editOpen: false, collectOpen: false, withdrawOpen: false }"
+     @close-edit-panel.window="editOpen = false"
+     @close-collect-panel.window="collectOpen = false"
+     @keydown.escape.window="editOpen = false; collectOpen = false; withdrawOpen = false">
 
-  {# ── Section 1 — Identité (inline-editable) ── #}
-  {% include "students/partials/student_profile_view.html" %}
+  {# Fil d'Ariane #}
+  <div class="flex items-center gap-2 text-sm text-gray-400 mb-4">
+    <a href="{% url 'students:list' %}" class="inline-flex items-center gap-1 hover:text-gray-700 transition-colors"><i data-lucide="arrow-left" class="w-4 h-4"></i> Élèves</a>
+    <span>/</span>
+    <span class="text-gray-600 truncate">{{ student.full_name }}</span>
+  </div>
 
-  {% comment %}
-    ── Section 2 — Fiche financière (lot 5) : timeline + encaissement au guichet ──
-    L'ANCIEN bloc « Situation financière » (3 tuiles tuition_fee/get_total_paid +
-    historique) a été RETIRÉ : il reposait sur l'ancien modèle de solde global et
-    contredisait la timeline (allocations). La timeline est désormais le SEUL résumé
-    financier (dû / versé / reste = agrégats par allocation). Le journal des versements
-    bruts est conservé séparément SOUS la timeline (cf. Section 2ter).
-    La timeline (finance/partials/timeline.html) est ré-rendue en OOB (#fee-timeline)
-    après chaque encaissement. Le panneau de guichet est chargé par HTMX dans
-    #collect-panel-body. État neutre conservé si l'élève n'a pas de fiche.
-  {% endcomment %}
-  <div x-data="{ collectOpen: false }"
-       @close-collect-panel.window="collectOpen = false"
-       @keydown.escape.window="collectOpen = false">
+  <div class="grid lg:grid-cols-[260px_minmax(0,1fr)] gap-6 items-start">
 
-    <div id="fee-timeline">
-      {% include "finance/partials/timeline.html" with account=fee_account %}
+    {# ── Rail identité (collant) ── #}
+    <div class="lg:sticky lg:top-6">
+      {% include "students/partials/student_rail.html" %}
     </div>
 
-    {# Overlay #}
-    <div x-show="collectOpen" x-cloak
-         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-         class="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-40" @click="collectOpen = false"></div>
-
-    {# Panneau d'encaissement (slide depuis la droite) #}
-    <div x-show="collectOpen" x-cloak
-         class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col"
-         x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
-         x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
-      <div id="collect-panel-body" class="h-full flex flex-col">
-        {# Chargé par HTMX au clic sur « Encaisser ». #}
+    {# ── Contenu : onglets ── #}
+    <div class="min-w-0">
+      <div class="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto scrollbar-hide">
+        {% for val, label in tabs %}
+          <button type="button" @click="tab = '{{ val }}'"
+                  :class="tab === '{{ val }}' ? 'text-gray-900 border-primary-600' : 'text-gray-500 border-transparent hover:text-gray-900'"
+                  class="shrink-0 px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors">{{ label }}</button>
+        {% endfor %}
       </div>
-    </div>
-  </div>
 
-  {% comment %}
-    ── Section 2ter — Journal des versements (Payment réels) ──
-    Distinct de la timeline ci-dessus : la timeline montre l'AFFECTATION aux tranches
-    (allocations) ; ce journal liste les VERSEMENTS bruts encaissés (Payment immuables),
-    y compris d'éventuels paiements non encore alloués (anciens / page Paiements en
-    attendant l'unification du lot 6). C'est le SEUL historique des paiements de la fiche.
-  {% endcomment %}
-  <div class="card p-6">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Journal des versements</h3>
-      <span class="text-[11px] text-gray-400">montants reçus (toutes familles)</span>
-    </div>
-    {% with payments=student.payments.all %}
-      {% if payments %}
-        <div class="space-y-2">
-          {% for payment in payments %}
-            {% if not payment.is_cancelled %}
-              <div class="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-xl text-sm">
-                <div class="flex items-center gap-3">
-                  <div class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></div>
-                  <div>
-                    <p class="font-medium text-gray-800">{{ payment.amount|intcomma }} FCFA</p>
-                    <p class="text-xs text-gray-400">{{ payment.get_payment_method_display }} · {{ payment.payment_date|date:"d/m/Y" }}{% if not payment.allocations.exists %} · <span class="text-amber-600">non affecté</span>{% endif %}</p>
-                  </div>
-                </div>
-                <span class="text-xs text-gray-400 font-mono">{{ payment.receipt_number }}</span>
-              </div>
-            {% endif %}
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="text-sm text-gray-400 text-center py-4">Aucun versement enregistré</p>
-      {% endif %}
-    {% endwith %}
-  </div>
-
-  {# ── Section 2.5 — Parents / Tuteurs ── #}
-  <div x-data="{ guardianPanel: false }"
-       @close-guardian-panel.document="guardianPanel = false">
-    {% include "students/partials/guardian_section.html" %}
-    {% include "students/partials/guardian_form.html" %}
-  </div>
-
-  {# ── Section 3 — Observations enseignants (directeur/staff uniquement) ── #}
-  {% if observations is not None and request.role != 'teacher' %}
-  <div class="card p-6">
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-        Observations enseignants
-      </h3>
-      {% if observations %}
-      <span class="text-xs text-gray-400">{{ observations|length }} observation{{ observations|length|pluralize }}</span>
-      {% endif %}
-    </div>
-
-    {% if observations %}
-    <div class="space-y-3">
-      {% for obs in observations %}
-      {% include "students/partials/obs_card.html" with obs=obs %}
-      {% endfor %}
-    </div>
-
-    {% else %}
-    <div class="text-center py-8">
-      <i data-lucide="message-square" class="w-8 h-8 mx-auto text-gray-300 mb-2"></i>
-      <p class="text-sm text-gray-400">Aucune observation enregistrée</p>
-    </div>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  {# ── Section 4 — Absences récentes (30 j) ── #}
-  <div class="card p-6">
-    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-5">Absences récentes <span class="normal-case text-gray-300">· 30 jours</span></h3>
-    {% if absences_recentes %}
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="text-left text-xs text-gray-400 border-b border-gray-100">
-          <th class="py-2 font-medium">Date</th><th class="py-2 font-medium">Statut</th><th class="py-2 font-medium">Professeur</th><th class="py-2 font-medium">Note</th>
-        </tr></thead>
-        <tbody class="divide-y divide-gray-50">
-          {% for a in absences_recentes %}
-          <tr>
-            <td class="py-2 text-gray-600 whitespace-nowrap">{{ a.date|date:"d/m/Y" }}</td>
-            <td class="py-2">{% if a.status == 'absent' %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">Absent</span>{% else %}<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">Retard</span>{% endif %}</td>
-            <td class="py-2 text-gray-500">{% if a.teacher %}{{ a.teacher.full_name }}{% else %}—{% endif %}</td>
-            <td class="py-2 text-gray-400">{{ a.note|default:"—" }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <p class="text-sm text-gray-400 text-center py-4">Aucune absence sur les 30 derniers jours</p>
-    {% endif %}
-  </div>
-
-  {# ── Section 5 — Notes période active ── #}
-  <div class="card p-6">
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Notes</h3>
-      {% if active_period %}<span class="text-xs text-gray-400">{{ active_period.name }}</span>{% endif %}
-    </div>
-    {% if notes_periode %}
-    <div class="space-y-2">
-      {% regroup notes_periode by class_subject.subject.name as par_matiere %}
-      {% for matiere in par_matiere %}
-      <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-        <span class="text-sm font-medium text-gray-700">{{ matiere.grouper }}</span>
-        <div class="flex items-center gap-2 flex-wrap justify-end">
-          {% for n in matiere.list %}
-          <span class="px-2 py-0.5 rounded-md text-xs font-semibold {% if n.value < 10 %}bg-red-100 text-red-700{% else %}bg-primary-100 text-primary-700{% endif %}">{{ n.value|floatformat:"-2" }}</span>
-          {% endfor %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-sm text-gray-400 text-center py-4">Aucune note saisie pour la période active</p>
-    {% endif %}
-  </div>
-
-  {# ── Section 6 — Notifications envoyées aux parents ── #}
-  <div class="card p-6">
-    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-5">Notifications aux parents</h3>
-    {% if notifs_parents %}
-    <div class="space-y-2">
-      {% for n in notifs_parents %}
-      <div class="flex items-start gap-3 p-3 rounded-lg {% if not n.is_read %}bg-primary-50/40{% else %}bg-gray-50{% endif %}">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-200 text-gray-600">{{ n.get_category_display }}</span>
-            <span class="text-sm font-medium text-gray-800 truncate">{{ n.title }}</span>
+      {# ════ APERÇU ════ #}
+      <div x-show="tab === 'apercu'" class="space-y-4">
+        {% if fee_account %}
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Situation financière</h3>
+              <button type="button" @click="tab = 'finances'" class="text-xs text-primary-600 hover:underline">Voir Finances →</button>
+            </div>
+            <div class="flex items-end justify-between mb-2">
+              <span class="text-2xl font-bold {% if fee_balance > 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ fee_balance|intcomma }} <span class="text-sm font-normal text-gray-400">F restant</span></span>
+              <span class="text-sm text-gray-400">{{ fee_paid|intcomma }} / {{ fee_due|intcomma }} F</span>
+            </div>
+            <div class="h-2 rounded-full bg-gray-100 overflow-hidden"><div class="h-full bg-primary-600" style="width:{{ pct_paid }}%"></div></div>
           </div>
-          <p class="text-xs text-gray-400 mt-0.5">→ {{ n.recipient.full_name }} · {{ n.created_at|date:"d/m/Y H:i" }}</p>
+        {% endif %}
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Dernières notes</h3>
+              <button type="button" @click="tab = 'scolarite'" class="text-xs text-primary-600 hover:underline">Tout voir</button>
+            </div>
+            {% if recent_notes %}
+              <div class="space-y-2">
+                {% for n in recent_notes %}
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600 truncate">{{ n.class_subject.subject.name }}</span>
+                    <span class="px-2 py-0.5 rounded-md text-xs font-semibold {% if n.value < 10 %}bg-red-100 text-red-700{% else %}bg-primary-100 text-primary-700{% endif %}">{{ n.value|floatformat:"-2" }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}<p class="text-sm text-gray-400">Aucune note récente.</p>{% endif %}
+          </div>
+
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Absences récentes</h3>
+              <button type="button" @click="tab = 'vie-scolaire'" class="text-xs text-primary-600 hover:underline">Tout voir</button>
+            </div>
+            {% if absences_recentes %}
+              <div class="space-y-2">
+                {% for a in absences_recentes|slice:":3" %}
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-500">{{ a.date|date:"d/m/Y" }}</span>
+                    {% if a.status == 'absent' %}<span class="badge-danger">Absent</span>{% else %}<span class="badge-warning">Retard</span>{% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}<p class="text-sm text-gray-400">Aucune absence (30 j).</p>{% endif %}
+          </div>
         </div>
-        {% if n.is_read %}<span class="text-[10px] text-green-600 shrink-0">Lu</span>{% else %}<span class="text-[10px] text-gray-400 shrink-0">Non lu</span>{% endif %}
+
+        {% if observations %}
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Observation récente</h3>
+              <button type="button" @click="tab = 'vie-scolaire'" class="text-xs text-primary-600 hover:underline">Tout voir</button>
+            </div>
+            {% with obs=observations.0 %}
+              <p class="text-sm text-gray-700">{{ obs.content|truncatechars:160 }}</p>
+              <p class="text-xs text-gray-400 mt-1">{% if obs.teacher %}{{ obs.teacher.full_name }} · {% endif %}{{ obs.created_at|date:"d/m/Y" }}</p>
+            {% endwith %}
+          </div>
+        {% endif %}
       </div>
-      {% endfor %}
+
+      {# ════ FINANCES ════ #}
+      <div x-show="tab === 'finances'" x-cloak class="space-y-4">
+        <div id="fee-timeline">{% include "finance/partials/timeline.html" with account=fee_account readonly=True %}</div>
+
+        <div class="card p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Journal des versements</h3>
+            <span class="text-[11px] text-gray-400">montants reçus</span>
+          </div>
+          {% with payments=student.payments.all %}
+            {% if payments %}
+              <div class="space-y-2">
+                {% for payment in payments %}{% if not payment.is_cancelled %}
+                  <div class="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-xl text-sm">
+                    <div class="flex items-center gap-3">
+                      <div class="w-2 h-2 rounded-full bg-green-400 shrink-0"></div>
+                      <div>
+                        <p class="font-medium text-gray-800">{{ payment.amount|intcomma }} FCFA</p>
+                        <p class="text-xs text-gray-400">{{ payment.get_payment_method_display }} · {{ payment.payment_date|date:"d/m/Y" }}{% if not payment.allocations.exists %} · <span class="text-amber-600">non affecté</span>{% endif %}</p>
+                      </div>
+                    </div>
+                    <span class="text-xs text-gray-400 font-mono">{{ payment.receipt_number }}</span>
+                  </div>
+                {% endif %}{% endfor %}
+              </div>
+            {% else %}<p class="text-sm text-gray-400 text-center py-4">Aucun versement enregistré.</p>{% endif %}
+          {% endwith %}
+        </div>
+      </div>
+
+      {# ════ SCOLARITÉ ════ #}
+      <div x-show="tab === 'scolarite'" x-cloak class="space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Notes par matière</h3>
+          {% if periods %}
+            <select name="period"
+                    hx-get="{% url 'students:notes-period' student.id %}"
+                    hx-target="#notes-by-subject" hx-swap="outerHTML" hx-trigger="change"
+                    class="input-field !w-auto text-sm">
+              {% for p in periods %}<option value="{{ p.id }}" {% if active_period and p.id == active_period.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+            </select>
+          {% endif %}
+        </div>
+        {% include "students/partials/notes_by_subject.html" %}
+      </div>
+
+      {# ════ VIE SCOLAIRE ════ #}
+      <div x-show="tab === 'vie-scolaire'" x-cloak class="space-y-4">
+        <div class="card p-6">
+          <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Absences <span class="normal-case text-gray-300">· 30 jours</span></h3>
+          {% if absences_recentes %}
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-xs text-gray-400 border-b border-gray-100">
+                  <th class="py-2 font-medium">Date</th><th class="py-2 font-medium">Statut</th><th class="py-2 font-medium">Professeur</th><th class="py-2 font-medium">Note</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-50">
+                  {% for a in absences_recentes %}
+                    <tr>
+                      <td class="py-2 text-gray-600 whitespace-nowrap">{{ a.date|date:"d/m/Y" }}</td>
+                      <td class="py-2">{% if a.status == 'absent' %}<span class="badge-danger">Absent</span>{% else %}<span class="badge-warning">Retard</span>{% endif %}</td>
+                      <td class="py-2 text-gray-500">{% if a.teacher %}{{ a.teacher.full_name }}{% else %}—{% endif %}</td>
+                      <td class="py-2 text-gray-400">{{ a.note|default:"—" }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}<p class="text-sm text-gray-400 text-center py-4">Aucune absence sur les 30 derniers jours.</p>{% endif %}
+        </div>
+
+        {% if observations is not None and request.role != 'teacher' %}
+          <div class="card p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Observations enseignants</h3>
+              {% if observations %}<span class="text-xs text-gray-400">{{ observations|length }}</span>{% endif %}
+            </div>
+            {% if observations %}
+              <div class="space-y-3">{% for obs in observations %}{% include "students/partials/obs_card.html" with obs=obs %}{% endfor %}</div>
+            {% else %}
+              <div class="text-center py-8"><i data-lucide="message-square" class="w-8 h-8 mx-auto text-gray-300 mb-2"></i><p class="text-sm text-gray-400">Aucune observation enregistrée.</p></div>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+
+      {# ════ PARENTS ════ #}
+      <div x-show="tab === 'parents'" x-cloak class="space-y-4" x-data="{ guardianPanel: false }" @close-guardian-panel.document="guardianPanel = false">
+        {% include "students/partials/guardian_section.html" %}
+        {% include "students/partials/guardian_form.html" %}
+
+        <div class="card p-6">
+          <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Notifications aux parents</h3>
+          {% if notifs_parents %}
+            <div class="space-y-2">
+              {% for n in notifs_parents %}
+                <div class="flex items-start gap-3 p-3 rounded-lg {% if not n.is_read %}bg-primary-50/40{% else %}bg-gray-50{% endif %}">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-200 text-gray-600">{{ n.get_category_display }}</span>
+                      <span class="text-sm font-medium text-gray-800 truncate">{{ n.title }}</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">→ {{ n.recipient.full_name }} · {{ n.created_at|date:"d/m/Y H:i" }}</p>
+                  </div>
+                  {% if n.is_read %}<span class="text-[10px] text-green-600 shrink-0">Lu</span>{% else %}<span class="text-[10px] text-gray-400 shrink-0">Non lu</span>{% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}<p class="text-sm text-gray-400 text-center py-4">Aucune notification envoyée.</p>{% endif %}
+        </div>
+      </div>
     </div>
-    {% else %}
-    <p class="text-sm text-gray-400 text-center py-4">Aucune notification envoyée</p>
-    {% endif %}
   </div>
 
-  {# ── Zone danger — retrait élève (directeur uniquement) ── #}
-  {% if is_director %}
-  <div class="card p-6 border border-red-100" x-data="{ withdraw: false }">
-    <h3 class="text-sm font-semibold text-red-600 uppercase tracking-wide mb-2">Zone danger</h3>
-    <p class="text-sm text-gray-500 mb-4 max-w-xl">
-      Retirer cet élève des listes actives (départ en cours d'année). Ses données —
-      notes, paiements, bulletins — restent <strong>conservées</strong> en base.
-    </p>
-    <button @click="withdraw = true" type="button" class="btn-danger text-sm">
-      <i data-lucide="user-x" class="w-4 h-4"></i>
-      Retirer cet élève
-    </button>
+  {# ════ Slide-over ÉDITION (téléporté → au-dessus du nav, scope Alpine conservé) ════ #}
+  <template x-teleport="body">
+    <div>
+      <div x-show="editOpen" x-cloak @click="editOpen = false"
+           x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+           class="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[55]"></div>
+      <div x-show="editOpen" x-cloak
+           x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+           class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-[60] flex flex-col">
+        <div id="edit-panel-body" class="h-full">
+          <div class="p-6 space-y-4"><div class="skeleton h-6 w-1/2"></div><div class="skeleton h-10"></div><div class="skeleton h-10"></div><div class="skeleton h-10"></div></div>
+        </div>
+      </div>
+    </div>
+  </template>
 
-    {# Modal confirmation avec sélecteur de motif #}
-    <div x-show="withdraw" x-cloak
-         @click.self="withdraw = false"
-         @keydown.escape.window="withdraw = false"
-         class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+  {# ════ Slide-over ENCAISSEMENT ════ #}
+  <template x-teleport="body">
+    <div>
+      <div x-show="collectOpen" x-cloak @click="collectOpen = false"
+           x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+           class="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[55]"></div>
+      <div x-show="collectOpen" x-cloak
+           x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+           class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl border-l border-gray-200 z-[60] flex flex-col">
+        <div id="collect-panel-body" class="h-full flex flex-col">
+          <div class="p-6 space-y-4"><div class="skeleton h-6 w-1/2"></div><div class="skeleton h-20"></div><div class="skeleton h-10"></div></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  {# ════ Modal RETRAIT (directeur) ════ #}
+  {% if is_director %}
+  <template x-teleport="body">
+    <div x-show="withdrawOpen" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div @click="withdrawOpen = false"
+           x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+           class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
       <form hx-post="{% url 'students:withdraw' student.id %}"
-            @click.stop
-            class="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-4">
+            x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+            class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-4">
         {% csrf_token %}
         <h3 class="text-base font-semibold text-gray-900">Retirer {{ student.full_name }}</h3>
+        <p class="text-sm text-gray-500">Ses données — notes, paiements, bulletins — restent <strong>conservées</strong> en base.</p>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Motif du retrait <span class="text-red-500">*</span></label>
           <select name="status" required class="input-field">
@@ -234,14 +274,11 @@
         </div>
         <div class="flex gap-3 pt-2">
           <button type="submit" class="btn-danger flex-1">Confirmer le retrait</button>
-          <button type="button" @click="withdraw = false"
-                  class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition">
-            Annuler
-          </button>
+          <button type="button" @click="withdrawOpen = false" class="btn-secondary flex-1">Annuler</button>
         </div>
       </form>
     </div>
-  </div>
+  </template>
   {% endif %}
 
 </div>

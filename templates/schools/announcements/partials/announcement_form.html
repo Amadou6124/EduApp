@@ -1,0 +1,66 @@
+{% load i18n %}
+{# Formulaire annonce (nouveau ou édition brouillon). Chargé dans le panneau (#ann-form-body). #}
+<form hx-post="{% if ann %}{% url 'schools:announcement-update' ann.pk %}{% else %}{% url 'schools:announcement-create' %}{% endif %}"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+      {% if ann %}hx-target="#announcement-{{ ann.pk }}" hx-swap="outerHTML"{% else %}hx-target="#announcements-list" hx-swap="afterbegin"{% endif %}
+      x-data="{ audience: '{{ ann.audience|default:'school' }}' }"
+      class="flex flex-col h-full">
+
+  <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Titre <span class="text-red-400">*</span></label>
+      <input type="text" name="title" required value="{{ ann.title|default:'' }}"
+             placeholder="Ex : Réunion parents-professeurs du 20 juin" class="input-field" autofocus>
+    </div>
+
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Message <span class="text-red-400">*</span></label>
+      <textarea name="body" required rows="5" placeholder="Rédigez votre message aux parents…"
+                class="input-field resize-none leading-relaxed">{{ ann.body|default:'' }}</textarea>
+    </div>
+
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Envoyer aux parents de</label>
+      <input type="hidden" name="audience" :value="audience">
+      <div class="grid grid-cols-3 gap-2">
+        <button type="button" @click="audience = 'school'" :class="audience === 'school' ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'" class="flex flex-col items-center gap-1 py-2.5 rounded-lg border text-xs font-medium transition text-center">
+          <i data-lucide="users" class="w-4 h-4"></i> Toute l'école
+        </button>
+        <button type="button" @click="audience = 'class'" :class="audience === 'class' ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'" class="flex flex-col items-center gap-1 py-2.5 rounded-lg border text-xs font-medium transition text-center">
+          <i data-lucide="school" class="w-4 h-4"></i> Une classe
+        </button>
+        <button type="button" @click="audience = 'student'" :class="audience === 'student' ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'" class="flex flex-col items-center gap-1 py-2.5 rounded-lg border text-xs font-medium transition text-center">
+          <i data-lucide="user" class="w-4 h-4"></i> Un élève
+        </button>
+      </div>
+      <p class="text-xs text-gray-400 mt-2" x-text="audience === 'school' ? 'Tous les parents de l\'école recevront l\'annonce.' : audience === 'class' ? 'Les parents de la classe choisie recevront l\'annonce.' : 'Le(s) parent(s) de l\'élève choisi recevront l\'annonce.'"></p>
+    </div>
+
+    <div x-show="audience === 'class'" x-cloak>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Classe ciblée <span class="text-red-400">*</span></label>
+      <select name="target_class_id" class="input-field bg-white">
+        <option value="">— Sélectionner une classe —</option>
+        {% for c in classes %}<option value="{{ c.id }}" {% if ann.target_class_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div x-show="audience === 'student'" x-cloak>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Élève concerné <span class="text-red-400">*</span></label>
+      <select name="target_student_id" class="input-field bg-white">
+        <option value="">— Sélectionner un élève —</option>
+        {% for s in students %}<option value="{{ s.id }}" {% if ann.target_student_id == s.id %}selected{% endif %}>{{ s.full_name }}{% if s.school_class %} — {{ s.school_class.name }}{% endif %}</option>{% endfor %}
+      </select>
+    </div>
+
+  </div>
+
+  <div class="px-6 py-4 border-t border-gray-100 bg-white shrink-0 flex gap-2">
+    <button type="submit" name="publish_now" value="1" class="btn-primary flex-1 h-11">
+      <i data-lucide="send" class="w-4 h-4"></i> Publier maintenant
+    </button>
+    <button type="submit" name="publish_now" value="0" class="h-11 px-4 rounded-lg border border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50 transition">
+      {% if ann %}{% trans "Enregistrer" %}{% else %}{% trans "Brouillon" %}{% endif %}
+    </button>
+  </div>
+</form>

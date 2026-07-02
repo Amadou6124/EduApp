@@ -310,20 +310,9 @@
       <td class="col-matiere">{{ row.subject_name }}</td>
       <td>{{ row.coefficient|floatformat:'0' }}</td>
 
-      {% if has_devoirs_compo %}
-        {% if row.note_system == 'devoirs_compo' %}
-          <td>{% if row.devoir_average is not None %}{{ row.devoir_average|floatformat:'2' }}{% else %}—{% endif %}</td>
-          <td>{% if row.compo_grade_x2 is not None %}{{ row.compo_grade_x2|floatformat:'2' }}{% else %}—{% endif %}</td>
-          <td>{% if row.final_average is not None %}{{ row.final_average|floatformat:'2' }}{% else %}—{% endif %}</td>
-        {% else %}
-          {# MOYENNE_SIMPLE dans tableau DEVOIRS_COMPO : moyenne dans "Notes Classe", tirets ailleurs #}
-          <td>{% if row.final_average is not None %}{{ row.final_average|floatformat:'2' }}{% else %}—{% endif %}</td>
-          <td>—</td>
-          <td>—</td>
-        {% endif %}
-      {% else %}
-        <td>{% if row.final_average is not None %}{{ row.final_average|floatformat:'2' }}{% else %}—{% endif %}</td>
-      {% endif %}
+      <td>{% if row.devoir_average is not None %}{{ row.devoir_average|floatformat:'2' }}{% else %}—{% endif %}</td>
+      <td>{% if row.compo_grade_x2 is not None %}{{ row.compo_grade_x2|floatformat:'2' }}{% else %}—{% endif %}</td>
+      <td>{% if row.final_average is not None %}{{ row.final_average|floatformat:'2' }}{% else %}—{% endif %}</td>
 
       <td>{% if row.weighted_grade is not None %}{{ row.weighted_grade|floatformat:'2' }}{% else %}—{% endif %}</td>
 

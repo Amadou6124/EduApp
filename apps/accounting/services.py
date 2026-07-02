@@ -2,6 +2,7 @@
 from decimal import Decimal
 
 from django.db.models import Case, DecimalField, F, Sum, When
+from django.db.models.functions import Coalesce
 
 from apps.accounts.models import UserRole
 
@@ -14,9 +15,14 @@ def compute_teacher_hours(school, year, month):
     """
     from .models import TeacherAttendance
 
-    weighted = Case(
-        When(session='full', then=F('class_subject__duration_hours') * 2),
-        default=F('class_subject__duration_hours'),
+    # Heures réelles si saisies (« partiel »), sinon durée prévue (×2 si journée).
+    weighted = Coalesce(
+        F('hours'),
+        Case(
+            When(session='full', then=F('class_subject__duration_hours') * 2),
+            default=F('class_subject__duration_hours'),
+            output_field=DecimalField(max_digits=8, decimal_places=1),
+        ),
         output_field=DecimalField(max_digits=8, decimal_places=1),
     )
     hours = {}
@@ -39,7 +45,80 @@ def compute_teacher_hours(school, year, month):
     return hours
 
 
-def _row(membership, profile, hours_map, existing):
+def compute_vacataire_pay(school, year, month):
+    """Paie vacataire PAR COURS : Σ (heures émargées « présent » du cours × tarif du cours).
+
+    Le remplacement n'est PAS crédité ici : dans la réalité le remplaçant assure
+    sa PROPRE matière (émargée comme sa propre séance). « Remplacé » = trace de
+    couverture. Retourne {user_id: {amount, hours, courses, unrated_hours}}.
+    """
+    from collections import defaultdict
+    from .models import TeacherAttendance, VacataireRate, EmploymentType
+
+    rate_map = {
+        vr.class_subject_id: vr.hourly_rate
+        for vr in VacataireRate.objects.filter(
+            profile__membership__school=school,
+            profile__employment_type=EmploymentType.VACATAIRE,
+        )
+    }
+    acc = defaultdict(lambda: {'amount': Decimal('0'), 'hours': Decimal('0'),
+                               'courses': set(), 'unrated_hours': Decimal('0')})
+    rows = (
+        TeacherAttendance.objects
+        .filter(school=school, date__year=year, date__month=month, status='present')
+        .values('teacher_id', 'class_subject_id', 'hours',
+                'class_subject__duration_hours', 'session')
+    )
+    for r in rows:
+        eff = r['hours']
+        if eff is None:
+            dur = r['class_subject__duration_hours'] or Decimal('0')
+            eff = dur * 2 if r['session'] == 'full' else dur
+        d = acc[r['teacher_id']]
+        d['hours'] += eff
+        d['courses'].add(r['class_subject_id'])
+        rate = rate_map.get(r['class_subject_id'])
+        if rate is not None:
+            d['amount'] += eff * rate
+        else:
+            d['unrated_hours'] += eff
+    return {
+        uid: {'amount': v['amount'], 'hours': v['hours'],
+              'courses': len(v['courses']), 'unrated_hours': v['unrated_hours']}
+        for uid, v in acc.items()
+    }
+
+
+def compute_permanent_deductions(school, year, month):
+    """Retenue des permanents : nb de cours absents × school.absence_deduction.
+
+    Retourne {user_id: {absences, deduction}}. Vide si absence_deduction = 0.
+    """
+    from django.db.models import Count
+    from .models import TeacherAttendance, EmployeeProfile, EmploymentType
+
+    per_abs = school.absence_deduction or Decimal('0')
+    perm_ids = set(
+        EmployeeProfile.objects.filter(
+            membership__school=school, employment_type=EmploymentType.PERMANENT, is_active=True,
+        ).values_list('membership__user_id', flat=True)
+    )
+    if not perm_ids:
+        return {}
+    rows = (
+        TeacherAttendance.objects
+        .filter(school=school, date__year=year, date__month=month,
+                status='absent', teacher_id__in=perm_ids)
+        .values('teacher_id').annotate(n=Count('id'))
+    )
+    return {
+        r['teacher_id']: {'absences': r['n'], 'deduction': per_abs * r['n']}
+        for r in rows
+    }
+
+
+def _row(membership, profile, vac_map, ded_map, existing):
     """Construit une ligne de paie (commun preview + re-render après action)."""
     from .models import EmploymentType
 
@@ -47,16 +126,31 @@ def _row(membership, profile, hours_map, existing):
         return {
             'membership': membership, 'profile': profile,
             'computed_hours': None, 'computed_amount': Decimal('0'),
+            'courses': 0, 'unrated_hours': Decimal('0'),
+            'gross': Decimal('0'), 'deduction': Decimal('0'), 'absences': 0,
             'existing_payment': existing, 'status': 'not_configured',
         }
     if profile.employment_type == EmploymentType.PERMANENT:
-        amount, hrs = (profile.monthly_salary or Decimal('0')), None
+        gross = profile.monthly_salary or Decimal('0')
+        d = ded_map.get(membership.user_id) or {}
+        deduction = d.get('deduction', Decimal('0'))
+        absences = d.get('absences', 0)
+        amount = gross - deduction
+        if amount < 0:
+            amount = Decimal('0')
+        hrs, courses, unrated = None, 0, Decimal('0')
     else:
-        hrs = hours_map.get(membership.user_id, Decimal('0'))
-        amount = hrs * (profile.hourly_rate or Decimal('0'))
+        v = vac_map.get(membership.user_id) or {}
+        hrs = v.get('hours', Decimal('0'))
+        amount = v.get('amount', Decimal('0'))
+        courses = v.get('courses', 0)
+        unrated = v.get('unrated_hours', Decimal('0'))
+        gross, deduction, absences = amount, Decimal('0'), 0
     return {
         'membership': membership, 'profile': profile,
         'computed_hours': hrs, 'computed_amount': amount,
+        'courses': courses, 'unrated_hours': unrated,
+        'gross': gross, 'deduction': deduction, 'absences': absences,
         'existing_payment': existing,
         'status': existing.status if existing else 'unpaid',
     }
@@ -76,7 +170,8 @@ def compute_monthly_salary_preview(school, year, month):
         .select_related('user', 'employee_profile')
         .order_by('user__full_name')
     )
-    hours_map = compute_teacher_hours(school, year, month)
+    vac_map = compute_vacataire_pay(school, year, month)
+    ded_map = compute_permanent_deductions(school, year, month)
     pay_map = {
         p.employee_id: p
         for p in SalaryPayment.objects.filter(
@@ -87,7 +182,7 @@ def compute_monthly_salary_preview(school, year, month):
     permanents, vacataires, not_configured = [], [], []
     for m in memberships:
         profile = getattr(m, 'employee_profile', None)
-        row = _row(m, profile, hours_map, pay_map.get(m.id))
+        row = _row(m, profile, vac_map, ded_map, pay_map.get(m.id))
         if row['status'] == 'not_configured':
             not_configured.append(row)
         elif profile.employment_type == EmploymentType.PERMANENT:
@@ -114,11 +209,12 @@ def salary_row(school, membership, year, month):
     from .models import SalaryPayment
 
     profile = getattr(membership, 'employee_profile', None)
-    hours_map = compute_teacher_hours(school, year, month)
+    vac_map = compute_vacataire_pay(school, year, month)
+    ded_map = compute_permanent_deductions(school, year, month)
     existing = SalaryPayment.objects.filter(
         employee=membership, year=year, month=month, is_cancelled=False,
     ).first()
-    return _row(membership, profile, hours_map, existing)
+    return _row(membership, profile, vac_map, ded_map, existing)
 
 
 def compute_monthly_balance(school, year, month):
@@ -208,5 +304,6 @@ def generate_payslip_pdf(payment):
     html = render_to_string('accounting/pdf/payslip.html', {
         'p': payment,
         'school': payment.school,
+        'gross': (payment.amount or Decimal('0')) + (payment.deduction or Decimal('0')),
     })
     return HTML(string=html).write_pdf()

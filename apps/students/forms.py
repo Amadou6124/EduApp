@@ -56,6 +56,7 @@ class StudentCreateForm(forms.ModelForm):
                 SchoolClass.objects.filter(school=school, is_active=True)
                 .order_by('level', 'name')
             )
+            self.fields['school_class'].label_from_instance = lambda obj: obj.name
         self.fields['school_class'].empty_label = _('— Sélectionner une classe —')
 
 
@@ -79,3 +80,4 @@ class StudentUpdateForm(forms.ModelForm):
                 SchoolClass.objects.filter(school=school, is_active=True)
                 .order_by('level', 'name')
             )
+            self.fields['school_class'].label_from_instance = lambda obj: obj.name

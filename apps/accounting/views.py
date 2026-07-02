@@ -75,6 +75,36 @@ def accounting_staff_list(request):
 
 # ─── Phase 2 — Rémunération employé (panneau lazy-load dans /team/<id>/) ──────
 
+def _vacataire_course_rates(school, member, profile):
+    """Cours du prof (matière + classe) groupés par matière + leur tarif actuel.
+
+    Auto-listés depuis ses cours → tarif par cours, avec « appliquer à toute la
+    matière » côté UI pour éviter la re-saisie.
+    """
+    from apps.schools.models import ClassSubject
+    from .models import VacataireRate
+
+    courses = (
+        ClassSubject.objects
+        .filter(teacher=member, school_class__school=school, is_active=True)
+        .select_related('subject', 'school_class')
+        .order_by('subject__name', 'school_class__name')
+    )
+    existing = {
+        vr.class_subject_id: vr.hourly_rate
+        for vr in VacataireRate.objects.filter(profile=profile)
+    }
+    groups, by_subj = [], {}
+    for cs in courses:
+        g = by_subj.get(cs.subject_id)
+        if g is None:
+            g = {'subject': cs.subject, 'courses': []}
+            by_subj[cs.subject_id] = g
+            groups.append(g)
+        g['courses'].append({'cs': cs, 'rate': existing.get(cs.id)})
+    return groups
+
+
 @login_required
 @director_or_accounting_required
 def employee_remuneration_panel(request, user_id):
@@ -94,6 +124,7 @@ def employee_remuneration_panel(request, user_id):
     )
     return render(request, 'accounting/partials/employee_remuneration.html', {
         'member': member, 'profile': profile, 'school': school,
+        'rate_groups': _vacataire_course_rates(school, member, profile),
     })
 
 
@@ -118,12 +149,9 @@ def employee_remuneration_save(request, user_id):
         emp_type = EmploymentType.PERMANENT
 
     monthly = _parse_money(request.POST.get('monthly_salary'))
-    hourly  = _parse_money(request.POST.get('hourly_rate'))
 
     if emp_type == EmploymentType.PERMANENT and monthly is None:
         return _toast_error('Le salaire mensuel est obligatoire pour un permanent.')
-    if emp_type == EmploymentType.VACATAIRE and hourly is None:
-        return _toast_error('Le taux horaire est obligatoire pour un vacataire.')
 
     hire_raw = (request.POST.get('hire_date') or '').strip()
     hire_date = None
@@ -135,12 +163,29 @@ def employee_remuneration_save(request, user_id):
 
     profile.employment_type = emp_type
     profile.monthly_salary = monthly if emp_type == EmploymentType.PERMANENT else None
-    profile.hourly_rate    = hourly if emp_type == EmploymentType.VACATAIRE else None
+    profile.hourly_rate    = None  # remplacé par les tarifs par matière (VacataireRate)
     profile.hire_date = hire_date
     profile.save()
 
+    # Tarifs par cours (vacataire) : upsert des valeurs saisies, suppression si vidé.
+    if emp_type == EmploymentType.VACATAIRE:
+        from .models import VacataireRate
+        for g in _vacataire_course_rates(school, member, profile):
+            for r in g['courses']:
+                cs_id = r['cs'].id
+                raw = (request.POST.get(f'rate_cs_{cs_id}') or '').strip()
+                if raw == '':
+                    VacataireRate.objects.filter(profile=profile, class_subject_id=cs_id).delete()
+                    continue
+                val = _parse_money(raw)
+                if val is not None and val >= 0:
+                    VacataireRate.objects.update_or_create(
+                        profile=profile, class_subject_id=cs_id, defaults={'hourly_rate': val},
+                    )
+
     resp = render(request, 'accounting/partials/employee_remuneration.html', {
         'member': member, 'profile': profile, 'school': school,
+        'rate_groups': _vacataire_course_rates(school, member, profile),
     })
     resp['HX-Trigger'] = json.dumps({
         'showToast': {'message': 'Rémunération enregistrée.', 'type': 'success'},
@@ -161,14 +206,29 @@ _LEVEL_BADGE = {
 _SESSIONS = ['morning', 'afternoon', 'full']
 
 
+def _hour_presets(duration):
+    """4 raccourcis d'heures se terminant sur la durée prévue (ex. 2h → 0,5/1/1,5/2 ;
+    3h → 1,5/2/2,5/3). Le « partiel » exact reste possible en saisie libre."""
+    d = float(duration or 2)
+    vals = [round(d - 1.5, 1), round(d - 1.0, 1), round(d - 0.5, 1), round(d, 1)]
+    out = []
+    for v in vals:
+        if v >= 0.5:
+            s = ('%g' % v)  # 1.5 / 2
+            out.append({'v': s, 'label': s.replace('.', ',')})
+    return out
+
+
 @login_required
 @director_or_emargement_required
 def emargement_dashboard(request):
-    """Émargement du jour, cours groupés par classe. 3 requêtes, zéro N+1."""
+    """Émargement « carnet » : séances vacataires à émarger (heures réelles +
+    tarif) + permanents présumés présents (on signale les exceptions). Honnête :
+    pas de planning → on enregistre ce qui a eu lieu, le résumé compte le réel."""
     from datetime import datetime as _dt, date as _date, timedelta
     from collections import OrderedDict
     from apps.schools.models import ClassSubject
-    from .models import TeacherAttendance
+    from .models import TeacherAttendance, EmployeeProfile, EmploymentType, VacataireRate
 
     school = get_school(request)
     if not school.accounting_enabled:
@@ -180,41 +240,78 @@ def emargement_dashboard(request):
     except (ValueError, TypeError):
         selected_date = today
 
-    cs_list = (
+    # Qui est vacataire (école, actif) → quels cours sont « à émarger ».
+    vac_user_ids = set(
+        EmployeeProfile.objects.filter(
+            membership__school=school, membership__is_active=True,
+            employment_type=EmploymentType.VACATAIRE, is_active=True,
+        ).values_list('membership__user_id', flat=True)
+    )
+
+    cs_list = list(
         ClassSubject.objects
         .filter(school_class__school=school, school_class__is_active=True,
                 is_active=True, teacher__isnull=False)
         .select_related('subject', 'teacher', 'school_class')
-        .order_by('school_class__level', 'school_class__name', 'order', 'subject__name')
+        .order_by('teacher__full_name', 'subject__name', 'school_class__name')
     )
+    vac_ids = [cs.id for cs in cs_list if cs.teacher_id in vac_user_ids]
+    rates = {
+        vr.class_subject_id: vr.hourly_rate
+        for vr in VacataireRate.objects.filter(class_subject_id__in=vac_ids)
+    }
     att_map = {
-        (a.class_subject_id, a.session): a
-        for a in TeacherAttendance.objects.filter(school=school, date=selected_date).select_related('substitute')
+        a.class_subject_id: a
+        for a in TeacherAttendance.objects
+        .filter(school=school, date=selected_date, session='morning')
+        .select_related('substitute')
     }
 
-    by_class = OrderedDict()
-    init_state = {}
-    for cs in cs_list:
-        by_class.setdefault(cs.school_class_id, {'sc': cs.school_class, 'courses': []})
-        sessions = {}
-        for s in _SESSIONS:
-            a = att_map.get((cs.id, s))
-            sessions[s] = {
-                'status':   a.status if a else '',
-                'sub_id':   str(a.substitute_id) if a and a.substitute_id else '',
-                'sub_name': a.substitute.full_name if a and a.substitute else '',
-            }
-        init_state[str(cs.id)] = sessions
-        by_class[cs.school_class_id]['courses'].append({
-            'cs': cs,
-            'is_self': cs.teacher_id == request.user.id,   # anti-fraude UI
-        })
+    init_state, vac_groups, perm_by_class = {}, OrderedDict(), OrderedDict()
+    sessions_done, day_amount, absences = 0, 0, 0
+    perm_teacher_ids = set()
 
-    classes_data = [{
-        'school_class': e['sc'], 'courses': e['courses'], 'total': len(e['courses']),
-        'level_badge': _LEVEL_BADGE.get(e['sc'].level, 'bg-gray-100 text-gray-600'),
-        'course_ids': [c['cs'].id for c in e['courses']],
-    } for e in by_class.values()]
+    for cs in cs_list:
+        a = att_map.get(cs.id)
+        status = a.status if a else ''
+        actual = a.hours if (a and a.hours is not None) else None
+        init_state[str(cs.id)] = {
+            'status':   status,
+            'hours':    (str(actual) if actual is not None else ''),
+            'sub_id':   str(a.substitute_id) if a and a.substitute_id else '',
+            'sub_name': a.substitute.full_name if a and a.substitute else '',
+        }
+        if status == 'absent':
+            absences += 1
+
+        if cs.teacher_id in vac_user_ids:
+            rate = rates.get(cs.id)
+            eff = actual if actual is not None else cs.duration_hours
+            if status in ('present', 'replaced'):
+                sessions_done += 1
+            if status == 'present' and rate:
+                day_amount += rate * eff
+            g = vac_groups.setdefault(cs.teacher_id, {'teacher': cs.teacher, 'courses': []})
+            g['courses'].append({
+                'cs': cs, 'rate': rate, 'duration': cs.duration_hours,
+                'presets': _hour_presets(cs.duration_hours),
+            })
+        else:
+            perm_teacher_ids.add(cs.teacher_id)
+            g = perm_by_class.setdefault(cs.school_class_id, {'sc': cs.school_class, 'courses': []})
+            g['courses'].append({'cs': cs})
+
+    vac_groups = [{
+        'teacher': g['teacher'], 'courses': g['courses'],
+        'course_ids': [c['cs'].id for c in g['courses']],
+    } for g in vac_groups.values()]
+    perm_groups = []
+    for e in perm_by_class.values():
+        teachers = ' '.join(sorted({c['cs'].teacher.full_name for c in e['courses']}))
+        perm_groups.append({
+            'school_class': e['sc'], 'courses': e['courses'],
+            'search': f"{e['sc'].name} {teachers}".lower(),
+        })
 
     return render(request, 'accounting/emargement.html', {
         'school': school,
@@ -222,8 +319,12 @@ def emargement_dashboard(request):
         'today': today,
         'prev_date': selected_date - timedelta(days=1),
         'next_date': selected_date + timedelta(days=1),
-        'classes_data': classes_data,
-        'total_courses': sum(c['total'] for c in classes_data),
+        'vac_groups': vac_groups,
+        'vac_teacher_count': len(vac_groups),
+        'perm_groups': perm_groups,
+        'perm_total': sum(len(g['courses']) for g in perm_groups),
+        'perm_teacher_count': len(perm_teacher_ids),
+        'summary': {'sessions_done': sessions_done, 'day_amount': day_amount, 'absences': absences},
         'init_state': init_state,
     })
 
@@ -262,7 +363,14 @@ def emargement_save(request):
     session = request.POST.get('session', 'morning')
     if session not in {c[0] for c in SessionType.choices}:
         session = 'morning'
+
     status = request.POST.get('status', '')
+    # Statut vide → dé-marquage : on supprime l'émargement éventuel.
+    if status == '':
+        TeacherAttendance.objects.filter(
+            class_subject=cs, date=d, session=session,
+        ).delete()
+        return HttpResponse(status=204)
     if status not in {c[0] for c in TeacherAttendanceStatus.choices}:
         return HttpResponse(status=400)
 
@@ -274,11 +382,18 @@ def emargement_save(request):
                 pk=sub_id, memberships__school=school, memberships__role=UserRole.TEACHER,
             ).first()
 
+    # Heures réelles (« partiel ») : uniquement pour un cours assuré (présent).
+    hours = None
+    if status == 'present':
+        hours = _parse_money(request.POST.get('hours'))  # accepte décimaux via parse
+        if hours is not None and hours <= 0:
+            hours = None
+
     TeacherAttendance.objects.update_or_create(
         class_subject=cs, date=d, session=session,
         defaults={
             'teacher': cs.teacher, 'school': school, 'status': status,
-            'substitute': substitute, 'recorded_by': request.user,
+            'hours': hours, 'substitute': substitute, 'recorded_by': request.user,
             'note': request.POST.get('note', '').strip()[:200],
         },
     )
@@ -337,16 +452,55 @@ def salary_dashboard(request):
     year, month = _parse_year_month(request)
     data = compute_monthly_salary_preview(school, year, month)
 
+    def _sum(rows):
+        total = sum((r['computed_amount'] for r in rows), Decimal('0'))
+        paid = sum((r['existing_payment'].amount for r in rows
+                    if r['existing_payment'] and r['existing_payment'].status == 'paid'), Decimal('0'))
+        unpaid = sum(1 for r in rows if r['status'] == 'unpaid')
+        pending = sum(1 for r in rows if r['status'] == 'pending')
+        return {'total': total, 'paid': paid, 'restant': total - paid,
+                'pct': int(paid / total * 100) if total else 0,
+                'unpaid': unpaid, 'pending': pending}
+
+    perm_sum = _sum(data['permanents'])
+    vac_sum = _sum(data['vacataires'])
+
+    tab = request.GET.get('tab')
+    if tab not in ('perm', 'vac'):
+        tab = 'perm' if data['permanents'] else 'vac'
+
     prev_y, prev_m = (year, month - 1) if month > 1 else (year - 1, 12)
     next_y, next_m = (year, month + 1) if month < 12 else (year + 1, 1)
 
     return render(request, 'accounting/salary_dashboard.html', {
-        'school': school, 'year': year, 'month': month,
+        'school': school, 'year': year, 'month': month, 'tab': tab,
         'month_label': _MOIS_FR[month].capitalize(),
         'permanents': data['permanents'], 'vacataires': data['vacataires'],
-        'not_configured': data['not_configured'], 'totals': data['totals'],
+        'not_configured': data['not_configured'],
+        'perm_sum': perm_sum, 'vac_sum': vac_sum,
         'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
     })
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def salary_settings_save(request):
+    """Règle la retenue par absence (politique d'école) puis recharge la paie."""
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.urls import reverse
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    val = _parse_money(request.POST.get('absence_deduction'))
+    school.absence_deduction = val if val is not None else 0
+    school.save(update_fields=['absence_deduction'])
+    messages.success(request, 'Retenue par absence mise à jour.')
+    return redirect(f"{reverse('accounting:salaires')}?year={year}&month={month}")
 
 
 def _render_salary_row(request, membership, year, month, toast=None, toast_type='success'):
@@ -369,7 +523,7 @@ def salary_pay(request):
     from apps.accounts.models import Membership
     from apps.payments.models import PaymentMethod
     from .models import SalaryPayment, EmploymentType
-    from .services import compute_teacher_hours
+    from .services import compute_vacataire_pay, compute_permanent_deductions
 
     school = get_school(request)
     if not school.accounting_enabled:
@@ -393,12 +547,21 @@ def salary_pay(request):
         return _toast_error(f'{m.user.full_name} a déjà une paie pour ce mois.')
 
     # Montant + snapshots recalculés SERVEUR (jamais le client)
+    deduction, absence_count = Decimal('0'), 0
     if profile.employment_type == EmploymentType.PERMANENT:
-        amount, hours, rate = (profile.monthly_salary or Decimal('0')), None, None
+        gross = profile.monthly_salary or Decimal('0')
+        d = compute_permanent_deductions(school, year, month).get(m.user_id) or {}
+        deduction = d.get('deduction', Decimal('0'))
+        absence_count = d.get('absences', 0)
+        amount = gross - deduction
+        if amount < 0:
+            amount = Decimal('0')
+        hours, rate = None, None
     else:
-        hours = compute_teacher_hours(school, year, month).get(m.user_id, Decimal('0'))
-        rate = profile.hourly_rate or Decimal('0')
-        amount = hours * rate
+        v = compute_vacataire_pay(school, year, month).get(m.user_id) or {}
+        hours = v.get('hours', Decimal('0'))
+        amount = v.get('amount', Decimal('0'))
+        rate = None  # tarif par cours (plus de taux unique)
 
     method = request.POST.get('payment_method', 'cash')
     if method not in {c[0] for c in PaymentMethod.choices}:
@@ -408,6 +571,7 @@ def salary_pay(request):
         SalaryPayment.objects.create(
             employee=m, school=school, year=year, month=month,
             amount=amount, hours=hours, hourly_rate=rate,
+            deduction=deduction, absence_count=absence_count,
             status='pending', payment_method=method,
             employee_name=m.user.full_name,
         )
@@ -415,6 +579,71 @@ def salary_pay(request):
         return _toast_error('Paiement déjà enregistré pour ce mois.')
 
     return _render_salary_row(request, m, year, month, toast='Paie créée (en attente de confirmation).')
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def salary_pay_all(request):
+    """Initie (PENDING) toutes les paies non encore créées d'un type, montant > 0."""
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    from django.contrib import messages
+    from .models import SalaryPayment
+    from .services import compute_monthly_salary_preview
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+    emp_type = request.POST.get('type')
+    tab = 'vac' if emp_type == 'vacataire' else 'perm'
+
+    data = compute_monthly_salary_preview(school, year, month)
+    rows = data['vacataires'] if emp_type == 'vacataire' else data['permanents']
+    created = 0
+    for r in rows:
+        if r['status'] != 'unpaid' or r['computed_amount'] <= 0:
+            continue
+        m = r['membership']
+        if SalaryPayment.objects.filter(employee=m, year=year, month=month, is_cancelled=False).exists():
+            continue
+        SalaryPayment.objects.create(
+            employee=m, school=school, year=year, month=month,
+            amount=r['computed_amount'], hours=r['computed_hours'], hourly_rate=None,
+            deduction=r['deduction'], absence_count=r['absences'],
+            status='pending', payment_method='cash', employee_name=m.user.full_name,
+        )
+        created += 1
+    messages.success(request, f"{created} paie(s) initiée(s)." if created else "Aucune paie à initier.")
+    return redirect(f"{reverse('accounting:salaires')}?year={year}&month={month}&tab={tab}")
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def salary_confirm_all(request):
+    """Confirme (PAID) toutes les paies PENDING d'un type."""
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    from django.contrib import messages
+    from django.utils import timezone
+    from .models import SalaryPayment, EmploymentType
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+    emp_type = request.POST.get('type')
+    tab = 'vac' if emp_type == 'vacataire' else 'perm'
+    et = EmploymentType.VACATAIRE if emp_type == 'vacataire' else EmploymentType.PERMANENT
+
+    n = (SalaryPayment.objects
+         .filter(school=school, year=year, month=month, status='pending', is_cancelled=False,
+                 employee__employee_profile__employment_type=et)
+         .update(status='paid', paid_at=timezone.now(), paid_by=request.user))
+    messages.success(request, f"{n} paiement(s) confirmé(s)." if n else "Aucune paie à confirmer.")
+    return redirect(f"{reverse('accounting:salaires')}?year={year}&month={month}&tab={tab}")
 
 
 @login_required
@@ -505,35 +734,83 @@ def _expense_categories(school):
             .order_by('-is_default', 'name'))
 
 
+# Palette déterministe par catégorie (pastille + couleur de barre).
+_CAT_PALETTE = [
+    ('#FAEEDA', '#BA7517'), ('#E6F1FB', '#185FA5'), ('#EEEDFE', '#534AB7'),
+    ('#E1F5EE', '#0F6E56'), ('#FBEAF0', '#993556'), ('#FAECE7', '#993C1D'),
+]
+
+
+def _cat_color(cid):
+    return _CAT_PALETTE[(cid or 0) % len(_CAT_PALETTE)]
+
+
+def _recurring_status(school, year, month):
+    """Récurrentes actives + si déjà enregistrées ce mois (occurrence non annulée)."""
+    from .models import RecurringExpense, Expense
+    recs = list(
+        RecurringExpense.objects.filter(school=school, is_active=True).select_related('category')
+    )
+    reg = set(
+        Expense.objects.filter(
+            school=school, recurring__in=recs, is_cancelled=False,
+            date__year=year, date__month=month,
+        ).values_list('recurring_id', flat=True)
+    )
+    out = []
+    for r in recs:
+        r.chip_bg, r.chip_fg = _cat_color(r.category_id)
+        out.append({'rec': r, 'registered': r.id in reg})
+    return out
+
+
 def _expense_context(request, school, year, month, category_id, method):
-    """Liste + totaux d'un mois filtré (mutualisé dashboard + refresh OOB)."""
+    """Liste + totaux + récurrentes d'un mois filtré (mutualisé dashboard + refresh)."""
     from django.db.models import Sum
     from .models import Expense
 
     # La LISTE inclut les annulées (affichées avec badge) ; les TOTAUX ci-dessous
     # restent sur is_cancelled=False. Actives d'abord, annulées en bas.
+    # Groupée par jour : tri par date (actives + annulées d'un même jour ensemble).
     qs = (Expense.objects
           .filter(school=school, date__year=year, date__month=month)
           .select_related('category', 'paid_by', 'cancelled_by')
-          .order_by('is_cancelled', '-date', '-created_at'))
+          .order_by('-date', 'is_cancelled', '-created_at'))
     if category_id:
         qs = qs.filter(category_id=category_id)
     if method:
         qs = qs.filter(payment_method=method)
     expenses = list(qs)
+    for e in expenses:
+        e.chip_bg, e.chip_fg = _cat_color(e.category_id)
 
     # Total + répartition par catégorie (sur le mois, hors filtres catégorie/mode)
     base = Expense.objects.filter(school=school, is_cancelled=False, date__year=year, date__month=month)
     total = base.aggregate(s=Sum('amount'))['s'] or 0
     by_cat = list(
-        base.values('category__name', 'category__icon')
+        base.values('category__id', 'category__name', 'category__icon')
         .annotate(s=Sum('amount')).order_by('-s')
     )
     for c in by_cat:
         c['pct'] = int(c['s'] / total * 100) if total else 0
+        c['chip'], c['color'] = _cat_color(c['category__id'])
 
+    # Delta vs mois précédent.
+    py, pm = (year, month - 1) if month > 1 else (year - 1, 12)
+    prev_total = (Expense.objects
+                  .filter(school=school, is_cancelled=False, date__year=py, date__month=pm)
+                  .aggregate(s=Sum('amount'))['s'] or 0)
+    delta_pct = None
+    if prev_total:
+        delta_pct = round((float(total) - float(prev_total)) / float(prev_total) * 100)
+
+    recurrings = _recurring_status(school, year, month)
     return {
         'expenses': expenses, 'total': total, 'by_cat': by_cat,
+        'recurrings': recurrings,
+        'rec_total': len(recurrings),
+        'rec_done': sum(1 for i in recurrings if i['registered']),
+        'delta_pct': delta_pct,
         'year': year, 'month': month, 'category_id': category_id, 'method': method,
     }
 
@@ -653,37 +930,118 @@ def expense_cancel(request, expense_id):
     return resp
 
 
-# ─── Phase 6 — Bilan financier ───────────────────────────────────────────────
+def _expense_list_response(request, school, year, month, message, extra_trigger=None):
+    """Re-render #expense-content + toast (mutualisé récurrentes)."""
+    ctx = _expense_context(request, school, year, month, '', '')
+    resp = render(request, 'accounting/partials/expense_list.html', ctx)
+    trig = {'showToast': {'message': message, 'type': 'success'}}
+    if extra_trigger:
+        trig.update(extra_trigger)
+    resp['HX-Trigger'] = json.dumps(trig)
+    return resp
+
 
 @login_required
 @director_or_accounting_required
-def bilan_dashboard(request):
-    from .services import compute_monthly_balance, compute_balance_series
+@require_http_methods(['POST'])
+def recurring_register(request):
+    """Enregistre une dépense récurrente pour le mois affiché (1 clic)."""
+    from datetime import date as _date
+    from .models import RecurringExpense, Expense
 
     school = get_school(request)
     if not school.accounting_enabled:
         return HttpResponse(status=403)
-
     year, month = _parse_year_month(request)
-    balance = compute_monthly_balance(school, year, month)
-    series = compute_balance_series(school, year, month, n=6)
 
-    chart_labels = [f'{_MOIS_FR[s["month"]][:4].capitalize()}' for s in series]
-    chart_revenus = [s['revenus'] for s in series]
-    chart_charges = [s['charges'] for s in series]
-    chart_resultat = [s['resultat'] for s in series]
+    try:
+        rec = RecurringExpense.objects.select_related('category').get(
+            pk=int(request.POST.get('recurring_id')), school=school, is_active=True,
+        )
+    except (TypeError, ValueError, RecurringExpense.DoesNotExist):
+        return _toast_error('Récurrente introuvable.')
 
-    prev_y, prev_m = (year, month - 1) if month > 1 else (year - 1, 12)
-    next_y, next_m = (year, month + 1) if month < 12 else (year + 1, 1)
+    already = Expense.objects.filter(
+        school=school, recurring=rec, is_cancelled=False,
+        date__year=year, date__month=month,
+    ).exists()
+    if not already:
+        today = _date.today()
+        d = today if (year, month) == (today.year, today.month) else _date(year, month, 1)
+        Expense.objects.create(
+            school=school, category=rec.category, recurring=rec,
+            amount=rec.amount, date=d, description=rec.label,
+            payment_method=rec.payment_method, paid_by=request.user,
+        )
+    return _expense_list_response(request, school, year, month, 'Dépense récurrente enregistrée.')
 
-    return render(request, 'accounting/bilan_dashboard.html', {
-        'school': school, 'year': year, 'month': month,
-        'month_label': _MOIS_FR[month].capitalize(),
-        'b': balance,
-        'chart_labels': chart_labels, 'chart_revenus': chart_revenus,
-        'chart_charges': chart_charges, 'chart_resultat': chart_resultat,
-        'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
-    })
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def recurring_create(request):
+    """Ajoute un modèle de dépense récurrente."""
+    from django.db.models import Q
+    from .models import RecurringExpense, ExpenseCategory
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    amount = _parse_money(request.POST.get('amount'))
+    if amount is None or amount <= 0:
+        return _toast_error('Montant invalide.')
+    cat_id = (request.POST.get('category') or '').strip()
+    if not cat_id.isdigit():
+        return _toast_error('Veuillez sélectionner une catégorie.')
+    cat = ExpenseCategory.objects.filter(
+        Q(school__isnull=True) | Q(school=school), pk=cat_id, is_active=True,
+    ).first()
+    if cat is None:
+        return _toast_error('Catégorie invalide.')
+
+    from apps.payments.models import PaymentMethod
+    method = request.POST.get('payment_method', 'cash')
+    if method not in {c[0] for c in PaymentMethod.choices}:
+        method = 'cash'
+
+    RecurringExpense.objects.create(
+        school=school, category=cat, amount=amount,
+        label=request.POST.get('label', '').strip()[:200], payment_method=method,
+    )
+    return _expense_list_response(
+        request, school, year, month, 'Récurrente ajoutée.',
+        extra_trigger={'close-recurring-panel': True},
+    )
+
+
+@login_required
+@director_or_accounting_required
+@require_http_methods(['POST'])
+def recurring_delete(request, rec_id):
+    """Désactive une récurrente (l'historique des occurrences est conservé)."""
+    from .models import RecurringExpense
+
+    school = get_school(request)
+    if not school.accounting_enabled:
+        return HttpResponse(status=403)
+    year, month = _parse_year_month(request)
+
+    RecurringExpense.objects.filter(pk=rec_id, school=school).update(is_active=False)
+    return _expense_list_response(request, school, year, month, 'Récurrente supprimée.')
+
+
+# ─── Phase 6 — Bilan (fusionné dans la Vue d'ensemble) ───────────────────────
+
+@login_required
+@director_or_accounting_required
+def bilan_dashboard(request):
+    """Fusionné dans « Finances · Vue d'ensemble » → redirection (compat liens)."""
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    year, month = _parse_year_month(request)
+    return redirect(f"{reverse('accounting:dashboard')}?year={year}&month={month}")
 
 
 @login_required
@@ -703,13 +1061,13 @@ def bilan_export_excel(request):
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f'Bilan {month}-{year}'[:31]
+    ws.title = f'Trésorerie {month}-{year}'[:31]
 
     bold = Font(bold=True)
     hdr_font = Font(bold=True, color='FFFFFF')
     hdr_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
 
-    ws.append([f'{school.name} — Bilan financier {_MOIS_FR[month].capitalize()} {year}'])
+    ws.append([f'{school.name} — Trésorerie {_MOIS_FR[month].capitalize()} {year}'])
     ws['A1'].font = Font(bold=True, size=14)
     ws.append([])
 
@@ -741,7 +1099,7 @@ def bilan_export_excel(request):
     ws.column_dimensions['A'].width = 36
     ws.column_dimensions['B'].width = 18
 
-    filename = f'bilan_{school.name.replace(" ", "_")}_{month}_{year}.xlsx'
+    filename = f'tresorerie_{school.name.replace(" ", "_")}_{month}_{year}.xlsx'
     resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     resp['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(resp)
@@ -753,7 +1111,8 @@ def bilan_export_excel(request):
 @login_required
 @director_or_accounting_required
 def accounting_dashboard(request):
-    """Dashboard principal : KPI mois courant, graphique 6 mois, alertes, accès rapides."""
+    """Finances · Vue d'ensemble — fusion résultat net + bilan : KPIs, graphe 6 mois,
+    dépenses par catégorie, alertes, raccourcis, export. Réutilise les calculs."""
     from datetime import date as _date
     from .models import SalaryPayment, SalaryStatus, Expense, TeacherAttendance
     from .services import compute_monthly_balance, compute_balance_series
@@ -764,7 +1123,8 @@ def accounting_dashboard(request):
         return HttpResponse(status=403)
 
     today = _date.today()
-    year, month = today.year, today.month
+    year, month = _parse_year_month(request)
+    is_current = (year, month) == (today.year, today.month)
 
     balance = compute_monthly_balance(school, year, month)
     series  = compute_balance_series(school, year, month, n=6)
@@ -773,21 +1133,24 @@ def accounting_dashboard(request):
         school=school, status=SalaryStatus.PENDING, is_cancelled=False,
     ).count()
 
-    depenses_recentes = list(
-        Expense.objects
-        .filter(school=school, is_cancelled=False)
-        .select_related('category')
-        .order_by('-date', '-id')[:5]
-    )
+    # Alerte émargement : seulement quand on regarde le mois courant.
+    non_emarges = 0
+    if is_current:
+        total_cours = ClassSubject.objects.filter(
+            school_class__school=school, school_class__is_active=True,
+            is_active=True, teacher__isnull=False,
+        ).count()
+        emarges = TeacherAttendance.objects.filter(school=school, date=today).count()
+        non_emarges = max(0, total_cours - emarges)
 
-    total_cours = ClassSubject.objects.filter(
-        school_class__school=school, school_class__is_active=True,
-        is_active=True, teacher__isnull=False,
-    ).count()
-    emargements_aujourd_hui = TeacherAttendance.objects.filter(
-        school=school, date=today,
-    ).count()
-    non_emarges = max(0, total_cours - emargements_aujourd_hui)
+    # Barre revenus/charges (proportion).
+    rev = float(balance['revenus'] or 0)
+    chg = float(balance['charges'] or 0)
+    charges_pct = min(100, round(chg / rev * 100)) if rev > 0 else (100 if chg > 0 else 0)
+    kept_pct = max(0, 100 - charges_pct)
+
+    prev_y, prev_m = (year, month - 1) if month > 1 else (year - 1, 12)
+    next_y, next_m = (year, month + 1) if month < 12 else (year + 1, 1)
 
     chart_labels   = [f"{_MOIS_FR[s['month']][:4].capitalize()}" for s in series]
     chart_revenus  = [s['revenus']  for s in series]
@@ -795,14 +1158,12 @@ def accounting_dashboard(request):
     chart_resultat = [s['resultat'] for s in series]
 
     return render(request, 'accounting/dashboard.html', {
-        'school': school, 'today': today,
+        'school': school, 'today': today, 'is_current': is_current,
         'month_label': _MOIS_FR[month].capitalize(), 'year': year, 'month': month,
-        'b': balance,
+        'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
+        'b': balance, 'charges_pct': charges_pct, 'kept_pct': kept_pct,
         'salaires_en_attente': salaires_en_attente,
-        'depenses_recentes': depenses_recentes,
         'non_emarges': non_emarges,
-        'emargements_aujourd_hui': emargements_aujourd_hui,
-        'total_cours': total_cours,
         'chart_labels': chart_labels, 'chart_revenus': chart_revenus,
         'chart_charges': chart_charges, 'chart_resultat': chart_resultat,
     })

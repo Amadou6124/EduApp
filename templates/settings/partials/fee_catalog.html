@@ -10,15 +10,15 @@ La scolarité est exclue (bannière d'info, cf. fees.html).
 
 {% if has_any %}
 
-  {# --- Cartes actives --- #}
+  {# --- Lignes actives --- #}
   {% if active_fees %}
-    <div class="space-y-3">
+    <div class="space-y-2.5">
       {% for fee in active_fees %}
         {% include "settings/partials/fee_card.html" with fee=fee %}
       {% endfor %}
     </div>
   {% else %}
-    <p class="text-sm text-gray-400 text-center py-6 card">
+    <p class="text-sm text-gray-400 text-center py-6 rounded-xl border border-dashed border-gray-200">
       Tous les frais sont désactivés. Réactivez-en un ci-dessous ou ajoutez-en un nouveau.
     </p>
   {% endif %}
@@ -63,7 +63,7 @@ La scolarité est exclue (bannière d'info, cf. fees.html).
 
 {% else %}
   {# État vide global — aucun frais du tout #}
-  <div class="card p-8 sm:p-10 text-center">
+  <div class="rounded-xl border border-dashed border-gray-200 p-8 text-center">
     <div class="w-14 h-14 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4">
       <i data-lucide="wallet" class="w-7 h-7 text-primary-600"></i>
     </div>
