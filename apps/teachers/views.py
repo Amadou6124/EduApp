@@ -3,7 +3,7 @@ Portail Professeur — apps/teachers/
 Namespace URL : teacher
 """
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import login_required
@@ -214,6 +214,14 @@ def attendance_list(request):
     school = get_school(request)
     today  = date.today()
 
+    # Date d'émargement : aujourd'hui par défaut, jamais dans le futur.
+    try:
+        selected_date = datetime.strptime(request.GET.get('date', ''), '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        selected_date = today
+    if selected_date > today:
+        selected_date = today
+
     all_class_ids = _teacher_class_ids(user, school)
 
     classes = list(
@@ -223,32 +231,36 @@ def attendance_list(request):
         .order_by('level', 'name')
     )
 
-    # Classes ayant au moins 1 enregistrement aujourd'hui (1 requête)
-    done_today = set(
-        Attendance.objects.filter(
-            school=school,
-            school_class_id__in=all_class_ids,
-            date=today,
-        ).values_list('school_class_id', flat=True).distinct()
-    )
+    # Absences notées par classe à la date choisie (1 requête). Purement factuel :
+    # sans emploi du temps, on ne peut pas savoir quelles classes « doivent »
+    # être émargées — on n'affiche donc ni obligation ni « en attente ».
+    counts = {
+        r['school_class_id']: r['n']
+        for r in (Attendance.objects
+                  .filter(school=school, school_class_id__in=all_class_ids, date=selected_date)
+                  .values('school_class_id')
+                  .annotate(n=Count('id')))
+    }
 
     class_items = [
         {
             'class':         sc,
             'student_count': sc.student_count,
-            'done':          sc.pk in done_today,
-            'level_badge':   LEVEL_BADGE.get(sc.level, 'bg-gray-100 text-gray-600'),
+            'absent_count':  counts.get(sc.pk, 0),
         }
         for sc in classes
     ]
 
+    is_today = selected_date == today
     return render(request, 'teachers/attendance_list.html', {
         'school':         school,
         'class_items':    class_items,
-        'today':          today,
-        'today_label':    _date_label(today),
-        'nb_done':        len(done_today),
-        'nb_total':       len(class_items),
+        'selected_date':  selected_date,
+        'date_label':     _date_label(selected_date),
+        'is_today':       is_today,
+        'is_yesterday':   selected_date == today - timedelta(days=1),
+        'prev_date':      (selected_date - timedelta(days=1)).isoformat(),
+        'next_date':      None if is_today else (selected_date + timedelta(days=1)).isoformat(),
         'active_section': 'teacher_attendance',
     })
 

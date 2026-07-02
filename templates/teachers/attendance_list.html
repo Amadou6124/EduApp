@@ -1,75 +1,61 @@
 {% extends "base.html" %}
 {% load i18n %}
 
-{% block title %}Absences — {{ today_label }}{% endblock %}
+{% block title %}Absences — {{ date_label }}{% endblock %}
 {% block page_title %}Absences{% endblock %}
-{% block page_subtitle %}<p class="text-sm text-gray-500 mt-0.5">{{ today_label }}</p>{% endblock %}
+{% block page_subtitle %}<p class="text-sm text-gray-500 mt-0.5">Choisis une classe pour faire l'appel</p>{% endblock %}
 
 {% block content %}
 <div class="space-y-4 max-w-2xl mx-auto">
 
-  {# ── Progression du jour ──────────────────────────── #}
-  {% if nb_total %}
-  <div class="bg-white rounded-2xl border border-gray-200 p-4">
-    <div class="flex items-center justify-between mb-2">
-      <span class="text-sm font-medium text-gray-700">Avancement du jour</span>
-      <span class="text-sm font-semibold
-                   {% if nb_done == nb_total %}text-green-600{% else %}text-gray-500{% endif %}">
-        {{ nb_done }}/{{ nb_total }} classe{{ nb_total|pluralize }}
-      </span>
+  {# ── Sélecteur de date ────────────────────────────── #}
+  <div class="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-2 py-2">
+    <a href="?date={{ prev_date }}"
+       class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+       title="Jour précédent">
+      <i data-lucide="chevron-left" class="w-5 h-5"></i>
+    </a>
+    <div class="text-center leading-tight">
+      <p class="text-sm font-medium text-gray-800">
+        {% if is_today %}Aujourd'hui{% elif is_yesterday %}Hier{% else %}{{ date_label }}{% endif %}
+      </p>
+      {% if is_today or is_yesterday %}
+      <p class="text-xs text-gray-400">{{ date_label }}</p>
+      {% endif %}
     </div>
-    <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-      <div class="h-full rounded-full transition-all duration-500
-                  {% if nb_done == nb_total %}bg-green-400{% else %}bg-primary-600{% endif %}"
-           style="width: {% if nb_total %}{% widthratio nb_done nb_total 100 %}{% else %}0{% endif %}%">
-      </div>
-    </div>
-    {% if nb_done == nb_total and nb_total > 0 %}
-    <p class="text-xs text-green-600 font-medium mt-2 flex items-center gap-1">
-      <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
-      Toutes les classes traitées aujourd'hui
-    </p>
+    {% if next_date %}
+    <a href="?date={{ next_date }}"
+       class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+       title="Jour suivant">
+      <i data-lucide="chevron-right" class="w-5 h-5"></i>
+    </a>
+    {% else %}
+    <span class="p-2 text-gray-200" title="Pas de date future"><i data-lucide="chevron-right" class="w-5 h-5"></i></span>
     {% endif %}
   </div>
-  {% endif %}
 
   {# ── Liste des classes ───────────────────────────── #}
   {% if class_items %}
   <div class="space-y-2">
     {% for item in class_items %}
-    <a href="{% url 'teacher:attendance-class' item.class.pk %}"
-       class="flex items-center gap-3 bg-white rounded-xl border
-              {% if item.done %}border-green-200{% else %}border-gray-200{% endif %}
-              p-4 hover:shadow-sm active:scale-[0.99] transition group">
+    <a href="{% url 'teacher:attendance-class' item.class.pk %}?date={{ selected_date|date:'Y-m-d' }}"
+       class="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3 hover:border-primary-600/40 hover:shadow-sm active:scale-[0.99] transition group">
 
-      {# Icône statut #}
-      <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
-                  {% if item.done %}bg-green-50{% else %}bg-amber-50{% endif %}">
-        <i data-lucide="{% if item.done %}calendar-check{% else %}calendar-x{% endif %}"
-           class="w-5 h-5 {% if item.done %}text-green-600{% else %}text-amber-600{% endif %}">
-        </i>
+      <div class="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+        <i data-lucide="clipboard-check" class="w-5 h-5 text-primary-600"></i>
       </div>
 
-      {# Infos classe #}
       <div class="flex-1 min-w-0">
-        <p class="text-sm font-semibold text-gray-900">{{ item.class.name }}</p>
-        <p class="text-xs text-gray-500 mt-0.5">
-          {{ item.student_count }} élève{{ item.student_count|pluralize }}
-        </p>
+        <p class="text-sm font-medium text-gray-900 truncate">{{ item.class.name }}</p>
+        <p class="text-xs text-gray-400">{{ item.student_count }} élève{{ item.student_count|pluralize }}</p>
       </div>
 
-      {# Badge fait / en attente #}
-      <div class="shrink-0 flex items-center gap-2">
-        <span class="px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1
-                     {% if item.done %}bg-green-100 text-green-700{% else %}bg-amber-100 text-amber-700{% endif %}">
-          {% if item.done %}
-            <i data-lucide="check-circle" class="w-3.5 h-3.5 shrink-0"></i> Fait
-          {% else %}
-            <i data-lucide="clock" class="w-3.5 h-3.5 shrink-0"></i> En attente
-          {% endif %}
-        </span>
-        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-gray-600"></i>
-      </div>
+      {% if item.absent_count %}
+      <span class="shrink-0 text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full whitespace-nowrap">
+        {{ item.absent_count }} notée{{ item.absent_count|pluralize }}
+      </span>
+      {% endif %}
+      <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-primary-600 shrink-0 transition"></i>
     </a>
     {% endfor %}
   </div>
