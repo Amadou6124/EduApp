@@ -1,0 +1,172 @@
+/* ============================================================================
+   EduApp — Portail élève · Design tokens « Ludique doux »
+   Couche 1 PRIMITIVES (palette brute)  →  Couche 2 SÉMANTIQUES (rôles)
+   →  Couche 3 COMPOSANT (boutons, cartes, quiz…)
+   Clair = :root · Sombre = [data-theme="dark"] (le HTML ne change jamais).
+   Chargé UNIQUEMENT par le portail élève (scoped) — n'affecte ni prof ni parent.
+   ============================================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* ───────────── COUCHE 1 · PRIMITIVES ───────────── */
+  /* Coral — accent de marque (réservé aux ACTIONS, jamais une matière) */
+  --coral-50:#FFF1EC; --coral-100:#FFE0D5; --coral-200:#FFC5B2; --coral-300:#FFA488;
+  --coral-400:#FF8E6C; --coral-500:#FF7A59; --coral-600:#F2683F; --coral-700:#D2502B;
+  --coral-800:#A83E22; --coral-900:#7E2F1A;
+  /* Violet */
+  --violet-50:#F1EFFE; --violet-100:#E4E0FD; --violet-200:#CBC4FB; --violet-300:#ADA1F7;
+  --violet-400:#9585F4; --violet-500:#7C6BF0; --violet-600:#6553D9; --violet-700:#5140B4;
+  --violet-800:#3F3290; --violet-900:#2E2569;
+  /* Sky */
+  --sky-50:#ECF4FF; --sky-100:#D6E8FF; --sky-200:#ADD0FF; --sky-300:#82B6FF;
+  --sky-400:#6AA8FF; --sky-500:#4C9AFF; --sky-600:#2F7FE8; --sky-700:#2065BC;
+  --sky-800:#1A4E90; --sky-900:#163C6E;
+  /* Mint */
+  --mint-50:#E7F9F4; --mint-100:#C9F2E8; --mint-200:#98E6D3; --mint-300:#63D7BC;
+  --mint-400:#43CFB0; --mint-500:#34C6A8; --mint-600:#22A488; --mint-700:#19806A;
+  --mint-800:#146353; --mint-900:#0F4B3F;
+  /* Amber */
+  --amber-50:#FFF7E6; --amber-100:#FFEDC2; --amber-200:#FFDF95; --amber-300:#FFD26B;
+  --amber-400:#FFCA5B; --amber-500:#FFC24B; --amber-600:#F0A81F; --amber-700:#C98614;
+  --amber-800:#9E6810; --amber-900:#774E0D;
+  /* Teal */
+  --teal-50:#E6F8F8; --teal-100:#C4EFEF; --teal-200:#92E2E2; --teal-300:#57D2D2;
+  --teal-400:#2FC5C5; --teal-500:#14B8B8; --teal-600:#0E9797; --teal-700:#0B7676;
+  --teal-800:#095C5C; --teal-900:#074646;
+  /* Pink */
+  --pink-50:#FEEEF6; --pink-100:#FDD8EB; --pink-200:#FBB2D6; --pink-300:#F888BE;
+  --pink-400:#F573AF; --pink-500:#F368A6; --pink-600:#DE4088; --pink-700:#B82C6C;
+  --pink-800:#922253; --pink-900:#6E1A3F;
+  /* Indigo */
+  --indigo-50:#EDEDFB; --indigo-100:#DCDCF8; --indigo-200:#BCBCF1; --indigo-300:#9595E9;
+  --indigo-400:#7676E0; --indigo-500:#5B5BD6; --indigo-600:#4646BE; --indigo-700:#38389A;
+  --indigo-800:#2C2C79; --indigo-900:#22225C;
+  /* Lime */
+  --lime-50:#F3FBE3; --lime-100:#E4F6C0; --lime-200:#CCEC87; --lime-300:#B0DE4F;
+  --lime-400:#9AD235; --lime-500:#84C520; --lime-600:#68A016; --lime-700:#4F7C13;
+  --lime-800:#3E6113; --lime-900:#314B12;
+  /* Neutres CHAUDS (crème → charbon chaud) */
+  --warm-50:#FFF6EE; --warm-100:#FBF3EA; --warm-200:#EEE6DC; --warm-300:#DDD3C8;
+  --warm-400:#B8ADA6; --warm-500:#8A8594; --warm-600:#6B6270; --warm-700:#4A4350;
+  --warm-800:#342C3C; --warm-900:#201A26;
+  /* États bruts */
+  --green-500:#2FB98A; --red-500:#F2635C; --yellow-500:#F5A623; --blue-500:#4C9AFF;
+  --gold-500:#FFB020;
+
+  /* ───────────── COUCHE 2 · SÉMANTIQUES (clair) ───────────── */
+  --bg:#FFF6EE;              /* fond app (crème cahier) */
+  --surface:#FFFFFF;         /* carte / panneau */
+  --surface-2:#FBF3EA;       /* surface surélevée / champ */
+  --ink:#2C2A33;             /* texte principal */
+  --ink-strong:#2C2A33;      /* titres / gros chiffres — reste vif la nuit */
+  --ink-muted:#8A8594;       /* texte secondaire */
+  --ink-faint:#B4AEB8;       /* libellés / placeholder */
+  --border:#F0EAE3;          /* bordures / séparateurs */
+  --track:#F0EAE3;           /* fond des barres de progression */
+  --ring:var(--coral-400);   /* focus clavier */
+
+  --accent:var(--coral-500); --accent-strong:var(--coral-600);
+  --accent-soft:var(--coral-100); --accent-ink:#FFFFFF;
+
+  --success:#2FB98A; --success-soft:#E4F7F0; --success-ink:#0E6B4E;
+  --danger:#F2635C;  --danger-soft:#FDE7E6;  --danger-ink:#9B2C27;
+  --warn:#F5A623;    --warn-soft:#FEF1DC;    --warn-ink:#8A5A08;
+  --info:#4C9AFF;    --info-soft:#E5F0FF;    --info-ink:#1F5FBF;
+
+  /* Gamification */
+  --xp:var(--gold-500); --flame:var(--coral-500); --heart:var(--danger);
+  --coin:#FFC24B; --diamond:#38BDF8; --trophy:#FFB020; --crown:#F5A623; --level:var(--violet-500);
+  --badge-bronze:#CD8B62; --badge-silver:#AEB4C0; --badge-gold:#F5B935; --badge-diamond:#5CC6E8;
+  --reward-a:var(--coral-500); --reward-b:var(--amber-500);
+
+  /* ───────────── Typo · Rayons · Ombres · Motion ───────────── */
+  --font-ui:'Nunito', system-ui, sans-serif;   /* identité verrouillée — self-hostée en Phase 1 */
+  --text-xs:12px; --text-sm:14px; --text-base:16px; --text-lg:18px; --text-xl:20px;
+  --text-2xl:24px; --text-3xl:30px; --text-4xl:36px; --text-5xl:48px; --text-6xl:60px;
+
+  --r-sm:12px; --r-md:16px; --r-lg:20px; --r-xl:24px; --r-2xl:32px; --r-full:999px;
+
+  --shadow-sm:0 2px 8px rgba(255,122,89,.08);
+  --shadow-md:0 6px 18px rgba(120,47,26,.10);
+  --shadow-lg:0 14px 36px rgba(120,47,26,.14);
+
+  --dur-fast:120ms; --dur:200ms; --dur-slow:320ms; --dur-xslow:500ms;
+  --ease-out:cubic-bezier(.2,.8,.2,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);   /* rebond joueur (récompenses/appui) */
+  --ease-standard:cubic-bezier(.4,0,.2,1);
+
+  /* ───────────── COUCHE 3 · COMPOSANT (clair) ───────────── */
+  /* Boutons — style « pressable 3D » (bord inférieur foncé qui s'enfonce à l'appui) */
+  --btn-radius:var(--r-md);
+  --btn-primary-bg:var(--accent);      --btn-primary-ink:var(--accent-ink); --btn-primary-edge:var(--coral-700);
+  --btn-secondary-bg:var(--surface-2); --btn-secondary-ink:var(--ink);      --btn-secondary-edge:var(--warm-300);
+  --btn-ghost-ink:var(--accent);
+  --btn-outline-border:var(--border);  --btn-outline-ink:var(--ink);
+  --btn-danger-bg:var(--danger);       --btn-danger-ink:#FFFFFF;            --btn-danger-edge:#C4443E;
+  --btn-disabled-bg:var(--warm-200);   --btn-disabled-ink:var(--ink-faint); --btn-disabled-edge:var(--warm-300);
+
+  /* Cartes */
+  --card-bg:var(--surface); --card-border:var(--border); --card-radius:var(--r-lg);
+  --card-pad:16px; --card-shadow:var(--shadow-md);
+  --card-interactive-hover:var(--accent);
+  --reward-card-bg:linear-gradient(150deg, var(--reward-a), var(--reward-b));
+
+  /* Inputs */
+  --input-bg:var(--surface); --input-border:var(--border); --input-ink:var(--ink);
+  --input-placeholder:var(--ink-faint); --input-border-focus:var(--accent);
+  --input-error-border:var(--danger); --input-radius:var(--r-md);
+
+  /* Progression */
+  --progress-track:var(--track); --progress-fill:var(--accent); --progress-radius:var(--r-full);
+
+  /* Quiz — cartes de réponse (LE cœur du jeu) */
+  --tile-radius:var(--r-md);
+  --tile-bg:var(--surface); --tile-ink:var(--ink); --tile-border:var(--border); --tile-edge:var(--warm-200);
+  --tile-selected-bg:var(--accent-soft); --tile-selected-border:var(--accent); --tile-selected-ink:var(--coral-800);
+  --tile-correct-bg:var(--success-soft); --tile-correct-border:var(--success); --tile-correct-ink:var(--success-ink);
+  --tile-wrong-bg:var(--danger-soft);    --tile-wrong-border:var(--danger);    --tile-wrong-ink:var(--danger-ink);
+  --tile-disabled-ink:var(--ink-faint);
+
+  /* Quiz — bandeau de feedback (le tiroir qui monte) */
+  --feedback-correct-bg:var(--success-soft); --feedback-correct-ink:var(--success-ink);
+  --feedback-wrong-bg:var(--danger-soft);    --feedback-wrong-ink:var(--danger-ink);
+
+  /* Navigation basse */
+  --nav-bg:var(--surface); --nav-border:var(--border); --nav-ink:var(--ink-muted); --nav-ink-active:var(--accent);
+}
+
+/* ═══════════════ SOMBRE — charbon CHAUD (le markup ne bouge pas) ═══════════════ */
+[data-theme="dark"]{
+  color-scheme: dark;
+
+  --bg:#201A26; --surface:#2B2431; --surface-2:#342C3C;
+  --ink:#E9E1DB; --ink-strong:#F6EFEA; --ink-muted:#A79FA8; --ink-faint:#6B6270;
+  --border:rgba(255,255,255,.08); --track:#3A3243; --ring:var(--coral-300);
+
+  --accent:var(--coral-400); --accent-strong:var(--coral-300);
+  --accent-soft:rgba(255,122,89,.18); --accent-ink:#201A26;
+
+  --success:#43D6A2; --success-soft:rgba(67,214,162,.16); --success-ink:#9BEFCF;
+  --danger:#FF7E77;  --danger-soft:rgba(255,126,119,.16); --danger-ink:#FFC2BE;
+  --warn:#FFB84D;    --warn-soft:rgba(255,184,77,.16);    --warn-ink:#FFD9A1;
+  --info:#6FB0FF;    --info-soft:rgba(111,176,255,.16);   --info-ink:#BFDBFF;
+
+  --xp:#FFC24B; --flame:var(--coral-400);
+
+  --shadow-sm:0 2px 8px rgba(0,0,0,.30);
+  --shadow-md:0 6px 18px rgba(0,0,0,.42);
+  --shadow-lg:0 14px 36px rgba(0,0,0,.52);
+
+  /* composant — surcharges dark */
+  --btn-secondary-bg:var(--surface-2); --btn-secondary-edge:rgba(255,255,255,.10);
+  --btn-disabled-bg:var(--surface-2);  --btn-disabled-edge:rgba(255,255,255,.06);
+  --card-border:rgba(255,255,255,.06);
+  --tile-bg:var(--surface); --tile-edge:rgba(0,0,0,.40); --tile-selected-ink:var(--coral-200);
+  --input-bg:var(--surface-2);
+}
+
+/* Accessibilité — mouvement réduit */
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+}

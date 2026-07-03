@@ -5,6 +5,7 @@ from . import views
 app_name = 'learn'
 
 urlpatterns = [
+    path('_design/', views.design_system, name='design-system'),   # atelier design (dev)
     path('login/', views.learn_login, name='login'),
     path('logout/', views.learn_logout, name='logout'),
     path('', views.learn_dashboard, name='dashboard'),

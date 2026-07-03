@@ -1004,3 +1004,25 @@ def quiz_v2_answer(request, lesson_id, concept_id):
         'passes_done': passes_done,
         'passes':      _concept_passes(concept),
     })
+
+
+# ─── Phase 0 — Atelier du design system (styleguide dev, portail élève) ───────
+
+def design_system(request):
+    """Page-atelier « Ludique doux » : rampes, tokens sémantiques + composant,
+    typo (comparateur de polices), boutons, cartes, badges, progression, la
+    DÉMO DE QUIZ EN JEU (tiles + feedback + CTA pressable), et l'auto-couleur de
+    20 matières — en clair ET sombre. Sert à valider le système avant les écrans.
+    Sans auth : ne lit aucune donnée élève (uniquement des tokens)."""
+    from apps.student_learning.theme import subject_hue_at, SUBJECT_HUES
+    demo_subjects = [
+        'Mathématiques', 'Français', 'Physique', 'Chimie', 'Biologie', 'Informatique',
+        'Histoire', 'Géographie', 'Anglais', 'Philosophie', 'Économie', 'Comptabilité',
+        'Marketing', 'Droit', 'Anatomie', 'Robotique', 'Astronomie', 'Cybersécurité',
+        'Éducation civique', 'Arts plastiques',
+    ]
+    subjects = [{'name': s, 'hue': subject_hue_at(i)} for i, s in enumerate(demo_subjects)]
+    return render(request, 'student_learning/_design_system.html', {
+        'subjects': subjects,
+        'hues': SUBJECT_HUES,
+    })
