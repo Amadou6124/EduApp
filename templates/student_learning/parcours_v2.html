@@ -6,7 +6,9 @@
   <title>{{ lesson.title }} — Parcours</title>
 
   {# Thème avant peinture (mémorisé, sinon réglage système) #}
-  <script>(function(){try{var t=localStorage.getItem('learn-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+  {# Défaut = CLAIR tant que le bouton de bascule (Profil, Phase 8) n'existe pas.
+     Le sombre reste dispo via la préférence mémorisée (auto-suivi appareil à réactiver plus tard). #}
+  <script>(function(){try{document.documentElement.dataset.theme=localStorage.getItem('learn-theme')||'light';}catch(e){}})();</script>
 
   <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
