@@ -579,6 +579,7 @@ def learn_lecteur_v2(request, lesson_id):
         {'id': n.id, 'section': n.section, 'text': n.text}
         for n in StudentNote.objects.filter(student=student, lesson=lesson)
     ]
+
     return render(request, 'student_learning/lecteur_v2.html', {
         'hue':     hue,
         'notes_json':   notes,

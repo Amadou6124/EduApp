@@ -163,12 +163,12 @@
       </section>
       {% endfor %}
 
-      <!-- CTA exercices -->
+      <!-- CTA fin de lecture → TOUJOURS le parcours (jamais un quiz en direct) -->
       <div style="margin-top:34px;text-align:center;border:1px solid var(--border);border-radius:22px;padding:26px 20px;background:var(--surface)">
-        <div style="width:56px;height:56px;border-radius:18px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:var(--accent)"><i data-lucide="dumbbell" style="color:#fff"></i></div>
-        <div style="font-size:19px;font-weight:800">Prêt à pratiquer ?</div>
-        <div style="font-size:14px;color:var(--text-dim);margin-top:4px">Teste tes connaissances avec un quiz.</div>
-        <button class="rsolid" @click="toast('Exercices — bientôt')" style="background:var(--accent);margin-top:16px">Faire les exercices <i data-lucide="chevron-right" style="width:17px;height:17px"></i></button>
+        <div style="width:56px;height:56px;border-radius:18px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:var(--accent)"><i data-lucide="route" style="color:#fff"></i></div>
+        <div style="font-size:19px;font-weight:800">Lecture terminée</div>
+        <div style="font-size:14px;color:var(--text-dim);margin-top:4px">Retrouve la suite sur ton parcours.</div>
+        <a href="{{ back_url }}" @click="stopTTS()" class="rsolid" style="background:var(--accent);margin-top:16px;text-decoration:none">Retour au parcours <i data-lucide="chevron-right" style="width:17px;height:17px"></i></a>
       </div>
     </div>
   </main>
