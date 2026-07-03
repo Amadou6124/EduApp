@@ -566,7 +566,15 @@ def learn_lecteur_v2(request, lesson_id):
         tts.append(sec_tts)
 
     subject = lesson.subject or ''
+    # Teinte de matière AUTO (par position) — MÊME calcul que le parcours, pour que
+    # la même matière ait la même couleur partout (parcours ↔ lecteur).
+    from apps.student_learning.theme import subject_hue_at
+    _subjects = _student_v2_subjects(student)
+    _names = [s['subject'] for s in _subjects]
+    _cur = subject or 'Autre'
+    hue = subject_hue_at(_names.index(_cur)) if _cur in _names else subject_hue_at(0)
     return render(request, 'student_learning/lecteur_v2.html', {
+        'hue':     hue,
         'lesson': {
             'title':   lesson.title,
             'subject': subject,

@@ -1,10 +1,17 @@
 {% load static l10n %}<!DOCTYPE html>
-<html lang="fr" class="theme-dark">
+<html lang="fr" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
   <title>{{ reading_title }} — Lecture</title>
-  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+
+  {# Thème AVANT peinture (évite le flash) : choix mémorisé, sinon clair. #}
+  <script>
+    (function(){try{ document.documentElement.dataset.theme = localStorage.getItem('learn-theme') || 'light'; }catch(e){}})();
+  </script>
+
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
   <script src="{% static 'vendor/lucide/lucide.min.js' %}" defer></script>
   <script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
 
@@ -13,16 +20,15 @@
   {{ section_titles|json_script:"rdr-sectitles" }}
 
   <style>
-    .theme-dark{
-      --bg:radial-gradient(120% 90% at 20% -10%, #1a1340 0%, #0b0b1a 55%, #07060f 100%);
-      --solid-bg:#0b0b1a;
-      --text:#ffffff; --text-dim:rgba(255,255,255,.58); --text-mute:rgba(255,255,255,.42);
-      --surface:rgba(255,255,255,.05); --surface-2:rgba(255,255,255,.08); --border:rgba(255,255,255,.09);
-      --track:rgba(255,255,255,.16); --header-bg:rgba(12,11,26,.72); --panel-bg:rgba(20,18,40,.96);
-      --sheet-bg:rgba(18,16,36,.98);
+    /* Couche sémantique locale du lecteur → repointée sur les tokens (le markup ne bouge pas).
+       --surface/-2, --border, --track, --bg ne sont PAS redéfinis → résolus par tokens.css. */
+    .app{
+      --text:var(--ink); --text-dim:var(--ink-muted); --text-mute:var(--ink-faint);
+      --solid-bg:var(--bg); --header-bg:var(--surface); --panel-bg:var(--surface); --sheet-bg:var(--surface);
     }
     *{box-sizing:border-box} html,body{margin:0;height:100%} ::-webkit-scrollbar{width:0}
-    body{font-family:'Manrope',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;-webkit-font-smoothing:antialiased}
+    button,input,select,textarea{font-family:inherit}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased}
     .app{display:flex;flex-direction:column;height:100dvh;max-width:560px;margin:0 auto;position:relative}
     .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
     [x-cloak]{display:none!important}
@@ -49,12 +55,12 @@
     .rck{display:flex;align-items:center;gap:9px;width:100%;padding:13px 15px;border-radius:13px;font-size:14.5px;font-weight:600;font-family:inherit;border:2px solid var(--border);background:var(--solid-bg);color:var(--text);transition:all .2s}
     .rterm{display:inline;padding:0;border:none;background:transparent;font:inherit;cursor:pointer;color:var(--accent);font-weight:700;border-bottom:2px dotted var(--accent)}
     .rhl{background:var(--accent-soft);border-radius:10px;padding:4px 8px;margin:0 -8px 16px;transition:background .3s}
-    .rhl-def{box-shadow:0 0 0 2px var(--accent)88}
+    .rhl-def{box-shadow:0 0 0 2px var(--accent)}
   </style>
 </head>
 <body>
 {% localize off %}
-<div class="app" x-data="reader()" style="--accent:{{ lesson.color }};--accent-soft:{{ lesson.color }}1f">
+<div class="app" x-data="reader()" style="--accent:var(--{{ hue }}-600);--accent-soft:var(--{{ hue }}-100)">
 
   <!-- ════ HEADER ════ -->
   <header style="position:relative;z-index:2;flex-shrink:0;background:var(--header-bg);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)">
@@ -110,7 +116,7 @@
           </div>
 
         {% elif b.type == 'key' %}
-          <div style="background:linear-gradient(150deg, var(--accent), #6d28d9);color:#fff;border-radius:16px;padding:16px 18px;margin:0 0 18px;box-shadow:0 10px 26px var(--accent-soft)">
+          <div style="background:var(--accent);color:#fff;border-radius:16px;padding:16px 18px;margin:0 0 18px;box-shadow:0 10px 26px var(--accent-soft)">
             <div class="flex items-center" style="gap:7px;font-size:11px;font-weight:800;letter-spacing:1px;margin-bottom:10px;opacity:.9"><i data-lucide="lightbulb" style="width:15px;height:15px"></i> POINTS CLÉS</div>
             {% for it in b.items %}
             <div class="flex" style="gap:9px;font-size:14.5px;margin:7px 0;line-height:1.45"><i data-lucide="check" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"></i>{{ it }}</div>
@@ -124,8 +130,8 @@
           </div>
 
         {% elif b.type == 'warn' %}
-          <div style="background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.45);border-radius:14px;padding:14px 16px;margin:0 0 18px;display:flex;gap:12px">
-            <i data-lucide="alert-triangle" style="width:20px;height:20px;color:#D97706;flex-shrink:0;margin-top:1px"></i>
+          <div style="background:var(--warn-soft);border:1px solid var(--warn);border-radius:14px;padding:14px 16px;margin:0 0 18px;display:flex;gap:12px">
+            <i data-lucide="alert-triangle" style="width:20px;height:20px;color:var(--warn-ink);flex-shrink:0;margin-top:1px"></i>
             <div style="font-size:14.5px;line-height:1.55;font-weight:500">{{ b.text }}</div>
           </div>
 
@@ -159,21 +165,21 @@
 
       <!-- CTA exercices -->
       <div style="margin-top:34px;text-align:center;border:1px solid var(--border);border-radius:22px;padding:26px 20px;background:var(--surface)">
-        <div style="width:56px;height:56px;border-radius:18px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(150deg, var(--accent), #6d28d9)"><i data-lucide="dumbbell" style="color:#fff"></i></div>
+        <div style="width:56px;height:56px;border-radius:18px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:var(--accent)"><i data-lucide="dumbbell" style="color:#fff"></i></div>
         <div style="font-size:19px;font-weight:800">Prêt à pratiquer ?</div>
         <div style="font-size:14px;color:var(--text-dim);margin-top:4px">Teste tes connaissances avec un quiz.</div>
-        <button class="rsolid" @click="toast('Exercices — bientôt')" style="background:linear-gradient(150deg, var(--accent), #6d28d9);margin-top:16px">Faire les exercices <i data-lucide="chevron-right" style="width:17px;height:17px"></i></button>
+        <button class="rsolid" @click="toast('Exercices — bientôt')" style="background:var(--accent);margin-top:16px">Faire les exercices <i data-lucide="chevron-right" style="width:17px;height:17px"></i></button>
       </div>
     </div>
   </main>
 
   <!-- ════ FABs ════ -->
-  <button class="rfab" @click="toc=true; notesOpen=false" style="right:16px;background:linear-gradient(150deg, var(--accent), #6d28d9);color:#fff">
+  <button class="rfab" @click="toc=true; notesOpen=false" style="right:16px;background:var(--accent);color:#fff">
     <i data-lucide="list" style="width:18px;height:18px"></i>
     <span style="font-size:13px;font-weight:700;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="sectionTitles[active]"></span>
     <span style="font-size:12px;opacity:.8"><span x-text="active+1"></span>/{{ n_sections }}</span>
   </button>
-  <button class="rfabR" @click="notesOpen=true; toc=false" style="left:16px;background:var(--solid-bg);color:var(--text)">
+  <button class="rfabR" @click="notesOpen=true; toc=false" style="left:16px;background:var(--surface);color:var(--text)">
     <i data-lucide="notebook-pen" style="width:20px;height:20px"></i>
     <span class="rdot" x-show="notes.length>0" x-cloak style="background:var(--accent)" x-text="notes.length>9?'9+':notes.length"></span>
   </button>
@@ -247,13 +253,13 @@
           <div><div style="font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--accent);text-transform:uppercase">Définition</div><div style="font-weight:800;font-size:18px" x-text="term"></div></div>
         </div>
         <p style="color:var(--text-dim);font-size:15px;line-height:1.6;margin:0" x-text="termDef"></p>
-        <button class="rsolid" @click="term=null" style="background:linear-gradient(150deg, var(--accent), #6d28d9);margin-top:16px;width:100%;justify-content:center">Compris</button>
+        <button class="rsolid" @click="term=null" style="background:var(--accent);margin-top:16px;width:100%;justify-content:center">Compris</button>
       </div>
     </div>
   </template>
 
   <!-- toast -->
-  <div x-show="toastMsg" x-transition x-cloak style="position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:95;background:rgba(28,25,50,.97);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:600;padding:12px 18px;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.5)" x-text="toastMsg"></div>
+  <div x-show="toastMsg" x-transition x-cloak style="position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:95;background:var(--ink);border:none;color:var(--bg);font-size:13px;font-weight:600;padding:12px 18px;border-radius:14px;box-shadow:var(--shadow-md)" x-text="toastMsg"></div>
 </div>
 
 <script>
