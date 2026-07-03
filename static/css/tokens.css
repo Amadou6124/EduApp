@@ -65,6 +65,7 @@
   --border:#F0EAE3;          /* bordures / séparateurs */
   --track:#F0EAE3;           /* fond des barres de progression */
   --ring:var(--coral-400);   /* focus clavier */
+  --scrim:rgba(32,26,38,.45);/* voile derrière les modals (charbon CHAUD) */
 
   --accent:var(--coral-500); --accent-strong:var(--coral-600);
   --accent-soft:var(--coral-100); --accent-ink:#FFFFFF;
@@ -149,6 +150,7 @@
   --bg:#201A26; --surface:#2B2431; --surface-2:#342C3C;
   --ink:#E9E1DB; --ink-strong:#F6EFEA; --ink-muted:#A79FA8; --ink-faint:#6B6270;
   --border:rgba(255,255,255,.08); --track:#3A3243; --ring:var(--coral-300);
+  --scrim:rgba(10,7,13,.62);
 
   --accent:var(--coral-400); --accent-strong:var(--coral-300);
   --accent-soft:rgba(255,122,89,.18); --accent-ink:#201A26;
