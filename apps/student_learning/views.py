@@ -260,8 +260,8 @@ def assemble_nodes(cv, student):
         passes_done = min(int(cprog.get(cid, 0)), passes)
         raw.append({
             'type': 'quiz',
-            'title': f"Quiz · {c.get('name', cid)}",
-            'desc': c.get('name', cid),
+            'title': c.get('name', cid),
+            'desc': '',
             'passes': passes,
             'passes_done': passes_done,
             'is_done': passes_done >= passes,
@@ -522,6 +522,7 @@ def learn_parcours_v2(request, lesson_id):
         'progress_ratio': progress_ratio,
         'subjects':       subjects,
         'lecteur_url':    reverse('learn:lecteur-v2', kwargs={'lesson_id': subject_lessons[0].id}),
+        'first_lesson_id': subject_lessons[0].id,
     })
 
 

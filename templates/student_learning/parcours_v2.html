@@ -131,11 +131,7 @@
         </button>
         <div class="hdrTitle titleAnim" :key="tab + '|' + lessonTitle" x-text="tab==='parcours' ? lessonTitle : tabLabel"></div>
         <div class="bnDivider"></div>
-        {% if lecteur_url %}
-        <a class="bnBtn" title="Lire la leçon" href="{{ lecteur_url }}"><i data-lucide="book-open"></i></a>
-        {% else %}
-        <button class="bnBtn" title="Lire la leçon" @click="toast('Lecture — bientôt')"><i data-lucide="book-open"></i></button>
-        {% endif %}
+        <a class="bnBtn" title="Lire la leçon" :href="`/learn/v2/lesson/${currentLessonId}/lecteur/`"><i data-lucide="book-open"></i></a>
       </div>
       <div class="bnProgress"><div :style="`width:${(tab==='parcours'?progress:0)*100}%`"></div></div>
     </div>
@@ -190,7 +186,7 @@
 
           <!-- nœuds -->
           {% for n in nodes %}
-          {% ifchanged n.lesson_id %}<div class="lsec-marker" data-lesson-title="{{ n.lesson_title }}" style="top:{{ n.y }}px"></div>{% endifchanged %}
+          {% ifchanged n.lesson_id %}<div class="lsec-marker" data-lesson-title="{{ n.lesson_title }}" data-lesson-id="{{ n.lesson_id }}" style="top:{{ n.y }}px"></div>{% endifchanged %}
           <div class="pnode" style="left:{{ n.x }}px;top:{{ n.y }}px;width:{{ node_size }}px;height:{{ node_size }}px"
                {% if n.status == 'current' %}x-ref="current"{% endif %}>
 
@@ -268,7 +264,7 @@
       <div class="backdrop" @click="sheet=null"></div>
       <div class="sheet">
         <div class="sheetHandle"></div>
-        <div style="display:flex;align-items:center;gap:14px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px">
           <div :style="`width:60px;height:60px;border-radius:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
                 ${sheet.status==='locked' ? 'background:var(--surface-2)' : `background:var(--${sheet.hue}-600);box-shadow:0 8px 0 var(--${sheet.hue}-800)`}`">
             <i x-show="sheet.status==='locked'" data-lucide="lock" style="width:26px;height:26px;color:var(--ink-faint)"></i>
@@ -279,10 +275,10 @@
             <div style="font-weight:800;font-size:18px;margin-top:6px" x-text="sheet.title"></div>
           </div>
         </div>
-        <p style="color:var(--ink-muted);font-size:14px;line-height:1.5;margin:16px 0 18px" x-text="sheet.desc"></p>
+        <p x-show="sheet.desc" style="color:var(--ink-muted);font-size:14px;line-height:1.5;margin:0 0 18px" x-text="sheet.desc"></p>
 
         <!-- passes (quiz >= 2) -->
-        <div x-show="sheet.type==='quiz' && sheet.passes>=2" style="display:flex;align-items:center;gap:11px;margin-bottom:18px">
+        <div x-show="sheet.type==='quiz' && sheet.passes>=2 && sheet.status!=='locked'" style="display:flex;align-items:center;gap:11px;margin-bottom:18px">
           <div style="display:flex;gap:4px">
             <template x-for="k in sheet.passes" :key="k">
               <span :style="`width:22px;height:6px;border-radius:6px;background:${k<=sheet.passes_done ? `var(--${sheet.hue}-500)` : 'var(--track)'}`"></span>
@@ -294,22 +290,14 @@
         <!-- locked -->
         <template x-if="sheet.status==='locked'">
           <div>
-            <div style="display:flex;gap:11px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:13px 15px;margin-bottom:16px">
-              <i data-lucide="lock" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;color:var(--ink-faint)"></i>
-              <div style="font-size:13.5px;line-height:1.5"><b>Étape verrouillée.</b> Termine l'étape précédente pour la débloquer.</div>
-            </div>
-            <button class="ctaBtn" @click="sheet=null" style="background:var(--surface-2);color:var(--ink-muted);font-size:15px">
-              <i data-lucide="lock" style="width:16px;height:16px"></i> Encore verrouillé
-            </button>
+            <p style="font-size:14px;line-height:1.5;color:var(--ink-muted);margin:0 0 18px">Termine l'étape précédente pour la débloquer.</p>
+            <button class="ctaBtn" @click="sheet=null" style="background:var(--surface-2);color:var(--ink);font-size:16px">Compris</button>
           </div>
         </template>
 
         <!-- unlocked -->
         <template x-if="sheet.status!=='locked'">
           <div>
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
-              <div class="rewardPill"><i data-lucide="gem" style="width:15px;height:15px;color:var(--xp)"></i> +<span x-text="sheet.xp"></span> XP</div>
-            </div>
             <template x-if="sheet.url_quiz || sheet.url_story || sheet.url_exam">
               <a :href="sheet.url_quiz || sheet.url_story || sheet.url_exam" class="ctaBtn"
                  style="background:var(--accent);color:var(--accent-ink);box-shadow:0 3px 0 var(--accent-strong);text-decoration:none">
@@ -323,13 +311,6 @@
                 <i :data-lucide="sheet.type==='story' ? 'play' : 'arrow-right'" style="width:18px;height:18px"></i>
                 <span x-text="sheet.cta"></span>
               </button>
-            </template>
-            <template x-if="sheet.url_lecteur">
-              <a :href="sheet.url_lecteur" class="ctaBtn"
-                 style="margin-top:10px;background:var(--surface-2);color:var(--ink);text-decoration:none;border:1px solid var(--border)">
-                <i data-lucide="book-open" style="width:17px;height:17px"></i>
-                Lire la leçon
-              </a>
             </template>
           </div>
         </template>
@@ -365,23 +346,22 @@
       toastMsg: '',
       _toastT: null,
       lessonTitle: '{{ lesson.title|escapejs }}',
-      _titleIO: null,
+      currentLessonId: {{ first_lesson_id }},
+      _markers: null,
       get tabLabel(){ return (this.tabs.find(t=>t.id===this.tab)||{}).label || ''; },
-      init(){ this.$nextTick(()=>{ this.refreshIcons(); this.scrollToCurrent(); this.setupTitleObserver(); }); },
-      setupTitleObserver(){
+      init(){ this.$nextTick(()=>{ this.refreshIcons(); this.scrollToCurrent(); this.$nextTick(()=>this.updateTitle()); }); },
+      /* Titre + leçon courante suivis EN CONTINU au scroll (l'IntersectionObserver ne
+         réagissait qu'aux bords → retard). active = dernière section dont le marqueur a
+         passé la ligne de déclenchement (~35% du haut) → change dès qu'on entre dedans. */
+      updateTitle(){
         const main = this.$refs.main; if(!main) return;
-        const markers = Array.from(main.querySelectorAll('.lsec-marker'));
-        if(markers.length <= 1) return;
-        const recompute = () => {
-          const line = main.getBoundingClientRect().top + main.clientHeight * 0.14;
-          let active = markers[0];
-          for(const m of markers){ if(m.getBoundingClientRect().top <= line) active = m; }
-          const t = active.dataset.lessonTitle;
-          if(t && t !== this.lessonTitle) this.lessonTitle = t;
-        };
-        this._titleIO = new IntersectionObserver(recompute, { root: main, threshold: [0, 1] });
-        markers.forEach(m => this._titleIO.observe(m));
-        recompute();
+        if(!this._markers) this._markers = Array.from(main.querySelectorAll('.lsec-marker'));
+        if(!this._markers.length) return;
+        const line = main.getBoundingClientRect().top + main.clientHeight * 0.35;
+        let active = this._markers[0];
+        for(const m of this._markers){ if(m.getBoundingClientRect().top <= line) active = m; }
+        if(active.dataset.lessonTitle) this.lessonTitle = active.dataset.lessonTitle;
+        if(active.dataset.lessonId) this.currentLessonId = active.dataset.lessonId;
       },
       refreshIcons(){ if(window.lucide) lucide.createIcons(); },
       openSheet(i){ this.sheet = this.nodes[i]; this.$nextTick(()=>this.refreshIcons()); },
@@ -394,6 +374,7 @@
       toast(m){ this.toastMsg=m; clearTimeout(this._toastT); this._toastT=setTimeout(()=>this.toastMsg='',1800); },
       scrollToCurrent(){ const el=this.$refs.current; if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); },
       onScroll(){
+        this.updateTitle();
         const el=this.$refs.current, main=this.$refs.main;
         if(!el){ this.jumpDir=null; return; }
         const r=el.getBoundingClientRect(), m=main.getBoundingClientRect();
