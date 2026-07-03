@@ -12,7 +12,7 @@ from apps.core.student_auth import (
 from apps.lessons.models import Lesson, LessonContentVersion, LessonDeployment, LessonStatus
 from apps.student_learning.models import (
     QuizAttempt, StoryAttempt,
-    ConceptProgress, ExamAttempt, QuestionDraw,
+    ConceptProgress, ExamAttempt, QuestionDraw, StudentNote,
 )
 
 logger = logging.getLogger(__name__)
@@ -573,8 +573,17 @@ def learn_lecteur_v2(request, lesson_id):
     _names = [s['subject'] for s in _subjects]
     _cur = subject or 'Autre'
     hue = subject_hue_at(_names.index(_cur)) if _cur in _names else subject_hue_at(0)
+
+    # Notes perso persistées (par leçon → survivent aux régénérations de contenu).
+    notes = [
+        {'id': n.id, 'section': n.section, 'text': n.text}
+        for n in StudentNote.objects.filter(student=student, lesson=lesson)
+    ]
     return render(request, 'student_learning/lecteur_v2.html', {
         'hue':     hue,
+        'notes_json':   notes,
+        'note_add_url': reverse('learn:note-v2-add', kwargs={'lesson_id': lesson_id}),
+        'note_del_url': reverse('learn:note-v2-delete', kwargs={'lesson_id': lesson_id}),
         'lesson': {
             'title':   lesson.title,
             'subject': subject,
@@ -589,6 +598,45 @@ def learn_lecteur_v2(request, lesson_id):
         'n_sections':      len(sections),
         'back_url':        reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
     })
+
+
+@student_required
+@require_http_methods(['POST'])
+def note_v2_add(request, lesson_id):
+    """Crée une note perso de lecture (persistée). Retourne la note créée."""
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id, format_version=2)
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    try:
+        data = json.loads(request.body)
+        text = (data.get('text') or '').strip()[:2000]
+        section = (data.get('section') or '').strip()[:200]
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({'error': 'Invalid'}, status=400)
+    if not text:
+        return JsonResponse({'error': 'Vide'}, status=400)
+
+    note = StudentNote.objects.create(
+        student=student, lesson=lesson, content_version=cv,
+        section=section, text=text,
+    )
+    return JsonResponse({'id': note.id, 'section': note.section, 'text': note.text})
+
+
+@student_required
+@require_http_methods(['POST'])
+def note_v2_delete(request, lesson_id):
+    """Supprime une note perso (uniquement si elle appartient à l'élève)."""
+    student = request.student
+    try:
+        note_id = int(json.loads(request.body).get('id'))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid'}, status=400)
+    StudentNote.objects.filter(id=note_id, student=student, lesson_id=lesson_id).delete()
+    return JsonResponse({'ok': True})
 
 
 # ─── STORY v2 RÉELLE (étape 4) — player immersif sur story_data réel ──────────

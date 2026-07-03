@@ -212,3 +212,38 @@ class QuestionDraw(models.Model):
                          name='draw_practice_lookup_idx'),
             models.Index(fields=['exam_attempt'], name='draw_exam_attempt_idx'),
         ]
+
+
+class StudentNote(models.Model):
+    """Note perso de lecture prise par l'élève dans le lecteur v2 (persistée).
+
+    Rattachée à la LEÇON (stable au fil des régénérations de contenu) pour que
+    l'élève retrouve ses notes intactes ; content_version conservé pour la
+    provenance (même verrou anti-orphelinage PROTECT que les autres modèles v2).
+    La section est stockée en TITRE (robuste au ré-ordonnancement).
+    """
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE,
+        related_name='reading_notes',
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE,
+        related_name='reading_notes',
+    )
+    content_version = models.ForeignKey(
+        LessonContentVersion, on_delete=models.PROTECT,
+        related_name='reading_notes',
+        null=True, blank=True,
+    )
+    section = models.CharField(
+        max_length=200, blank=True,
+        help_text=_('Titre de la section au moment de la prise'),
+    )
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['student', 'lesson'], name='note_student_lesson_idx'),
+        ]

@@ -18,6 +18,7 @@
   {{ terms|json_script:"rdr-terms" }}
   {{ tts|json_script:"rdr-tts" }}
   {{ section_titles|json_script:"rdr-sectitles" }}
+  {{ notes_json|json_script:"rdr-notes" }}
 
   <style>
     /* Couche sémantique locale du lecteur → repointée sur les tokens (le markup ne bouge pas).
@@ -223,17 +224,17 @@
           <button class="rhbtn" @click="notesOpen=false"><i data-lucide="x" style="width:18px;height:18px"></i></button>
         </div>
         <div style="overflow-y:auto">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px">
-            <div style="font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--accent);text-transform:uppercase;margin-bottom:6px">Note sur · <span x-text="sectionTitles[active]"></span></div>
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:12px">
+            <div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--accent);text-transform:uppercase;margin-bottom:6px">Note sur · <span x-text="sectionTitles[active]"></span></div>
             <textarea x-model="noteVal" placeholder="Écris une note…" rows="2" class="rta"></textarea>
-            <button class="rsolid" :disabled="!noteVal.trim()" @click="addNote()" :style="`background:var(--accent);opacity:${noteVal.trim()?1:.4};margin-top:8px;width:100%;justify-content:center;padding:9px;font-size:14px`"><i data-lucide="check" style="width:15px;height:15px"></i> Ajouter la note</button>
+            <button class="rsolid" :disabled="!noteVal.trim() || noteSaving" @click="addNote()" :style="`margin-top:8px;width:100%;justify-content:center;padding:10px;font-size:14px;${noteVal.trim()&&!noteSaving ? 'background:var(--accent);color:#fff;box-shadow:0 3px 0 var(--accent-strong)' : 'background:var(--surface);color:var(--ink-faint);box-shadow:none'}`"><i data-lucide="check" style="width:15px;height:15px"></i> Ajouter la note</button>
           </div>
           <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
             <div x-show="notes.length===0" style="text-align:center;color:var(--text-mute);font-size:13px;padding:20px 0;line-height:1.6">Aucune note pour l'instant.<br>Note une idée pendant ta lecture.</div>
-            <template x-for="(n, i) in notes" :key="i">
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
+            <template x-for="(n, i) in notes" :key="n.id">
+              <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
                 <div class="flex items-center justify-between" style="margin-bottom:6px">
-                  <span style="font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--accent);text-transform:uppercase" x-text="n.sec"></span>
+                  <span style="font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--accent);text-transform:uppercase" x-text="n.section"></span>
                   <button @click="delNote(i)" class="rhbtn" style="width:28px;height:28px"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--text-dim)"></i></button>
                 </div>
                 <div style="font-size:14px;line-height:1.45" x-text="n.text"></div>
@@ -273,7 +274,8 @@
       sectionTitles: JSON.parse(document.getElementById('rdr-sectitles').textContent),
       active: 0, progress: 0, scale: 1,
       toc: false, notesOpen: false, term: null, termDef: '',
-      notes: [], noteVal: '',
+      notes: JSON.parse(document.getElementById('rdr-notes').textContent), noteVal: '',
+      noteAddUrl: '{{ note_add_url }}', noteDelUrl: '{{ note_del_url }}', csrf: '{{ csrf_token }}', noteSaving: false,
       playing: false, hl: { sec:-1, blk:-1 }, _play: false,
       toastMsg: '', _toastT: null,
       init(){ this.$nextTick(()=>this.refreshIcons()); window.addEventListener('beforeunload', ()=>this.stopTTS()); },
@@ -292,8 +294,30 @@
       incScale(){ this.scale = Math.min(1.4, Math.round((this.scale+0.1)*10)/10); },
       decScale(){ this.scale = Math.max(0.9, Math.round((this.scale-0.1)*10)/10); },
       openTerm(k){ const keys=Object.keys(this.terms); const key=keys.find(t=>t.toLowerCase()===k.toLowerCase()); if(key){ this.termDef=this.terms[key]; this.term=key; this.$nextTick(()=>this.refreshIcons()); } },
-      addNote(){ if(!this.noteVal.trim()) return; this.notes.unshift({sec:this.sectionTitles[this.active], text:this.noteVal.trim()}); this.noteVal=''; this.$nextTick(()=>this.refreshIcons()); },
-      delNote(i){ this.notes.splice(i,1); },
+      async addNote(){
+        const text=this.noteVal.trim(); if(!text || this.noteSaving) return;
+        this.noteSaving=true;
+        try{
+          const r=await fetch(this.noteAddUrl,{method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':this.csrf},
+            body:JSON.stringify({section:this.sectionTitles[this.active], text})});
+          const d=await r.json();
+          if(d.id){ this.notes.unshift({id:d.id, section:d.section, text:d.text}); this.noteVal=''; this.$nextTick(()=>this.refreshIcons()); }
+          else this.toast('Échec de la sauvegarde');
+        }catch(e){ this.toast('Échec de la sauvegarde'); }
+        this.noteSaving=false;
+      },
+      async delNote(i){
+        const n=this.notes[i]; if(!n) return;
+        const backup=this.notes.slice(); this.notes.splice(i,1);
+        try{
+          const r=await fetch(this.noteDelUrl,{method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':this.csrf},
+            body:JSON.stringify({id:n.id})});
+          const d=await r.json();
+          if(!d.ok){ this.notes=backup; this.toast('Échec'); }
+        }catch(e){ this.notes=backup; this.toast('Échec'); this.$nextTick(()=>this.refreshIcons()); }
+      },
       toast(m){ this.toastMsg=m; clearTimeout(this._toastT); this._toastT=setTimeout(()=>this.toastMsg='',1800); },
       stopTTS(){ if(window.speechSynthesis) window.speechSynthesis.cancel(); this._play=false; this.playing=false; this.hl={sec:-1,blk:-1}; },
       readSection(){

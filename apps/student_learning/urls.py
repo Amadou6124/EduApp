@@ -18,6 +18,8 @@ urlpatterns = [
     # v2 (Phase C) — vues RÉELLES (données de production, élève authentifié).
     path('v2/lesson/<int:lesson_id>/parcours/', views.learn_parcours_v2, name='parcours-v2'),
     path('v2/lesson/<int:lesson_id>/lecteur/',  views.learn_lecteur_v2,  name='lecteur-v2'),
+    path('v2/lesson/<int:lesson_id>/note/add/',    views.note_v2_add,    name='note-v2-add'),
+    path('v2/lesson/<int:lesson_id>/note/delete/', views.note_v2_delete, name='note-v2-delete'),
     path('v2/lesson/<int:lesson_id>/concept/<str:concept_id>/quiz/',
          views.learn_quiz_v2, name='quiz-v2'),
     path('v2/lesson/<int:lesson_id>/concept/<str:concept_id>/quiz/answer/',
