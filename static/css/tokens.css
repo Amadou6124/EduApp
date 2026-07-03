@@ -134,6 +134,9 @@
 
   /* Navigation basse */
   --nav-bg:var(--surface); --nav-border:var(--border); --nav-ink:var(--ink-muted); --nav-ink-active:var(--accent);
+
+  /* Nœud verrouillé (parcours) — visible mais muet (gris chaud net ≠ fond de page) */
+  --node-lock-bg:#E8DFD3; --node-lock-edge:#D2C7B8; --node-lock-ink:#948B8E;
 }
 
 /* ═══════════════ SOMBRE — charbon CHAUD (le markup ne bouge pas) ═══════════════ */
@@ -161,6 +164,7 @@
   /* composant — surcharges dark */
   --btn-secondary-bg:var(--surface-2); --btn-secondary-edge:rgba(255,255,255,.10);
   --btn-disabled-bg:var(--surface-2);  --btn-disabled-edge:rgba(255,255,255,.06);
+  --node-lock-bg:#3A3348; --node-lock-edge:#282235; --node-lock-ink:#8A8296;
   --card-border:rgba(255,255,255,.06);
   --tile-bg:var(--surface); --tile-edge:rgba(0,0,0,.40); --tile-selected-ink:var(--coral-200);
   --input-bg:var(--surface-2);

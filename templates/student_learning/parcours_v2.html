@@ -208,13 +208,13 @@
 
             <button class="nodeBtn {% if n.status != 'locked' %}live{% endif %} {% if n.status == 'current' %}cur{% endif %}"
                     style="width:{{ node_size }}px;height:{{ node_size }}px;border-radius:24px;
-                      {% if n.status == 'locked' %}background:var(--surface-2);box-shadow:0 6px 0 var(--border);
+                      {% if n.status == 'locked' %}background:var(--node-lock-bg);box-shadow:0 6px 0 var(--node-lock-edge);
                       {% else %}background:var(--{{ n.hue }}-600);
                         box-shadow:0 8px 0 var(--{{ n.hue }}-800), {% if n.status == 'current' %}0 16px 30px var(--{{ n.hue }}-200){% else %}0 9px 16px rgba(0,0,0,.08){% endif %};{% endif %}"
                     {% if n.status == 'locked' %}x-data="{shk:false}" :class="shk && 'shake'"
                       @click="shk=true;setTimeout(()=>shk=false,460);openSheet({{ n.i }})"
                     {% else %}@click="openSheet({{ n.i }})"{% endif %}>
-              <i data-lucide="{{ n.icon }}" style="width:30px;height:30px;color:{% if n.status == 'locked' %}var(--ink-faint){% else %}#fff{% endif %}" stroke-width="2.4"></i>
+              <i data-lucide="{{ n.icon }}" style="width:30px;height:30px;color:{% if n.status == 'locked' %}var(--node-lock-ink){% else %}#fff{% endif %}" stroke-width="2.4"></i>
             </button>
 
             {% if n.status == 'done' %}
