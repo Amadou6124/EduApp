@@ -20,6 +20,7 @@
 
   <style>
     *{box-sizing:border-box} html,body{margin:0;height:100%} ::-webkit-scrollbar{width:0}
+    button,input,select,textarea{font-family:inherit}  /* les form elements n'héritent pas la police par défaut */
     body{font-family:var(--font-ui);background:var(--bg);color:var(--ink);
          overflow:hidden;-webkit-font-smoothing:antialiased}
     .app{display:flex;flex-direction:column;height:100dvh;max-width:480px;margin:0 auto;position:relative}
@@ -56,8 +57,9 @@
     @keyframes curGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.1)}}
     .nodeBtn.shake{animation:shakeX .46s cubic-bezier(.36,.07,.19,.97)}
     @keyframes shakeX{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(3px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
-    .doneBadge{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:50%;
-      background:var(--success);border:3px solid var(--bg);display:flex;align-items:center;justify-content:center;z-index:2}
+    .doneBadge{position:absolute;right:-3px;bottom:-3px;width:24px;height:24px;border-radius:50%;
+      background:rgba(255,255,255,.95);border:1px solid rgba(0,0,0,.06);box-shadow:0 2px 6px rgba(0,0,0,.2);
+      display:flex;align-items:center;justify-content:center;z-index:2}
     .startLabel{position:absolute;left:50%;bottom:100%;margin-bottom:20px;transform:translateX(-50%);background:var(--accent);
       color:var(--accent-ink);font-weight:900;font-size:12px;letter-spacing:.5px;padding:6px 12px;border-radius:11px;white-space:nowrap;
       box-shadow:0 3px 0 var(--accent-strong);animation:bob 1.4s ease-in-out infinite;z-index:5}
@@ -65,7 +67,7 @@
       border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid var(--accent)}
     @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
     .endNote{text-align:center;padding:24px 0 8px;color:var(--ink-faint);font-size:13px;font-weight:700}
-    .lsep{position:absolute;left:0;width:100%;height:132px;display:flex;align-items:center;gap:12px;padding:0 6px;z-index:5;pointer-events:none}
+    .lsep{position:absolute;left:0;width:100%;height:108px;display:flex;align-items:center;gap:12px;padding:0 6px;z-index:5;pointer-events:none}
     .lsep-line{flex:1;height:1px;background:var(--border)}
     .lsep-title{font-size:12px;font-weight:800;letter-spacing:.3px;color:var(--ink-muted);white-space:nowrap;
       max-width:60%;overflow:hidden;text-overflow:ellipsis;text-align:center}
@@ -166,16 +168,7 @@
       <!-- PARCOURS -->
       <section x-show="tab==='parcours'">
         <div class="canvas" style="width:{{ col_w }}px;height:{{ canvas_h }}px">
-          <!-- chemin ondulé -->
-          <svg class="ppath" width="{{ col_w }}" height="{{ canvas_h }}">
-            {% for s in segments %}
-            <path d="{{ s.d }}" fill="none" stroke-linecap="round"
-                  stroke="{% if s.lit %}var(--{{ hue }}-500){% else %}var(--border){% endif %}"
-                  stroke-opacity="{% if s.lit %}.55{% else %}1{% endif %}"
-                  stroke-width="{% if s.lit %}7{% else %}6{% endif %}"
-                  stroke-dasharray="{% if s.lit %}0{% else %}3 14{% endif %}" />
-            {% endfor %}
-          </svg>
+          {# Pas de ligne : le zigzag resserré suffit à faire le chemin (option A, façon Duolingo) #}
 
           <!-- séparateurs de leçon -->
           {% for sep in separators %}
@@ -218,7 +211,7 @@
             </button>
 
             {% if n.status == 'done' %}
-            <span class="doneBadge"><i data-lucide="check" style="width:15px;height:15px;color:#fff" stroke-width="4"></i></span>
+            <span class="doneBadge"><i data-lucide="check" style="width:14px;height:14px;color:var(--{{ n.hue }}-700)" stroke-width="4"></i></span>
             {% endif %}
           </div>
           {% endfor %}

@@ -190,7 +190,7 @@ _PCRS_TYPE = {
     'checkpoint': {'label': "Examen",   'cta': "Passer l'examen",   'g0': "#FBBF24", 'g1': "#F59E0B",
                    'dark': "#B45309", 'glow': "rgba(251,191,36,.5)",  'icon': "crown"},
 }
-_PCRS_COL_W, _PCRS_NODE, _PCRS_ROW_H, _PCRS_AMP, _PCRS_CX = 300, 74, 132, 82, 150
+_PCRS_COL_W, _PCRS_NODE, _PCRS_ROW_H, _PCRS_AMP, _PCRS_CX = 300, 74, 108, 60, 150
 
 
 def _pcrs_px(i):
