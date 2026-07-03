@@ -376,13 +376,13 @@ def assemble_subject_parcours(lessons, student):
             LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
         if not cv:
             continue
-        if li > 0:   # séparateur AVANT la leçon (jamais avant la 1ʳᵉ)
-            separators_out.append({
+        if li > 0:   # séparateur AVANT la leçon (jamais avant la 1ʳᵉ) — avec de l'air autour
+            separators_out.append({      # séparateur CENTRÉ entre les 2 leçons (le +54px du .lsep tombe au milieu)
                 'title': lesson.title,
                 'y': _pcrs_py(ri),
                 'lesson_id': lesson.id,
             })
-            ri += 1
+            ri += 2                      # ~3 rangées de gap → titre pile au milieu des 2 nœuds
         for n in assemble_nodes(cv, student):
             n['x'] = _pcrs_px(si)
             n['y'] = _pcrs_py(ri)

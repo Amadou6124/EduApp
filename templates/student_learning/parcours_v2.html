@@ -68,9 +68,15 @@
     @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
     .endNote{text-align:center;padding:24px 0 8px;color:var(--ink-faint);font-size:13px;font-weight:700}
     .lsep{position:absolute;left:0;width:100%;height:108px;display:flex;align-items:center;gap:12px;padding:0 6px;z-index:5;pointer-events:none}
-    .lsep-line{flex:1;height:1px;background:var(--border)}
-    .lsep-title{font-size:12px;font-weight:800;letter-spacing:.3px;color:var(--ink-muted);white-space:nowrap;
-      max-width:60%;overflow:hidden;text-overflow:ellipsis;text-align:center}
+    .lsep-line{flex:1;height:2px;border-radius:2px}
+    .lsep .lsep-line:first-child{background:linear-gradient(to right, transparent, var(--{{ hue }}-300))}
+    .lsep .lsep-line:last-child{background:linear-gradient(to left, transparent, var(--{{ hue }}-300))}
+    .lsep-title{font-size:15px;font-weight:800;letter-spacing:.2px;color:var(--{{ hue }}-600);
+      max-width:74%;text-align:center;line-height:1.25;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    [data-theme="dark"] .lsep-title{color:var(--{{ hue }}-300)}
+    [data-theme="dark"] .lsep .lsep-line:first-child{background:linear-gradient(to right, transparent, var(--{{ hue }}-500))}
+    [data-theme="dark"] .lsep .lsep-line:last-child{background:linear-gradient(to left, transparent, var(--{{ hue }}-500))}
     .lsec-marker{position:absolute;left:0;width:1px;height:1px;pointer-events:none;opacity:0}
 
     /* ── bottomNav ── */
@@ -268,7 +274,7 @@
             <div style="font-weight:800;font-size:18px;margin-top:6px" x-text="sheet.title"></div>
           </div>
         </div>
-        <p x-show="sheet.desc" style="color:var(--ink-muted);font-size:14px;line-height:1.5;margin:0 0 18px" x-text="sheet.desc"></p>
+        <p x-show="sheet.desc && sheet.status !== 'locked'" style="color:var(--ink-muted);font-size:15px;line-height:1.5;margin:0 0 18px" x-text="sheet.desc"></p>
 
         <!-- passes (quiz >= 2) -->
         <div x-show="sheet.type==='quiz' && sheet.passes>=2 && sheet.status!=='locked'" style="display:flex;align-items:center;gap:11px;margin-bottom:18px">
@@ -283,7 +289,7 @@
         <!-- locked -->
         <template x-if="sheet.status==='locked'">
           <div>
-            <p style="font-size:14px;line-height:1.5;color:var(--ink-muted);margin:0 0 18px">Termine l'étape précédente pour la débloquer.</p>
+            <p style="font-size:15px;line-height:1.55;color:var(--ink);font-weight:500;margin:0 0 18px">Termine l'étape précédente pour la débloquer.</p>
             <button class="ctaBtn" @click="sheet=null" style="background:var(--surface-2);color:var(--ink);font-size:16px">Compris</button>
           </div>
         </template>
