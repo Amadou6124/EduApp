@@ -491,12 +491,22 @@ def learn_parcours_v2(request, lesson_id):
         })
 
     # Dropdown = UNIQUEMENT des matières (jamais des titres de leçon).
+    # Couleur = teinte de matière AUTO (par position → distinct dans la classe).
+    from apps.student_learning.theme import subject_hue_at
     subjects = _student_v2_subjects(student)
-    for s in subjects:
-        s['current'] = (s['subject'] == (subject or 'Autre'))
+    cur_name = subject or 'Autre'
+    names = [s['subject'] for s in subjects]
+    hue = subject_hue_at(names.index(cur_name)) if cur_name in names else subject_hue_at(0)
+    for i, s in enumerate(subjects):
+        s['current'] = (s['subject'] == cur_name)
+        s['hue'] = subject_hue_at(i)
+    # Teinte par nœud : matière pour quiz/histoire, OR pour l'examen (couronne).
+    for n in nodes:
+        n['hue'] = 'amber' if n['type'] == 'checkpoint' else hue
 
     head_color = cv.color or '#818CF8'
     return render(request, 'student_learning/parcours_v2.html', {
+        'hue':            hue,
         'lesson': {
             'title':  subject_lessons[0].title,   # titre de la 1ʳᵉ leçon (scroll-driven en §3)
             'subject': subject,
