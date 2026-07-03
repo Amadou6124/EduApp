@@ -16,6 +16,8 @@ module.exports = {
         sans: ['Manrope', 'system-ui', 'sans-serif'],
         /* Wordmark (nom d'école) — Space Grotesk self-hosté, fallback Manrope */
         wordmark: ['Space Grotesk', 'Manrope', 'sans-serif'],
+        /* Portail ÉLÈVE — Nunito self-hostée (identité « Ludique doux ») */
+        student: ['Nunito', 'system-ui', 'sans-serif'],
       },
 
       // Échelle alignée sur le design system :
@@ -83,6 +85,25 @@ module.exports = {
         warning: '#F59E0B',
         danger:  '#EF4444',
         info:    '#6366F1',
+
+        // ── Tokens sémantiques ÉLÈVE (→ variables de tokens.css, clair/sombre) ──
+        // N'existent qu'avec tokens.css chargé (portail /learn/) : additif, scoped.
+        surface:     'var(--surface)',
+        'surface-2': 'var(--surface-2)',
+        ink: {
+          DEFAULT: 'var(--ink)',
+          strong:  'var(--ink-strong)',
+          muted:   'var(--ink-muted)',
+          faint:   'var(--ink-faint)',
+        },
+        line:  'var(--border)',
+        track: 'var(--track)',
+        accent: {
+          DEFAULT: 'var(--accent)',
+          soft:    'var(--accent-soft)',
+          strong:  'var(--accent-strong)',
+          ink:     'var(--accent-ink)',
+        },
       },
 
       /* ───────────────────────────────────────────────
