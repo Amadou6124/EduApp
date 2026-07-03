@@ -207,6 +207,8 @@ def _pcrs_ring_dash(seg, seg_done):
     unit = 100 / seg
     s_len = unit - gap
     track = f"{s_len:.2f} {gap}"
+    if seg_done <= 0:                 # aucune passe faite → ne RIEN remplir (pas d'anneau plein)
+        return track, "0 100", "butt"
     parts = []
     for i in range(seg_done):
         parts.append(f"{s_len:.2f}")
