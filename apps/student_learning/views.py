@@ -736,7 +736,14 @@ def learn_exam_v2(request, lesson_id):
         cq['concept_name'] = names.get(str(q.get('concept_id', '')), 'Notion')
         questions.append(cq)
 
+    from apps.student_learning.theme import subject_hue_at
+    _subjects = _student_v2_subjects(student)
+    _names = [s['subject'] for s in _subjects]
+    _cur = lesson.subject or 'Autre'
+    hue = subject_hue_at(_names.index(_cur)) if _cur in _names else subject_hue_at(0)
+
     return render(request, 'student_learning/exam_runner_v2.html', {
+        'hue': hue,
         'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
                    'color': cv.color or '#818CF8'},
         'meta': {

@@ -1,24 +1,28 @@
 {% load static l10n %}{% localize off %}<!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{ meta.title }} — EduApp</title>
-<link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+<script>(function(){try{document.documentElement.dataset.theme=localStorage.getItem('learn-theme')||'light';}catch(e){}})();</script>
+<link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#09090E;--surface:#111118;--surface-2:#1A1A24;--surface-3:#22222E;
-  --border:rgba(255,255,255,.07);--border-2:rgba(255,255,255,.12);
-  --text:#EEEEF8;--dim:rgba(238,238,248,.52);--mute:rgba(238,238,248,.28);
-  --accent:{{ lesson.color }};--accent-dk:#4F46E5;--accent-bg:rgba(129,140,248,.1);
-  --pass:#34D399;--pass-bg:rgba(52,211,153,.1);
-  --warn:#FBBF24;--warn-bg:rgba(251,191,36,.1);
-  --fail:#F87171;--fail-bg:rgba(248,113,113,.1);
-  --flag:#FB923C;--flag-bg:rgba(251,146,60,.12);
+/* couche locale de l'examen → tokens. --bg/--surface/-2, --border, --warn NON
+   redéfinis (résolus par tokens.css ; --warn token = ambre, voulu ici). */
+body{
+  --surface-3:var(--surface-2);--border-2:var(--node-ring-track);
+  --text:var(--ink);--dim:var(--ink-muted);--mute:var(--ink-faint);
+  --accent:var(--{{ hue }}-600);--accent-dk:var(--{{ hue }}-700);--accent-bg:var(--{{ hue }}-100);
+  --pass:var(--success);--pass-bg:var(--success-soft);
+  --warn-bg:var(--warn-soft);
+  --fail:var(--danger);--fail-bg:var(--danger-soft);
+  --flag:#EA8C3F;--flag-bg:rgba(234,140,63,.14);
   --r8:8px;--r12:12px;--r16:16px;
 }
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font-family:inherit}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 [x-cloak]{display:none!important}
 .e-wrap{min-height:100dvh;display:flex;flex-direction:column}
 .e-phase{flex:1;display:flex;flex-direction:column;animation:fadein .2s ease}
@@ -82,7 +86,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Manrop
 .btn-ghost:hover{border-color:var(--accent);color:var(--text)}
 .btn-primary{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;border-radius:var(--r12);border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;transition:opacity .15s}
 .btn-primary:hover{opacity:.88}
-.btn-primary.danger{background:linear-gradient(135deg,#4F46E5,#6D28D9)}
+.btn-primary.danger{background:var(--accent)}
 .e-sub-link{text-align:center;padding:0 16px 16px;flex-shrink:0}
 .e-sub-link button{background:none;border:none;color:var(--mute);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:3px}
 .timer-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:9px;font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--dim);transition:all .3s;flex-shrink:0}
