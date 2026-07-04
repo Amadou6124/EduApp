@@ -11,6 +11,7 @@
 
   <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
+  <link rel="stylesheet" href="{% static 'css/learn-botnav.css' %}">
   <script src="{% static 'vendor/lucide/lucide.min.js' %}" defer></script>
   <script src="{% static 'vendor/alpine/alpine.min.js' %}" defer></script>
 
@@ -79,13 +80,8 @@
     [data-theme="dark"] .lsep .lsep-line:last-child{background:linear-gradient(to left, transparent, var(--{{ hue }}-500))}
     .lsec-marker{position:absolute;left:0;width:1px;height:1px;pointer-events:none;opacity:0}
 
-    /* ── bottomNav ── */
-    .bottomNav{position:relative;z-index:40;flex-shrink:0;display:flex;justify-content:space-around;align-items:center;
-      padding:8px 6px calc(8px + env(safe-area-inset-bottom));background:var(--nav-bg);border-top:1px solid var(--nav-border)}
-    .navItem{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;
-      padding:4px 10px;flex:1;transition:transform .12s} .navItem:active{transform:scale(.9)}
-    .navIco{width:46px;height:36px;border-radius:13px;display:flex;align-items:center;justify-content:center;transition:background .2s}
-    .navLbl{font-size:11px;font-weight:800}
+    /* ── bottomNav : visuel dans css/learn-botnav.css ; ici le positionnement (bas du flex) ── */
+    .botnav{position:relative;z-index:40;flex-shrink:0}
 
     /* ── jumpBtn ── */
     .jumpBtn{position:absolute;right:16px;bottom:84px;z-index:35;width:52px;height:52px;border-radius:16px;border:none;
@@ -116,8 +112,6 @@
     @keyframes titleIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
     .titleAnim{animation:titleIn .4s cubic-bezier(.2,.9,.3,1)}
     @media (prefers-reduced-motion: reduce){ .titleAnim{animation:none} .nodeBtn.cur,.startLabel{animation:none} }
-    .placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;
-      color:var(--ink-faint);gap:10px;font-weight:700}
     [x-cloak]{display:none!important}
   </style>
 </head>
@@ -137,11 +131,11 @@
             <i data-lucide="chevron-down" style="width:11px;height:11px;color:var(--{{ hue }}-600)"></i>
           </span>
         </button>
-        <div class="hdrTitle titleAnim" :key="tab + '|' + lessonTitle" x-text="tab==='parcours' ? lessonTitle : tabLabel"></div>
+        <div class="hdrTitle titleAnim" :key="lessonTitle" x-text="lessonTitle"></div>
         <div class="bnDivider"></div>
         <a class="bnBtn" title="Lire la leçon" :href="`/learn/v2/lesson/${currentLessonId}/lecteur/`"><i data-lucide="book-open"></i></a>
       </div>
-      <div class="bnProgress"><div :style="`width:${(tab==='parcours'?progress:0)*100}%`"></div></div>
+      <div class="bnProgress"><div :style="`width:${progress*100}%`"></div></div>
     </div>
 
     <!-- ════ DROPDOWN MATIÈRES ════ -->
@@ -172,7 +166,7 @@
     <div style="position:relative;padding-bottom:96px">
 
       <!-- PARCOURS -->
-      <section x-show="tab==='parcours'">
+      <section>
         <div class="canvas" style="width:{{ col_w }}px;height:{{ canvas_h }}px">
           {# Pas de ligne : le zigzag resserré suffit à faire le chemin (option A, façon Duolingo) #}
 
@@ -227,14 +221,6 @@
           Fin de la leçon — choisis-en une autre pour continuer
         </div>
       </section>
-
-      <!-- AUTRES ONGLETS (placeholder) -->
-      <section x-show="tab!=='parcours'" x-cloak style="height:60vh">
-        <div class="placeholder">
-          <i data-lucide="hammer" style="width:34px;height:34px"></i>
-          <span x-text="tabLabel + ' — bientôt'"></span>
-        </div>
-      </section>
     </div>
 
   </main>
@@ -245,17 +231,8 @@
     <i data-lucide="arrow-down" x-show="jumpDir==='down'" style="width:23px;height:23px" stroke-width="2.7"></i>
   </button>
 
-  <!-- ════ BOTTOM NAV ════ -->
-  <nav class="bottomNav">
-    <template x-for="t in tabs" :key="t.id">
-      <button class="navItem" @click="changeTab(t.id)">
-        <div class="navIco" :style="tab===t.id ? 'background:var(--accent-soft)' : ''">
-          <i :data-lucide="t.icon" :style="`width:22px;height:22px;color:${tab===t.id ? 'var(--accent)' : 'var(--nav-ink)'}`"></i>
-        </div>
-        <span class="navLbl" :style="`color:${tab===t.id ? 'var(--accent)' : 'var(--nav-ink)'}`" x-text="t.label"></span>
-      </button>
-    </template>
-  </nav>
+  <!-- ════ BOTTOM NAV (partagée : templates/learn/_botnav.html) ════ -->
+  {% include 'learn/_botnav.html' with active='parcours' %}
 
   <!-- ════ SHEET ════ -->
   <template x-if="sheet">
@@ -333,13 +310,6 @@
       hue: '{{ hue }}',
       dropdown: false,
       progress: {{ progress_ratio }},
-      tab: 'parcours',
-      tabs: [
-        {id:'parcours', label:'Parcours', icon:'route'},
-        {id:'revision', label:'Révision', icon:'layers'},
-        {id:'notes',    label:'Notes',    icon:'award'},
-        {id:'profil',   label:'Profil',   icon:'user'},
-      ],
       sheet: null,
       jumpDir: null,
       toastMsg: '',
@@ -347,7 +317,6 @@
       lessonTitle: '{{ lesson.title|escapejs }}',
       currentLessonId: {{ first_lesson_id }},
       _markers: null,
-      get tabLabel(){ return (this.tabs.find(t=>t.id===this.tab)||{}).label || ''; },
       init(){ this.$nextTick(()=>{ this.refreshIcons(); this.scrollToCurrent(); this.$nextTick(()=>this.updateTitle()); }); },
       /* Titre + leçon courante suivis EN CONTINU au scroll (l'IntersectionObserver ne
          réagissait qu'aux bords → retard). active = dernière section dont le marqueur a
@@ -364,7 +333,6 @@
       },
       refreshIcons(){ if(window.lucide) lucide.createIcons(); },
       openSheet(i){ this.sheet = this.nodes[i]; this.$nextTick(()=>this.refreshIcons()); },
-      changeTab(id){ this.tab = id; this.$nextTick(()=>this.refreshIcons()); },
       switchSubject(s){
         this.dropdown = false;
         if(s.current){ this.$refs.main && this.$refs.main.scrollTo({top:0,behavior:'smooth'}); return; }

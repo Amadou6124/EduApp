@@ -9,6 +9,7 @@ urlpatterns = [
     path('login/', views.learn_login, name='login'),
     path('logout/', views.learn_logout, name='logout'),
     path('', views.learn_dashboard, name='dashboard'),
+    path('profil/', views.learn_profil, name='profil'),
     # (v1 retiré : lesson reader, story v1, quiz v1, flashcards — remplacés par le portail v2)
     # (affichage clair Notes/Profil retiré ; plomberie données préservée dans views.py
     #  — student_grades_context / student_stats — pour rebrancher les futures pages dark)

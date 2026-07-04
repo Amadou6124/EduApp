@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
 <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
 <link rel="stylesheet" href="{% static 'css/output.css' %}">
+<link rel="stylesheet" href="{% static 'css/learn-botnav.css' %}">
 <script defer src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
 
 <style>
@@ -26,18 +27,8 @@
   .app{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;position:relative}
   main{flex:1;padding-bottom:80px}
 
-  /* Bottom-nav partagée */
-  .botnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;
-          background:var(--nav-bg);border-top:1px solid var(--nav-border);
-          display:flex;justify-content:space-around;align-items:center;
-          padding:8px 6px calc(8px + env(safe-area-inset-bottom));z-index:40}
-  .botnav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
-               background:none;border:none;font:inherit;text-decoration:none;
-               color:var(--nav-ink);padding:6px 0;cursor:pointer;transition:color var(--dur)}
-  .botnav-item span{font-size:11px;font-weight:800}
-  .botnav-item svg{width:24px;height:24px}
-  .botnav-item.is-active{color:var(--nav-ink-active)}
-  .botnav-item.is-soon{opacity:.4;cursor:default}
+  /* Bottom-nav : visuel dans css/learn-botnav.css ; ici le positionnement (flottante) */
+  .botnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:40}
 </style>
 {% block head_extra %}{% endblock %}
 </head>
@@ -46,22 +37,7 @@
     <main>{% block content %}{% endblock %}</main>
 
     {% block bottomnav %}
-    {% with active=active_tab|default:'parcours' %}
-    <nav class="botnav" aria-label="Navigation élève">
-      <a href="{% url 'learn:dashboard' %}" class="botnav-item {% if active == 'parcours' %}is-active{% endif %}">
-        <i data-lucide="route"></i><span>Parcours</span>
-      </a>
-      <button type="button" class="botnav-item is-soon" title="Bientôt">
-        <i data-lucide="layers"></i><span>Révision</span>
-      </button>
-      <button type="button" class="botnav-item is-soon" title="Bientôt">
-        <i data-lucide="award"></i><span>Notes</span>
-      </button>
-      <button type="button" class="botnav-item is-soon" title="Bientôt">
-        <i data-lucide="user"></i><span>Profil</span>
-      </button>
-    </nav>
-    {% endwith %}
+    {% include 'learn/_botnav.html' with active=active_tab|default:'parcours' %}
     {% endblock %}
   </div>
 

@@ -103,6 +103,35 @@ def learn_dashboard(request):
     return render(request, 'student_learning/empty_v2.html', {'student': student})
 
 
+@student_required
+def learn_profil(request):
+    """Profil élève : identité + réglages (thème) + stats d'activité + déconnexion.
+    (Gamification XP/streak à venir — award_xp pas encore câblé.)"""
+    student = request.student
+    cls = student.school_class
+
+    quiz_ok = (QuizAttempt.objects.filter(student=student, is_correct=True)
+               .values('quiz_id').distinct().count())
+    stories = (StoryAttempt.objects.filter(student=student)
+               .values('content_version').distinct().count())
+    exams = (ExamAttempt.objects.filter(student=student, passed=True)
+             .values('content_version').distinct().count())
+
+    parts = (student.full_name or '').split()
+    initials = ''.join(p[0] for p in parts[:2]).upper() or '?'
+
+    return render(request, 'student_learning/profil_v2.html', {
+        'active_tab':  'profil',
+        'student':     student,
+        'initials':    initials,
+        'class_name':  cls.name if cls else '',
+        'school_name': student.school.name if student.school_id else '',
+        'stats':       {'quiz': quiz_ok, 'stories': stories, 'exams': exams},
+        'parcours_url': reverse('learn:dashboard'),
+        'logout_url':   reverse('learn:logout'),
+    })
+
+
 # ─── PLOMBERIE Notes & Profil — données préservées (affichage clair v1 retiré) ──
 # L'ancien affichage clair (learn/base_student.html + grades.html + profile.html)
 # a été supprimé. La LOGIQUE DE DONNÉES est conservée ici pour rebrancher les
