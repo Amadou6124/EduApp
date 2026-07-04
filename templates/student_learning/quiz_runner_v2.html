@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+  <script src="{% static 'js/learn-sfx.js' %}"></script>
   <script defer src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
   <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
 
@@ -33,6 +34,7 @@
       nQuestions:  {{ n_questions }},
       accent:      "{{ lesson.color }}",
     };
+    LearnSFX.init("{% get_static_prefix %}vendor/sfx/");
   </script>
 
   <style>
@@ -753,7 +755,7 @@ document.addEventListener('alpine:init', () => {
     advance(detail) {
       this.results.push(detail.correct);
       setTimeout(() => {
-        if (this.idx + 1 >= this.questions.length) { this.phase = 'done'; }
+        if (this.idx + 1 >= this.questions.length) { this.phase = 'done'; if (window.LearnSFX) LearnSFX.play('win'); }
         else { this.idx++; this.$nextTick(() => this.refreshIcons()); }
       }, 170);
     },
@@ -780,6 +782,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const r = await postAnswer(this.quiz.id, answer);
         this.isRight = r.correct; this.solution = r.solution || {}; this.explanation = r.explanation || '';
+        if (window.LearnSFX) LearnSFX.play(r.correct ? 'correct' : 'wrong');
         this.checked = true;
         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
       } catch (e) {

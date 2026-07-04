@@ -132,6 +132,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Manrop
 {{ lesson|json_script:"e-lesson-json" }}
 {{ meta|json_script:"e-meta-json" }}
 {{ questions|json_script:"e-questions-json" }}
+<script src="{% static 'js/learn-sfx.js' %}"></script>
 <script>
   // Config Django (hors verbatim). Correction 100% SERVEUR au submit.
   const EXAM_CFG = {
@@ -139,6 +140,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Manrop
     parcoursUrl: "{{ parcours_url }}",
     csrf:        "{{ csrf_token }}",
   };
+  LearnSFX.init("{% get_static_prefix %}vendor/sfx/");
 </script>
 
 <div class="e-wrap" x-data="examPlayer()" x-cloak>
@@ -535,6 +537,7 @@ document.addEventListener('alpine:init', () => {
       });
       this.submitting = false;
       this.phase = 'result';
+      if (window.LearnSFX) LearnSFX.play(this.passed ? 'win' : 'wrong');
       this.$nextTick(() => lucide.createIcons());
     },
 

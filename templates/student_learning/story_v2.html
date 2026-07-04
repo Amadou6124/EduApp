@@ -10,6 +10,7 @@
 
   <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
+  <script src="{% static 'js/learn-sfx.js' %}"></script>
   <script defer src="{% static 'vendor/lucide/lucide.min.js' %}"></script>
   <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
 
@@ -18,6 +19,7 @@
   {{ scene|json_script:"s-scene-json" }}
   <script>
     const STORY_CFG = { finishUrl:"{{ finish_url|default:'' }}", parcoursUrl:"{{ parcours_url }}", csrf:"{{ csrf_token }}", sfxBase:"{% get_static_prefix %}vendor/sfx/" };
+    LearnSFX.init(STORY_CFG.sfxBase);
   </script>
 
   <style>
@@ -122,7 +124,7 @@
       <div class="st-fill" :style="`width:${fillPct}%`"></div>
       <template x-for="(n,i) in nodes" :key="i"><div class="st-node" :class="i===curNode?'now':''" :style="`left:${n}%`"></div></template>
     </div>
-    <button class="st-cc" :class="sfxMuted?'':'on'" @click="sfxMuted=!sfxMuted" aria-label="Sons"><i :data-lucide="sfxMuted?'volume-off':'volume-2'"></i></button>
+    <button class="st-cc" :class="sfxMuted?'':'on'" @click="sfxMuted = LearnSFX.toggleMute()" aria-label="Sons"><i :data-lucide="sfxMuted?'volume-off':'volume-2'"></i></button>
     <button class="st-cc" :class="ttsOn?'on':''" @click="toggleTts()" aria-label="Voix"><i data-lucide="ear"></i></button>
   </div>
 
@@ -231,7 +233,7 @@ document.addEventListener('alpine:init', function(){
     inputVal:'', inputErr:false, inputTries:0, inputPunctMsg:false,
     tokensOrder:[], tokensBank:[], tokensErr:false, tokensTries:0,
     blankPick:null, blankErr:false, blankPunctMsg:false,
-    finishUrl:STORY_CFG.finishUrl, parcoursUrl:STORY_CFG.parcoursUrl, _ac:null, _voice:null, _sfxA:null,
+    finishUrl:STORY_CFG.finishUrl, parcoursUrl:STORY_CFG.parcoursUrl, _voice:null,
 
     /* couleurs normalisées */
     get _dark(){ return document.documentElement.dataset.theme==='dark'; },
@@ -262,7 +264,7 @@ document.addEventListener('alpine:init', function(){
       if(m.kind==='user') return !(n&&n.kind==='user'); return true; },
 
     init(){ var self=this;
-      this._loadSfx();
+      this.sfxMuted = window.LearnSFX ? LearnSFX.muted : false;
       if(window.speechSynthesis){ window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged=function(){ self._voice=null; }; }
       this.$watch('done', function(v){ if(v) self.onDone(); });
       this.$nextTick(function(){ if(window.lucide)lucide.createIcons(); self.advance(); }); },
@@ -340,32 +342,7 @@ document.addEventListener('alpine:init', function(){
     },
 
     doBurst(){ var self=this; this.sparks=Array.from({length:10},function(_,i){ var a=i/10*Math.PI*2; return {id:i,dx:Math.round(Math.cos(a)*46),dy:Math.round(Math.sin(a)*46)}; }); this.burst=true; setTimeout(function(){ self.burst=false; },520); },
-    /* précharge les SFX fichiers (self-hostés) ; absents → repli synthétisé */
-    _loadSfx(){
-      var self=this; this._sfxA={};
-      ['correct','wrong','complete','tap'].forEach(function(name){
-        try{ var a=new Audio(STORY_CFG.sfxBase+name+'.mp3'); a.preload='auto'; a.volume=.5;
-          a.addEventListener('canplaythrough', function(){ self._sfxA[name]=a; }, {once:true});
-          a.load();
-        }catch(e){}
-      });
-    },
-    sfx(kind){
-      if(this.sfxMuted) return;
-      var name={tap:'tap',success:'correct',wrong:'wrong',win:'complete'}[kind];
-      var a=this._sfxA && this._sfxA[name];
-      if(a){ try{ var c=a.cloneNode(true); c.volume=a.volume; var p=c.play(); if(p&&p.catch)p.catch(function(){}); return; }catch(e){} }
-      this._synth(kind);
-    },
-    _synth(kind){
-      try{ var ac=this._ac||(this._ac=new (window.AudioContext||window.webkitAudioContext)()); if(ac.state==='suspended')ac.resume();
-        var now=ac.currentTime, beep=function(f,t0,dur,type,g){ var o=ac.createOscillator(),ga=ac.createGain(); o.type=type||'sine'; o.frequency.value=f; ga.gain.setValueAtTime(0,now+t0); ga.gain.linearRampToValueAtTime(g||.06,now+t0+.008); ga.gain.exponentialRampToValueAtTime(.0001,now+t0+dur); o.connect(ga); ga.connect(ac.destination); o.start(now+t0); o.stop(now+t0+dur); };
-        if(kind==='tap') beep(500,0,.07,'sine',.04);
-        else if(kind==='success'){ beep(660,0,.1,'sine',.06); beep(880,.08,.16,'sine',.06); }
-        else if(kind==='wrong') beep(160,0,.16,'sawtooth',.04);
-        else if(kind==='win'){ beep(660,0,.12,'sine',.06); beep(880,.1,.12,'sine',.06); beep(1046,.2,.22,'sine',.07); }
-      }catch(e){}
-    },
+    sfx(kind){ if(!this.sfxMuted && window.LearnSFX) LearnSFX.play(kind); },
     _pickVoice(){
       if(this._voice) return this._voice;
       if(!window.speechSynthesis) return null;
