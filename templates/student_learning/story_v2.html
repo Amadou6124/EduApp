@@ -134,10 +134,10 @@
         <template x-if="m.kind==='char'">
           <div class="st-msg left">
             <div class="st-who" x-show="showName(i)" :style="`color:${nameColor(m.who)}`"><svg width="11" height="11" viewBox="0 0 12 12"><rect x="6" y="0" width="8.5" height="8.5" transform="rotate(45 6 6)" :fill="nameColor(m.who)"/></svg><span x-text="findChar(m.who).name.toUpperCase()"></span></div>
-            <div class="st-bub st-npc"><span x-text="m.text"></span><button class="st-speak" @click="speakNow(m.text)"><i data-lucide="volume-2" style="width:15px;height:15px"></i></button></div>
+            <div class="st-bub st-npc" :style="`border-top-left-radius:${contRun(i)?6:17}px;border-bottom-left-radius:${lastInRun(i)?5:17}px`"><span x-text="m.text"></span><button class="st-speak" @click="speakNow(m.text)"><i data-lucide="volume-2" style="width:15px;height:15px"></i></button></div>
           </div>
         </template>
-        <template x-if="m.kind==='user'"><div class="st-msg right"><div class="st-bub st-me" x-text="m.text"></div></div></template>
+        <template x-if="m.kind==='user'"><div class="st-msg right"><div class="st-bub st-me" :style="`border-top-right-radius:${contRun(i)?6:17}px;border-bottom-right-radius:${lastInRun(i)?5:17}px`" x-text="m.text"></div></div></template>
       </div>
     </template>
     <template x-if="typing!==null">
@@ -153,7 +153,7 @@
         <div>
           <div class="st-clab">TA RÉPONSE</div>
           <template x-for="(opt,i) in waiting.options" :key="i">
-            <button class="st-chip" @click="resolveChoice(opt)"><span x-text="opt.label"></span><i data-lucide="send" class="snd" style="width:16px;height:16px"></i></button>
+            <button class="st-chip" @click="resolveChoice(opt)"><span x-text="opt.label"></span><svg class="snd" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
           </template>
         </div>
       </template>
@@ -163,7 +163,7 @@
           <div class="st-clab">TA RÉPONSE</div>
           <div class="st-inrow">
             <input class="st-input" :class="inputErr?'ko':''" type="text" x-model="inputVal" placeholder="Écris ta réponse…" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="submitInput()">
-            <button class="st-send" :disabled="!inputVal.trim()" @click="submitInput()"><i data-lucide="send" style="width:20px;height:20px"></i></button>
+            <button class="st-send" :disabled="!inputVal.trim()" @click="submitInput()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
           </div>
           <div class="st-err" x-show="inputErr" x-text="inputPunctMsg ? 'Presque ! Pense à la ponctuation finale.' : (waiting.hint || 'Réessaie.')"></div>
           <button class="st-give" x-show="inputTries>=2" @click="revealInput()">Montrer la réponse</button>
@@ -257,6 +257,9 @@ document.addEventListener('alpine:init', function(){
     /* groupement : une bulle qui prolonge la salve du même perso */
     contRun(i){ var m=this.history[i], p=this.history[i-1]; return !!(m&&p&&m.kind==='char'&&p.kind==='char'&&m.who===p.who); },
     showName(i){ var m=this.history[i]; return !!(m&&m.kind==='char') && !this.contRun(i); },
+    lastInRun(i){ var m=this.history[i], n=this.history[i+1]; if(!m) return true;
+      if(m.kind==='char') return !(n&&n.kind==='char'&&n.who===m.who);
+      if(m.kind==='user') return !(n&&n.kind==='user'); return true; },
 
     init(){ var self=this;
       this._loadSfx();
@@ -279,7 +282,9 @@ document.addEventListener('alpine:init', function(){
         setTimeout(function(){ self.typing=null; self.push({kind:'char',who:s.who,text:s.text}); self.speak(s.text); self.step++; self.$nextTick(function(){ self.refreshIcons(); self.advance(); }); }, d);
       } else {
         var asker=this.lastSpeaker || (this.chars[0]&&this.chars[0].id);
-        if(s.prompt) this.push({kind:'char',who:asker,text:s.prompt});
+        var prev=this.history[this.history.length-1];
+        var dup = prev && prev.kind==='char' && /\?\s*$/.test(prev.text||'') && /\?\s*$/.test(s.prompt||'');
+        if(s.prompt && !dup) this.push({kind:'char',who:asker,text:s.prompt});
         this.startInteraction(s);
         this.refreshIcons();
       }
