@@ -1,11 +1,16 @@
 {% load static l10n %}{% localize off %}
 <!DOCTYPE html>
-<html lang="fr" class="theme-dark">
+<html lang="fr" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
   <title>{{ concept.name }} — Quiz</title>
-  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
+
+  {# Thème AVANT peinture (évite le flash) : choix mémorisé, sinon clair. #}
+  <script>(function(){try{document.documentElement.dataset.theme=localStorage.getItem('learn-theme')||'light';}catch(e){}})();</script>
+
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
   <!-- Prism.js — coloration code (spot_the_bug / parsons_puzzle). Synchrone : prêt au montage Alpine. -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
@@ -31,22 +36,18 @@
   </script>
 
   <style>
-    .theme-dark {
-      --bg: radial-gradient(120% 90% at 20% -10%, #1a1340 0%, #0b0b1a 55%, #07060f 100%);
-      --text: #ffffff;
-      --text-dim: rgba(255,255,255,.58);
-      --text-mute: rgba(255,255,255,.38);
-      --surface: rgba(255,255,255,.05);
-      --surface-2: rgba(255,255,255,.09);
-      --border: rgba(255,255,255,.09);
-      --accent: {{ lesson.color }};
+    /* couche locale repointée sur les tokens ; --surface/-2, --border, --bg résolus par tokens.css */
+    body {
+      --text: var(--ink); --text-dim: var(--ink-muted); --text-mute: var(--ink-faint);
+      --accent: var(--{{ hue }}-600);
     }
     *, *::before, *::after { box-sizing: border-box }
     html, body { margin: 0; height: 100%; }
     ::-webkit-scrollbar { width: 0 }
+    button, input, textarea { font-family: inherit }
     body {
-      font-family: 'Manrope', system-ui, sans-serif;
-      background: var(--bg); color: var(--text);
+      font-family: var(--font-ui);
+      background: var(--bg); color: var(--ink);
       overflow: hidden; -webkit-font-smoothing: antialiased;
     }
     [x-cloak] { display: none !important }
@@ -148,12 +149,12 @@
     .fb-expl { font-size:13px; color:var(--text-dim); margin:0; line-height:1.55 }
 
     .quiz-footer { padding:10px 18px calc(14px + env(safe-area-inset-bottom)); flex-shrink:0; min-height:72px; display:flex; align-items:flex-end; }
-    .ctaBtn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:none; border-radius:14px; color:#fff; font-family:'Manrope', system-ui, sans-serif; font-weight:800; font-size:16px; padding:15px 20px; cursor:pointer; transition:transform .12s, filter .12s; text-decoration:none; }
+    .ctaBtn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:none; border-radius:14px; color:#fff; font-family:var(--font-ui); font-weight:800; font-size:16px; padding:15px 20px; cursor:pointer; transition:transform .12s, filter .12s; text-decoration:none; }
     .ctaBtn:active { transform:scale(.97) }
     .ctaBtn:disabled { cursor:default; opacity:.38 }
     .cta-verify { background:var(--accent) }
     .cta-continue-ok { background:linear-gradient(135deg, #22C55E, #16A34A) }
-    .cta-continue-ko { background:var(--surface-2); border:1px solid var(--border) }
+    .cta-continue-ko { background:var(--surface-2); border:1px solid var(--border); color:var(--ink) }
 
     .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
     .grid-2 .opt { justify-content:center; text-align:center; }
@@ -194,7 +195,7 @@
     .code-line.ln-correct { background:rgba(34,197,94,.22) !important }
     .code-line.ln-wrong { background:rgba(239,68,68,.22) !important }
     .line-num { padding:10px 10px 10px 14px; font-size:12px; color:#555; min-width:40px; text-align:right; border-right:1px solid rgba(255,255,255,.05); font-family:'Courier New', monospace; flex-shrink:0; }
-    .line-code { padding:10px 14px; font-family:'Courier New', monospace; font-size:13px; line-height:1.55; white-space:pre; overflow-x:auto; }
+    .line-code { padding:10px 14px; font-family:'Courier New', monospace; font-size:13px; line-height:1.55; white-space:pre; overflow-x:auto; color:#e4e4e7; }
     .fix-hint { display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px 14px; border-radius:10px; background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.28); font-family:'Courier New', monospace; font-size:13px; color:#22C55E; }
 
     /* math_expression — MathQuill + clavier */
@@ -207,7 +208,7 @@
     .kbtn.accent { background:color-mix(in srgb, var(--accent) 14%, transparent); border-color:color-mix(in srgb, var(--accent) 40%, transparent); color:var(--accent) }
 
     .final-wrap { position:fixed; inset:0; z-index:80; overflow-y:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg); padding:32px 24px calc(32px + env(safe-area-inset-bottom)); animation:quizPop .4s cubic-bezier(.2,.9,.3,1); }
-    .trophy-ring { width:110px; height:110px; border-radius:50%; background:linear-gradient(150deg, var(--accent), #6d28d9); display:flex; align-items:center; justify-content:center; box-shadow:0 16px 40px color-mix(in srgb, var(--accent) 50%, transparent); margin-bottom:22px; }
+    .trophy-ring { width:110px; height:110px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; box-shadow:0 16px 40px color-mix(in srgb, var(--accent) 50%, transparent); margin-bottom:22px; }
     .star-item { display:inline-flex; transition:transform .35s cubic-bezier(.34,1.56,.64,1); }
     .star-item.lit { animation:starPop .4s cubic-bezier(.34,1.56,.64,1) both }
     .miniCard { display:flex; flex-direction:column; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px 22px; min-width:108px; }
@@ -713,7 +714,7 @@
         <div class="miniCard"><div style="font-size:26px;font-weight:800;color:var(--accent)" x-text="'+' + xp"></div><div style="font-size:12px;color:var(--text-dim)">XP gagnés</div></div>
         <div class="miniCard"><div style="font-size:26px;font-weight:800;color:#22C55E" x-text="score"></div><div style="font-size:12px;color:var(--text-dim)">Réussites</div></div>
       </div>
-      <a class="ctaBtn" :href="parcoursUrl" style="width:min(360px,90%);background:linear-gradient(150deg, var(--accent), #6d28d9)">
+      <a class="ctaBtn" :href="parcoursUrl" style="width:min(360px,90%);background:var(--accent)">
         Retour au parcours <i data-lucide="check" style="width:18px;height:18px"></i>
       </a>
     </div>

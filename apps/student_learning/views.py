@@ -1009,7 +1009,15 @@ def learn_quiz_v2(request, lesson_id, concept_id):
             cq['instruction'] = drawn['statement']   # énoncé avec valeurs substituées
         client_quizzes.append(cq)
 
+    # Teinte de matière AUTO (par position) — même calcul que parcours/lecteur.
+    from apps.student_learning.theme import subject_hue_at
+    _subjects = _student_v2_subjects(student)
+    _names = [s['subject'] for s in _subjects]
+    _cur = lesson.subject or 'Autre'
+    hue = subject_hue_at(_names.index(_cur)) if _cur in _names else subject_hue_at(0)
+
     return render(request, 'student_learning/quiz_runner_v2.html', {
+        'hue': hue,
         'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
                    'color': cv.color or '#818CF8'},
         'concept': {'id': str(concept_id), 'name': concept.get('name', '')},
