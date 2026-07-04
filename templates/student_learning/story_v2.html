@@ -17,7 +17,7 @@
   {{ steps|json_script:"s-steps-json" }}
   {{ scene|json_script:"s-scene-json" }}
   <script>
-    const STORY_CFG = { finishUrl:"{{ finish_url|default:'' }}", parcoursUrl:"{{ parcours_url }}", csrf:"{{ csrf_token }}" };
+    const STORY_CFG = { finishUrl:"{{ finish_url|default:'' }}", parcoursUrl:"{{ parcours_url }}", csrf:"{{ csrf_token }}", sfxBase:"{% get_static_prefix %}vendor/sfx/" };
   </script>
 
   <style>
@@ -41,7 +41,7 @@
     .st-node.now{width:16px;height:16px;animation:st-np 1.8s infinite}
 
     /* FEED */
-    .st-feed{position:relative;z-index:2;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:11px;padding:12px 14px 18px}
+    .st-feed{position:relative;z-index:2;flex:1;overflow-y:auto;display:flex;flex-direction:column;padding:12px 14px 18px}
     .st-narr{align-self:center;text-align:center;font-size:13px;font-weight:700;font-style:italic;color:var(--ink-muted);max-width:86%;line-height:1.45;margin:6px 0;animation:st-in .3s ease}
     .st-msg{display:flex;flex-direction:column;max-width:84%;animation:st-in .3s ease}
     .st-msg.left{align-self:flex-start} .st-msg.right{align-self:flex-end}
@@ -50,7 +50,7 @@
     .st-npc{background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:5px;box-shadow:0 1px 5px rgba(60,40,30,.06)}
     .st-me{background:var(--info-soft);border-bottom-right-radius:5px}
     .st-speak{position:absolute;right:-30px;bottom:2px;background:none;border:none;color:var(--ink-faint);cursor:pointer;padding:4px}
-    .st-typing{align-self:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:17px;border-bottom-left-radius:5px;padding:12px 15px;display:flex;gap:5px;animation:st-in .3s ease}
+    .st-typing{align-self:flex-start;margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:17px;border-bottom-left-radius:5px;padding:12px 15px;display:flex;gap:5px;animation:st-in .3s ease}
     .st-typing i{width:7px;height:7px;border-radius:50%;background:var(--ink-faint);display:block;animation:st-blink 1.3s infinite}
     .st-typing i:nth-child(2){animation-delay:.2s} .st-typing i:nth-child(3){animation-delay:.4s}
 
@@ -129,11 +129,11 @@
   <!-- FEED -->
   <div class="st-feed" x-ref="feed">
     <template x-for="(m,i) in history" :key="i">
-      <div>
+      <div :style="`margin-top:${i===0 ? 0 : (contRun(i) ? 3 : 12)}px`">
         <template x-if="m.kind==='narration'"><div class="st-narr" x-text="m.text"></div></template>
         <template x-if="m.kind==='char'">
           <div class="st-msg left">
-            <div class="st-who" :style="`color:${nameColor(m.who)}`"><svg width="11" height="11" viewBox="0 0 12 12"><rect x="6" y="0" width="8.5" height="8.5" transform="rotate(45 6 6)" :fill="nameColor(m.who)"/></svg><span x-text="findChar(m.who).name.toUpperCase()"></span></div>
+            <div class="st-who" x-show="showName(i)" :style="`color:${nameColor(m.who)}`"><svg width="11" height="11" viewBox="0 0 12 12"><rect x="6" y="0" width="8.5" height="8.5" transform="rotate(45 6 6)" :fill="nameColor(m.who)"/></svg><span x-text="findChar(m.who).name.toUpperCase()"></span></div>
             <div class="st-bub st-npc"><span x-text="m.text"></span><button class="st-speak" @click="speakNow(m.text)"><i data-lucide="volume-2" style="width:15px;height:15px"></i></button></div>
           </div>
         </template>
@@ -231,7 +231,7 @@ document.addEventListener('alpine:init', function(){
     inputVal:'', inputErr:false, inputTries:0, inputPunctMsg:false,
     tokensOrder:[], tokensBank:[], tokensErr:false, tokensTries:0,
     blankPick:null, blankErr:false, blankPunctMsg:false,
-    finishUrl:STORY_CFG.finishUrl, parcoursUrl:STORY_CFG.parcoursUrl, _ac:null,
+    finishUrl:STORY_CFG.finishUrl, parcoursUrl:STORY_CFG.parcoursUrl, _ac:null, _voice:null, _sfxA:null,
 
     /* couleurs normalisées */
     get _dark(){ return document.documentElement.dataset.theme==='dark'; },
@@ -254,8 +254,15 @@ document.addEventListener('alpine:init', function(){
 
     findChar(id){ return this.chars.find(function(c){return c.id===id;}) || this.chars[0] || {name:'',color:'#888'}; },
     sideOf(id){ var c=this.findChar(id); return (c&&c.side==='left')?'left':'right'; },
+    /* groupement : une bulle qui prolonge la salve du même perso */
+    contRun(i){ var m=this.history[i], p=this.history[i-1]; return !!(m&&p&&m.kind==='char'&&p.kind==='char'&&m.who===p.who); },
+    showName(i){ var m=this.history[i]; return !!(m&&m.kind==='char') && !this.contRun(i); },
 
-    init(){ var self=this; this.$watch('done', function(v){ if(v) self.onDone(); }); this.$nextTick(function(){ if(window.lucide)lucide.createIcons(); self.advance(); }); },
+    init(){ var self=this;
+      this._loadSfx();
+      if(window.speechSynthesis){ window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged=function(){ self._voice=null; }; }
+      this.$watch('done', function(v){ if(v) self.onDone(); });
+      this.$nextTick(function(){ if(window.lucide)lucide.createIcons(); self.advance(); }); },
     refreshIcons(){ this.$nextTick(function(){ if(window.lucide)lucide.createIcons(); }); },
     scrollBottom(){ var self=this; this.$nextTick(function(){ var el=self.$refs.feed; if(el) el.scrollTop=el.scrollHeight; }); },
     push(m){ this.history=this.history.concat([m]); this.scrollBottom(); },
@@ -328,8 +335,24 @@ document.addEventListener('alpine:init', function(){
     },
 
     doBurst(){ var self=this; this.sparks=Array.from({length:10},function(_,i){ var a=i/10*Math.PI*2; return {id:i,dx:Math.round(Math.cos(a)*46),dy:Math.round(Math.sin(a)*46)}; }); this.burst=true; setTimeout(function(){ self.burst=false; },520); },
+    /* précharge les SFX fichiers (self-hostés) ; absents → repli synthétisé */
+    _loadSfx(){
+      var self=this; this._sfxA={};
+      ['correct','wrong','complete','tap'].forEach(function(name){
+        try{ var a=new Audio(STORY_CFG.sfxBase+name+'.mp3'); a.preload='auto'; a.volume=.5;
+          a.addEventListener('canplaythrough', function(){ self._sfxA[name]=a; }, {once:true});
+          a.load();
+        }catch(e){}
+      });
+    },
     sfx(kind){
       if(this.sfxMuted) return;
+      var name={tap:'tap',success:'correct',wrong:'wrong',win:'complete'}[kind];
+      var a=this._sfxA && this._sfxA[name];
+      if(a){ try{ var c=a.cloneNode(true); c.volume=a.volume; var p=c.play(); if(p&&p.catch)p.catch(function(){}); return; }catch(e){} }
+      this._synth(kind);
+    },
+    _synth(kind){
       try{ var ac=this._ac||(this._ac=new (window.AudioContext||window.webkitAudioContext)()); if(ac.state==='suspended')ac.resume();
         var now=ac.currentTime, beep=function(f,t0,dur,type,g){ var o=ac.createOscillator(),ga=ac.createGain(); o.type=type||'sine'; o.frequency.value=f; ga.gain.setValueAtTime(0,now+t0); ga.gain.linearRampToValueAtTime(g||.06,now+t0+.008); ga.gain.exponentialRampToValueAtTime(.0001,now+t0+dur); o.connect(ga); ga.connect(ac.destination); o.start(now+t0); o.stop(now+t0+dur); };
         if(kind==='tap') beep(500,0,.07,'sine',.04);
@@ -338,8 +361,20 @@ document.addEventListener('alpine:init', function(){
         else if(kind==='win'){ beep(660,0,.12,'sine',.06); beep(880,.1,.12,'sine',.06); beep(1046,.2,.22,'sine',.07); }
       }catch(e){}
     },
-    speak(text){ if(!this.ttsOn||!window.speechSynthesis) return; window.speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text); u.lang='fr-FR'; u.rate=.97; window.speechSynthesis.speak(u); },
-    speakNow(text){ if(!window.speechSynthesis) return; window.speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text); u.lang='fr-FR'; u.rate=.97; window.speechSynthesis.speak(u); },
+    _pickVoice(){
+      if(this._voice) return this._voice;
+      if(!window.speechSynthesis) return null;
+      var vs=window.speechSynthesis.getVoices()||[];
+      var frFR=vs.filter(function(v){ return /^fr-FR/i.test(v.lang); });
+      var fr=frFR.length ? frFR : vs.filter(function(v){ return /^fr/i.test(v.lang); });
+      if(!fr.length) return null;
+      var male=/(thomas|jacques|eddy|rocko|grandpa|nicolas|paul|daniel|male|homme)/i;
+      this._voice = fr.find(function(v){ return male.test(v.name); }) || fr[0];
+      return this._voice;
+    },
+    _utter(text){ var u=new SpeechSynthesisUtterance(text); u.lang='fr-FR'; var v=this._pickVoice(); if(v)u.voice=v; u.rate=.95; u.pitch=1.08; return u; },
+    speak(text){ if(!this.ttsOn||!window.speechSynthesis) return; window.speechSynthesis.cancel(); window.speechSynthesis.speak(this._utter(text)); },
+    speakNow(text){ if(!window.speechSynthesis) return; window.speechSynthesis.cancel(); window.speechSynthesis.speak(this._utter(text)); },
     toggleTts(){ this.ttsOn=!this.ttsOn; if(!this.ttsOn&&window.speechSynthesis) window.speechSynthesis.cancel(); },
     stopAll(){ if(window.speechSynthesis) window.speechSynthesis.cancel(); },
 
