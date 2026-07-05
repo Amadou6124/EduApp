@@ -99,6 +99,7 @@
       </div>
 
       <!-- ── Bouton Recherche ── -->
+      {% if request.role != 'promoter' %}
       <div class="px-3 pt-3 pb-1 shrink-0">
         <button @click="$store.search.open = true"
                 :title="$store.sidebar.open ? '' : 'Rechercher (⌘K)'"
@@ -112,6 +113,7 @@
           </span>
         </button>
       </div>
+      {% endif %}
 
       <!-- ── Navigation ── -->
       <nav class="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
@@ -565,7 +567,7 @@
           <div class="flex items-center gap-2 min-w-0">
             {% if request.role == 'promoter' %}
             <button type="button" @click="$store.accountSheet.open = true"
-                    class="flex items-center gap-2 min-w-0 -ml-1 pr-2 py-1 rounded-lg hover:bg-gray-50 transition">
+                    class="lg:hidden flex items-center gap-2 min-w-0 -ml-1 pr-2 py-1 rounded-lg hover:bg-gray-50 transition">
               <span class="w-8 h-8 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{{ request.user.full_name|first|upper }}</span>
               <span class="min-w-0 text-left leading-tight">
                 <span class="block text-sm font-semibold text-gray-900 truncate max-w-[150px]">{{ request.user.full_name }}</span>
