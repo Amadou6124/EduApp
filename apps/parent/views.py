@@ -169,54 +169,56 @@ def parent_bulletins(request):
 @login_required
 @parent_required
 def parent_payments(request):
-    """Historique des paiements de tous les enfants + totaux. Zéro N+1."""
+    """Paiements de l'enfant actif : solde, échéancier par famille (3 familles,
+    tranches datées + retards — même logique que la fiche directeur via
+    Installment.status/is_overdue) et journal des versements avec affectation.
+    """
     from apps.payments.models import Payment
+    from apps.finance.models import StudentFeeAccount
+    from apps.finance.services import student_fee_summary, timeline_families
 
-    links = (
-        request.user.guarded_students
-        .select_related('student', 'student__school_class')
-        .prefetch_related(Prefetch(
-            'student__payments',
-            queryset=Payment.objects.filter(is_cancelled=False).order_by('-payment_date', '-created_at'),
-            to_attr='active_payments',
-        ))
-        .order_by('-is_primary', 'student__full_name')
+    active = resolve_active_child(request, parent_students(request.user))
+    if not active:
+        return render(request, 'parent/payments.html', {'active_student': None})
+
+    summary = student_fee_summary(active)   # None si l'élève n'a pas de fiche
+    account, fee_families = None, []
+    overdue_total, overdue_count, pct_paid = Decimal('0'), 0, 0
+    if summary:
+        account = (
+            StudentFeeAccount.objects
+            .filter(pk=summary['account'].pk)
+            .select_related('enrollment__school_year')
+            .prefetch_related('debts__installments__allocations')
+            .first()
+        )
+        fee_families = timeline_families(account)
+        for _label, debts in fee_families:
+            for debt in debts:
+                for inst in debt.installments.all():
+                    if inst.is_overdue():
+                        overdue_total += inst.balance()
+                        overdue_count += 1
+        due = Decimal(summary['due'])
+        pct_paid = min(max(int(Decimal(summary['paid']) / due * 100) if due else 0, 0), 100)
+
+    # Journal des versements + affectation (PaymentAllocation → tranche → dette).
+    payments = (
+        Payment.objects
+        .filter(student=active, is_cancelled=False)
+        .prefetch_related('allocations__installment__debt')
+        .order_by('-payment_date', '-created_at')
     )
-    # ── Solde : NOUVEAU modèle (lot 6bis-B) — IDENTIQUE à la fiche admin et à la
-    # page Paiements. Le helper somme les allocations (3 familles), pas tuition_fee.
-    # La liste des Payments bruts reste affichée comme JOURNAL des versements (immuable).
-    from apps.finance.services import student_fee_summary
 
-    children = []
-    total_paid_all = Decimal('0')
-    total_remaining_all = Decimal('0')
-    for l in links:
-        s = l.student
-        for p in s.active_payments:
-            p.month_group = p.payment_date.strftime('%Y-%m')
-        summary = student_fee_summary(s)
-        if summary:
-            due     = Decimal(summary['due'])
-            paid    = Decimal(summary['paid'])
-            balance = Decimal(summary['balance'])
-            status  = summary['status']
-            has_fee = True
-            pct     = int(paid / due * 100) if due else 0
-        else:
-            # Enfant sans fiche → état neutre, jamais un solde faux.
-            due = paid = balance = Decimal('0')
-            status, has_fee, pct = 'no_fee', False, 0
-        children.append({
-            'student': s, 'payments': s.active_payments, 'has_fee': has_fee,
-            'paid': paid, 'due': due, 'balance': balance,
-            'pct': min(max(pct, 0), 100), 'status': status,
-        })
-        total_paid_all += paid
-        total_remaining_all += balance
     return render(request, 'parent/payments.html', {
-        'children': children,
-        'total_paid': total_paid_all,
-        'total_remaining': total_remaining_all,
+        'active_student': active,
+        'summary':        summary,
+        'account':        account,
+        'fee_families':   fee_families,
+        'overdue_total':  overdue_total,
+        'overdue_count':  overdue_count,
+        'pct_paid':       pct_paid,
+        'payments':       payments,
     })
 
 

@@ -1,21 +1,7 @@
 {% extends "parent/base_parent.html" %}
+{% load humanize %}
 
-{% block title %}Mes paiements{% endblock %}
-
-{# ════════════════════════════════════════════════════════ #}
-{#  HEADER                                                #}
-{# ════════════════════════════════════════════════════════ #}
-{% block header %}
-<header class="bg-white border-b border-gray-200 sticky top-0 z-40 h-14
-               flex items-center px-4 gap-3">
-  <a href="{% url 'parent:dashboard' %}"
-     class="p-1.5 -ml-1.5 rounded-lg text-gray-500 hover:bg-gray-100 shrink-0">
-    <i data-lucide="arrow-left" class="w-5 h-5"></i>
-  </a>
-  <h1 class="flex-1 text-center text-base font-semibold">Mes paiements</h1>
-  <div class="w-14 shrink-0"></div>
-</header>
-{% endblock %}
+{% block title %}Paiements{% endblock %}
 
 {% block bottom_nav %}
 {% include "parent/partials/bottom_nav.html" with active="payments" %}
@@ -23,179 +9,157 @@
 
 {% block content %}
 
-{# ════════════════════════════════════════════════════════ #}
-{#  ÉTAT VIDE GLOBAL                                      #}
-{# ════════════════════════════════════════════════════════ #}
-{% if not children %}
+{% if not active_student %}
 <div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-8">
   <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
     <i data-lucide="wallet" class="w-10 h-10 text-gray-300"></i>
   </div>
-  <h2 class="text-lg font-semibold text-gray-700 mt-4">Aucun paiement enregistré</h2>
-  <p class="text-sm text-gray-400 mt-1">Les versements apparaîtront ici une fois enregistrés.</p>
+  <h2 class="text-lg font-semibold text-gray-700 mt-4">Aucun enfant lié</h2>
+  <p class="text-sm text-gray-400 mt-1">Votre compte n'est pas encore associé à un élève.</p>
 </div>
 
 {% else %}
+<div class="px-4 pb-10">
+  <h1 class="text-xl font-extrabold text-gray-900 pt-4 pb-3">Paiements</h1>
 
-<div x-data="{ active: 0 }" class="pb-8">
+  {% if not summary %}
+  {# ── Pas de fiche → état NEUTRE (jamais un faux « impayé ») ── #}
+  <div class="bg-white border border-gray-100 rounded-2xl p-6 text-center mt-2">
+    <div class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+      <i data-lucide="wallet" class="w-7 h-7 text-gray-300"></i>
+    </div>
+    <p class="text-sm font-semibold text-gray-700">Fiche financière à venir</p>
+    <p class="text-xs text-gray-400 mt-1">Aucun frais n'est encore enregistré pour cette année.</p>
+  </div>
 
-  {# ════════════════════════════════════════════════════ #}
-  {#  SÉLECTEUR ENFANTS (si plusieurs)                  #}
-  {# ════════════════════════════════════════════════════ #}
-  {% if children|length > 1 %}
-  <div class="flex gap-3 px-4 pt-4">
-    {% for c in children %}
-    <button @click="active = {{ forloop.counter0 }}"
-            class="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-2xl
-                   transition-all duration-200"
-            :class="active === {{ forloop.counter0 }}
-                    ? 'bg-white shadow-sm border border-gray-200'
-                    : 'opacity-50'">
-      <div class="w-11 h-11 rounded-full flex items-center justify-center
-                  text-sm font-bold transition-transform duration-200"
-           :class="active === {{ forloop.counter0 }} ? 'scale-110' : 'scale-100'"
-           style="background:{{ c.student.get_avatar_colors.0 }};
-                  color:{{ c.student.get_avatar_colors.1 }}">
-        {{ c.student.get_initials }}
-      </div>
-      <p class="text-[11px] font-semibold text-gray-700 truncate max-w-[80px]">
-        {{ c.student.full_name|truncatechars:10 }}
-      </p>
-    </button>
-    {% endfor %}
+  {% else %}
+
+  {# ── HERO : solde restant ── #}
+  <div class="rounded-2xl p-5 mb-3" style="background:#4F46E5">
+    <p class="text-[12px]" style="color:#C7CBF7">Reste à payer</p>
+    <p class="text-[28px] font-extrabold text-white leading-tight mt-0.5">{{ summary.balance|intcomma }} <span class="text-sm font-semibold" style="color:#C7CBF7">FCFA</span></p>
+    <div class="h-1.5 rounded-full overflow-hidden my-3" style="background:rgba(255,255,255,.22)">
+      <div class="h-full rounded-full" style="width:{{ pct_paid }}%;background:#6EE7B7"></div>
+    </div>
+    <div class="flex justify-between text-[12px]" style="color:#C7CBF7">
+      <span>Versé {{ summary.paid|intcomma }}</span>
+      <span>Dû {{ summary.due|intcomma }}</span>
+    </div>
+  </div>
+
+  {# ── Alerte retard ── #}
+  {% if overdue_count %}
+  <div class="flex items-center gap-2.5 bg-red-50 border border-red-100 rounded-2xl p-3 mb-4">
+    <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500 shrink-0"></i>
+    <p class="text-[12.5px] text-red-800 leading-snug">
+      <span class="font-semibold">{{ overdue_total|intcomma }} FCFA en retard</span> sur {{ overdue_count }} échéance{{ overdue_count|pluralize }}. À régulariser dès que possible.
+    </p>
   </div>
   {% endif %}
 
-  {# ════════════════════════════════════════════════════ #}
-  {#  SECTIONS PAR ENFANT                               #}
-  {# ════════════════════════════════════════════════════ #}
-  {% for c in children %}
-  <div x-show="active === {{ forloop.counter0 }}" x-cloak
-       class="space-y-4 mt-4 animate-fade-in">
+  {# ── Échéancier par famille (mêmes états que la fiche directeur) ── #}
+  {% for family_label, debts in fee_families %}
+  <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2 {% if not forloop.first %}mt-5{% endif %}">{{ family_label }}</div>
 
-    {% comment %}
-      Hero card — solde NOUVEAU modèle (lot 6bis-B), = fiche admin.
-      no_fee (sans fiche) → neutre gris, jamais un faux solde.
-    {% endcomment %}
-    <div class="mx-4 rounded-3xl p-5 text-white
-                {% if c.status == 'no_fee' %}
-                bg-gradient-to-br from-gray-400 to-gray-600
-                {% elif c.status == 'paid' %}
-                bg-gradient-to-br from-green-500 to-emerald-700
-                {% else %}
-                bg-gradient-to-br from-amber-500 to-orange-600
-                {% endif %}">
-
-      {% if c.status == 'no_fee' %}
-      <div class="flex items-center gap-2">
-        <i data-lucide="info" class="w-5 h-5 shrink-0"></i>
-        <div>
-          <p class="text-sm font-semibold">Fiche financière à venir</p>
-          <p class="text-xs opacity-75 mt-0.5">Pas encore disponible pour cette année.</p>
-        </div>
-      </div>
-
-      {% else %}
-      {% if c.status == 'paid' %}
-      <div class="flex items-center gap-2 mb-4">
-        <i data-lucide="check-circle" class="w-5 h-5 shrink-0"></i>
-        <p class="text-sm font-semibold">Tout est à jour</p>
-      </div>
-
-      {% else %}
-      <p class="text-xs font-semibold opacity-75 uppercase tracking-wide mb-1">
-        Solde restant
-      </p>
-      <p class="text-3xl font-extrabold mb-4 js-money" data-money="{{ c.balance }}">—</p>
-
-      <div class="h-2 bg-white/30 rounded-full overflow-hidden mb-4">
-        <div class="bar-fill h-full bg-white rounded-full" style="width:0%"
-             data-bar="{{ c.pct }}"></div>
-      </div>
-      {% endif %}
-
-      <div class="flex items-center justify-between text-sm">
-        <span class="opacity-75">Total versé</span>
-        <span class="font-bold js-money" data-money="{{ c.paid }}">—</span>
-      </div>
-      {% if c.status != 'paid' %}
-      <div class="flex items-center justify-between text-xs mt-1">
-        <span class="opacity-60">Total dû</span>
-        <span class="opacity-75 js-money" data-money="{{ c.due }}">—</span>
-      </div>
-      {% endif %}
-      {% endif %}
-    </div>
-
-    {# ── Historique transactions ─────────────────────── #}
-    {% if c.payments %}
-    <div class="px-4 space-y-4">
-      {% regroup c.payments by month_group as months %}
-
-      {% for month_grp in months %}
-      <div>
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-          {{ month_grp.list.0.payment_date|date:"F Y"|capfirst }}
-        </p>
-
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          {% for p in month_grp.list %}
-          <div class="flex items-center gap-3 px-4 py-3
-                      {% if not forloop.last %}border-b border-gray-50{% endif %}">
-
-            {# Icône méthode de paiement #}
-            <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0
-                        {% if p.payment_method == 'cash' %}bg-gray-100
-                        {% elif p.payment_method == 'orange_money' %}bg-orange-100
-                        {% elif p.payment_method == 'wave' %}bg-blue-100
-                        {% else %}bg-gray-100{% endif %}">
-              {% if p.payment_method == 'cash' %}
-              <i data-lucide="banknote" class="w-4 h-4 text-gray-600"></i>
-              {% elif p.payment_method == 'orange_money' %}
-              <i data-lucide="smartphone" class="w-4 h-4 text-orange-600"></i>
-              {% elif p.payment_method == 'wave' %}
-              <i data-lucide="smartphone" class="w-4 h-4 text-blue-600"></i>
-              {% else %}
-              <i data-lucide="circle-help" class="w-4 h-4 text-gray-500"></i>
-              {% endif %}
-            </div>
-
-            {# Méthode + date + reçu #}
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-gray-900 truncate">
-                {{ p.get_payment_method_display }}
-              </p>
-              <p class="text-xs text-gray-400 mt-0.5 truncate">
-                {{ p.payment_date|date:"j F Y" }}
-                {% if p.receipt_number %}
-                <span class="opacity-60">· {{ p.receipt_number }}</span>
-                {% endif %}
-              </p>
-            </div>
-
-            {# Montant #}
-            <p class="text-sm font-bold text-green-600 shrink-0 js-money"
-               data-money="{{ p.amount }}">—</p>
-
+  {% for debt in debts %}
+    {% if debt.kind == 'tuition' %}
+      <div class="space-y-2">
+        {% for inst in debt.installments.all %}
+          {% if inst.status == 'paid' %}
+          <div class="bg-white border border-green-100 rounded-xl p-3 flex items-center gap-3" style="border-left:3px solid #1D9E75">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-600 shrink-0"></i>
+            <div class="flex-1 min-w-0"><div class="text-[13px] font-semibold text-gray-900">{{ inst.label }}</div><div class="text-[11px] text-green-700">Payé · {{ inst.due_date|date:"d/m/Y" }}</div></div>
+            <div class="text-[14px] font-semibold text-green-700">{{ inst.amount_due|intcomma }}</div>
           </div>
+          {% elif inst.status == 'partial' and inst.is_overdue %}
+          <div class="bg-white border border-amber-200 rounded-xl p-3 flex items-center gap-3" style="border-left:3px solid #E24B4A">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500 shrink-0"></i>
+            <div class="flex-1 min-w-0"><div class="text-[13px] font-semibold text-gray-900">{{ inst.label }}</div><div class="text-[11px] text-red-600">Reste {{ inst.balance|intcomma }} · en retard {{ inst.due_date|date:"d/m/Y" }}</div></div>
+            <div class="text-[13px] font-semibold text-amber-700">{{ inst.amount_allocated|intcomma }}/{{ inst.amount_due|intcomma }}</div>
+          </div>
+          {% elif inst.status == 'partial' %}
+          <div class="bg-white border border-amber-100 rounded-xl p-3 flex items-center gap-3" style="border-left:3px solid #BA7517">
+            <i data-lucide="clock" class="w-5 h-5 text-amber-500 shrink-0"></i>
+            <div class="flex-1 min-w-0"><div class="text-[13px] font-semibold text-gray-900">{{ inst.label }}</div><div class="text-[11px] text-amber-600">Reste {{ inst.balance|intcomma }} · {{ inst.due_date|date:"d/m/Y" }}</div></div>
+            <div class="text-[13px] font-semibold text-amber-700">{{ inst.amount_allocated|intcomma }}/{{ inst.amount_due|intcomma }}</div>
+          </div>
+          {% elif inst.is_overdue %}
+          <div class="bg-white border border-red-100 rounded-xl p-3 flex items-center gap-3" style="border-left:3px solid #E24B4A">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500 shrink-0"></i>
+            <div class="flex-1 min-w-0"><div class="text-[13px] font-semibold text-gray-900">{{ inst.label }}</div><div class="text-[11px] text-red-600">En retard · échéance {{ inst.due_date|date:"d/m/Y" }}</div></div>
+            <div class="text-[14px] font-semibold text-red-700">{{ inst.amount_due|intcomma }}</div>
+          </div>
+          {% else %}
+          <div class="bg-white border border-gray-100 rounded-xl p-3 flex items-center gap-3" style="border-left:3px solid #D3D1C7">
+            <i data-lucide="circle" class="w-5 h-5 text-gray-300 shrink-0"></i>
+            <div class="flex-1 min-w-0"><div class="text-[13px] font-semibold text-gray-900">{{ inst.label }}</div><div class="text-[11px] text-gray-400">À venir · {{ inst.due_date|date:"d/m/Y" }}</div></div>
+            <div class="text-[14px] font-semibold text-gray-600">{{ inst.amount_due|intcomma }}</div>
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+    {% elif debt.kind == 'subscription' %}
+      <div class="bg-white border border-gray-100 rounded-xl p-3 mb-2">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[13px] font-semibold text-gray-900">{{ debt.label }}</span>
+          <span class="text-[11px] text-gray-500">{{ debt.total_amount|intcomma }} F/mois · <span class="text-green-600 font-medium">actif</span></span>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          {% for inst in debt.installments.all %}
+          <span class="text-[10px] rounded-full px-2 py-0.5 {% if inst.status == 'paid' %}bg-green-100 text-green-700{% elif inst.status == 'partial' %}bg-amber-100 text-amber-700{% elif inst.is_overdue %}bg-red-100 text-red-700{% else %}bg-gray-100 text-gray-500{% endif %}">{{ inst.label }}{% if inst.status == 'paid' %} ✓{% endif %}</span>
+          {% empty %}
+          <span class="text-[11px] text-gray-400">Aucune mensualité encore réglée.</span>
           {% endfor %}
         </div>
       </div>
-      {% endfor %}
-    </div>
 
     {% else %}
-    {# ── État vide par enfant ──────────────────────── #}
-    <div class="mx-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
-      <i data-lucide="wallet" class="w-10 h-10 text-gray-200 mx-auto mb-2"></i>
-      <p class="text-sm text-gray-400">Aucun versement enregistré</p>
-    </div>
+      {# Frais ponctuel : ligne simple colorée #}
+      <div class="bg-white border border-gray-100 rounded-xl p-3 mb-2 flex items-center justify-between gap-2">
+        <span class="text-[13px] font-semibold text-gray-900 truncate">{{ debt.label }}</span>
+        {% if debt.status == 'paid' %}
+        <span class="text-[11px] font-semibold text-green-700 bg-green-50 rounded px-2 py-0.5 shrink-0">Payé · {{ debt.total_amount|intcomma }} F</span>
+        {% elif debt.status == 'partial' %}
+        <span class="text-[11px] font-semibold text-amber-700 bg-amber-50 rounded px-2 py-0.5 shrink-0">Reste {{ debt.balance|intcomma }} / {{ debt.total_amount|intcomma }}</span>
+        {% else %}
+        <span class="text-[11px] font-semibold text-red-700 bg-red-50 rounded px-2 py-0.5 shrink-0">Dû {{ debt.total_amount|intcomma }} F</span>
+        {% endif %}
+      </div>
     {% endif %}
-
-  </div>
+  {% endfor %}
   {% endfor %}
 
-</div>
+  {# ── Journal des versements + affectation (PaymentAllocation) ── #}
+  <div class="flex items-center gap-2 mt-6 mb-2">
+    <i data-lucide="receipt" class="w-4 h-4 text-gray-500"></i>
+    <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Versements</span>
+  </div>
+  {% if payments %}
+  <div class="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+    {% for p in payments %}
+    <div class="flex items-start gap-3 p-3 {% if not forloop.last %}border-b border-gray-50{% endif %}">
+      <div class="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+        <i data-lucide="{% if p.payment_method == 'cash' %}banknote{% else %}smartphone{% endif %}" class="w-5 h-5 text-primary-600"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between">
+          <span class="text-[14px] font-bold text-gray-900">{{ p.amount|intcomma }} FCFA</span>
+          <span class="text-[11px] text-gray-400 shrink-0">{{ p.payment_date|date:"d/m/Y" }}</span>
+        </div>
+        <div class="text-[11px] text-gray-500">{{ p.get_payment_method_display }}</div>
+        {% if p.allocations.all %}
+        <div class="text-[11px] text-gray-400 mt-0.5 truncate">→ {% for a in p.allocations.all %}{{ a.installment.debt.label }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center text-gray-400 text-[13px] py-6">Aucun versement enregistré.</div>
+  {% endif %}
 
+  {% endif %}
+</div>
 {% endif %}
 {% endblock %}
