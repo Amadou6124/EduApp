@@ -1,42 +1,50 @@
 {% load static %}<!DOCTYPE html>
-<html lang="fr" class="theme-dark">
+<html lang="fr" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
   <title>Mon parcours — EduApp</title>
-  <link rel="stylesheet" href="{% static 'vendor/fonts/manrope/manrope.css' %}">
-  <script src="{% static 'vendor/lucide/lucide.min.js' %}" defer></script>
+
+  {# Thème AVANT peinture (évite le flash) : choix mémorisé, sinon clair. #}
+  <script>(function(){try{document.documentElement.dataset.theme=localStorage.getItem('learn-theme')||'light';}catch(e){}})();</script>
+
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
+  <link rel="stylesheet" href="{% static 'css/learn-botnav.css' %}">
   <style>
-    .theme-dark{
-      --bg:radial-gradient(120% 90% at 20% -10%, #1a1340 0%, #0b0b1a 55%, #07060f 100%);
-      --text:#ffffff; --text-dim:rgba(255,255,255,.58); --text-mute:rgba(255,255,255,.40);
-      --surface:rgba(255,255,255,.05); --border:rgba(255,255,255,.10); --accent:#818CF8;
-    }
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    button{font-family:inherit}
     html,body{height:100%}
-    body{font-family:'Manrope',system-ui,sans-serif;background:var(--bg);color:var(--text);
-      -webkit-font-smoothing:antialiased;min-height:100dvh;display:flex;flex-direction:column}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--ink);
+      -webkit-font-smoothing:antialiased;min-height:100dvh}
+    .app{max-width:480px;margin:0 auto;width:100%;min-height:100dvh;display:flex;flex-direction:column}
     .wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-      text-align:center;padding:32px 26px;max-width:440px;margin:0 auto}
+      text-align:center;padding:32px 26px}
     .badge{width:88px;height:88px;border-radius:26px;display:flex;align-items:center;justify-content:center;
-      background:linear-gradient(150deg, var(--accent), #6d28d9);box-shadow:0 18px 44px rgba(129,140,248,.4);margin-bottom:24px}
-    h1{font-size:23px;font-weight:800;margin-bottom:10px;line-height:1.25}
-    p{font-size:14.5px;color:var(--text-dim);line-height:1.6;margin-bottom:8px}
-    .hint{margin-top:18px;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-mute);
+      background:var(--accent-soft);color:var(--accent);margin-bottom:24px}
+    h1{font-size:23px;font-weight:800;margin-bottom:10px;line-height:1.25;color:var(--ink-strong)}
+    p{font-size:14.5px;color:var(--ink-muted);line-height:1.6;margin-bottom:8px}
+    .hint{margin-top:18px;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-faint);
       background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px}
+    /* nav : visuel dans css/learn-botnav.css ; ici le positionnement (bas du flex) */
+    .botnav{position:relative;flex-shrink:0;z-index:40}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="badge"><i data-lucide="sparkles" style="width:42px;height:42px;color:#fff"></i></div>
-    <h1>Aucune leçon pour le moment</h1>
-    <p>Bonjour {{ student.full_name|default:"" }} 👋</p>
-    <p>Ton enseignant n'a pas encore publié de leçon pour ta classe. Reviens bientôt — ton parcours apparaîtra ici dès qu'une leçon sera disponible.</p>
-    <div class="hint">
-      <i data-lucide="bell" style="width:16px;height:16px;color:var(--accent);flex-shrink:0"></i>
-      Tu seras prêt à apprendre dès la première leçon publiée.
+  <div class="app">
+    <div class="wrap">
+      <div class="badge">
+        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+      </div>
+      <h1>Aucune leçon pour le moment</h1>
+      <p>Bonjour {{ student.full_name|default:"" }} 👋</p>
+      <p>Ton enseignant n'a pas encore publié de leçon pour ta classe. Reviens bientôt — ton parcours apparaîtra ici dès qu'une leçon sera disponible.</p>
+      <div class="hint">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+        Tu seras prêt à apprendre dès la première leçon publiée.
+      </div>
     </div>
+    {% include 'learn/_botnav.html' with active='parcours' %}
   </div>
-  <script>document.addEventListener('DOMContentLoaded',()=>{if(window.lucide)lucide.createIcons();});</script>
 </body>
 </html>
