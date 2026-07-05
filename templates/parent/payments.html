@@ -22,6 +22,31 @@
 <div class="px-4 pb-10">
   <h1 class="text-xl font-extrabold text-gray-900 pt-4 pb-3">Paiements</h1>
 
+  {# ── Vue d'ensemble « tous vos enfants », par école (si ≥2 fiches) ── #}
+  {% if fee_overview %}
+  <div class="mb-4">
+    <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Tous vos enfants</div>
+    {% for school, data in fee_overview %}
+    <div class="bg-white border border-gray-100 rounded-2xl p-3.5 mb-2">
+      <div class="flex items-center justify-between mb-1.5 gap-2">
+        <span class="text-[12px] font-semibold text-gray-500 truncate">{{ school.name }}</span>
+        <span class="text-[13px] font-bold shrink-0 {% if data.subtotal > 0 %}text-red-600{% else %}text-green-600{% endif %}">{% if data.subtotal > 0 %}{{ data.subtotal|intcomma }} F{% else %}À jour{% endif %}</span>
+      </div>
+      <div class="space-y-0.5">
+        {% for c in data.children %}
+        <a href="?child={{ c.student.id }}" class="flex items-center gap-2.5 py-1.5 px-1 -mx-1 rounded-lg {% if c.active %}bg-primary-50{% endif %}">
+          <span class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style="background:{{ c.student.get_avatar_colors.0 }};color:{{ c.student.get_avatar_colors.1 }}">{{ c.student.get_initials }}</span>
+          <span class="flex-1 text-[13px] truncate {% if c.active %}font-semibold text-primary-700{% else %}text-gray-800{% endif %}">{{ c.student.full_name }}</span>
+          {% if c.has_overdue %}<span class="text-[10px] font-semibold text-red-700 bg-red-50 rounded px-1.5 py-0.5 shrink-0">retard</span>{% endif %}
+          <span class="text-[12px] font-semibold shrink-0 {% if c.balance > 0 %}text-gray-700{% else %}text-green-600{% endif %}">{% if c.balance > 0 %}{{ c.balance|intcomma }}{% else %}à jour{% endif %}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if not summary %}
   {# ── Pas de fiche → état NEUTRE (jamais un faux « impayé ») ── #}
   <div class="bg-white border border-gray-100 rounded-2xl p-6 text-center mt-2">
@@ -46,6 +71,11 @@
       <span>Dû {{ summary.due|intcomma }}</span>
     </div>
   </div>
+
+  <p class="flex items-center gap-1.5 text-[11px] text-gray-400 mb-4 px-1">
+    <i data-lucide="info" class="w-3.5 h-3.5 shrink-0"></i>
+    Les versements se règlent auprès de l'école.
+  </p>
 
   {# ── Alerte retard ── #}
   {% if overdue_count %}

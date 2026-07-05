@@ -173,15 +173,39 @@ def parent_payments(request):
     tranches datées + retards — même logique que la fiche directeur via
     Installment.status/is_overdue) et journal des versements avec affectation.
     """
+    from collections import OrderedDict
     from apps.payments.models import Payment
     from apps.finance.models import StudentFeeAccount
     from apps.finance.services import student_fee_summary, timeline_families
 
-    active = resolve_active_child(request, parent_students(request.user))
+    students = parent_students(request.user)
+    active = resolve_active_child(request, students)
     if not active:
         return render(request, 'parent/payments.html', {'active_student': None})
 
-    summary = student_fee_summary(active)   # None si l'élève n'a pas de fiche
+    # ── Vue d'ensemble « tous vos enfants », GROUPÉE PAR ÉCOLE ──────────────────
+    # (on règle chaque école séparément). Affichée seulement si ≥2 enfants ont une
+    # fiche. La fiche de l'enfant actif est réutilisée (pas de double calcul).
+    summary = None
+    overview_by_school = OrderedDict()
+    fee_children = 0
+    for st in students:
+        summ = student_fee_summary(st) if st.id != active.id else None
+        if st.id == active.id:
+            summary = student_fee_summary(st)
+            summ = summary
+        if not summ:
+            continue
+        fee_children += 1
+        entry = overview_by_school.setdefault(
+            st.school, {'children': [], 'subtotal': Decimal('0'), 'has_overdue': False})
+        entry['children'].append({
+            'student': st, 'balance': summ['balance'],
+            'has_overdue': summ['has_overdue'], 'active': st.id == active.id,
+        })
+        entry['subtotal'] += Decimal(summ['balance'])
+        entry['has_overdue'] = entry['has_overdue'] or summ['has_overdue']
+    fee_overview = list(overview_by_school.items()) if fee_children >= 2 else []
     account, fee_families = None, []
     overdue_total, overdue_count, pct_paid = Decimal('0'), 0, 0
     if summary:
@@ -219,6 +243,7 @@ def parent_payments(request):
         'overdue_count':  overdue_count,
         'pct_paid':       pct_paid,
         'payments':       payments,
+        'fee_overview':   fee_overview,
     })
 
 
