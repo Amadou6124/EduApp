@@ -39,35 +39,24 @@
     {% endif %}
   </div>
 
-  {# ── Résumé P&L ───────────────────────────────────────────────── #}
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-    <div class="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="arrow-down-circle" class="w-4 h-4 text-primary-500 shrink-0"></i>
-        <p class="text-xs text-gray-500">Revenus (paiements)</p>
-      </div>
-      <p class="text-2xl font-bold text-gray-900">{{ total_revenus|floatformat:0|intcomma }}</p>
-      <p class="text-[11px] text-gray-400 mt-0.5">FCFA</p>
+  {# ── Hero P&L : Résultat net en vedette ──────────────────────────── #}
+  <div class="rounded-2xl p-5 sm:p-6 bg-primary-600 shadow-sm">
+    <div class="flex items-center gap-2 mb-1">
+      <i data-lucide="{% if total_net >= 0 %}trending-up{% else %}trending-down{% endif %}" class="w-4 h-4 text-white/70 shrink-0"></i>
+      <p class="text-xs text-white/70">Résultat net · {{ month_label }} {{ year }}</p>
     </div>
-    <div class="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="arrow-up-circle" class="w-4 h-4 text-red-400 shrink-0"></i>
-        <p class="text-xs text-gray-500">Charges (sal. + dép.)</p>
+    <p class="text-3xl sm:text-4xl font-bold {% if total_net >= 0 %}text-green-300{% else %}text-red-300{% endif %}">
+      {% if total_net >= 0 %}+{% endif %}{{ total_net|floatformat:0|intcomma }}<span class="text-base font-semibold text-white/70"> FCFA</span>
+    </p>
+    <div class="grid grid-cols-2 gap-3 mt-5">
+      <div class="bg-white/10 rounded-xl px-4 py-3">
+        <div class="flex items-center gap-1.5 text-white/60 text-[11px] mb-0.5"><i data-lucide="arrow-down-circle" class="w-3.5 h-3.5"></i> Revenus</div>
+        <p class="text-lg font-semibold text-white truncate">{{ total_revenus|floatformat:0|intcomma }}</p>
       </div>
-      <p class="text-2xl font-bold text-gray-900">{{ total_charges|floatformat:0|intcomma }}</p>
-      <p class="text-[11px] text-gray-400 mt-0.5">FCFA</p>
-    </div>
-    <div class="rounded-2xl p-4 sm:p-5 border shadow-sm
-                {% if total_net >= 0 %}bg-green-50 border-green-200{% else %}bg-red-50 border-red-200{% endif %}">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="{% if total_net >= 0 %}trending-up{% else %}trending-down{% endif %}"
-           class="w-4 h-4 shrink-0 {% if total_net >= 0 %}text-green-600{% else %}text-red-500{% endif %}"></i>
-        <p class="text-xs {% if total_net >= 0 %}text-green-700{% else %}text-red-700{% endif %}">Résultat net</p>
+      <div class="bg-white/10 rounded-xl px-4 py-3">
+        <div class="flex items-center gap-1.5 text-white/60 text-[11px] mb-0.5"><i data-lucide="arrow-up-circle" class="w-3.5 h-3.5"></i> Charges</div>
+        <p class="text-lg font-semibold text-white truncate">{{ total_charges|floatformat:0|intcomma }}</p>
       </div>
-      <p class="text-2xl font-bold {% if total_net >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
-        {% if total_net >= 0 %}+{% endif %}{{ total_net|floatformat:0|intcomma }}
-      </p>
-      <p class="text-[11px] mt-0.5 {% if total_net >= 0 %}text-green-600{% else %}text-red-600{% endif %}">FCFA</p>
     </div>
   </div>
 
