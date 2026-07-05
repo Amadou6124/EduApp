@@ -19,34 +19,57 @@
 {% else %}
 <div class="max-w-5xl mx-auto space-y-5">
 
-  {# ── Hero KPIs ─────────────────────────────────────────────────── #}
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="building-2" class="w-4 h-4 text-gray-400 shrink-0"></i>
-        <p class="text-xs text-gray-500">Écoles actives</p>
+  {# ── Hero « argent d'abord » : Résultat net (P&L) + Recouvrement ── #}
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+    <div class="rounded-2xl p-5 bg-primary-600 shadow-sm">
+      <div class="flex items-center gap-2 mb-1">
+        <i data-lucide="trending-up" class="w-4 h-4 text-white/70 shrink-0"></i>
+        <p class="text-xs text-white/70">Résultat net · {{ year }}</p>
       </div>
+      <p class="text-3xl font-bold {% if net_year >= 0 %}text-green-300{% else %}text-red-300{% endif %}">
+        {% if net_year >= 0 %}+{% endif %}{{ net_year|floatformat:0|intcomma }}<span class="text-sm font-semibold text-white/70"> FCFA</span>
+      </p>
+      <div class="flex gap-2 mt-4">
+        <div class="flex-1 bg-white/10 rounded-xl px-3 py-2">
+          <p class="text-[11px] text-white/60">Revenus</p>
+          <p class="text-sm font-semibold text-white truncate">{{ revenus_year|floatformat:0|intcomma }}</p>
+        </div>
+        <div class="flex-1 bg-white/10 rounded-xl px-3 py-2">
+          <p class="text-[11px] text-white/60">Charges</p>
+          <p class="text-sm font-semibold text-white truncate">{{ charges_year|floatformat:0|intcomma }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-2xl p-5 bg-white border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-1">
+        <i data-lucide="percent" class="w-4 h-4 text-gray-400 shrink-0"></i>
+        <p class="text-xs text-gray-500">Recouvrement · {{ year }}</p>
+      </div>
+      <p class="text-3xl font-bold {% if taux_group >= 80 %}text-green-600{% elif taux_group >= 60 %}text-yellow-500{% else %}text-red-600{% endif %}">{{ taux_group }} %</p>
+      <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div class="h-2 rounded-full {% if taux_group >= 80 %}bg-green-500{% elif taux_group >= 60 %}bg-yellow-400{% else %}bg-red-400{% endif %}" style="width: {{ taux_group }}%"></div>
+      </div>
+      <div class="flex justify-between gap-2 mt-2.5 text-[11px] text-gray-500">
+        <span class="truncate">Encaissé {{ total_paid_group|floatformat:0|intcomma }}</span>
+        <span class="text-red-500 font-medium shrink-0">À recouvrer {{ a_recouvrer|floatformat:0|intcomma }}</span>
+      </div>
+    </div>
+  </div>
+
+  {# ── Stats fines ── #}
+  <div class="grid grid-cols-3 gap-3">
+    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-2 mb-1.5"><i data-lucide="building-2" class="w-4 h-4 text-gray-400 shrink-0"></i><p class="text-xs text-gray-500">Écoles</p></div>
       <p class="text-2xl font-bold text-gray-900">{{ total_schools }}</p>
     </div>
     <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="users" class="w-4 h-4 text-gray-400 shrink-0"></i>
-        <p class="text-xs text-gray-500">Élèves</p>
-      </div>
-      <p class="text-2xl font-bold text-gray-900">{{ total_students }}</p>
+      <div class="flex items-center gap-2 mb-1.5"><i data-lucide="users" class="w-4 h-4 text-gray-400 shrink-0"></i><p class="text-xs text-gray-500">Élèves</p></div>
+      <p class="text-2xl font-bold text-gray-900">{{ total_students|intcomma }}</p>
     </div>
     <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="percent" class="w-4 h-4 text-gray-400 shrink-0"></i>
-        <p class="text-xs text-gray-500">Recouvrement</p>
-      </div>
-      <p class="text-2xl font-bold {% if taux_group >= 80 %}text-green-600{% elif taux_group >= 60 %}text-yellow-500{% else %}text-red-600{% endif %}">{{ taux_group }} %</p>
-    </div>
-    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-2">
-        <i data-lucide="trending-up" class="w-4 h-4 text-gray-400 shrink-0"></i>
-        <p class="text-xs text-gray-500">Ce mois</p>
-      </div>
+      <div class="flex items-center gap-2 mb-1.5"><i data-lucide="calendar" class="w-4 h-4 text-gray-400 shrink-0"></i><p class="text-xs text-gray-500">Ce mois</p></div>
       <p class="text-xl font-bold text-primary-700">{{ total_paid_month|floatformat:0|intcomma }}</p>
       <p class="text-[10px] text-gray-400 -mt-0.5">FCFA</p>
     </div>

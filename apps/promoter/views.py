@@ -132,7 +132,27 @@ def promoter_synthese(request):
     total_due_group  = sum(d['total_due'] for d in schools_data)
     total_paid_group = sum(d['total_paid'] for d in schools_data)
     taux_group = int(total_paid_group / total_due_group * 100) if total_due_group else 0
+    a_recouvrer = max(total_due_group - total_paid_group, Decimal('0'))
     alerts = [d for d in schools_data if d['status'] == 'red']
+
+    # ── Résultat net ANNUEL (P&L) — même définition que la page Finances :
+    # revenus (journal des paiements) − charges (salaires + dépenses), écoles compta
+    # activée seulement. YTD car le mois courant peut être vide.
+    from apps.accounting.models import SalaryPayment, Expense
+    acc_ids = [s.id for s in schools if s.accounting_enabled]
+    revenus_year = Payment.objects.filter(
+        student__school_id__in=school_ids, is_cancelled=False, payment_date__year=now.year,
+    ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    charges_year = Decimal('0')
+    if acc_ids:
+        sal = SalaryPayment.objects.filter(
+            school_id__in=acc_ids, is_cancelled=False, status='paid', year=now.year,
+        ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        exp = Expense.objects.filter(
+            school_id__in=acc_ids, is_cancelled=False, date__year=now.year,
+        ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        charges_year = sal + exp
+    net_year = revenus_year - charges_year
 
     seq = _months_seq(6, now)
     trunc = {
@@ -154,6 +174,11 @@ def promoter_synthese(request):
         'total_paid_group': total_paid_group,
         'total_paid_month': sum(d['paid_this_month'] for d in schools_data),
         'taux_group':       taux_group,
+        'a_recouvrer':      a_recouvrer,
+        'revenus_year':     revenus_year,
+        'charges_year':     charges_year,
+        'net_year':         net_year,
+        'year':             now.year,
         'alerts':           alerts,
         'now':              now,
         'chart_labels':     chart_labels,
