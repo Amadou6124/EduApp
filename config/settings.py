@@ -72,6 +72,7 @@ TEMPLATES = [
                 'apps.core.context_processors.school_context',
                 'apps.notifications.context_processors.parent_unread',
                 'apps.notifications.context_processors.teacher_unread',
+                'apps.parent.context_processors.parent_header',
             ],
         },
     },

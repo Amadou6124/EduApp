@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from apps.core.mixins import parent_required
+from apps.parent.children import resolve_active_child
 
 
 @login_required
@@ -104,15 +105,11 @@ def parent_dashboard(request):
             'observations':   s.shared_observations,
         })
 
-    # Enfant actif : sélectionné (?child=) sinon le premier
-    active_child_id = request.GET.get('child')
-    active_child = None
-    if active_child_id:
-        active_child = next(
-            (c for c in children if str(c['student'].id) == active_child_id), None
-        )
-    if not active_child and children:
-        active_child = children[0]
+    # Enfant actif : persistant en session (source unique, cf. children.py)
+    _active = resolve_active_child(request, [c['student'] for c in children])
+    active_child = next(
+        (c for c in children if _active and c['student'].id == _active.id), None
+    )
 
     # ── Timeline détaillée de l'enfant ACTIF (lecture seule) ────────────────────
     # Sécurité : on part de active_child['student'], issu de guarded_students — JAMAIS
@@ -272,8 +269,7 @@ def parent_notes(request):
             'children': [], 'active_student': None, 'periods_data': [],
         })
 
-    active_id = request.GET.get('child')
-    active_student = next((s for s in children if str(s.id) == active_id), None) or children[0]
+    active_student = resolve_active_child(request, children)
 
     notes = (
         Note.objects
@@ -332,8 +328,7 @@ def parent_suivi(request):
             'n_absent': 0, 'n_late': 0,
         })
 
-    active_id = request.GET.get('child')
-    active_student = next((s for s in children if str(s.id) == active_id), None) or children[0]
+    active_student = resolve_active_child(request, children)
 
     sy = SchoolYear.objects.filter(school=active_student.school, is_active=True).first()
     since = sy.start_date if sy else date.today().replace(month=9, day=1)

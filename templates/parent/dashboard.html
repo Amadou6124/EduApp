@@ -29,33 +29,7 @@
 {% else %}
 {% with c=active_child %}
 
-{# ════════════════════════════════════════════════════════ #}
-{#  SECTION 1 — SÉLECTEUR AVATARS (multi-enfants)        #}
-{# ════════════════════════════════════════════════════════ #}
-{% if has_multiple %}
-<div class="flex justify-center gap-4 px-4 pt-4 pb-1 animate-fade-in">
-  {% for child in children %}
-  <a href="?child={{ child.student.id }}" class="flex flex-col items-center gap-1.5">
-    <div class="flex items-center justify-center font-bold rounded-full transition-all duration-200
-                {% if child.student.id == c.student.id %}
-                  w-14 h-14 text-base border-[3px] border-primary-600 ring-2 ring-primary-100
-                {% else %}
-                  w-11 h-11 text-sm border-2 border-transparent opacity-60
-                {% endif %}"
-         style="background:{{ child.student.get_avatar_colors.0 }};
-                color:{{ child.student.get_avatar_colors.1 }}">
-      {{ child.student.get_initials }}
-    </div>
-  </a>
-  {% endfor %}
-</div>
-<div class="text-center px-4 pb-2 animate-fade-in">
-  <p class="text-sm font-semibold text-gray-800 truncate">{{ c.student.full_name }}</p>
-  <p class="text-xs text-gray-500 truncate">
-    {{ c.student.school_class.name }} · {{ c.student.school.name }}
-  </p>
-</div>
-{% endif %}
+{# Le sélecteur d'enfant vit désormais dans le header global (pastille + tiroir). #}
 
 {# ════════════════════════════════════════════════════════ #}
 {#  SECTION 2 — HERO CARD                                #}
