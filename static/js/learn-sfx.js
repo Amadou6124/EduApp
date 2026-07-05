@@ -1,5 +1,5 @@
 /* learn-sfx.js — sons partagés du portail élève (Histoire / Quiz / Examen).
- * Joue un fichier self-hosté s'il existe (static/vendor/sfx/<name>.mp3),
+ * Joue un fichier self-hosté s'il existe (static/vendor/sfx/<name>.wav),
  * sinon retombe sur un son synthétisé (Web Audio, zéro asset).
  * Muet global persistant (localStorage 'learn-muted').
  *
@@ -24,7 +24,7 @@
       var self = this;
       NAMES.forEach(function (n) {
         try {
-          var a = new Audio(self.base + n + '.mp3');
+          var a = new Audio(self.base + n + '.wav');
           a.preload = 'auto'; a.volume = 0.5;
           a.addEventListener('canplaythrough', function () { self._cache[n] = a; }, { once: true });
           a.load();
