@@ -20,18 +20,8 @@
     {# ── En-tête école ── #}
     <div class="px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
       <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <h2 class="text-base font-semibold text-gray-900 truncate">{{ d.school.name }}</h2>
-          <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold
-                       {% if d.status == 'green' %}bg-green-100 text-green-700
-                       {% elif d.status == 'yellow' %}bg-yellow-100 text-yellow-700
-                       {% else %}bg-red-100 text-red-700{% endif %}">
-            {{ d.taux }} % recouvrement
-          </span>
-        </div>
-        {% if d.school.city %}
-        <p class="text-xs text-gray-400 mt-0.5">{{ d.school.city }}</p>
-        {% endif %}
+        <h2 class="text-base font-semibold text-gray-900 truncate">{{ d.school.name }}</h2>
+        {% if d.school.city %}<p class="text-xs text-gray-400 mt-0.5">{{ d.school.city }}</p>{% endif %}
       </div>
       <a href="{% url 'promoter:school-detail' d.school.id %}"
          class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 transition">
@@ -39,47 +29,54 @@
       </a>
     </div>
 
-    {# ── Métriques ── #}
     <div class="px-4 sm:px-6 py-4">
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div class="text-center">
-          <p class="text-xl font-bold text-gray-900">{{ d.student_count }}</p>
-          <p class="text-[11px] text-gray-500 mt-0.5">Élèves</p>
+      {# ── Argent d'abord : Résultat net + Recouvrement ── #}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <div class="rounded-xl bg-gray-50 p-3.5">
+          <p class="text-[11px] text-gray-500 mb-1">Résultat net · {{ year }}</p>
+          {% if d.accounting %}
+          <p class="text-lg font-bold {% if d.net >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            {% if d.net >= 0 %}+{% endif %}{{ d.net|floatformat:0|intcomma }} <span class="text-[11px] font-medium text-gray-400">FCFA</span>
+          </p>
+          <p class="text-[10.5px] text-gray-400 mt-0.5">Rev. {{ d.revenus|floatformat:0|intcomma }} · Ch. {{ d.charges|floatformat:0|intcomma }}</p>
+          {% else %}
+          <p class="text-sm font-medium text-gray-400 mt-1">Comptabilité non activée</p>
+          {% endif %}
         </div>
-        <div class="text-center">
-          <p class="text-xl font-bold text-gray-900">{{ d.class_count }}</p>
-          <p class="text-[11px] text-gray-500 mt-0.5">Classes</p>
-        </div>
-        <div class="text-center">
-          <p class="text-xl font-bold text-gray-900">{{ d.teacher_count }}</p>
-          <p class="text-[11px] text-gray-500 mt-0.5">Enseignants</p>
-        </div>
-        <div class="text-center">
-          <p class="text-xl font-bold {% if d.taux >= 80 %}text-green-600{% elif d.taux >= 60 %}text-yellow-500{% else %}text-red-600{% endif %}">{{ d.taux }} %</p>
-          <p class="text-[11px] text-gray-500 mt-0.5">Recouvrement</p>
+        <div class="rounded-xl bg-gray-50 p-3.5">
+          {% if d.total_due > 0 %}
+          <div class="flex items-center justify-between mb-1.5">
+            <p class="text-[11px] text-gray-500">Recouvrement</p>
+            <span class="text-sm font-bold {% if d.taux >= 80 %}text-green-600{% elif d.taux >= 60 %}text-yellow-500{% else %}text-red-600{% endif %}">{{ d.taux }} %</span>
+          </div>
+          <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div class="h-1.5 rounded-full {% if d.status == 'green' %}bg-green-500{% elif d.status == 'yellow' %}bg-yellow-400{% else %}bg-red-400{% endif %}" style="width: {{ d.taux }}%"></div>
+          </div>
+          <div class="flex justify-between gap-2 mt-1.5 text-[10.5px]">
+            <span class="text-gray-400 truncate">Encaissé {{ d.total_paid|floatformat:0|intcomma }}</span>
+            <span class="text-red-500 font-medium shrink-0">À recouvrer {{ d.unpaid|floatformat:0|intcomma }}</span>
+          </div>
+          {% else %}
+          <p class="text-[11px] text-gray-500 mb-1">Recouvrement</p>
+          <p class="text-sm font-medium text-gray-400 mt-1">Frais non configurés</p>
+          {% endif %}
         </div>
       </div>
 
-      {# Barre de progression #}
-      <div class="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
-        <div class="h-2 rounded-full transition-all
-                    {% if d.status == 'green' %}bg-green-500{% elif d.status == 'yellow' %}bg-yellow-400{% else %}bg-red-400{% endif %}"
-             style="width: {{ d.taux }}%"></div>
+      {# ── Opérationnel ── #}
+      <div class="grid grid-cols-3 gap-3 py-3 border-t border-gray-100">
+        <div class="text-center"><p class="text-lg font-bold text-gray-900">{{ d.student_count|intcomma }}</p><p class="text-[11px] text-gray-500 mt-0.5">Élèves</p></div>
+        <div class="text-center"><p class="text-lg font-bold text-gray-900">{{ d.class_count }}</p><p class="text-[11px] text-gray-500 mt-0.5">Classes</p></div>
+        <div class="text-center"><p class="text-lg font-bold text-gray-900">{{ d.teacher_count }}</p><p class="text-[11px] text-gray-500 mt-0.5">Enseignants</p></div>
       </div>
 
-      {# Paiements #}
-      <div class="flex items-center justify-between text-sm mb-3">
-        <span class="text-gray-500">Encaissé / Attendu</span>
-        <span class="font-semibold text-gray-800">{{ d.total_paid|floatformat:0|intcomma }} / {{ d.total_due|floatformat:0|intcomma }} FCFA</span>
-      </div>
-
-      {# Alertes internes #}
+      {# ── Alertes internes ── #}
       {% if d.unpaid_30 or d.absences_month %}
       <div class="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
         {% if d.unpaid_30 %}
         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium">
           <i data-lucide="clock" class="w-3 h-3 shrink-0"></i>
-          {{ d.unpaid_30 }} impayé{{ d.unpaid_30|pluralize }} &gt; 30 j
+          {{ d.unpaid_30 }} impayé{{ d.unpaid_30|pluralize }}
         </span>
         {% endif %}
         {% if d.absences_month %}

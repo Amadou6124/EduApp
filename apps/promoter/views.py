@@ -256,6 +256,29 @@ def promoter_ecoles(request):
         .values('enrollment__school_id').annotate(n=Count('id'))
     }
 
+    # ── Résultat net par école (P&L YTD) : revenus (journal) − charges (salaires +
+    # dépenses), écoles compta activée seulement — même définition que la page Finances.
+    from apps.accounting.models import SalaryPayment, Expense
+    acc_ids = [s.id for s in schools if s.accounting_enabled]
+    rev_map = {
+        r['student__school_id']: r['s']
+        for r in Payment.objects
+        .filter(student__school_id__in=school_ids, is_cancelled=False, payment_date__year=now.year)
+        .values('student__school_id').annotate(s=Sum('amount'))
+    }
+    sal_map = {
+        r['school_id']: r['s']
+        for r in SalaryPayment.objects
+        .filter(school_id__in=acc_ids, is_cancelled=False, status='paid', year=now.year)
+        .values('school_id').annotate(s=Sum('amount'))
+    } if acc_ids else {}
+    exp_map = {
+        r['school_id']: r['s']
+        for r in Expense.objects
+        .filter(school_id__in=acc_ids, is_cancelled=False, date__year=now.year)
+        .values('school_id').annotate(s=Sum('amount'))
+    } if acc_ids else {}
+
     schools_data = []
     for s in schools:
         acct_row = acct_map.get(s.id, {})
@@ -263,6 +286,8 @@ def promoter_ecoles(request):
         total_paid = acct_row.get('total_paid') or Decimal('0')
         student_count = count_map.get(s.id, 0)
         taux = int(total_paid / total_due * 100) if total_due else 0
+        revenus = rev_map.get(s.id) or Decimal('0')
+        charges = ((sal_map.get(s.id) or Decimal('0')) + (exp_map.get(s.id) or Decimal('0'))) if s.accounting_enabled else Decimal('0')
         schools_data.append({
             'school':         s,
             'student_count':  student_count,
@@ -275,6 +300,10 @@ def promoter_ecoles(request):
             'absences_month': abs_map.get(s.id, 0),
             'taux':           taux,
             'status':         _status(taux),
+            'revenus':        revenus,
+            'charges':        charges,
+            'net':            revenus - charges,
+            'accounting':     s.accounting_enabled,
         })
 
     schools_data.sort(key=lambda d: d['taux'])
@@ -282,6 +311,7 @@ def promoter_ecoles(request):
     return render(request, 'promoter/ecoles.html', {
         'group':        group,
         'schools_data': schools_data,
+        'year':         now.year,
     })
 
 

@@ -4200,6 +4200,10 @@ p {
   line-height: 1;
 }
 
+.text-\[10\.5px\] {
+  font-size: 10.5px;
+}
+
 .text-\[10px\] {
   font-size: 10px;
 }
