@@ -561,8 +561,18 @@
         {# ── Header unifié : desktop (tous) + mobile (tous) — titres dans le contenu ── #}
         <div class="flex items-center justify-between gap-3 px-4 lg:px-6 min-h-[52px] sm:min-h-[56px]">
 
-          {# Gauche : fil d'Ariane (desktop) · ancre école (mobile non-teacher) #}
+          {# Gauche : fil d'Ariane (desktop) · ancre école (mobile) · compte (promoteur) #}
           <div class="flex items-center gap-2 min-w-0">
+            {% if request.role == 'promoter' %}
+            <button type="button" @click="$store.accountSheet.open = true"
+                    class="flex items-center gap-2 min-w-0 -ml-1 pr-2 py-1 rounded-lg hover:bg-gray-50 transition">
+              <span class="w-8 h-8 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{{ request.user.full_name|first|upper }}</span>
+              <span class="min-w-0 text-left leading-tight">
+                <span class="block text-sm font-semibold text-gray-900 truncate max-w-[150px]">{{ request.user.full_name }}</span>
+                <span class="hidden sm:block text-[11px] text-gray-500">{{ active_role_display|default:"Promoteur" }}</span>
+              </span>
+            </button>
+            {% endif %}
             <div class="lg:hidden flex items-center min-w-0">
               {% if user_memberships %}
               <button type="button" @click="$store.accountSheet.open = true" class="flex items-center gap-1 min-w-0">
@@ -629,11 +639,13 @@
               <i data-lucide="bell" class="w-5 h-5 shrink-0"></i>
             </button>
             {% endif %}
+            {% if request.role != 'promoter' %}
             <button type="button" @click="$store.accountSheet.open = true" aria-label="Mon compte"
                     :aria-expanded="$store.accountSheet.open"
                     class="lg:hidden ml-1 w-9 h-9 rounded-full bg-primary-600 text-white text-sm font-bold flex items-center justify-center shrink-0 active:opacity-80">
               {{ request.user.full_name|first|upper }}
             </button>
+            {% endif %}
           </div>
         </div>
       </header>
