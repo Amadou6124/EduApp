@@ -151,6 +151,49 @@ def compute_difficulty_score(
     }
 
 
+def student_attention_subjects(student, period):
+    """Matières où l'élève est en difficulté CRITIQUE sur la période (suivi précoce).
+
+    Source unique du signal « point d'attention », partagée par la page Scolarité
+    (bannière) et le dashboard parent (fil d'alertes). S'appuie sur
+    compute_difficulty_score (mêmes seuils / garde-fou anti-fausse-alerte).
+    Retourne la liste des noms de matières (vide si période absente / pas assez de
+    données). ~2 requêtes par élève.
+    """
+    from collections import defaultdict
+    from apps.schools.models import Note, FormativeGrade
+
+    if period is None:
+        return []
+
+    notes_by_cs = defaultdict(list)
+    cs_by_id = {}
+    for n in (Note.objects
+              .filter(student=student, period=period, is_cancelled=False)
+              .select_related('class_subject', 'class_subject__subject')):
+        notes_by_cs[n.class_subject_id].append(n)
+        cs_by_id[n.class_subject_id] = n.class_subject
+    if not cs_by_id:
+        return []
+
+    fg_by_cs = defaultdict(list)
+    for v, mx, d, cs_id in (FormativeGrade.objects
+                            .filter(student=student, evaluation__period=period,
+                                    is_absent=False, value__isnull=False)
+                            .values_list('value', 'evaluation__max_grade',
+                                         'evaluation__date', 'evaluation__class_subject')):
+        fg_by_cs[cs_id].append((v, mx, d))
+
+    out = []
+    for cs_id, cs in cs_by_id.items():
+        diff = compute_difficulty_score(
+            student, None, cs, period, notes_by_cs=notes_by_cs, fg_by_cs=fg_by_cs,
+        )
+        if diff['level'] == LEVEL_CRITICAL:
+            out.append(cs.subject.name)
+    return out
+
+
 # ─── Rapport complet d'une classe ────────────────────────────────────────────
 
 def get_class_difficulty_report(teacher, school_class, period) -> list:

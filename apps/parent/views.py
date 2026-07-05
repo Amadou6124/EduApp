@@ -22,23 +22,21 @@ from apps.parent.children import parent_students, resolve_active_child
 @login_required
 @parent_required
 def parent_dashboard(request):
-    from apps.payments.models import Payment
-    from apps.schools.models import Bulletin
-    from apps.teachers.models import Attendance, StudentObservation
+    """Cockpit : fil « À votre attention » (signaux triés, tous enfants) + une
+    carte de statut par enfant. Le détail vit dans les hubs Scolarité/Paiements."""
+    from apps.schools.models import Bulletin, SchoolYear, SchoolAnnouncement
+    from apps.teachers.models import Attendance
+    from apps.teachers.services import student_attention_subjects
+    from apps.finance.services import student_fee_summary
+    from django.db.models import Q as _Q
 
-    now = timezone.now()
-    since_30 = now.date() - timedelta(days=30)
+    today = timezone.now().date()
+    since_30 = today - timedelta(days=30)
 
-    # 1 requête + 4 prefetch = zéro N+1 quel que soit le nombre d'enfants
     links = (
         request.user.guarded_students
         .select_related('student', 'student__school', 'student__school_class')
         .prefetch_related(
-            Prefetch(
-                'student__payments',
-                queryset=Payment.objects.filter(is_cancelled=False).order_by('-payment_date'),
-                to_attr='active_payments',
-            ),
             Prefetch(
                 'student__bulletins',
                 queryset=Bulletin.objects
@@ -54,107 +52,85 @@ def parent_dashboard(request):
                     .order_by('-date'),
                 to_attr='recent_absences',
             ),
-            Prefetch(
-                'student__observations',
-                queryset=StudentObservation.objects
-                    .filter(is_visible_to_parent=True)
-                    .select_related('teacher')
-                    .order_by('-created_at'),
-                to_attr='shared_observations',
-            ),
         )
         .order_by('-is_primary', 'student__full_name')
     )
+    students = [l.student for l in links]
+    active = resolve_active_child(request, students)
 
-    # ── Finances : NOUVEAU modèle (lot 6bis-B) via le helper central ────────────
-    # student_fee_summary → 3 familles par allocation, identique à la fiche admin.
-    # None = enfant sans fiche → état NEUTRE, jamais un solde faux.
-    from apps.finance.services import student_fee_summary
+    # Période courante par école (cache) — pour le signal de suivi précoce.
+    _pcache = {}
+    def _cur_period(school):
+        if school.id not in _pcache:
+            sy = SchoolYear.objects.filter(school=school, is_active=True).first()
+            per = None
+            if sy:
+                ps = list(sy.periods.order_by('order'))
+                per = (next((p for p in ps if p.start_date <= today <= p.end_date), None)
+                       or next((p for p in reversed(ps) if p.start_date <= today), None)
+                       or (ps[0] if ps else None))
+            _pcache[school.id] = per
+        return _pcache[school.id]
 
-    children = []
-    for link in links:
-        s = link.student
-        summary = student_fee_summary(s)
-        if summary:
-            fin = {
-                'has_fee':    True,
-                'status':     summary['status'],          # paid / partial / unpaid
-                'total_paid': summary['paid'],
-                'balance':    summary['balance'],
-                'due':        summary['due'],
-                'has_overdue': summary['has_overdue'],
-                'pct_paid':   int(summary['paid'] / summary['due'] * 100) if summary['due'] else 0,
-            }
-        else:
-            fin = {'has_fee': False, 'status': 'no_fee', 'total_paid': 0,
-                   'balance': 0, 'due': 0, 'has_overdue': False, 'pct_paid': 0}
-        bulletins = s.published_bulletins
-        lb = bulletins[0] if bulletins else None
-        children.append({
-            'student':        s,
-            'relationship':   link.get_relationship_display(),
-            'is_primary':     link.is_primary,
-            **fin,
-            'bulletins_count': len(bulletins),
-            'last_bulletin':   lb,
-            'last_bulletin_is_new': bool(
-                lb and lb.published_at and
-                (now.date() - lb.published_at.date()).days < 7
-            ),
-            'absences_count': len(s.recent_absences),
-            'recent_absences': s.recent_absences,
-            'observations':   s.shared_observations,
+    def _fmt(n):
+        return f'{int(n):,}'.replace(',', ' ')
+
+    child_cards, signals = [], []
+    for s in students:
+        summ = student_fee_summary(s)
+        balance = Decimal(summ['balance']) if summ else None
+        has_overdue = summ['has_overdue'] if summ else False
+        lb = s.published_bulletins[0] if s.published_bulletins else None
+        avg = lb.general_average if lb and lb.general_average is not None else None
+        is_new_bulletin = bool(lb and lb.published_at and (today - lb.published_at.date()).days < 7)
+        n_abs = sum(1 for a in s.recent_absences if a.status == 'absent')
+        attention = student_attention_subjects(s, _cur_period(s.school))
+        first = s.full_name.split()[0] if s.full_name else s.full_name
+
+        child_cards.append({
+            'student': s, 'has_fee': summ is not None, 'balance': balance,
+            'has_overdue': has_overdue, 'average': avg, 'absences': n_abs,
+            'active': bool(active and s.id == active.id),
         })
 
-    # Enfant actif : persistant en session (source unique, cf. children.py)
-    _active = resolve_active_child(request, [c['student'] for c in children])
-    active_child = next(
-        (c for c in children if _active and c['student'].id == _active.id), None
-    )
+        if has_overdue and balance and balance > 0:
+            signals.append({'urgency': 0, 'icon': 'alert-triangle', 'tone': 'danger',
+                            'title': 'Paiement en retard', 'sub': f'{first} · {_fmt(balance)} FCFA',
+                            'url': reverse('parent:payments') + f'?child={s.id}'})
+        if attention:
+            signals.append({'urgency': 1, 'icon': 'trending-down', 'tone': 'warn',
+                            'title': "Point d'attention · " + ', '.join(attention[:2]),
+                            'sub': f'{first} · un échange avec l\'enseignant peut aider',
+                            'url': reverse('parent:scolarite') + f'?seg=notes&child={s.id}'})
+        if n_abs >= 3:
+            signals.append({'urgency': 1, 'icon': 'calendar-x', 'tone': 'danger',
+                            'title': f'{n_abs} absences ce mois', 'sub': first,
+                            'url': reverse('parent:scolarite') + f'?seg=assiduite&child={s.id}'})
+        if is_new_bulletin:
+            sub = first + (f' · {avg:.2f}/20'.replace('.', ',') if avg is not None else '')
+            signals.append({'urgency': 2, 'icon': 'award', 'tone': 'indigo',
+                            'title': f'Nouveau bulletin · {lb.period.name}', 'sub': sub,
+                            'url': reverse('parent:scolarite') + f'?seg=bulletins&child={s.id}'})
 
-    # ── Timeline détaillée de l'enfant ACTIF (lecture seule) ────────────────────
-    # Sécurité : on part de active_child['student'], issu de guarded_students — JAMAIS
-    # d'un id en paramètre. Préfetch debts→installments→allocations → zéro N+1 dans le
-    # rendu de la timeline. fee_families = même structure 3 familles que la fiche admin.
-    active_account = None
-    active_fee_families = None
-    if active_child and active_child['has_fee']:
-        from apps.finance.models import StudentFeeAccount
-        from apps.finance.services import timeline_families
-        cs = active_child['student']
-        active_account = (
-            StudentFeeAccount.objects
-            .filter(enrollment__student=cs, enrollment__status='active',
-                    enrollment__school=cs.school)
-            .select_related('enrollment__school_year')
-            .prefetch_related('debts__installments__allocations')
-            .order_by('-enrollment__school_year__start_date')
-            .first()
-        )
-        active_fee_families = timeline_families(active_account)
+    # Annonces (global, toutes écoles des enfants).
+    if students:
+        ann = SchoolAnnouncement.objects.filter(is_published=True).filter(
+            _Q(audience='school',  school_id__in=list({s.school_id for s in students})) |
+            _Q(audience='class',   target_class_id__in=[s.school_class_id for s in students if s.school_class_id]) |
+            _Q(audience='student', target_student_id__in=[s.id for s in students])
+        ).count()
+        if ann:
+            signals.append({'urgency': 3, 'icon': 'megaphone', 'tone': 'indigo',
+                            'title': f'{ann} annonce{"s" if ann > 1 else ""} de l\'école',
+                            'sub': 'Voir les annonces', 'url': reverse('parent:annonces')})
 
-    from apps.schools.models import SchoolAnnouncement
-    from django.db.models import Q as _Q
-
-    _school_ids  = list({c['student'].school_id for c in children})
-    _class_ids   = [c['student'].school_class_id for c in children if c['student'].school_class_id]
-    _student_ids = [c['student'].id for c in children]
-
-    recent_announcements_count = SchoolAnnouncement.objects.filter(
-        is_published=True
-    ).filter(
-        _Q(audience='school',  school_id__in=_school_ids) |
-        _Q(audience='class',   target_class_id__in=_class_ids) |
-        _Q(audience='student', target_student_id__in=_student_ids)
-    ).count() if children else 0
+    signals.sort(key=lambda x: x['urgency'])
 
     return render(request, 'parent/dashboard.html', {
-        'children':                  children,
-        'active_child':              active_child,
-        'has_multiple':              len(children) > 1,
-        'recent_announcements_count': recent_announcements_count,
-        'active_account':            active_account,       # fiche de l'enfant actif (ou None)
-        'active_fee_families':       active_fee_families,  # 3 familles pour la timeline
+        'first_name':   request.user.full_name.split()[0] if request.user.full_name else '',
+        'signals':      signals,
+        'child_cards':  child_cards,
+        'has_multiple': len(students) > 1,
     })
 
 
