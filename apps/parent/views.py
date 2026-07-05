@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
@@ -160,28 +161,9 @@ def parent_dashboard(request):
 @login_required
 @parent_required
 def parent_bulletins(request):
-    """Tous les bulletins publiés des enfants du parent, groupés par enfant. Zéro N+1."""
-    from apps.schools.models import Bulletin
-
-    links = (
-        request.user.guarded_students
-        .select_related('student', 'student__school_class', 'student__school')
-        .prefetch_related(Prefetch(
-            'student__bulletins',
-            queryset=Bulletin.objects
-                .filter(is_published=True, is_cancelled=False)
-                .select_related('period', 'period__school_year')
-                .order_by('-period__school_year__start_date', '-period__order'),
-            to_attr='published_bulletins',
-        ))
-        .order_by('-is_primary', 'student__full_name')
-    )
-    children = [{'student': l.student, 'bulletins': l.student.published_bulletins} for l in links]
-    any_bulletins = any(c['bulletins'] for c in children)
-    return render(request, 'parent/bulletins.html', {
-        'children': children,
-        'any_bulletins': any_bulletins,
-    })
+    """Remplacée par le hub Scolarité (segment Bulletins). Redirection conservée
+    pour les notifications et bookmarks dont l'URL est figée en base."""
+    return redirect(reverse('parent:scolarite') + '?seg=bulletins')
 
 
 @login_required
@@ -254,112 +236,17 @@ def parent_account(request):
 @login_required
 @parent_required
 def parent_notes(request):
-    """Notes de l'enfant actif, groupées par période puis matière. Lecture seule."""
-    from collections import OrderedDict
-    from apps.schools.models import Note
-
-    links = (
-        request.user.guarded_students
-        .select_related('student', 'student__school_class')
-        .order_by('-is_primary', 'student__full_name')
-    )
-    children = [l.student for l in links]
-    if not children:
-        return render(request, 'parent/notes.html', {
-            'children': [], 'active_student': None, 'periods_data': [],
-        })
-
-    active_student = resolve_active_child(request, children)
-
-    notes = (
-        Note.objects
-        .filter(student=active_student, is_cancelled=False)
-        .select_related('class_subject__subject', 'period', 'period__school_year')
-        .order_by('period__order', 'class_subject__order')
-    )
-
-    # Groupage : période → matière → notes
-    grouped = OrderedDict()
-    for n in notes:
-        p = n.period
-        subs = grouped.setdefault(p, OrderedDict())
-        sid = n.class_subject.subject_id
-        if sid not in subs:
-            subs[sid] = {'subject': n.class_subject.subject, 'notes': []}
-        subs[sid]['notes'].append(n)
-
-    periods_data = []
-    for period, subs in grouped.items():
-        subjects = []
-        for entry in subs.values():
-            vals = [x.value for x in entry['notes']]
-            moyenne = (sum(vals) / len(vals)) if vals else None
-            subjects.append({
-                'subject': entry['subject'], 'notes': entry['notes'], 'moyenne': moyenne,
-            })
-        periods_data.append({'period': period, 'subjects': subjects})
-
-    return render(request, 'parent/notes.html', {
-        'children': children,
-        'active_student': active_student,
-        'periods_data': periods_data,
-    })
+    """Remplacée par le hub Scolarité (segment Notes). Redirection conservée
+    pour les notifications et bookmarks dont l'URL est figée en base."""
+    return redirect(reverse('parent:scolarite') + '?seg=notes')
 
 
 @login_required
 @parent_required
 def parent_suivi(request):
-    """Suivi scolaire : absences/retards, observations partagées, appréciations."""
-    from datetime import date
-    from apps.schools.models import SchoolYear, Bulletin
-    from apps.teachers.models import Attendance, StudentObservation
-
-    links = (
-        request.user.guarded_students
-        .select_related('student', 'student__school', 'student__school_class')
-        .order_by('-is_primary', 'student__full_name')
-    )
-    children = [l.student for l in links]
-
-    if not children:
-        return render(request, 'parent/suivi.html', {
-            'children': [], 'active_student': None,
-            'attendances': [], 'observations': [], 'bulletins': [],
-            'n_absent': 0, 'n_late': 0,
-        })
-
-    active_student = resolve_active_child(request, children)
-
-    sy = SchoolYear.objects.filter(school=active_student.school, is_active=True).first()
-    since = sy.start_date if sy else date.today().replace(month=9, day=1)
-
-    attendances = (
-        Attendance.objects
-        .filter(student=active_student, status__in=['absent', 'late'], date__gte=since)
-        .order_by('-date')
-    )
-    observations = (
-        StudentObservation.objects
-        .filter(student=active_student, is_visible_to_parent=True)
-        .select_related('teacher')
-        .order_by('-created_at')
-    )
-    bulletins = (
-        Bulletin.objects
-        .filter(student=active_student, is_published=True, is_cancelled=False)
-        .select_related('period', 'period__school_year')
-        .order_by('-period__school_year__start_date', '-period__order')
-    )
-
-    return render(request, 'parent/suivi.html', {
-        'children': children,
-        'active_student': active_student,
-        'attendances': attendances,
-        'observations': observations,
-        'bulletins': bulletins,
-        'n_absent': attendances.filter(status='absent').count(),
-        'n_late': attendances.filter(status='late').count(),
-    })
+    """Remplacée par le hub Scolarité (segment Assiduité). Redirection conservée
+    pour les notifications et bookmarks dont l'URL est figée en base."""
+    return redirect(reverse('parent:scolarite') + '?seg=assiduite')
 
 
 @login_required
