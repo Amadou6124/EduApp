@@ -1,0 +1,228 @@
+{% extends "parent/base_parent.html" %}
+{% load humanize %}
+
+{% block title %}Scolarité{% endblock %}
+
+{% block bottom_nav %}
+{% include "parent/partials/bottom_nav.html" with active="scolarite" %}
+{% endblock %}
+
+{% block content %}
+
+{% if not active_student %}
+<div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-8">
+  <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
+    <i data-lucide="graduation-cap" class="w-10 h-10 text-gray-300"></i>
+  </div>
+  <h2 class="text-lg font-semibold text-gray-700 mt-4">Aucun enfant lié</h2>
+  <p class="text-sm text-gray-400 mt-1">Votre compte n'est pas encore associé à un élève.</p>
+</div>
+
+{% else %}
+<div x-data="{ seg: '{{ request.GET.seg|default:'notes' }}' }" class="px-4 pb-10">
+
+  <h1 class="text-xl font-extrabold text-gray-900 pt-4 pb-3">Scolarité</h1>
+
+  {# ── Segmented control ─────────────────────────────────────────── #}
+  <div class="flex gap-1 bg-gray-100 rounded-2xl p-1 mb-4">
+    <button @click="seg='notes'" type="button"
+            :class="seg==='notes' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500'"
+            class="flex-1 text-center text-[13px] font-semibold rounded-xl py-2 transition">Notes</button>
+    <button @click="seg='assiduite'" type="button"
+            :class="seg==='assiduite' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500'"
+            class="flex-1 text-center text-[13px] font-semibold rounded-xl py-2 transition">Assiduité</button>
+    <button @click="seg='bulletins'" type="button"
+            :class="seg==='bulletins' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500'"
+            class="flex-1 text-center text-[13px] font-semibold rounded-xl py-2 transition">Bulletins</button>
+  </div>
+
+  {# ════════════════════ SEGMENT NOTES ════════════════════ #}
+  <div x-show="seg==='notes'" x-cloak>
+
+    {% if periods %}
+    <div class="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar -mx-1 px-1">
+      {% for p in periods %}
+      <a href="?seg=notes&period={{ p.id }}"
+         class="shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-full border
+                {% if sel_period and p.id == sel_period.id %}bg-primary-50 text-primary-700 border-primary-200{% else %}bg-white text-gray-500 border-gray-200{% endif %}">
+        {{ p.name }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if subjects_rows %}
+      {% if not is_official %}
+      <p class="text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mb-3 leading-snug">
+        Notes en cours — moyennes non définitives tant que le bulletin de cette période n'est pas publié.
+      </p>
+      {% endif %}
+
+      {% if attention_subjects %}
+      <div class="flex items-start gap-2.5 bg-orange-50 border border-orange-100 rounded-2xl p-3 mb-3">
+        <i data-lucide="alert-triangle" class="w-5 h-5 text-orange-500 shrink-0 mt-0.5"></i>
+        <p class="text-[12.5px] text-orange-800 leading-snug">
+          Point d'attention en <span class="font-semibold">{{ attention_subjects|join:", " }}</span>.
+          Un échange avec l'enseignant peut aider votre enfant à se remettre à niveau.
+        </p>
+      </div>
+      {% endif %}
+
+      <div class="space-y-2">
+        {% for row in subjects_rows %}
+        <div class="bg-white border border-gray-100 rounded-2xl p-4">
+          <div class="flex items-center gap-2.5">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ row.subject.color|default:'#6366F1' }}"></span>
+            <span class="flex-1 text-[15px] font-semibold text-gray-900 truncate">{{ row.subject.name }}</span>
+            <span class="text-[11px] text-gray-400">×{{ row.coefficient }}</span>
+            <span class="text-[15px] font-bold {% if row.average is None %}text-gray-300{% elif row.average >= 10 %}text-emerald-600{% else %}text-amber-600{% endif %}">
+              {% if row.average is not None %}{{ row.average|floatformat:2 }}<span class="text-[11px] text-gray-400 font-normal">/20</span>{% else %}—{% endif %}
+            </span>
+          </div>
+          <div class="flex items-center gap-1.5 mt-2.5 flex-wrap">
+            <span class="text-[11px] text-gray-600 bg-gray-100 rounded-md px-2 py-0.5">Devoir {% if row.devoir is not None %}{{ row.devoir|floatformat:2 }}{% else %}—{% endif %}</span>
+            <span class="text-[11px] text-gray-600 bg-gray-100 rounded-md px-2 py-0.5">Compo {% if row.compo is not None %}{{ row.compo|floatformat:2 }}{% else %}—{% endif %}</span>
+            {% if row.level_label %}
+            <span class="text-[11px] font-semibold rounded-md px-2 py-0.5 {% if row.level == 'critical' %}text-orange-700 bg-orange-50{% else %}text-amber-700 bg-amber-50{% endif %}">{{ row.level_label }}</span>
+            {% endif %}
+            {% if row.trend == 'up' %}
+            <span class="text-[11px] font-medium text-emerald-600">↗ en progrès</span>
+            {% elif row.trend == 'down' %}
+            <span class="text-[11px] font-medium text-red-500">↘ en baisse</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-center text-gray-400 text-[13px] py-10">Aucune note pour cette période.</div>
+    {% endif %}
+
+    {% if formatif_rows %}
+    <div class="flex items-center gap-2 mt-6 mb-2">
+      <i data-lucide="flag" class="w-4 h-4 text-gray-500"></i>
+      <span class="text-[13px] font-semibold text-gray-600">Points d'étape</span>
+      <span class="text-[10px] font-medium text-gray-500 bg-gray-100 rounded px-1.5 py-0.5">hors bulletin</span>
+    </div>
+    <div class="space-y-2">
+      {% for f in formatif_rows %}
+      <div class="bg-white border border-gray-100 rounded-2xl p-3.5 flex items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="text-[13px] font-semibold text-gray-900 truncate">{{ f.eval.get_eval_type_display }} · {{ f.eval.class_subject.subject.name }}</div>
+          <div class="text-[11px] text-gray-400">{{ f.eval.date|date:"j M Y" }}{% if f.eval.title %} · {{ f.eval.title }}{% endif %}</div>
+        </div>
+        {% if f.grade and f.grade.is_absent %}
+          <span class="text-[12px] font-semibold text-red-600 shrink-0">Absent</span>
+        {% elif f.grade and f.grade.value is not None %}
+          <span class="text-[15px] font-bold text-gray-900 shrink-0">{{ f.grade.value|floatformat:2 }}<span class="text-[11px] text-gray-400 font-normal">/{{ f.eval.max_grade|floatformat:0 }}</span></span>
+        {% else %}
+          <span class="text-[12px] text-gray-300 shrink-0">—</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  {# ════════════════════ SEGMENT ASSIDUITÉ ════════════════════ #}
+  <div x-show="seg==='assiduite'" x-cloak>
+
+    <div class="flex gap-2.5 mb-2">
+      <div class="flex-1 bg-red-50 rounded-2xl p-4 text-center">
+        <div class="text-2xl font-extrabold text-red-700">{{ n_absent }}</div>
+        <div class="text-[12px] text-red-700">absence{{ n_absent|pluralize }}</div>
+      </div>
+      <div class="flex-1 bg-amber-50 rounded-2xl p-4 text-center">
+        <div class="text-2xl font-extrabold text-amber-700">{{ n_late }}</div>
+        <div class="text-[12px] text-amber-700">retard{{ n_late|pluralize }}</div>
+      </div>
+    </div>
+    <p class="text-[11px] text-gray-400 mb-5 px-1">Année en cours.</p>
+
+    {% if attendances %}
+    <div class="text-[13px] font-semibold text-gray-600 mb-2">Historique</div>
+    <div class="bg-white border border-gray-100 rounded-2xl overflow-hidden mb-6">
+      {% for a in attendances %}
+      <div class="flex items-center gap-3 px-4 py-3 {% if not forloop.last %}border-b border-gray-50{% endif %}">
+        {% if a.status == 'absent' %}
+        <i data-lucide="calendar-x" class="w-5 h-5 text-red-500 shrink-0"></i>
+        {% else %}
+        <i data-lucide="clock" class="w-5 h-5 text-amber-500 shrink-0"></i>
+        {% endif %}
+        <span class="flex-1 text-[13px] text-gray-800">{{ a.date|date:"j F Y" }}</span>
+        {% if a.status == 'absent' %}
+        <span class="text-[11px] font-semibold text-red-700 bg-red-50 rounded-md px-2 py-0.5">Absent</span>
+        {% else %}
+        <span class="text-[11px] font-semibold text-amber-700 bg-amber-50 rounded-md px-2 py-0.5">En retard</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center text-gray-400 text-[13px] py-8 mb-2">Aucune absence ni retard cette année.</div>
+    {% endif %}
+
+    {% if observations %}
+    <div class="text-[13px] font-semibold text-gray-600 mb-2">Observations partagées</div>
+    <div class="space-y-2">
+      {% for o in observations %}
+      <div class="bg-white border border-gray-100 rounded-2xl p-4">
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="text-[10px] font-semibold text-primary-700 bg-primary-50 rounded px-2 py-0.5">{{ o.get_observation_type_display }}</span>
+          <span class="text-[11px] text-gray-400 truncate">{{ o.teacher.full_name|default:o.teacher }} · {{ o.created_at|date:"j M" }}</span>
+        </div>
+        <div class="text-[13px] text-gray-800 leading-relaxed">{{ o.parent_message|default:o.content }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  {# ════════════════════ SEGMENT BULLETINS ════════════════════ #}
+  <div x-show="seg==='bulletins'" x-cloak>
+    {% if bulletins %}
+    <div class="space-y-2.5">
+      {% for b in bulletins %}
+      <div class="bg-white border border-gray-100 rounded-2xl p-4">
+        <div class="flex items-center gap-2.5 mb-3">
+          <i data-lucide="award" class="w-5 h-5 text-amber-500 shrink-0"></i>
+          <div class="flex-1 min-w-0">
+            <div class="text-[14px] font-bold text-gray-900 truncate">{{ b.period.name }}</div>
+            <div class="text-[11px] text-gray-400">{{ b.period.school_year.name }}</div>
+          </div>
+          <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded px-2 py-0.5">Publié</span>
+        </div>
+        <div class="flex gap-2 mb-3">
+          <div class="flex-1 bg-gray-50 rounded-xl py-2.5 text-center">
+            <div class="text-[17px] font-bold text-gray-900">{% if b.general_average is not None %}{{ b.general_average|floatformat:2 }}{% else %}—{% endif %}</div>
+            <div class="text-[10px] text-gray-400">moyenne</div>
+          </div>
+          {% if b.rank and b.class_size %}
+          <div class="flex-1 bg-gray-50 rounded-xl py-2.5 text-center">
+            <div class="text-[17px] font-bold text-gray-900">{{ b.rank }}<span class="text-[10px] align-top">e</span></div>
+            <div class="text-[10px] text-gray-400">sur {{ b.class_size }}</div>
+          </div>
+          {% endif %}
+          {% if b.appreciation %}
+          <div class="flex-1 bg-gray-50 rounded-xl py-2.5 px-1 text-center flex flex-col justify-center">
+            <div class="text-[12px] font-semibold text-gray-900 leading-tight">{{ b.appreciation }}</div>
+            <div class="text-[10px] text-gray-400 mt-0.5">appréciation</div>
+          </div>
+          {% endif %}
+        </div>
+        <a href="{% url 'parent:bulletin-pdf' b.id %}"
+           class="flex items-center justify-center gap-2 border border-primary-200 rounded-xl py-2.5 text-primary-700 active:bg-primary-50 transition">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span class="text-[13px] font-semibold">Télécharger le PDF</span>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center text-gray-400 text-[13px] py-12">Aucun bulletin publié pour l'instant.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endif %}
+{% endblock %}

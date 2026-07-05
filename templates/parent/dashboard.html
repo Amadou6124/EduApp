@@ -154,7 +154,7 @@
 <div class="grid grid-cols-2 gap-3 mx-4 mt-4 animate-fade-in-up animate-delay-200">
 
   {# Bulletins #}
-  <a href="{% url 'parent:bulletins' %}"
+  <a href="{% url 'parent:scolarite' %}?seg=bulletins"
      class="relative bg-white rounded-2xl p-4 shadow-sm
             active:scale-95 transition-transform duration-150">
     {% if c.last_bulletin_is_new %}
@@ -186,7 +186,7 @@
   </a>
 
   {# Notes #}
-  <a href="{% url 'parent:notes' %}?child={{ c.student.id }}"
+  <a href="{% url 'parent:scolarite' %}?seg=notes"
      class="bg-white rounded-2xl p-4 shadow-sm
             active:scale-95 transition-transform duration-150">
     <div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mb-3">
@@ -202,8 +202,8 @@
     </p>
   </a>
 
-  {# Absences → Suivi #}
-  <a href="{% url 'parent:suivi' %}?child={{ c.student.id }}"
+  {# Absences → Scolarité (Assiduité) #}
+  <a href="{% url 'parent:scolarite' %}?seg=assiduite"
      class="relative bg-white rounded-2xl p-4 shadow-sm
             active:scale-95 transition-transform duration-150">
     {% if c.absences_count > 3 %}

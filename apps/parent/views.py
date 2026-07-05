@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from apps.core.mixins import parent_required
-from apps.parent.children import resolve_active_child
+from apps.parent.children import parent_students, resolve_active_child
 
 
 @login_required
@@ -359,6 +359,168 @@ def parent_suivi(request):
         'bulletins': bulletins,
         'n_absent': attendances.filter(status='absent').count(),
         'n_late': attendances.filter(status='late').count(),
+    })
+
+
+@login_required
+@parent_required
+def parent_scolarite(request):
+    """Hub Scolarité — 3 segments (Notes · Assiduité · Bulletins) pour l'enfant actif.
+    Notes : moyenne OFFICIELLE du bulletin si la période est publiée, sinon notes
+    brutes marquées « non définitif ». Formatif publié = points d'étape hors bulletin.
+    """
+    from collections import OrderedDict, defaultdict
+    from datetime import date
+    from apps.schools.models import (
+        Note, Bulletin, Period, SchoolYear, FormativeEvaluation, FormativeGrade,
+    )
+    from apps.teachers.models import Attendance, StudentObservation
+    from apps.teachers.services import (
+        compute_difficulty_score, LEVEL_CRITICAL, LEVEL_WARNING,
+    )
+
+    active = resolve_active_child(request, parent_students(request.user))
+    if not active:
+        return render(request, 'parent/scolarite.html', {'active_student': None})
+
+    today = date.today()
+    sy = SchoolYear.objects.filter(school=active.school, is_active=True).first()
+    periods = list(Period.objects.filter(school_year=sy).order_by('order')) if sy else []
+
+    # Période sélectionnée : ?period= sinon celle qui contient aujourd'hui, sinon la
+    # dernière commencée, sinon la première.
+    sel_id = request.GET.get('period')
+    sel_period = next((p for p in periods if str(p.id) == sel_id), None)
+    if not sel_period and periods:
+        sel_period = (
+            next((p for p in periods if p.start_date <= today <= p.end_date), None)
+            or next((p for p in reversed(periods) if p.start_date <= today), None)
+            or periods[0]
+        )
+
+    # ── NOTES (période sélectionnée) : officiel si bulletin publié, sinon brut ──
+    subjects_rows, is_official, sel_bulletin = [], False, None
+    attention_subjects = []   # matières « en difficulté » (période en cours seulement)
+    if sel_period:
+        sel_bulletin = (
+            Bulletin.objects
+            .filter(student=active, period=sel_period, is_published=True, is_cancelled=False)
+            .prefetch_related('lines__class_subject__subject')
+            .first()
+        )
+    if sel_bulletin:
+        is_official = True
+        for line in sel_bulletin.lines.all():
+            subjects_rows.append({
+                'subject':     line.class_subject.subject,
+                'coefficient': line.class_subject.coefficient,
+                'average':     line.final_average,
+                'devoir':      line.devoir_average,
+                'compo':       line.compo_grade,
+            })
+    elif sel_period:
+        notes = list(
+            Note.objects
+            .filter(student=active, period=sel_period, is_cancelled=False)
+            .select_related('class_subject', 'class_subject__subject')
+        )
+        by_sub, notes_by_cs = OrderedDict(), defaultdict(list)
+        for n in notes:
+            notes_by_cs[n.class_subject_id].append(n)
+            sub = n.class_subject.subject
+            row = by_sub.setdefault(sub.id, {
+                'subject': sub, 'class_subject': n.class_subject,
+                'coefficient': n.class_subject.coefficient,
+                'devoir': None, 'compo': None,
+            })
+            if n.position == 2 or n.note_type == 'composition':
+                row['compo'] = n.value
+            else:
+                row['devoir'] = n.value
+
+        # Formatif de la période → alimente le signal de difficulté (garde-fou
+        # anti-fausse-alerte dans compute_difficulty_score : < 2 données = non jugé).
+        fg_by_cs = defaultdict(list)
+        for v, mx, d, cs_id in (
+            FormativeGrade.objects
+            .filter(student=active, evaluation__period=sel_period,
+                    is_absent=False, value__isnull=False)
+            .values_list('value', 'evaluation__max_grade', 'evaluation__date',
+                         'evaluation__class_subject')
+        ):
+            fg_by_cs[cs_id].append((v, mx, d))
+
+        _soft_label = {LEVEL_CRITICAL: 'À renforcer', LEVEL_WARNING: 'À surveiller'}
+        for row in by_sub.values():
+            vals = [v for v in (row['devoir'], row['compo']) if v is not None]
+            row['average'] = (sum(vals) / len(vals)) if vals else None
+            diff = compute_difficulty_score(
+                active, None, row['class_subject'], sel_period,
+                notes_by_cs=notes_by_cs, fg_by_cs=fg_by_cs,
+            )
+            row['level'] = diff['level']
+            row['level_label'] = _soft_label.get(diff['level'])
+            row['trend'] = diff['trend']
+            if diff['level'] == LEVEL_CRITICAL:
+                attention_subjects.append(row['subject'].name)
+            subjects_rows.append(row)
+
+    # ── FORMATIF publié au parent (points d'étape, hors bulletin) ──
+    formatif_rows = []
+    if active.school_class_id:
+        fevals = list(
+            FormativeEvaluation.objects
+            .filter(class_subject__school_class_id=active.school_class_id,
+                    is_published_to_parent=True)
+            .select_related('class_subject__subject')
+            .order_by('-date')[:8]
+        )
+        fgrades = {
+            g.evaluation_id: g
+            for g in FormativeGrade.objects.filter(evaluation__in=fevals, student=active)
+        }
+        for f in fevals:
+            formatif_rows.append({'eval': f, 'grade': fgrades.get(f.id)})
+
+    # ── ASSIDUITÉ (année en cours) ──
+    since = sy.start_date if sy else today.replace(month=9, day=1)
+    attendances = list(
+        Attendance.objects
+        .filter(student=active, status__in=['absent', 'late'], date__gte=since)
+        .order_by('-date')
+    )
+    n_absent = sum(1 for a in attendances if a.status == 'absent')
+    n_late = sum(1 for a in attendances if a.status == 'late')
+    observations = (
+        StudentObservation.objects
+        .filter(student=active, is_visible_to_parent=True)
+        .select_related('teacher')
+        .order_by('-created_at')
+    )
+
+    # ── BULLETINS publiés (liste, toutes périodes) ──
+    bulletins = (
+        Bulletin.objects
+        .filter(student=active, is_published=True, is_cancelled=False)
+        .select_related('period', 'period__school_year')
+        .order_by('-period__school_year__start_date', '-period__order')
+    )
+    published_period_ids = {b.period_id for b in bulletins}
+
+    return render(request, 'parent/scolarite.html', {
+        'active_student':   active,
+        'periods':          periods,
+        'sel_period':       sel_period,
+        'subjects_rows':    subjects_rows,
+        'is_official':      is_official,
+        'attention_subjects': attention_subjects,
+        'formatif_rows':    formatif_rows,
+        'n_absent':         n_absent,
+        'n_late':           n_late,
+        'attendances':      attendances,
+        'observations':     observations,
+        'bulletins':        bulletins,
+        'published_period_ids': published_period_ids,
     })
 
 

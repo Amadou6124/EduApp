@@ -9,6 +9,7 @@ urlpatterns = [
     path('bulletins/', views.parent_bulletins, name='bulletins'),
     path('payments/', views.parent_payments, name='payments'),
     path('account/', views.parent_account, name='account'),
+    path('scolarite/', views.parent_scolarite, name='scolarite'),
     path('notes/', views.parent_notes, name='notes'),
     path('suivi/', views.parent_suivi, name='suivi'),
     path('annonces/', views.parent_annonces, name='annonces'),

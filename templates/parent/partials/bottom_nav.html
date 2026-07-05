@@ -7,23 +7,17 @@
       <i data-lucide="home" class="w-5 h-5"></i>
       <span class="text-[10px] {% if active == 'home' %}font-semibold{% endif %}">Accueil</span>
     </a>
-    <a href="{% url 'parent:bulletins' %}"
+    <a href="{% url 'parent:scolarite' %}"
        class="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] transition-colors
-              {% if active == 'bulletins' %}text-primary-600{% else %}text-gray-400{% endif %}">
-      <i data-lucide="file-text" class="w-5 h-5"></i>
-      <span class="text-[10px] {% if active == 'bulletins' %}font-semibold{% endif %}">Bulletins</span>
+              {% if active == 'scolarite' %}text-primary-600{% else %}text-gray-400{% endif %}">
+      <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+      <span class="text-[10px] {% if active == 'scolarite' %}font-semibold{% endif %}">Scolarité</span>
     </a>
     <a href="{% url 'parent:payments' %}"
        class="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] transition-colors
               {% if active == 'payments' %}text-primary-600{% else %}text-gray-400{% endif %}">
       <i data-lucide="wallet" class="w-5 h-5"></i>
       <span class="text-[10px] {% if active == 'payments' %}font-semibold{% endif %}">Paiements</span>
-    </a>
-    <a href="{% url 'parent:suivi' %}"
-       class="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] transition-colors
-              {% if active == 'suivi' %}text-primary-600{% else %}text-gray-400{% endif %}">
-      <i data-lucide="activity" class="w-5 h-5"></i>
-      <span class="text-[10px] {% if active == 'suivi' %}font-semibold{% endif %}">Suivi</span>
     </a>
     <a href="{% url 'parent:account' %}"
        class="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] transition-colors
