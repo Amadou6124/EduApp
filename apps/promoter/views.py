@@ -513,11 +513,6 @@ def promoter_school_detail(request, school_id):
         .select_related('teacher', 'subject', 'school_class')
         .order_by('order', 'subject__name')
     )
-    principal = {}
-    for cs in cs_rows:
-        if cs.school_class_id not in principal:
-            principal[cs.school_class_id] = cs.teacher
-
     tmap = {}
     for cs in cs_rows:
         if cs.teacher_id is None:
@@ -542,6 +537,21 @@ def promoter_school_detail(request, school_id):
         .annotate(d=Sum('due'), p=Sum('paid'))
     }
 
+    # ── État scolaire par classe : moyenne + taux de réussite (bulletins publiés) ──
+    from django.db.models import Avg
+    from apps.schools.models import Bulletin
+    class_acad = {}
+    for r in (Bulletin.objects
+              .filter(student__school=school, is_published=True, is_cancelled=False,
+                      general_average__isnull=False)
+              .values('student__school_class_id')
+              .annotate(moy=Avg('general_average'), n=Count('id'),
+                        ok=Count('id', filter=Q(general_average__gte=10)))):
+        class_acad[r['student__school_class_id']] = {
+            'moyenne':  r['moy'],
+            'reussite': int(r['ok'] / r['n'] * 100) if r['n'] else 0,
+        }
+
     classes_data = []
     total_students = 0
     total_due = Decimal('0')
@@ -550,18 +560,40 @@ def promoter_school_detail(request, school_id):
         due = ar.get('d') or Decimal('0')
         paid = ar.get('p') or Decimal('0')
         taux = int(paid / due * 100) if due else 0
+        acad = class_acad.get(c.id, {})
         classes_data.append({
             'cls': c, 'n_students': c.n_students, 'due': due, 'paid': paid,
-            'taux': taux, 'status': _status(taux), 'principal': principal.get(c.id),
+            'taux': taux, 'status': _status(taux),
+            'moyenne': acad.get('moyenne'), 'reussite': acad.get('reussite'),
         })
         total_students += c.n_students
         total_due += due
+    classes_data.sort(key=lambda d: d['taux'])  # pire recouvrement d'abord (actionnable)
     # Total versé (taux global) = Σ des versés des fiches (même population que le dû).
     total_paid = sum((ar.get('p') or Decimal('0')) for ar in acct_by_class.values())
     taux_global = int(total_paid / total_due * 100) if total_due else 0
+    a_recouvrer = max(total_due - total_paid, Decimal('0'))
 
     # Élèves avec solde dû (fiches dont balance > 0) — nouveau modèle.
     unpaid_30 = fee_accounts_annotated(school=school).filter(balance__gt=0).count()
+
+    # ── Résultat net (P&L YTD) de l'école ──
+    from apps.accounting.models import SalaryPayment, Expense
+    revenus_year = Payment.objects.filter(
+        student__school=school, is_cancelled=False, payment_date__year=now.year,
+    ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    charges_year = Decimal('0')
+    if school.accounting_enabled:
+        _sal = SalaryPayment.objects.filter(school=school, is_cancelled=False, status='paid', year=now.year).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        _exp = Expense.objects.filter(school=school, is_cancelled=False, date__year=now.year).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        charges_year = _sal + _exp
+    net_year = revenus_year - charges_year
+
+    # ── État scolaire au niveau école (bulletins publiés) ──
+    _bul = Bulletin.objects.filter(student__school=school, is_published=True, is_cancelled=False, general_average__isnull=False)
+    _bn = _bul.count()
+    school_moyenne = _bul.aggregate(a=Avg('general_average'))['a'] if _bn else None
+    school_reussite = int(_bul.filter(general_average__gte=10).count() / _bn * 100) if _bn else None
 
     absences_month = Attendance.objects.filter(
         school=school, status=AttendanceStatus.ABSENT,
@@ -589,6 +621,15 @@ def promoter_school_detail(request, school_id):
         'total_due':      total_due,
         'total_paid':     total_paid,
         'taux_global':    taux_global,
+        'a_recouvrer':    a_recouvrer,
+        'net_year':       net_year,
+        'revenus_year':   revenus_year,
+        'charges_year':   charges_year,
+        'accounting':     school.accounting_enabled,
+        'school_moyenne': school_moyenne,
+        'school_reussite': school_reussite,
+        'school_bul_n':   _bn,
+        'year':           now.year,
         'classes_data':   classes_data,
         'teachers_data':  teachers_data,
         'unpaid_30':      unpaid_30,
