@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 
 from apps.core.mixins import parent_required
 from apps.parent.children import parent_students, resolve_active_child
+from apps.schools.periods import periods_for_student
 
 
 @login_required
@@ -58,19 +59,21 @@ def parent_dashboard(request):
     students = [l.student for l in links]
     active = resolve_active_child(request, students)
 
-    # Période courante par école (cache) — pour le signal de suivi précoce.
+    # Période courante par CLASSE (donc par cycle) — cache — pour le suivi précoce.
     _pcache = {}
-    def _cur_period(school):
-        if school.id not in _pcache:
-            sy = SchoolYear.objects.filter(school=school, is_active=True).first()
-            per = None
-            if sy:
-                ps = list(sy.periods.order_by('order'))
-                per = (next((p for p in ps if p.start_date <= today <= p.end_date), None)
-                       or next((p for p in reversed(ps) if p.start_date <= today), None)
-                       or (ps[0] if ps else None))
-            _pcache[school.id] = per
-        return _pcache[school.id]
+    def _cur_period(student):
+        key = student.school_class_id
+        if key not in _pcache:
+            ps = list(periods_for_student(student))
+            per = (
+                next((p for p in ps if p.start_date and p.end_date
+                      and p.start_date <= today <= p.end_date), None)
+                or next((p for p in ps if p.is_notes_open), None)
+                or next((p for p in reversed(ps) if p.start_date and p.start_date <= today), None)
+                or (ps[0] if ps else None)
+            )
+            _pcache[key] = per
+        return _pcache[key]
 
     def _fmt(n):
         return f'{int(n):,}'.replace(',', ' ')
@@ -84,7 +87,7 @@ def parent_dashboard(request):
         avg = lb.general_average if lb and lb.general_average is not None else None
         is_new_bulletin = bool(lb and lb.published_at and (today - lb.published_at.date()).days < 7)
         n_abs = sum(1 for a in s.recent_absences if a.status == 'absent')
-        attention = student_attention_subjects(s, _cur_period(s.school))
+        attention = student_attention_subjects(s, _cur_period(s))
         first = s.full_name.split()[0] if s.full_name else s.full_name
 
         child_cards.append({
@@ -275,16 +278,19 @@ def parent_scolarite(request):
 
     today = date.today()
     sy = SchoolYear.objects.filter(school=active.school, is_active=True).first()
-    periods = list(Period.objects.filter(school_year=sy).order_by('order')) if sy else []
+    # Périodes du cycle de l'enfant actif (compositions / trimestres selon sa classe).
+    periods = list(periods_for_student(active, sy))
 
-    # Période sélectionnée : ?period= sinon celle qui contient aujourd'hui, sinon la
-    # dernière commencée, sinon la première.
+    # Période sélectionnée : ?period= sinon celle qui contient aujourd'hui (si datée),
+    # sinon celle à saisie ouverte, sinon la dernière commencée, sinon la première.
     sel_id = request.GET.get('period')
     sel_period = next((p for p in periods if str(p.id) == sel_id), None)
     if not sel_period and periods:
         sel_period = (
-            next((p for p in periods if p.start_date <= today <= p.end_date), None)
-            or next((p for p in reversed(periods) if p.start_date <= today), None)
+            next((p for p in periods if p.start_date and p.end_date
+                  and p.start_date <= today <= p.end_date), None)
+            or next((p for p in periods if p.is_notes_open), None)
+            or next((p for p in reversed(periods) if p.start_date and p.start_date <= today), None)
             or periods[0]
         )
 

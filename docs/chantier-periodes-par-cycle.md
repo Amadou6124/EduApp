@@ -90,7 +90,10 @@ Tout le reste route à travers ce module (source unique).
    vue d'ensemble scopés au cycle de la période ; `students/views.py` (`student_notes_period`
    par cycle de l'élève, `_difficulty_flagged` agrège les moyennes sur la période active de
    CHAQUE cycle). Testé rollback (overview compo = 1er cycle, notes élève par cycle, suivi OK).
-6. **Portail parent — Scolarité** (`apps/parent/views.py`) : sélecteur par cycle de l'enfant.
+6. ✅ **Portail parent** (`apps/parent/views.py`) : `parent_scolarite` sélecteur de période par
+   cycle de l'enfant actif ; `parent_dashboard::_cur_period` mis en cache par CLASSE (donc par
+   cycle) au lieu de par école. Checks de dates null-safe. Testé rollback (scolarité enfant
+   1er cycle = compositions).
 7. **Académique promoteur** (`apps/promoter/`) + **dashboard** : agrégations par cycle.
 8. **Test complet** (voir plan de test).
 
