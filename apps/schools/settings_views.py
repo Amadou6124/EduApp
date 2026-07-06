@@ -460,11 +460,14 @@ _RYTHME_MAP = {
 
 
 def _period_sections(school, year):
-    """Périodes groupées par cycle réellement utilisé par l'école, plus les
-    périodes héritées « sans cycle » (écoles mono-structure existantes)."""
+    """Contexte des périodes : sections par cycle, périodes « toute l'école »
+    (legacy), classes personnalisées (surcharge, Étape B) et classes encore
+    personnalisables. Renvoie un dict prêt pour le template."""
     used   = set(SchoolClass.objects.filter(school=school).values_list('level', flat=True))
     labels = dict(EducationLevel.choices)
-    all_periods = list(year.periods.order_by('order'))
+    all_periods = list(year.periods.select_related('school_class').order_by('order'))
+
+    # Sections par cycle — HORS surcharges de classe.
     sections = []
     for cyc in _CYCLE_ORDER:
         if cyc in used:
@@ -472,20 +475,41 @@ def _period_sections(school, year):
                 'value':       cyc,
                 'label':       labels.get(cyc, cyc),
                 'class_count': SchoolClass.objects.filter(school=school, level=cyc).count(),
-                'periods':     [p for p in all_periods if p.education_level == cyc],
+                'periods':     [p for p in all_periods
+                                if p.education_level == cyc and p.school_class_id is None],
             })
-    legacy = [p for p in all_periods if p.education_level is None]
-    return sections, legacy
+    legacy = [p for p in all_periods if p.education_level is None and p.school_class_id is None]
+
+    # Surcharges par classe (Étape B).
+    by_class = {}
+    for p in all_periods:
+        if p.school_class_id:
+            by_class.setdefault(p.school_class_id, []).append(p)
+    custom_classes = [
+        {'class': sc, 'cycle_label': labels.get(sc.level, sc.level), 'periods': by_class[sc.pk]}
+        for sc in SchoolClass.objects.filter(school=school, pk__in=by_class.keys())
+                                     .order_by('level', 'name')
+    ]
+    # Classes encore personnalisables (sans périodes propres) — pour le sélecteur.
+    customizable = [
+        {'class': sc, 'cycle_label': labels.get(sc.level, sc.level)}
+        for sc in SchoolClass.objects.filter(school=school, is_active=True)
+                                     .exclude(pk__in=by_class.keys())
+                                     .order_by('level', 'name')
+    ]
+    return {
+        'sections':             sections,
+        'legacy_periods':       legacy,
+        'custom_classes':       custom_classes,
+        'customizable_classes': customizable,
+    }
 
 
 def _render_period_sections(request, school, year, toast=None, status=200):
     """Rend le bloc de sections groupées (réponse HTMX après génération/CRUD)."""
-    sections, legacy = _period_sections(school, year)
-    html = render_to_string(
-        'settings/partials/periods_grouped.html',
-        {'year': year, 'sections': sections, 'legacy_periods': legacy},
-        request=request,
-    )
+    ctx = _period_sections(school, year)
+    ctx['year'] = year
+    html = render_to_string('settings/partials/periods_grouped.html', ctx, request=request)
     resp = HttpResponse(html, status=status)
     if toast:
         resp['HX-Trigger'] = json.dumps({'showToast': {'message': toast, 'type': 'success'}})
@@ -497,16 +521,14 @@ def _render_period_sections(request, school, year, toast=None, status=200):
 def school_year_periods(request, year_id):
     school = get_school(request)
     year   = get_object_or_404(SchoolYear, id=year_id, school=school)
-    sections, legacy = _period_sections(school, year)
-    form   = PeriodForm(initial={'order': 1})
-    return render(request, 'settings/school_year_periods.html', {
+    ctx = _period_sections(school, year)
+    ctx.update({
         'year':           year,
-        'sections':       sections,
-        'legacy_periods': legacy,
-        'form':           form,
+        'form':           PeriodForm(initial={'order': 1}),
         'active_section': 'school-years',
         'school':         school,
     })
+    return render(request, 'settings/school_year_periods.html', ctx)
 
 
 @login_required
@@ -522,6 +544,7 @@ def period_generate(request, year_id):
     school = get_school(request)
     year   = get_object_or_404(SchoolYear, id=year_id, school=school)
 
+    class_id   = request.POST.get('class_id')
     cycle      = request.POST.get('cycle') or None      # '' → toute l'école
     rythme     = request.POST.get('rythme', 'trimester')
     with_dates = request.POST.get('with_dates') in ('on', 'true', '1', 'yes')
@@ -534,15 +557,24 @@ def period_generate(request, year_id):
         return HttpResponse(status=400)
     ptype, prefix = _RYTHME_MAP[rythme]
 
-    # Périodes existantes de CE cycle uniquement.
-    existing = (year.periods.filter(education_level=cycle) if cycle
-                else year.periods.filter(education_level__isnull=True))
+    # Cible : une CLASSE précise (surcharge) OU un cycle OU toute l'école.
+    school_class = None
+    if class_id:
+        school_class = get_object_or_404(SchoolClass, pk=class_id, school=school)
+        existing = year.periods.filter(school_class=school_class)
+        scope_label = 'cette classe'
+    elif cycle:
+        existing = year.periods.filter(education_level=cycle, school_class__isnull=True)
+        scope_label = 'ce cycle'
+    else:
+        existing = year.periods.filter(education_level__isnull=True, school_class__isnull=True)
+        scope_label = 'ces périodes'
 
-    # Garde-fou : notes déjà saisies sur ce cycle → on bloque.
+    # Garde-fou : notes déjà saisies → on bloque la régénération.
     if existing.filter(notes__isnull=False).exists():
         return HttpResponse(
             '<div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">'
-            '<p class="font-medium">Impossible de régénérer ce cycle.</p>'
+            f'<p class="font-medium">Impossible de régénérer {scope_label}.</p>'
             '<p>Des notes existent déjà sur ses périodes. Supprimez les notes d\'abord.</p>'
             '</div>',
             status=422,
@@ -563,12 +595,39 @@ def period_generate(request, year_id):
         else:
             start = end = None
         Period.objects.create(
-            school_year=year, education_level=cycle,
+            school_year=year,
+            education_level=(None if school_class else cycle),
+            school_class=school_class,
             name=f'{prefix} {i + 1}', period_type=ptype,
             start_date=start, end_date=end, order=i + 1,
         )
 
     return _render_period_sections(request, school, year, toast=f'{count} périodes générées.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST', 'DELETE'])
+def period_class_reset(request, year_id, class_id):
+    """« Revenir au cycle » : supprime les périodes propres d'une classe → elle
+    réhérite du rythme de son cycle. Bloqué si des notes y existent déjà."""
+    school = get_school(request)
+    year   = get_object_or_404(SchoolYear, id=year_id, school=school)
+    school_class = get_object_or_404(SchoolClass, pk=class_id, school=school)
+
+    own = year.periods.filter(school_class=school_class)
+    if own.filter(notes__isnull=False).exists():
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': "Impossible : des notes existent sur les périodes propres de "
+                       "cette classe. Supprimez-les d'abord.",
+            'type': 'error',
+        }})
+        return resp
+    own.delete()
+    return _render_period_sections(
+        request, school, year, toast=f'{school_class.name} suit de nouveau son cycle.',
+    )
 
 
 @login_required
@@ -583,10 +642,10 @@ def period_create(request, year_id):
         period.school_year = year
         period.save()
         empty_form = PeriodForm(initial={'order': 1})
-        sections, legacy = _period_sections(school, year)
+        list_ctx = _period_sections(school, year)
+        list_ctx['year'] = year
         list_html = render_to_string(
-            'settings/partials/periods_grouped.html',
-            {'year': year, 'sections': sections, 'legacy_periods': legacy}, request=request,
+            'settings/partials/periods_grouped.html', list_ctx, request=request,
         )
         oob       = f'<div id="periods-list" hx-swap-oob="true">{list_html}</div>'
         form_html = render_to_string(

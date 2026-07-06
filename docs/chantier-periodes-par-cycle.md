@@ -102,8 +102,16 @@ Tout le reste route à travers ce module (source unique).
    cycle, bulletins/parent/dashboard/finances OK, non-régression périodes « sans cycle ».
 
 ---
-**ÉTAPE A TERMINÉE** — config par cycle + branchement complet (saisie, bulletins, parent, dashboard,
-finances). Reste : Étape B (surcharge par classe) + Chantier 2 (passage d'année), tous deux post-démo.
+**ÉTAPE A TERMINÉE** — config par cycle + branchement complet (saisie, bulletins, parent, dashboard, finances).
+
+**ÉTAPE B TERMINÉE** — surcharge par classe (résolution **classe → cycle → école**). `Period.school_class`
+(migration 0025) ; résolveur `periods_for_class` teste la classe d'abord (`periods_for_cycle` exclut les
+périodes de classe) ; config UI « Classes personnalisées » (générer par classe + « Revenir au cycle » avec
+confirmation + garde-fou notes, vue `period_class_reset`) ; onglets notes/bulletins école excluent les
+périodes de classe. Testé rollback + live sur Sundiata. Les écrans par élève/classe (saisie, bulletins,
+parent, finances) respectent la surcharge automatiquement via le résolveur.
+
+Reste : **Chantier 2 (passage d'année)** — post-démo.
 
 ## Fichiers impactés (audit COMPLET vérifié après Lot 4)
 Faits : `apps/schools/settings_views.py`, `apps/schools/notes_views.py`,

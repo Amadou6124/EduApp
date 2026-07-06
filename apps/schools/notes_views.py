@@ -203,8 +203,10 @@ def notes_dashboard(request):
     # Périodes : seulement celles des cycles réellement présents dans ces classes
     # (compositions au fondamental, trimestres au secondaire…), + les héritées « sans cycle ».
     visible_cycles = set(classes_qs.values_list('level', flat=True))
+    # Onglets de période : cycles présents (+ « toute l'école »). On exclut les
+    # périodes propres à une classe (surcharge) — elles se gèrent classe par classe.
     periods = [
-        p for p in active_year.periods.order_by('education_level', 'order')
+        p for p in active_year.periods.filter(school_class__isnull=True).order_by('education_level', 'order')
         if p.education_level is None or p.education_level in visible_cycles
     ]
 

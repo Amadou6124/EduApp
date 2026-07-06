@@ -31,21 +31,36 @@ def periods_for_cycle(school_year, education_level):
     """Périodes d'une année pour un cycle donné, ordonnées.
 
     Fallback : si le cycle n'a pas de périodes propres, renvoie les périodes
-    sans cycle (NULL) de l'année.
+    « toute l'école » (NULL). Les périodes rattachées à une CLASSE précise
+    (surcharge, Étape B) sont toujours exclues ici.
     """
     if school_year is None:
         return Period.objects.none()
-    scoped = school_year.periods.filter(education_level=education_level).order_by('order')
+    scoped = (school_year.periods
+              .filter(education_level=education_level, school_class__isnull=True)
+              .order_by('order'))
     if scoped.exists():
         return scoped
-    return school_year.periods.filter(education_level__isnull=True).order_by('order')
+    return (school_year.periods
+            .filter(education_level__isnull=True, school_class__isnull=True)
+            .order_by('order'))
 
 
 def periods_for_class(school_class, school_year=None):
-    """Périodes applicables à une classe (selon son cycle `level`)."""
+    """Périodes applicables à une classe. Priorité : **classe > cycle > école**.
+
+    1. La classe a-t-elle ses propres périodes (surcharge) ? → on les prend.
+    2. Sinon, les périodes de son cycle.
+    3. Sinon, les périodes « toute l'école ».
+    """
     if school_class is None:
         return Period.objects.none()
     year = school_year or active_year_for(school_class.school)
+    if year is None:
+        return Period.objects.none()
+    own = year.periods.filter(school_class=school_class).order_by('order')
+    if own.exists():
+        return own
     return periods_for_cycle(year, school_class.level)
 
 

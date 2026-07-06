@@ -77,8 +77,10 @@ def bulletins_main(request):
     periods = []
     active_period = None
     if active_year:
+        # Onglets par cycle (+ « toute l'école ») ; on exclut les périodes propres
+        # à une classe (surcharge) — gérées classe par classe.
         periods = [
-            p for p in active_year.periods.order_by('education_level', 'order')
+            p for p in active_year.periods.filter(school_class__isnull=True).order_by('education_level', 'order')
             if p.education_level is None or p.education_level in school_cycles
         ]
         period_id = request.GET.get('period')

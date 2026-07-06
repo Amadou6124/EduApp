@@ -285,6 +285,16 @@ class Period(models.Model):
         null=True, blank=True,
         help_text=_("Cycle concerné. Vide = s'applique à toute l'école."),
     )
+    # Surcharge « une classe précise » (Étape B) : si renseigné, ces périodes ne
+    # s'appliquent QU'À cette classe — elle sort du rythme de son cycle. Priorité de
+    # résolution : classe > cycle > école.
+    school_class = models.ForeignKey(
+        SchoolClass,
+        on_delete=models.CASCADE,
+        related_name='own_periods',
+        null=True, blank=True,
+        verbose_name=_('classe personnalisée'),
+    )
     name        = models.CharField(_('nom'), max_length=50)  # ex : "Trimestre 1"
     period_type = models.CharField(
         _('type'),
@@ -305,11 +315,17 @@ class Period(models.Model):
         verbose_name_plural = _('périodes')
         ordering            = ['order']
         constraints = [
-            # École mono-structure (périodes sans cycle) : nom unique dans l'année.
+            # Périodes « toute l'école » (ni cycle ni classe) : nom unique dans l'année.
             models.UniqueConstraint(
                 fields=['school_year', 'name'],
-                condition=models.Q(education_level__isnull=True),
-                name='uniq_period_year_name_nocycle',
+                condition=models.Q(education_level__isnull=True, school_class__isnull=True),
+                name='uniq_period_year_name_school',
+            ),
+            # Périodes d'une classe précise (surcharge) : nom unique par (année, classe).
+            models.UniqueConstraint(
+                fields=['school_year', 'school_class', 'name'],
+                condition=models.Q(school_class__isnull=False),
+                name='uniq_period_year_class_name',
             ),
             # Périodes rattachées à un cycle : nom unique par (année, cycle).
             models.UniqueConstraint(
