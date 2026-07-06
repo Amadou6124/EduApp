@@ -27,7 +27,7 @@
       <!-- Infos + actions -->
       <div class="flex items-center flex-wrap gap-2 sm:flex-shrink-0 sm:ml-auto">
         <span class="text-xs text-gray-500">
-          {{ year.periods_count }} période{{ year.periods_count|pluralize }}
+          {{ year.periods_count }} période{{ year.periods_count|pluralize }} · {{ year.enrollments_count }} élève{{ year.enrollments_count|pluralize }}
         </span>
         <a href="{% url 'settings:school-year-periods' year.id %}"
            class="px-3 py-1.5 text-xs font-semibold text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-50 transition">
@@ -40,32 +40,35 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
           </svg>
         </button>
-        <!-- Supprimer (année vide uniquement) -->
+        <!-- Supprimer : uniquement une année VIDE (aucune période ni inscription) -->
+        {% if year.periods_count == 0 and year.enrollments_count == 0 %}
         <button type="button"
                 @click="$store.confirm.show({
                   title: 'Supprimer {{ year.name }}',
-                  message: 'L\'année sera supprimée définitivement.',
-                  warning: 'Possible uniquement si l\'année n\'a aucune période ni inscription. Sinon, archivez-la.',
+                  message: 'Cette année est vide. Elle sera supprimée définitivement.',
                   confirmText: 'Supprimer', confirmIcon: 'trash-2', confirmClass: 'btn-danger',
                   icon: 'alert-triangle', iconBg: 'bg-red-50', iconColor: 'text-red-500',
                   onConfirm: () => htmx.ajax('POST', '{% url 'settings:school-year-delete' year.id %}', {target: '#school-year-list', swap: 'innerHTML', headers: {'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''}})
                 })"
-                class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Supprimer">
+                class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Supprimer (année vide)">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
           </svg>
         </button>
+        {% endif %}
         {% if year.is_active %}
-        <form hx-post="{% url 'settings:school-year-toggle' year.id %}"
-              hx-target="#school-year-list"
-              hx-swap="innerHTML">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="archive">
-          <button type="submit"
-                  class="px-3 py-1.5 text-xs font-semibold text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-            Archiver
-          </button>
-        </form>
+        <button type="button"
+                @click="$store.confirm.show({
+                  title: 'Archiver {{ year.name }} ?',
+                  message: 'L\'année passe en historique (lecture seule). Vos classes, frais et matières restent — ils resservent l\'an prochain. Notes et bulletins conservés, rien n\'est perdu.',
+                  confirmText: 'Archiver', confirmIcon: 'archive', confirmClass: 'btn-primary',
+                  icon: 'archive', iconBg: 'bg-primary-50', iconColor: 'text-primary-600',
+                  onConfirm: () => htmx.ajax('POST', '{% url 'settings:school-year-toggle' year.id %}', {target: '#school-year-list', swap: 'innerHTML', values: {action: 'archive'}, headers: {'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''}})
+                })"
+                class="px-3 py-1.5 text-xs font-semibold text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-50 transition inline-flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+          Archiver
+        </button>
         {% else %}
         <form hx-post="{% url 'settings:school-year-toggle' year.id %}"
               hx-target="#school-year-list"

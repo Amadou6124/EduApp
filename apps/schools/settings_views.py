@@ -265,16 +265,25 @@ def appreciation_seed(request):
 # Années scolaires
 # ─────────────────────────────────────────────────────────────
 
+def _annotated_years(school):
+    """Années de l'école, annotées du nb de périodes ET d'inscrits (distinct) —
+    pour savoir quelles années sont « vides » donc supprimables. Source unique."""
+    return (
+        SchoolYear.objects
+        .filter(school=school)
+        .annotate(
+            periods_count=Count('periods', distinct=True),
+            enrollments_count=Count('enrollments', distinct=True),
+        )
+        .order_by('-start_date')
+    )
+
+
 @login_required
 @director_or_staff_required
 def school_years(request):
     school = get_school(request)
-    years  = (
-        SchoolYear.objects
-        .filter(school=school)
-        .annotate(periods_count=Count('periods'))
-        .order_by('-start_date')
-    )
+    years  = _annotated_years(school)
     current_year = date.today().year
     suggested    = f'{current_year}-{current_year + 1}'
     form         = SchoolYearForm(initial={'name': suggested})
@@ -301,11 +310,7 @@ def school_year_create(request):
             form.add_error(None, e)
         else:
             year.save()
-            years = (
-                SchoolYear.objects
-                .filter(school=school)
-                .annotate(periods_count=Count('periods'))
-            )
+            years = _annotated_years(school)
             current_year = date.today().year
             suggested    = f'{current_year}-{current_year + 1}'
             empty_form   = SchoolYearForm(initial={'name': suggested})
@@ -329,11 +334,7 @@ def school_year_create(request):
 
 
 def _year_list_response(request, school, message, msg_type='success'):
-    years = (
-        SchoolYear.objects
-        .filter(school=school)
-        .annotate(periods_count=Count('periods'))
-    )
+    years = _annotated_years(school)
     resp = render(request, 'settings/partials/school_year_list.html', {'years': years})
     resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': msg_type}})
     return resp
@@ -418,11 +419,7 @@ def school_year_toggle(request, year_id):
             msg = f'Année {year.name} activée.'
         except ValidationError as e:
             year.is_active = False
-            years = (
-                SchoolYear.objects
-                .filter(school=school)
-                .annotate(periods_count=Count('periods'))
-            )
+            years = _annotated_years(school)
             resp = render(request, 'settings/partials/school_year_list.html', {
                 'years': years, 'error': str(e.message),
             })
@@ -431,11 +428,7 @@ def school_year_toggle(request, year_id):
             )
             return resp
 
-    years = (
-        SchoolYear.objects
-        .filter(school=school)
-        .annotate(periods_count=Count('periods'))
-    )
+    years = _annotated_years(school)
     resp = render(request, 'settings/partials/school_year_list.html', {'years': years})
     resp['HX-Trigger'] = json.dumps(
         {'showToast': {'message': msg, 'type': 'info'}}
