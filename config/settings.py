@@ -13,6 +13,11 @@ if not DEBUG and 'insecure' in SECRET_KEY:
     )
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# Origines de confiance pour le CSRF (HTTPS) — requis derrière ngrok / un domaine
+# de déploiement, sinon les POST (login…) échouent en 403. Piloté par env ;
+# supporte les wildcards de sous-domaine (ex. https://*.ngrok-free.app).
+CSRF_TRUSTED_ORIGINS = [o for o in config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv()) if o]
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -147,6 +152,10 @@ SESSION_SAVE_EVERY_REQUEST = True        # réinitialise le timer à chaque requ
 
 # Sécurité HTTPS — activée uniquement en production
 if not DEBUG:
+    # Derrière un proxy HTTPS (Render, PythonAnywhere, ngrok…), Django voit du HTTP :
+    # ce header lui dit que la requête d'origine est bien en HTTPS, sinon SECURE_SSL_REDIRECT
+    # part en boucle de redirection.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE  = True
     CSRF_COOKIE_SECURE     = True
     SECURE_SSL_REDIRECT    = True
