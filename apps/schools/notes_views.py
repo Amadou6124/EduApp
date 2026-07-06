@@ -182,20 +182,7 @@ def notes_dashboard(request):
             'active_section': 'notes',
         })
 
-    years   = school.school_years.order_by('-start_date')
-    periods = list(active_year.periods.all())
-
-    # Onglet période actif (ouverte en priorité)
-    period_id = request.GET.get('period')
-    if period_id:
-        active_period = next((p for p in periods if str(p.pk) == period_id), None)
-    else:
-        active_period = (
-            next((p for p in periods if p.is_notes_open), None)
-            or (periods[0] if periods else None)
-        )
-
-    open_periods_count = sum(1 for p in periods if p.is_notes_open)
+    years = school.school_years.order_by('-start_date')
 
     # Filtre enseignant : uniquement ses classes (assigné ou délégué)
     teacher_class_ids = None
@@ -208,10 +195,33 @@ def notes_dashboard(request):
         ).values_list('pk', flat=True)
         teacher_class_ids = set(assigned_ids) | set(delegated_ids)
 
-    # Base queryset des classes
+    # Base des classes (avant filtrage par cycle de la période)
     classes_qs = school.classes.filter(is_active=True)
     if teacher_class_ids is not None:
         classes_qs = classes_qs.filter(pk__in=teacher_class_ids)
+
+    # Périodes : seulement celles des cycles réellement présents dans ces classes
+    # (compositions au fondamental, trimestres au secondaire…), + les héritées « sans cycle ».
+    visible_cycles = set(classes_qs.values_list('level', flat=True))
+    periods = [
+        p for p in active_year.periods.order_by('education_level', 'order')
+        if p.education_level is None or p.education_level in visible_cycles
+    ]
+
+    # Onglet période actif (ouverte en priorité)
+    period_id     = request.GET.get('period')
+    active_period = next((p for p in periods if str(p.pk) == period_id), None) if period_id else None
+    if not active_period:
+        active_period = (
+            next((p for p in periods if p.is_notes_open), None)
+            or (periods[0] if periods else None)
+        )
+
+    open_periods_count = sum(1 for p in periods if p.is_notes_open)
+
+    # La grille ne montre que les classes du cycle de la période sélectionnée.
+    if active_period and active_period.education_level:
+        classes_qs = classes_qs.filter(level=active_period.education_level)
 
     # Notes de la période : maps (cs, position) → élèves notés + valeurs — 1 requête.
     noted_by_cs_pos = defaultdict(set)   # (cs_id, position) -> {student_id}

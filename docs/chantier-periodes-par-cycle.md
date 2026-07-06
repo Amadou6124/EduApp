@@ -81,7 +81,11 @@ Tout le reste route à travers ce module (source unique).
    par cycle (compositions/trimestres × nombre), **dates optionnelles** (migration `0024`),
    section « Toute l'école » legacy, garde-fou notes. Testé backend (rollback) + live sur
    Sundiata (2 cycles + legacy), 0 erreur console.
-4. **Saisie des notes** (`apps/teachers/`) : périodes filtrées par le cycle de la classe.
+4. ✅ **Saisie des notes** : `notes_views.py::notes_dashboard` (onglets périodes limités aux
+   cycles présents ; grille filtrée au cycle de la période) + `teachers/views.py` (dashboard,
+   difficulté, détail élève, quick-assess → résolution **par classe**). ⚠️ `notes_views.py`
+   manquait dans l'audit initial. Testé en rollback : grille compo = 1er cycle only, prof
+   multi-cycles OK.
 5. **Bulletins** (`apps/schools/bulletins_views.py`) : périodes du cycle de l'élève.
 6. **Portail parent — Scolarité** (`apps/parent/views.py`) : sélecteur par cycle de l'enfant.
 7. **Académique promoteur** (`apps/promoter/`) + **dashboard** : agrégations par cycle.

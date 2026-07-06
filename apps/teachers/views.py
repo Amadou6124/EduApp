@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 
 from apps.core.mixins import get_school, get_active_role, teacher_required
 from apps.schools.models import ClassSubject, Note, SchoolClass, SchoolYear, Period
+from apps.schools.periods import periods_for_class, periods_for_student, resolve_active_period
 from apps.students.models import Student
 
 
@@ -96,11 +97,6 @@ def teacher_dashboard(request):
     today  = date.today()
 
     active_year = school.school_years.filter(is_active=True).first()
-    active_period = None
-    if active_year:
-        active_period = active_year.periods.filter(is_notes_open=True).first()
-        if not active_period:
-            active_period = active_year.periods.order_by('-order').first()
 
     all_class_ids = _teacher_class_ids(user, school)
 
@@ -120,21 +116,26 @@ def teacher_dashboard(request):
         .order_by('level', 'name')
     )
 
+    # Période active PAR classe (selon son cycle) — un prof peut couvrir 2 cycles.
+    class_period = {
+        sc.pk: resolve_active_period(periods_for_class(sc, active_year))
+        for sc in classes
+    }
+    active_period = next((p for p in class_period.values() if p), None)  # entête / repr.
+
     notes_per_class: dict[int, int] = {}
-    if active_period and all_class_ids:
-        for row in (
-            Note.objects
-            .filter(
+    for sc in classes:
+        p = class_period.get(sc.pk)
+        if not p:
+            continue
+        notes_per_class[sc.pk] = (
+            Note.objects.filter(
                 class_subject__teacher=user,
-                class_subject__school_class_id__in=all_class_ids,
+                class_subject__school_class_id=sc.pk,
                 class_subject__is_active=True,
-                period=active_period,
-                is_cancelled=False,
-            )
-            .values('class_subject__school_class_id')
-            .annotate(noted=Count('student', distinct=True))
-        ):
-            notes_per_class[row['class_subject__school_class_id']] = row['noted']
+                period=p, is_cancelled=False,
+            ).values('student').distinct().count()
+        )
 
     total_students = sum(c.student_count for c in classes)
     total_noted    = sum(notes_per_class.values())
@@ -182,32 +183,34 @@ def teacher_dashboard(request):
     from .services import get_class_difficulty_report, LEVEL_CRITICAL, LEVEL_WARNING
     total_critical = total_warning = 0
     struggling = []
-    if active_period:
-        for sc in classes:
-            for r in get_class_difficulty_report(user, sc, active_period):
-                if r['level'] == LEVEL_CRITICAL:
-                    total_critical += 1
-                elif r['level'] == LEVEL_WARNING:
-                    total_warning += 1
-                else:
-                    continue
-                weak = min(
-                    (sd for sd in r['scores'].values() if sd['score'] is not None),
-                    key=lambda sd: sd['score'], default=None,
-                )
-                struggling.append({
-                    'student': r['student'],
-                    'class':   sc,
-                    'score':   r['global_score'],
-                    'level':   r['level'],
-                    'trend':   r['trend'],
-                    'subject': weak['subject'] if weak else '',
-                })
+    for sc in classes:
+        sc_period = class_period.get(sc.pk)
+        if not sc_period:
+            continue
+        for r in get_class_difficulty_report(user, sc, sc_period):
+            if r['level'] == LEVEL_CRITICAL:
+                total_critical += 1
+            elif r['level'] == LEVEL_WARNING:
+                total_warning += 1
+            else:
+                continue
+            weak = min(
+                (sd for sd in r['scores'].values() if sd['score'] is not None),
+                key=lambda sd: sd['score'], default=None,
+            )
+            struggling.append({
+                'student': r['student'],
+                'class':   sc,
+                'score':   r['global_score'],
+                'level':   r['level'],
+                'trend':   r['trend'],
+                'subject': weak['subject'] if weak else '',
+            })
     struggling.sort(key=lambda s: s['score'] if s['score'] is not None else 99)
     top_struggling = struggling[:3]
 
     # ── « À saisir » : état de la saisie + classes à compléter ──
-    saisie_open      = bool(active_period and active_period.is_notes_open)
+    saisie_open      = any(p and p.is_notes_open for p in class_period.values())
     classes_complete = sum(1 for c in class_cards if c['notes_pct'] >= 100)
 
     avatar_bg, avatar_text = user.get_avatar_colors()
@@ -518,10 +521,10 @@ def teacher_student_detail(request, student_id):
     if student.school_class_id not in class_ids:
         return HttpResponse(status=403)
 
-    # Périodes de l'année active + période affichée (commutable via ?period=)
+    # Périodes du cycle de l'élève + période affichée (commutable via ?period=)
     today = date_cls.today()
     active_year = school.school_years.filter(is_active=True).first()
-    periods = list(active_year.periods.order_by('order')) if active_year else []
+    periods = list(periods_for_student(student, active_year))
 
     active_period = None
     if periods:
@@ -531,7 +534,9 @@ def teacher_student_detail(request, student_id):
         if not active_period:
             active_period = (
                 next((p for p in periods if p.is_notes_open), None)
-                or next((p for p in periods if p.start_date <= today <= p.end_date), None)
+                # période couvrant aujourd'hui — seulement si elle est datée
+                or next((p for p in periods if p.start_date and p.end_date
+                         and p.start_date <= today <= p.end_date), None)
                 or periods[0]
             )
 
@@ -653,12 +658,6 @@ def difficulty_dashboard(request):
     school = get_school(request)
 
     active_year = school.school_years.filter(is_active=True).first()
-    active_period = None
-    if active_year:
-        active_period = (
-            active_year.periods.filter(is_notes_open=True).first()
-            or active_year.periods.order_by('-order').first()
-        )
 
     class_ids = _teacher_class_ids(user, school)
     classes = list(
@@ -669,9 +668,14 @@ def difficulty_dashboard(request):
 
     classes_data = []
     total_critical = total_warning = total_insufficient = 0
+    active_period = None  # période représentative (entête) : 1re classe qui en a une
 
     for sc in classes:
-        report = get_class_difficulty_report(user, sc, active_period) if active_period else []
+        # Période active du cycle de CETTE classe (compositions / trimestres).
+        period = resolve_active_period(periods_for_class(sc, active_year))
+        if active_period is None:
+            active_period = period
+        report = get_class_difficulty_report(user, sc, period) if period else []
 
         critical     = [r for r in report if r['level'] == LEVEL_CRITICAL]
         warning      = [r for r in report if r['level'] == LEVEL_WARNING]
@@ -720,13 +724,9 @@ def difficulty_class(request, class_id):
     if school_class.pk not in class_ids:
         return HttpResponse(status=403)
 
-    active_year = school.school_years.filter(is_active=True).first()
-    active_period = None
-    if active_year:
-        active_period = (
-            active_year.periods.filter(is_notes_open=True).first()
-            or active_year.periods.order_by('-order').first()
-        )
+    active_year   = school.school_years.filter(is_active=True).first()
+    # Périodes du cycle de CETTE classe (compositions / trimestres selon le cycle).
+    active_period = resolve_active_period(periods_for_class(school_class, active_year))
 
     # On ignore les élèves sans aucune donnée (level None).
     report_full = [
@@ -836,10 +836,8 @@ def quick_assessment_save(request):
     active_year = school.school_years.filter(is_active=True).first()
     if not active_year:
         return HttpResponse(status=400)
-    period = (
-        active_year.periods.filter(is_notes_open=True).first()
-        or active_year.periods.order_by('-order').first()
-    )
+    # Période active du cycle de la classe (via le class_subject).
+    period = resolve_active_period(periods_for_class(class_subject.school_class, active_year))
     if not period:
         return HttpResponse(status=400)
 
