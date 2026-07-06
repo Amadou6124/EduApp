@@ -16,7 +16,10 @@ from .forms import (
     SchoolYearForm, PeriodForm, SubjectForm, ClassSubjectForm,
     BulletinConfigForm,
 )
-from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note, BulletinConfig, AppreciationScale
+from .models import (
+    SchoolYear, Period, PeriodType, EducationLevel, SchoolClass,
+    Subject, ClassSubject, Note, BulletinConfig, AppreciationScale,
+)
 from apps.core.mixins import get_school, director_or_staff_required
 
 # ── Module Finances (Lot 2) — catalogue de frais ───────────────────────────────
@@ -443,16 +446,63 @@ def school_year_toggle(request, year_id):
 # Périodes
 # ─────────────────────────────────────────────────────────────
 
+# Ordre d'affichage des cycles (préscolaire → supérieur).
+_CYCLE_ORDER = [
+    EducationLevel.PRESCOLAIRE, EducationLevel.FONDAMENTAL_1, EducationLevel.FONDAMENTAL_2,
+    EducationLevel.SECONDAIRE_GEN, EducationLevel.SECONDAIRE_PRO, EducationLevel.SUPERIEUR,
+]
+# Rythme choisi à la génération → (type de période, préfixe de nom).
+_RYTHME_MAP = {
+    'composition': (PeriodType.COMPOSITION, 'Composition'),
+    'trimester':   (PeriodType.TRIMESTER,   'Trimestre'),
+    'semester':    (PeriodType.SEMESTER,    'Semestre'),
+}
+
+
+def _period_sections(school, year):
+    """Périodes groupées par cycle réellement utilisé par l'école, plus les
+    périodes héritées « sans cycle » (écoles mono-structure existantes)."""
+    used   = set(SchoolClass.objects.filter(school=school).values_list('level', flat=True))
+    labels = dict(EducationLevel.choices)
+    all_periods = list(year.periods.order_by('order'))
+    sections = []
+    for cyc in _CYCLE_ORDER:
+        if cyc in used:
+            sections.append({
+                'value':       cyc,
+                'label':       labels.get(cyc, cyc),
+                'class_count': SchoolClass.objects.filter(school=school, level=cyc).count(),
+                'periods':     [p for p in all_periods if p.education_level == cyc],
+            })
+    legacy = [p for p in all_periods if p.education_level is None]
+    return sections, legacy
+
+
+def _render_period_sections(request, school, year, toast=None, status=200):
+    """Rend le bloc de sections groupées (réponse HTMX après génération/CRUD)."""
+    sections, legacy = _period_sections(school, year)
+    html = render_to_string(
+        'settings/partials/periods_grouped.html',
+        {'year': year, 'sections': sections, 'legacy_periods': legacy},
+        request=request,
+    )
+    resp = HttpResponse(html, status=status)
+    if toast:
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': toast, 'type': 'success'}})
+    return resp
+
+
 @login_required
 @director_or_staff_required
 def school_year_periods(request, year_id):
-    school  = get_school(request)
-    year    = get_object_or_404(SchoolYear, id=year_id, school=school)
-    periods = year.periods.order_by('order')
-    form    = PeriodForm(initial={'start_date': year.start_date, 'end_date': year.end_date, 'order': periods.count() + 1})
+    school = get_school(request)
+    year   = get_object_or_404(SchoolYear, id=year_id, school=school)
+    sections, legacy = _period_sections(school, year)
+    form   = PeriodForm(initial={'order': 1})
     return render(request, 'settings/school_year_periods.html', {
         'year':           year,
-        'periods':        periods,
+        'sections':       sections,
+        'legacy_periods': legacy,
         'form':           form,
         'active_section': 'school-years',
         'school':         school,
@@ -463,59 +513,62 @@ def school_year_periods(request, year_id):
 @director_or_staff_required
 @require_http_methods(['POST'])
 def period_generate(request, year_id):
-    """Génère automatiquement les périodes depuis un template prédéfini."""
-    school   = get_school(request)
-    year     = get_object_or_404(SchoolYear, id=year_id, school=school)
-    template = request.POST.get('template')
+    """Génère les périodes d'UN cycle (compositions / trimestres…), dates optionnelles.
 
-    if template == '3trimesters':
-        configs = [
-            ('Trimestre 1', PeriodType.TRIMESTER, 1),
-            ('Trimestre 2', PeriodType.TRIMESTER, 2),
-            ('Trimestre 3', PeriodType.TRIMESTER, 3),
-        ]
-    elif template == '2semesters':
-        configs = [
-            ('Semestre 1', PeriodType.SEMESTER, 1),
-            ('Semestre 2', PeriodType.SEMESTER, 2),
-        ]
-    else:
+    Ne supprime QUE les périodes du cycle visé (garde-fou : bloqué si des notes
+    y sont déjà saisies). Les dates ne sont posées que si `with_dates` est coché
+    ET si l'année est datée — sinon les périodes naissent sans dates.
+    """
+    school = get_school(request)
+    year   = get_object_or_404(SchoolYear, id=year_id, school=school)
+
+    cycle      = request.POST.get('cycle') or None      # '' → toute l'école
+    rythme     = request.POST.get('rythme', 'trimester')
+    with_dates = request.POST.get('with_dates') in ('on', 'true', '1', 'yes')
+    try:
+        count = int(request.POST.get('count', 0))
+    except (TypeError, ValueError):
+        count = 0
+
+    if rythme not in _RYTHME_MAP or not (1 <= count <= 12):
         return HttpResponse(status=400)
+    ptype, prefix = _RYTHME_MAP[rythme]
 
-    # Supprimer les périodes existantes avant génération
-    periods_with_notes = year.periods.filter(grade_notes__isnull=False).distinct()
-    if periods_with_notes.exists():
+    # Périodes existantes de CE cycle uniquement.
+    existing = (year.periods.filter(education_level=cycle) if cycle
+                else year.periods.filter(education_level__isnull=True))
+
+    # Garde-fou : notes déjà saisies sur ce cycle → on bloque.
+    if existing.filter(notes__isnull=False).exists():
         return HttpResponse(
             '<div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">'
-            '<p class="font-medium">Impossible de régénérer les périodes.</p>'
-            '<p>Des notes existent déjà sur certaines périodes. Supprimez les notes d\'abord.</p>'
+            '<p class="font-medium">Impossible de régénérer ce cycle.</p>'
+            '<p>Des notes existent déjà sur ses périodes. Supprimez les notes d\'abord.</p>'
             '</div>',
-            status=422
+            status=422,
         )
-    year.periods.all().delete()
+    existing.delete()
 
-    n         = len(configs)
-    total_days = (year.end_date - year.start_date).days
-    segment   = total_days // n
-    current   = year.start_date
+    # Découpage des dates seulement si demandé ET si l'année est datée.
+    dated   = bool(with_dates and year.start_date and year.end_date)
+    segment = (year.end_date - year.start_date).days // count if dated else 0
+    current = year.start_date
 
-    for i, (name, ptype, order) in enumerate(configs):
-        is_last = (i == n - 1)
-        end     = year.end_date if is_last else current + timedelta(days=segment - 1)
+    for i in range(count):
+        if dated:
+            is_last = (i == count - 1)
+            start   = current
+            end     = year.end_date if is_last else current + timedelta(days=max(segment - 1, 0))
+            current = end + timedelta(days=1)
+        else:
+            start = end = None
         Period.objects.create(
-            school_year=year, name=name, period_type=ptype,
-            start_date=current, end_date=end, order=order,
+            school_year=year, education_level=cycle,
+            name=f'{prefix} {i + 1}', period_type=ptype,
+            start_date=start, end_date=end, order=i + 1,
         )
-        current = end + timedelta(days=1)
 
-    periods = year.periods.order_by('order')
-    resp    = render(request, 'settings/partials/periods_list.html', {
-        'year': year, 'periods': periods,
-    })
-    resp['HX-Trigger'] = json.dumps(
-        {'showToast': {'message': f'{n} périodes générées.', 'type': 'success'}}
-    )
-    return resp
+    return _render_period_sections(request, school, year, toast=f'{count} périodes générées.')
 
 
 @login_required
@@ -529,13 +582,13 @@ def period_create(request, year_id):
         period             = form.save(commit=False)
         period.school_year = year
         period.save()
-        periods = year.periods.order_by('order')
-        empty_form = PeriodForm(initial={'order': periods.count() + 1})
+        empty_form = PeriodForm(initial={'order': 1})
+        sections, legacy = _period_sections(school, year)
         list_html = render_to_string(
-            'settings/partials/periods_list.html',
-            {'year': year, 'periods': periods}, request=request,
+            'settings/partials/periods_grouped.html',
+            {'year': year, 'sections': sections, 'legacy_periods': legacy}, request=request,
         )
-        oob      = f'<div id="periods-list" hx-swap-oob="true">{list_html}</div>'
+        oob       = f'<div id="periods-list" hx-swap-oob="true">{list_html}</div>'
         form_html = render_to_string(
             'settings/partials/period_form.html',
             {'form': empty_form, 'year': year}, request=request,
@@ -563,11 +616,7 @@ def period_update(request, period_id):
         return resp
 
     form.save()
-    year    = period.school_year
-    periods = year.periods.order_by('order')
-    resp = render(request, 'settings/partials/periods_list.html', {'year': year, 'periods': periods})
-    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Période modifiée.', 'type': 'success'}})
-    return resp
+    return _render_period_sections(request, school, period.school_year, toast='Période modifiée.')
 
 
 @login_required
@@ -601,14 +650,7 @@ def period_delete(request, period_id):
         })
         return response
     period.delete()
-    periods = year.periods.order_by('order')
-    resp    = render(request, 'settings/partials/periods_list.html', {
-        'year': year, 'periods': periods,
-    })
-    resp['HX-Trigger'] = json.dumps(
-        {'showToast': {'message': 'Période supprimée.', 'type': 'info'}}
-    )
-    return resp
+    return _render_period_sections(request, school, year, toast='Période supprimée.')
 
 
 # ─────────────────────────────────────────────────────────────

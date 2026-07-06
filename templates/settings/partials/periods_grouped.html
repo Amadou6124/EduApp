@@ -1,0 +1,87 @@
+{% load i18n %}
+{% if sections or legacy_periods %}
+<div class="space-y-4">
+
+  {% for section in sections %}
+  <div class="bg-white border border-gray-200 rounded-2xl p-5">
+
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="font-semibold text-gray-900 text-sm">{{ section.label }}</p>
+        <p class="text-xs text-gray-500">{{ section.class_count }} classe{{ section.class_count|pluralize }}</p>
+      </div>
+      <span class="text-xs text-gray-400 flex-shrink-0">{{ section.periods|length }} période{{ section.periods|length|pluralize }}</span>
+    </div>
+
+    {# ── Générer les périodes de ce cycle ── #}
+    <form hx-post="{% url 'settings:period-generate' year.id %}"
+          hx-target="#periods-list" hx-swap="innerHTML"
+          {% if section.periods %}hx-confirm="Régénérer ce cycle remplacera ses {{ section.periods|length }} période(s). Les périodes vides seront recréées. Continuer ?"{% endif %}
+          class="flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg p-2.5 mb-3">
+      {% csrf_token %}
+      <input type="hidden" name="cycle" value="{{ section.value }}">
+      <span class="text-xs font-medium text-gray-500 px-1">Générer</span>
+      <select name="rythme" class="text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+        <option value="composition">Compositions</option>
+        <option value="trimester">Trimestres</option>
+      </select>
+      <select name="count" class="text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+        <option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option>
+      </select>
+      <label class="flex items-center gap-1.5 text-xs text-gray-500 ml-1 cursor-pointer" title="Sinon les périodes naissent sans dates (à remplir plus tard)">
+        <input type="checkbox" name="with_dates" class="w-3.5 h-3.5 accent-primary-600">
+        dates auto
+      </label>
+      <button type="submit"
+              class="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white text-xs font-semibold rounded-lg hover:bg-primary-700 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+        Générer
+      </button>
+    </form>
+
+    {# ── Périodes de ce cycle ── #}
+    {% if section.periods %}
+    <div class="space-y-2.5">
+      {% for period in section.periods %}
+        {% include "settings/partials/period_card.html" with period=period year=year %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-xs text-gray-400 text-center py-3">Aucune période — génère-les ci-dessus ou ajoute-les à la main.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  {# ── Périodes héritées « sans cycle » (écoles existantes) ── #}
+  {% if legacy_periods %}
+  <div class="bg-white border border-gray-200 rounded-2xl p-5">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4"/></svg>
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="font-semibold text-gray-900 text-sm">Toute l'école</p>
+        <p class="text-xs text-gray-500">Périodes communes (sans cycle)</p>
+      </div>
+      <span class="text-xs text-gray-400 flex-shrink-0">{{ legacy_periods|length }} période{{ legacy_periods|length|pluralize }}</span>
+    </div>
+    <div class="space-y-2.5">
+      {% for period in legacy_periods %}
+        {% include "settings/partials/period_card.html" with period=period year=year %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% else %}
+<div class="text-center py-12 text-gray-400 bg-white border border-gray-200 rounded-2xl">
+  <p class="text-sm">Aucun cycle détecté.</p>
+  <p class="text-xs mt-1">Crée d'abord des classes — les cycles apparaîtront ici automatiquement.</p>
+</div>
+{% endif %}

@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 from .models import (
     School, SchoolClass, SchoolType,
-    SchoolYear, Period, PeriodType,
+    SchoolYear, Period, PeriodType, EducationLevel,
     Subject, ClassSubject,
     BulletinConfig,
 )
@@ -150,14 +150,25 @@ class PeriodForm(forms.ModelForm):
 
     class Meta:
         model  = Period
-        fields = ['name', 'period_type', 'start_date', 'end_date', 'order']
+        fields = ['education_level', 'name', 'period_type', 'start_date', 'end_date', 'order']
         widgets = {
+            'education_level': forms.Select(attrs={'class': _S}),
             'name':        forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Trimestre 1'}),
             'period_type': forms.Select(attrs={'class': _S}),
             'start_date':  forms.DateInput(attrs={'type': 'date', 'class': _F}),
             'end_date':    forms.DateInput(attrs={'type': 'date', 'class': _F}),
             'order':       forms.NumberInput(attrs={'class': _F, 'min': '1'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Cycle facultatif (vide = toute l'école) ; dates facultatives (grèves/imprévus).
+        self.fields['education_level'].required = False
+        self.fields['education_level'].choices = (
+            [('', _("Toute l'école"))] + list(EducationLevel.choices)
+        )
+        self.fields['start_date'].required = False
+        self.fields['end_date'].required = False
 
 
 # ── Matières ──────────────────────────────────────────────────────────────
