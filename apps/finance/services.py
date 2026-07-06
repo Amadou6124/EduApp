@@ -83,6 +83,7 @@ def build_fee_account(enrollment, fee_selections=None, template=None):
     reconstruit pas un échéancier possiblement déjà payé).
     """
     school = enrollment.school
+    ensure_default_schedule_templates(school)   # jamais d'école sans gabarit de tranches
     school_class = enrollment.school_class
     student = enrollment.student
     is_returning = is_returning_student(enrollment)
@@ -227,6 +228,7 @@ def build_fee_accounts_bulk(enrollments):
         return []
 
     school = enrollments[0].school
+    ensure_default_schedule_templates(school)   # jamais d'école sans gabarit de tranches
     active_year = enrollments[0].school_year
 
     # ── Préchargement UNIQUE (hors boucle) ──────────────────────────────────────
@@ -360,6 +362,27 @@ def _start_date_for(enrollment):
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. Découpage de la scolarité en tranches datées
 # ═══════════════════════════════════════════════════════════════════════════════
+
+# Gabarits de tranches standards, provisionnés automatiquement pour toute école.
+_STANDARD_SCHEDULE_TEMPLATES = [('Annuel', 1), ('Trimestriel', 3), ('Mensuel', 9)]
+_DEFAULT_SCHEDULE_NAME = 'Trimestriel'
+
+
+def ensure_default_schedule_templates(school):
+    """Garantit que l'école possède les 3 gabarits standards (Annuel / Trimestriel /
+    Mensuel), **Trimestriel par défaut**. Idempotent : ne fait RIEN si l'école a déjà
+    au moins un gabarit (on ne réécrit jamais le choix du directeur). Retourne True si
+    des gabarits ont été créés. Vaut pour les nouvelles écoles comme pour les anciennes
+    laissées vides — appelé à l'ouverture de l'écran Frais et à la génération des frais."""
+    if school is None or PaymentScheduleTemplate.objects.filter(school=school).exists():
+        return False
+    for name, count in _STANDARD_SCHEDULE_TEMPLATES:
+        PaymentScheduleTemplate.objects.create(
+            school=school, name=name, installments_count=count,
+            is_active=True, is_default=(name == _DEFAULT_SCHEDULE_NAME),
+        )
+    return True
+
 
 def generate_tuition_installments(debt, template, periods):
     """

@@ -27,6 +27,7 @@ from apps.finance.models import (
     FeeType, FeeVariant, PaymentScheduleTemplate, FeeCategory,
 )
 from apps.finance.forms import FeeTypeForm, FeeVariantForm
+from apps.finance.services import ensure_default_schedule_templates
 
 # Métadonnées des sections "coming soon"
 _COMING_SOON_META = {
@@ -1124,6 +1125,9 @@ def _toast(resp, message, msg_type='success', **extra):
 def fees(request):
     """Écran principal : catalogue de frais + gabarit de tranches par défaut."""
     school = get_school(request)
+    # Les 3 gabarits standards (Annuel/Trimestriel/Mensuel) apparaissent d'eux-mêmes
+    # si l'école n'en a aucun — le directeur n'a plus qu'à choisir son défaut.
+    ensure_default_schedule_templates(school)
     return render(request, 'settings/fees.html', {
         **_catalog_context(school),
         'schedule_templates': PaymentScheduleTemplate.objects
