@@ -70,22 +70,28 @@ def bulletins_main(request):
             or (years[0] if years else None)
         )
 
-    # Périodes
+    # Cycles présents dans l'école (pour ne montrer que les périodes utiles)
+    school_cycles = set(school.classes.filter(is_active=True).values_list('level', flat=True))
+
+    # Périodes — limitées aux cycles présents (+ héritées « sans cycle »)
     periods = []
     active_period = None
     if active_year:
-        periods = list(active_year.periods.all())
+        periods = [
+            p for p in active_year.periods.order_by('education_level', 'order')
+            if p.education_level is None or p.education_level in school_cycles
+        ]
         period_id = request.GET.get('period')
         if period_id:
             active_period = next((p for p in periods if str(p.pk) == period_id), None)
         if not active_period:
             active_period = periods[0] if periods else None
 
-    # Classes
-    classes = list(
-        school.classes.filter(is_active=True)
-        .order_by('level', 'name')
-    )
+    # Classes — limitées au cycle de la période sélectionnée
+    classes_qs = school.classes.filter(is_active=True)
+    if active_period and active_period.education_level:
+        classes_qs = classes_qs.filter(level=active_period.education_level)
+    classes = list(classes_qs.order_by('level', 'name'))
     active_class = None
     class_id = request.GET.get('class')
     if class_id:
@@ -779,8 +785,13 @@ def _school_overview(school, period):
     """Vue école : par classe → effectif, générés, publiés, périmés. Renvoie (overview, totals).
     Efficient : 3 requêtes (classes annotées, bulletins, dernière modif de note par élève)."""
     from collections import defaultdict
+    # Vue d'ensemble limitée au cycle de la période (une composition ne concerne
+    # que le fondamental 1er cycle, etc.). Période « sans cycle » → toute l'école.
+    classes_qs = school.classes.filter(is_active=True)
+    if period.education_level:
+        classes_qs = classes_qs.filter(level=period.education_level)
     classes = list(
-        school.classes.filter(is_active=True)
+        classes_qs
         .annotate(nb_students=Count('students', filter=Q(students__is_active=True)))
         .order_by('level', 'name')
     )

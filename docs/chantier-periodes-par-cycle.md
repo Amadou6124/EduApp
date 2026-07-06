@@ -86,16 +86,27 @@ Tout le reste route à travers ce module (source unique).
    difficulté, détail élève, quick-assess → résolution **par classe**). ⚠️ `notes_views.py`
    manquait dans l'audit initial. Testé en rollback : grille compo = 1er cycle only, prof
    multi-cycles OK.
-5. **Bulletins** (`apps/schools/bulletins_views.py`) : périodes du cycle de l'élève.
+5. ✅ **Bulletins** : `bulletins_views.py::bulletins_main` (+ `_school_overview`) onglets et
+   vue d'ensemble scopés au cycle de la période ; `students/views.py` (`student_notes_period`
+   par cycle de l'élève, `_difficulty_flagged` agrège les moyennes sur la période active de
+   CHAQUE cycle). Testé rollback (overview compo = 1er cycle, notes élève par cycle, suivi OK).
 6. **Portail parent — Scolarité** (`apps/parent/views.py`) : sélecteur par cycle de l'enfant.
 7. **Académique promoteur** (`apps/promoter/`) + **dashboard** : agrégations par cycle.
 8. **Test complet** (voir plan de test).
 
-## Fichiers impactés (audit initial)
-`apps/schools/bulletins_views.py` · `apps/schools/settings_views.py` ·
-`apps/teachers/services.py` · `apps/teachers/views.py` · `apps/parent/views.py` ·
-`apps/promoter/views.py` · `apps/dashboard/views.py` · `apps/finance/services.py`
-(+ nouveau `apps/schools/periods.py`).
+## Fichiers impactés (audit COMPLET vérifié après Lot 4)
+Faits : `apps/schools/settings_views.py`, `apps/schools/notes_views.py`,
+`apps/teachers/views.py` (+ nouveau `apps/schools/periods.py`).
+
+Restants :
+- **Lot 5 Bulletins** : `apps/schools/bulletins_views.py` (77, 730) ·
+  `apps/students/views.py` (détail élève : 487, 489, 1165-66)
+- **Lot 6 Parent** : `apps/parent/views.py` (68, 278)
+- **Lot 7 Dashboard directeur** : `apps/dashboard/views.py` (33, 57-59, 476)
+- **Finances** (échéancier) : `apps/finance/services.py` (110, 242)
+- **Promoteur** : 0 site — lit les bulletins publiés, pas les périodes. ✅
+
+`apps/schools/models.py:260` = `self.periods.count()` (propriété, inoffensif).
 
 ## Points de vigilance
 - Router **tous** les `Period.objects.filter(...)` par le résolveur (sinon incohérences).
