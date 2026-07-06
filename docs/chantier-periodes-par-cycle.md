@@ -94,8 +94,16 @@ Tout le reste route à travers ce module (source unique).
    cycle de l'enfant actif ; `parent_dashboard::_cur_period` mis en cache par CLASSE (donc par
    cycle) au lieu de par école. Checks de dates null-safe. Testé rollback (scolarité enfant
    1er cycle = compositions).
-7. **Académique promoteur** (`apps/promoter/`) + **dashboard** : agrégations par cycle.
-8. **Test complet** (voir plan de test).
+7. ✅ **Dashboard directeur** (`apps/dashboard/views.py`) : `_compute_kpis` / `_compute_class_health`
+   / `_compute_todo` agrègent sur la période active de CHAQUE cycle (`period__in`) ; `_compute_deltas`
+   et `total_collected` rendus null-safe (dates optionnelles). **Finances** (`finance/services.py`) :
+   échéancier scopé au cycle de la classe + `_due_dates_for_year` null-safe (repli segments). Promoteur = 0 site.
+8. ✅ **Test complet** : chaque lot vérifié en rollback sur Sundiata (2 cycles) — grille compo = 1er
+   cycle, bulletins/parent/dashboard/finances OK, non-régression périodes « sans cycle ».
+
+---
+**ÉTAPE A TERMINÉE** — config par cycle + branchement complet (saisie, bulletins, parent, dashboard,
+finances). Reste : Étape B (surcharge par classe) + Chantier 2 (passage d'année), tous deux post-démo.
 
 ## Fichiers impactés (audit COMPLET vérifié après Lot 4)
 Faits : `apps/schools/settings_views.py`, `apps/schools/notes_views.py`,

@@ -22,6 +22,7 @@ from apps.students.models import Student
 from apps.schools.models import (
     SchoolClass, SchoolYear, Period, Bulletin, Note, ClassSubject,
 )
+from apps.schools.periods import periods_for_cycle, resolve_active_period
 from apps.payments.models import Payment
 from apps.accounts.models import User, UserRole
 
@@ -52,11 +53,21 @@ def dashboard_view(request):
     if not active_year:
         active_year = school.school_years.order_by('-start_date').first()
 
+    # Période active PAR cycle (compositions/trimestres) — l'école peut mélanger
+    # les deux. Les agrégats académiques portent sur toutes ces périodes à la fois ;
+    # une période « représentative » sert d'entête / de deltas / de clé de cache.
+    cycle_periods = []
     active_period = None
     if active_year:
-        active_period = active_year.periods.filter(is_notes_open=True).first()
-        if not active_period:
-            active_period = active_year.periods.order_by('-order').first()
+        cycles = set(school.classes.filter(is_active=True).values_list('level', flat=True))
+        for cyc in cycles:
+            p = resolve_active_period(periods_for_cycle(active_year, cyc))
+            if p:
+                cycle_periods.append(p)
+        active_period = (
+            next((p for p in cycle_periods if p.is_notes_open), None)
+            or (cycle_periods[0] if cycle_periods else None)
+        )
 
     period_id = active_period.id if active_period else 'none'
     year_id   = active_year.id   if active_year   else 'none'
@@ -64,10 +75,10 @@ def dashboard_view(request):
 
     computed = cache.get(cache_key)
     if computed is None:
-        kpis         = _compute_kpis(school, active_period)
-        class_health = _compute_class_health(school, active_period)
+        kpis         = _compute_kpis(school, active_period, cycle_periods)
+        class_health = _compute_class_health(school, cycle_periods)
         health_sum   = _compute_health_summary(class_health)
-        todo         = _compute_todo(school, active_period, kpis)
+        todo         = _compute_todo(school, cycle_periods, kpis)
         computed = {
             'kpis': kpis, 'todo': todo,
             'pulse': _compute_pulse(school, date.today()),
@@ -116,12 +127,15 @@ def dashboard_view(request):
     })
 
 
-def _compute_kpis(school, active_period):
+def _compute_kpis(school, active_period, cycle_periods=None):
+    cycle_periods = cycle_periods or ([active_period] if active_period else [])
     student_count = Student.objects.filter(school=school, is_active=True).count()
     class_count = school.classes.filter(is_active=True).count()
     teacher_count = User.objects.filter(school=school, role=UserRole.TEACHER, is_active=True).count()
     total_collected = 0
-    if active_period:
+    # Encaissé « sur la période » : basé sur les dates ; ignoré si la période n'est
+    # pas datée (dates optionnelles) pour ne pas planter.
+    if active_period and active_period.start_date and active_period.end_date:
         result = Payment.objects.filter(
             student__school=school,
             payment_date__gte=active_period.start_date,
@@ -143,10 +157,10 @@ def _compute_kpis(school, active_period):
     payment_rate = round(float(paid_total) / float(due_total) * 100) if due_total else None
     solde_du = float(due_total) - float(paid_total)
     school_avg = None
-    if active_period:
+    if cycle_periods:
         result = Note.objects.filter(
             class_subject__school_class__school=school,
-            period=active_period, is_cancelled=False,
+            period__in=cycle_periods, is_cancelled=False,
         ).aggregate(avg=Avg('value'))
         if result['avg']:
             school_avg = round(float(result['avg']), 2)
@@ -253,7 +267,7 @@ def _compute_charts(school, active_year):
     }
 
 
-def _compute_class_health(school, active_period):
+def _compute_class_health(school, cycle_periods):
     classes = list(
         school.classes.filter(is_active=True)
         .annotate(student_count=Count('students', filter=Q(students__is_active=True)))
@@ -276,25 +290,25 @@ def _compute_class_health(school, active_period):
     fees_map = {r['enrollment__student__school_class_id']: r['due_total'] for r in accounts_by_class}
     paid_map = {r['enrollment__student__school_class_id']: r['paid_total'] for r in accounts_by_class}
     avg_map, total_bul_map, admitted_bul_map = {}, {}, {}
-    if active_period:
+    if cycle_periods:
         avg_map = {
             r['class_subject__school_class_id']: r['avg']
             for r in Note.objects.filter(
                 class_subject__school_class__in=class_ids,
-                period=active_period, is_cancelled=False,
+                period__in=cycle_periods, is_cancelled=False,
             ).values('class_subject__school_class_id').annotate(avg=Avg('value'))
         }
         total_bul_map = {
             r['school_class_id']: r['count']
             for r in Bulletin.objects.filter(
-                period=active_period, school_class__in=class_ids,
+                period__in=cycle_periods, school_class__in=class_ids,
                 is_cancelled=False, general_average__isnull=False,
             ).values('school_class_id').annotate(count=Count('id'))
         }
         admitted_bul_map = {
             r['school_class_id']: r['count']
             for r in Bulletin.objects.filter(
-                period=active_period, school_class__in=class_ids,
+                period__in=cycle_periods, school_class__in=class_ids,
                 is_cancelled=False, general_average__gte=10,
             ).values('school_class_id').annotate(count=Count('id'))
         }
@@ -431,7 +445,7 @@ def _compute_health_summary(class_health):
             'total': good + warning + critical, 'watch': watch[:5]}
 
 
-def _compute_todo(school, active_period, kpis):
+def _compute_todo(school, cycle_periods, kpis):
     """« À faire » structuré (impayés, bulletins à générer, < 8/20, salaires). Zéro N+1."""
     todo = []
     unpaid = kpis.get('unpaid_count') or 0
@@ -439,17 +453,17 @@ def _compute_todo(school, active_period, kpis):
         todo.append({'key': 'payments', 'label': 'Impayés', 'level': 'danger',
                      'value': f'{unpaid} élève{"s" if unpaid > 1 else ""}',
                      'url': reverse('payments:dashboard')})
-    if active_period:
+    if cycle_periods:
         classes = list(school.classes.filter(is_active=True)
                        .annotate(nst=Count('students', filter=Q(students__is_active=True))))
         bul = {r['school_class_id']: r['c'] for r in Bulletin.objects.filter(
-            period=active_period, school_class__in=[c.id for c in classes], is_cancelled=False,
+            period__in=cycle_periods, school_class__in=[c.id for c in classes], is_cancelled=False,
         ).values('school_class_id').annotate(c=Count('id'))}
         ready = sum(max(0, c.nst - bul.get(c.id, 0)) for c in classes)
         if ready:
             todo.append({'key': 'bulletins', 'label': 'Bulletins à générer', 'level': 'accent',
                          'value': str(ready), 'url': reverse('bulletins:main')})
-        low = Bulletin.objects.filter(period=active_period, school_class__school=school,
+        low = Bulletin.objects.filter(period__in=cycle_periods, school_class__school=school,
                                       is_cancelled=False, general_average__lt=8).count()
         if low:
             todo.append({'key': 'low', 'label': 'Élèves < 8/20', 'level': 'warning',
@@ -466,15 +480,23 @@ def _compute_todo(school, active_period, kpis):
 def _compute_deltas(school, active_year, active_period):
     """Deltas légers : élèves inscrits ce trimestre, encaissé vs période précédente."""
     deltas = {}
-    if not active_period:
+    # Deltas basés sur les dates → nécessitent une période datée (dates optionnelles).
+    if not active_period or not (active_period.start_date and active_period.end_date):
         return deltas
     deltas['students_added'] = Student.objects.filter(
         school=school, is_active=True,
         enrolled_at__date__gte=active_period.start_date,
         enrolled_at__date__lte=active_period.end_date,
     ).count()
-    prev = (active_year.periods.filter(order__lt=active_period.order).order_by('-order').first()
-            if active_year else None)
+    # Période précédente DU MÊME CYCLE, elle aussi datée.
+    prev = (
+        active_year.periods
+        .filter(education_level=active_period.education_level,
+                order__lt=active_period.order,
+                start_date__isnull=False, end_date__isnull=False)
+        .order_by('-order').first()
+        if active_year else None
+    )
     if prev:
         cur = Payment.objects.filter(student__school=school, is_cancelled=False,
                                      payment_date__gte=active_period.start_date,
