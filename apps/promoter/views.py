@@ -75,7 +75,7 @@ def promoter_synthese(request):
         r['enrollment__school_id']: r
         for r in fee_accounts_annotated(school_ids=school_ids)
         .values('enrollment__school_id')
-        .annotate(total_due=Sum('due'), total_paid=Sum('paid'))
+        .annotate(total_due=Sum('due'), total_paid=Sum('paid'), total_adj=Sum('adj'))
     }
     count_map = {
         r['school_id']: r['n']
@@ -111,16 +111,17 @@ def promoter_synthese(request):
         acct_row = acct_map.get(s.id, {})
         total_due = acct_row.get('total_due') or Decimal('0')
         total_paid = acct_row.get('total_paid') or Decimal('0')
+        net_due = total_due - (acct_row.get('total_adj') or Decimal('0'))   # net des remises
         student_count = count_map.get(s.id, 0)
         payers = (paid_map.get(s.id, {}) or {}).get('payers') or 0
-        taux = int(total_paid / total_due * 100) if total_due else 0
+        taux = int(total_paid / net_due * 100) if net_due else 0
         schools_data.append({
             'school':          s,
             'student_count':   student_count,
             'class_count':     classes_map.get(s.id, 0),
-            'total_due':       total_due,
+            'total_due':       net_due,
             'total_paid':      total_paid,
-            'unpaid':          max(total_due - total_paid, Decimal('0')),
+            'unpaid':          max(net_due - total_paid, Decimal('0')),
             'unpaid_count':    max(student_count - payers, 0),
             'paid_this_month': month_map.get(s.id, 0) or 0,
             'taux':            taux,
@@ -217,7 +218,7 @@ def promoter_ecoles(request):
         r['enrollment__school_id']: r
         for r in fee_accounts_annotated(school_ids=school_ids)
         .values('enrollment__school_id')
-        .annotate(total_due=Sum('due'), total_paid=Sum('paid'))
+        .annotate(total_due=Sum('due'), total_paid=Sum('paid'), total_adj=Sum('adj'))
     }
     count_map = {
         r['school_id']: r['n']
@@ -284,8 +285,9 @@ def promoter_ecoles(request):
         acct_row = acct_map.get(s.id, {})
         total_due = acct_row.get('total_due') or Decimal('0')
         total_paid = acct_row.get('total_paid') or Decimal('0')
+        net_due = total_due - (acct_row.get('total_adj') or Decimal('0'))   # net des remises
         student_count = count_map.get(s.id, 0)
-        taux = int(total_paid / total_due * 100) if total_due else 0
+        taux = int(total_paid / net_due * 100) if net_due else 0
         revenus = rev_map.get(s.id) or Decimal('0')
         charges = ((sal_map.get(s.id) or Decimal('0')) + (exp_map.get(s.id) or Decimal('0'))) if s.accounting_enabled else Decimal('0')
         schools_data.append({
@@ -293,9 +295,9 @@ def promoter_ecoles(request):
             'student_count':  student_count,
             'class_count':    class_map.get(s.id, 0),
             'teacher_count':  teacher_map.get(s.id, 0),
-            'total_due':      total_due,
+            'total_due':      net_due,
             'total_paid':     total_paid,
-            'unpaid':         max(total_due - total_paid, Decimal('0')),
+            'unpaid':         max(net_due - total_paid, Decimal('0')),
             'unpaid_30':      unpaid_map.get(s.id, 0),
             'absences_month': abs_map.get(s.id, 0),
             'taux':           taux,
@@ -443,6 +445,10 @@ def promoter_finances(request):
     chart_revenus = [pay_12.get((yy, mm), 0) for (yy, mm) in seq12]
     chart_charges = [sal_12.get((yy, mm), 0) + exp_12.get((yy, mm), 0) for (yy, mm) in seq12]
 
+    # Remises accordées sur tout le groupe (annuel, cumulatif) — même carte que le directeur.
+    from apps.finance.services import discount_report
+    group_discounts = discount_report(school_ids=school_ids)
+
     return render(request, 'promoter/finances.html', {
         'group':         group,
         'schools_data':  schools_data,
@@ -461,6 +467,7 @@ def promoter_finances(request):
         'chart_labels':  chart_labels,
         'chart_revenus': chart_revenus,
         'chart_charges': chart_charges,
+        'discount_report': group_discounts,
     })
 
 
