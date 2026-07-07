@@ -185,6 +185,7 @@ def _enrollment_catalog_data(school):
             'has_variants':    f.has_variants,
             'is_gender_based': f.is_gender_based,
             'default_amount':  int(f.default_amount) if f.default_amount is not None else None,
+            'applies_to_levels': list(f.applies_to_levels or []),   # [] = tous les niveaux
             'icon':            f.get_icon(),
             'variants': [
                 {'id': v.id, 'label': v.label, 'amount': int(v.amount), 'gender_key': v.gender_key}

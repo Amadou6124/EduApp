@@ -312,3 +312,74 @@ class DiscountTests(TestCase):
         rep = discount_report(school=self.school)
         self.assertEqual(rep['total'], Decimal('0'))
         self.assertEqual(rep['count'], 0)
+
+
+class FeeLevelTargetingTests(TestCase):
+    """Ciblage des frais par niveau (applies_to_levels) : vide = tous, ciblé = bon niveau
+    seulement, non rétroactif (idempotence). Voir FeeType.is_applicable."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École N', short_name='EN', city='Bamako', school_type='primary',
+        )
+        cls.year = SchoolYear.objects.create(
+            school=cls.school, name='2025-2026',
+            start_date=date(2025, 10, 1), end_date=date(2026, 6, 30), is_active=True,
+        )
+        cls.klass_pre = SchoolClass.objects.create(
+            school=cls.school, name='Maternelle', level='prescolaire',
+            annual_fee=Decimal('100000'), max_capacity=40,
+        )
+        cls.klass_fond = SchoolClass.objects.create(
+            school=cls.school, name='1A', level='fondamental_1',
+            annual_fee=Decimal('100000'), max_capacity=40,
+        )
+        # Obligatoire ciblé PRÉSCOLAIRE uniquement.
+        cls.fee_pre = FeeType.objects.create(
+            school=cls.school, name='Inscription préscolaire', category=FeeCategory.ONE_TIME,
+            default_amount=Decimal('5000'), is_mandatory=True, applies_to=AppliesTo.ALL,
+            applies_to_levels=['prescolaire'],
+        )
+        # Obligatoire TOUS niveaux (liste vide).
+        cls.fee_all = FeeType.objects.create(
+            school=cls.school, name='Assurance', category=FeeCategory.ONE_TIME,
+            default_amount=Decimal('2000'), is_mandatory=True, applies_to=AppliesTo.ALL,
+            applies_to_levels=[],
+        )
+
+    def _enroll(self, klass):
+        s = Student.objects.create(
+            school=self.school, school_class=klass, first_name='X', last_name='Y',
+            gender='F', tuition_fee=klass.annual_fee,
+        )
+        enr = StudentEnrollment.objects.create(
+            student=s, school=self.school, school_class=klass,
+            school_year=self.year, status=EnrollmentStatus.ACTIVE,
+        )
+        return build_fee_account(enr)
+
+    def test_modele_applies_to_level(self):
+        self.assertTrue(self.fee_pre.applies_to_level('prescolaire'))
+        self.assertFalse(self.fee_pre.applies_to_level('fondamental_1'))
+        self.assertTrue(self.fee_all.applies_to_level('fondamental_1'))   # vide = tous
+
+    def test_frais_cible_au_bon_niveau(self):
+        acc = self._enroll(self.klass_pre)
+        self.assertTrue(acc.debts.filter(fee_type=self.fee_pre).exists())   # préscolaire ✓
+        self.assertTrue(acc.debts.filter(fee_type=self.fee_all).exists())   # tous niveaux ✓
+
+    def test_frais_cible_absent_autre_niveau(self):
+        acc = self._enroll(self.klass_fond)
+        self.assertFalse(acc.debts.filter(fee_type=self.fee_pre).exists())  # pas préscolaire → absent
+        self.assertTrue(acc.debts.filter(fee_type=self.fee_all).exists())   # tous niveaux → présent
+
+    def test_modification_non_retroactive(self):
+        # Fiche générée SANS le frais (fondamental) ; on élargit ensuite le frais au fondamental.
+        acc = self._enroll(self.klass_fond)
+        self.assertFalse(acc.debts.filter(fee_type=self.fee_pre).exists())
+        self.fee_pre.applies_to_levels = ['prescolaire', 'fondamental_1']
+        self.fee_pre.save()
+        # build_fee_account est idempotent → la fiche existante N'EST PAS régénérée.
+        acc2 = build_fee_account(acc.enrollment)
+        self.assertFalse(acc2.debts.filter(fee_type=self.fee_pre).exists())  # inchangé

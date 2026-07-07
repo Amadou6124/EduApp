@@ -124,7 +124,8 @@ def build_fee_account(enrollment, fee_selections=None, template=None):
             .order_by('order', 'name')
         )
         for fee in mandatory_fees:
-            if not fee.applies_to_student(is_returning):
+            # Ciblage combiné : statut nouveau/ancien ET niveau de la classe (is_applicable).
+            if not fee.is_applicable(school_class, is_returning):
                 continue
             # Abonnement obligatoire → inactif (pas d'activation automatique).
             _make_debt(account, fee, is_returning, student, rentree,
@@ -293,7 +294,8 @@ def build_fee_accounts_bulk(enrollments):
                 debt_plan.append(('tuition', annual, 'Scolarité'))
 
             for fee in mandatory_fees:
-                if not fee.applies_to_student(is_ret):
+                # Ciblage combiné : statut nouveau/ancien ET niveau de la classe.
+                if not fee.is_applicable(e.school_class, is_ret):
                     continue
                 variant = None
                 if fee.has_variants:

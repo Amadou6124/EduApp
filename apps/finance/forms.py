@@ -9,6 +9,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from .models import FeeType, FeeVariant, FeeCategory
+from apps.schools.models import EducationLevel
 
 
 _SELECT = 'input-field cursor-pointer'
@@ -16,11 +17,24 @@ _SELECT = 'input-field cursor-pointer'
 
 class FeeTypeForm(forms.ModelForm):
 
+    # Niveaux concernés (cases à cocher). Validé contre EducationLevel → aucune valeur
+    # invalide possible. Aucune case = liste vide = tous les niveaux (rétro-compatible).
+    applies_to_levels = forms.MultipleChoiceField(
+        label=_('Niveaux concernés'),
+        choices=EducationLevel.choices,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'rounded border-gray-300 text-primary-600 focus:ring-primary-500/40',
+        }),
+        help_text=_('Aucune case cochée = tous les niveaux.'),
+    )
+
     class Meta:
         model = FeeType
         fields = [
             'name', 'category', 'default_amount',
             'is_mandatory', 'has_variants', 'is_gender_based',
+            'applies_to_levels',
         ]
         widgets = {
             'name': forms.TextInput(attrs={
@@ -59,6 +73,10 @@ class FeeTypeForm(forms.ModelForm):
         # donc que les catégories éditables au catalogue.
         self.fields['category'].choices = [
             (v, lbl) for v, lbl in FeeCategory.choices if v != FeeCategory.TUITION
+        ]
+        # App K-12 : on n'affiche pas « Enseignement Supérieur » (hors périmètre).
+        self.fields['applies_to_levels'].choices = [
+            (v, lbl) for v, lbl in EducationLevel.choices if v != EducationLevel.SUPERIEUR
         ]
 
     def clean(self):

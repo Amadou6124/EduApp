@@ -70,9 +70,17 @@
       get selectedClass() { return this.classes.find(c => c.id == this.selectedClassId) },
       get selectedFee() { return this.selectedClass ? this.selectedClass.annual_fee : null },
 
-      // Frais par nature
-      get optionalFees()    { return this.fees.filter(f => !f.is_mandatory) },
-      get mandatoryOneTime(){ return this.fees.filter(f => f.is_mandatory && f.category === 'one_time') },
+      // Ciblage par niveau : un frais s'applique si sa liste de niveaux est vide (= tous)
+      // ou contient le niveau de la classe choisie. Avant le choix de classe, on n'exclut pas.
+      _levelOk(fee) {
+        const lvls = fee.applies_to_levels || [];
+        if (lvls.length === 0) return true;
+        return this.selectedClass ? lvls.includes(this.selectedClass.level) : true;
+      },
+
+      // Frais par nature (filtrés par niveau → le récap reste cohérent avec le serveur)
+      get optionalFees()    { return this.fees.filter(f => !f.is_mandatory && this._levelOk(f)) },
+      get mandatoryOneTime(){ return this.fees.filter(f => f.is_mandatory && f.category === 'one_time' && this._levelOk(f)) },
 
       isSelected(fee) { return this.selectedFees.map(String).includes(String(fee.id)) },
 

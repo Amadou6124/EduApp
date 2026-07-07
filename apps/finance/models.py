@@ -17,10 +17,13 @@ Contrats de données clés (lire avant de modifier) :
   - Donc default_amount n'est renseigné QUE pour un frais simple, à montant unique,
     non-scolarité (ex. Inscription, Fournitures).
 """
+from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+from apps.schools.models import EducationLevel
 
 
 class FeeCategory(models.TextChoices):
@@ -98,6 +101,14 @@ class FeeType(models.Model):
         _('tarif réinscription (FCFA)'), max_digits=10, decimal_places=0,
         null=True, blank=True, validators=[MinValueValidator(0)],
         help_text=_('Montant réduit pour les anciens élèves. Vide = même tarif pour tous.'),
+    )
+    # Niveaux (EducationLevel) auxquels ce frais s'applique. Liste VIDE = TOUS les niveaux
+    # (rétro-compatible : les frais existants restent « tous niveaux »). Ex. « Inscription
+    # préscolaire » → ['prescolaire']. Les valeurs sont validées contre EducationLevel au
+    # formulaire (pas de faute de frappe possible). 2e axe de ciblage, indépendant de applies_to.
+    applies_to_levels = ArrayField(
+        models.CharField(max_length=20, choices=EducationLevel.choices),
+        verbose_name=_('niveaux concernés'), blank=True, default=list,
     )
     # Désactivation douce : retire le frais des nouvelles inscriptions sans casser
     # l'historique des fiches financières qui le référencent déjà.
@@ -178,6 +189,29 @@ class FeeType(models.Model):
         if self.applies_to == AppliesTo.NEW:
             return not is_returning
         return is_returning  # RETURNING
+
+    def applies_to_level(self, level):
+        """Ce frais concerne-t-il ce niveau ? Liste vide = TOUS les niveaux."""
+        return not self.applies_to_levels or level in self.applies_to_levels
+
+    def get_levels_display(self):
+        """Libellés des niveaux ciblés (' · ' séparé), ou '' si tous (liste vide)."""
+        if not self.applies_to_levels:
+            return ''
+        labels = dict(EducationLevel.choices)
+        return ' · '.join(str(labels.get(lvl, lvl)) for lvl in self.applies_to_levels)
+
+    def is_applicable(self, school_class, is_returning):
+        """Ce frais s'applique-t-il AUTOMATIQUEMENT à cette classe/élève ?
+
+        Point d'entrée UNIQUE de la génération des frais : combine (ET) les deux axes de
+        ciblage — statut nouveau/ancien (applies_to) ET niveau (applies_to_levels). Les
+        dimensions futures (programme, campus…) s'ajouteront ici, sans toucher le service.
+        """
+        return (
+            self.applies_to_student(is_returning)
+            and self.applies_to_level(school_class.level)
+        )
 
     def resolved_amount(self, is_returning, variant=None):
         """
