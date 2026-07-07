@@ -22,14 +22,14 @@ Principe de l'ordre :
 - [ ] **4. Monitoring d'erreurs** (Sentry ou équivalent) → être alerté d'un 500 avant l'appel du directeur.
 - [ ] **5. Environnement de staging** (copie de prod) pour tester avant de déployer.
 
-## 🅱️ Fiabiliser avant d'ouvrir
+## 🅱️ Fiabiliser avant d'ouvrir — ✅ FAIT (branche `feature/dossier-eleve-identite`, à merger)
 
-- [ ] **6. Audit d'isolation multi-écoles** : un directeur A ne voit JAMAIS les données de l'école B
-      (vérifier `SchoolMiddleware` + tous les querysets scopés par école).
-- [ ] **7. Tests automatisés sur les chemins critiques** : paiements/encaissement, génération des frais,
-      notes → bulletins. *(Aujourd'hui : zéro test sur ces apps.)*
-- [ ] **8. Base propre** : ouvrir la prod sur une base **vierge** (démo gardée en local). Le code a
-      été vérifié : rien ne fabrique de fausses données tout seul. Recette : [ouvrir-prod-vierge.md](ouvrir-prod-vierge.md).
+- [x] **6. Audit d'isolation multi-écoles** — prouvé par 12 tests (5 rôles, lecture/écriture/argent/fuite, multi-école légitime).
+- [x] **7. Tests automatisés** — **68 tests** (isolation, finances/**remises**, notes→bulletins, inscriptions,
+      assiduité/paie, rate-limiting login, portails, solde net). Une seule commande les lance tous.
+- [x] **8. Base propre** — la prod s'ouvre sur une base **vierge** (démo gardée en local). Vérifié : rien
+      ne fabrique de fausses données tout seul. Recette : [ouvrir-prod-vierge.md](ouvrir-prod-vierge.md).
+- [ ] **8bis. CI** (GitHub Actions) — lancer les 68 tests à chaque push. *Seul reste de ce bloc.*
 
 ## 🅲️ Pilote contrôlé (1-2 vraies écoles)
 

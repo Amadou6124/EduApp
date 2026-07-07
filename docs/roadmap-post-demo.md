@@ -5,17 +5,24 @@ Cette feuille de route liste ce qui reste à construire, priorisé, après la pr
 
 ---
 
-## ✅ Fait (session « périodes par cycle » — branche `feature/periodes-par-cycle`)
+## ✅ Fait
 
+### Périodes par cycle (A+B) — **mergé dans `main`**
 - **Périodes par cycle (Étape A)** : compositions au fondamental / trimestres au secondaire dans la
   même année ; dates optionnelles (`is_notes_open` pilote le réel) ; résolveur central
   `apps/schools/periods.py` ; branché notes, bulletins, parent, dashboard, finances.
 - **Surcharge par classe (Étape B)** : une classe peut sortir de son cycle (`Period.school_class`) ;
   résolution **classe → cycle → école** ; UI « personnaliser une classe » + « revenir au cycle ».
-- **Tranches auto-provisionnées** : 3 gabarits (Annuel/Trimestriel/Mensuel, Trimestriel défaut) créés
-  automatiquement pour toute école (`ensure_default_schedule_templates`).
-- **Écran années peaufiné** : rappel école/année, archivage rassurant, suppression réservée aux années vides.
-- **Fix dashboard** (crash date `H:i`) + **wording** « Tranches → Échéances » (onglet En retard).
+- **Tranches auto-provisionnées** : 3 gabarits (Annuel/Trimestriel/Mensuel, Trimestriel défaut).
+- **Écran années peaufiné** + fix dashboard + wording « Tranches → Échéances ».
+
+### Fiabilisation + dossier élève + remises — branche `feature/dossier-eleve-identite` (à merger)
+- **68 tests + sécurité + base propre** : isolation multi-écoles, chemins argent, notes→bulletins,
+  rate-limiting login fiabilisé. Recette prod vierge : `ouvrir-prod-vierge.md`.
+- **Identité élève** : Nom/Prénom séparés, lieu + date de naissance, **matricule** auto (AAAA-NNNN, immuable, modifiable).
+- **Responsables** (`StudentGuardian` unifié) : info seule OU accès portail ; téléphone élève retiré (donnée morte).
+- **Remises manuelles** (`FeeAdjustment`) : % ou montant, motif, financé par, **immuable** ; garde-fou anti
+  trop-perçu ; **reporting** directeur + promoteur ; solde **net** partout. (Auth élève/parent = analysé, pas construit → `decision-authentification.md`.)
 
 ---
 
