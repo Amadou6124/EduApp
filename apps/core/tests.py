@@ -1,9 +1,8 @@
 """
-Tests d'isolation multi-écoles (multi-tenant).
+Tests d'isolation multi-écoles (multi-tenant) — tous les rôles.
 
-Garantit qu'un directeur de l'école A ne peut JAMAIS accéder aux données de
-l'école B — ni par un id direct, ni en forçant la session, ni via switch-school.
-C'est la frontière de sécurité la plus sensible de l'app.
+Garantit qu'aucun rôle ne peut accéder aux données d'une école / d'un élève
+auxquels il n'a pas droit. C'est la frontière de sécurité la plus sensible.
 
 Lancer : venv/bin/python manage.py test apps.core
 """
@@ -12,16 +11,16 @@ from decimal import Decimal
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.accounts.models import User, UserRole, Membership
-from apps.schools.models import School, SchoolClass
-from apps.students.models import Student
+from apps.accounts.models import User, UserRole, Membership, StaffPermission
+from apps.schools.models import School, SchoolClass, SchoolGroup, Subject, ClassSubject
+from apps.students.models import Student, StudentGuardian
 
 
 class MultiTenantIsolationTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        # Deux écoles totalement indépendantes.
+        # ── Deux écoles totalement indépendantes ──
         cls.school_a = School.objects.create(
             name='École A', short_name='A', city='Bamako', school_type='primary',
         )
@@ -29,7 +28,7 @@ class MultiTenantIsolationTests(TestCase):
             name='École B', short_name='B', city='Bamako', school_type='primary',
         )
 
-        # Un directeur par école, rattaché via Membership (source de l'isolation).
+        # Directeur par école (via Membership = source de l'isolation).
         cls.dir_a = User.objects.create_user(
             phone_number='70000001', password='pw', role=UserRole.DIRECTOR, full_name='Dir A',
         )
@@ -39,53 +38,107 @@ class MultiTenantIsolationTests(TestCase):
         Membership.objects.create(user=cls.dir_a, school=cls.school_a, role=UserRole.DIRECTOR, is_default=True)
         Membership.objects.create(user=cls.dir_b, school=cls.school_b, role=UserRole.DIRECTOR, is_default=True)
 
-        # Une classe + un élève dans chaque école.
+        # Classes + élèves : A (classe du prof), A2 (autre classe de A), B (autre école).
         cls.class_a = SchoolClass.objects.create(
-            school=cls.school_a, name='1A', level='fondamental_1',
-            annual_fee=Decimal('100000'), max_capacity=40,
+            school=cls.school_a, name='1A', level='fondamental_1', annual_fee=Decimal('100000'), max_capacity=40,
+        )
+        cls.class_a2 = SchoolClass.objects.create(
+            school=cls.school_a, name='2A', level='fondamental_1', annual_fee=Decimal('100000'), max_capacity=40,
         )
         cls.class_b = SchoolClass.objects.create(
-            school=cls.school_b, name='1B', level='fondamental_1',
-            annual_fee=Decimal('100000'), max_capacity=40,
+            school=cls.school_b, name='1B', level='fondamental_1', annual_fee=Decimal('100000'), max_capacity=40,
         )
         cls.student_a = Student.objects.create(
-            school=cls.school_a, school_class=cls.class_a, full_name='Élève A',
-            tuition_fee=Decimal('100000'),
+            school=cls.school_a, school_class=cls.class_a, full_name='Élève A', tuition_fee=Decimal('100000'),
+        )
+        cls.student_a2 = Student.objects.create(
+            school=cls.school_a, school_class=cls.class_a2, full_name='Élève A2', tuition_fee=Decimal('100000'),
         )
         cls.student_b = Student.objects.create(
-            school=cls.school_b, school_class=cls.class_b, full_name='Élève B',
-            tuition_fee=Decimal('100000'),
+            school=cls.school_b, school_class=cls.class_b, full_name='Élève B', tuition_fee=Decimal('100000'),
         )
 
-    def setUp(self):
-        # Connecté en directeur de l'école A pour tous les tests.
-        self.client.force_login(self.dir_a)
+        # PARENT lié uniquement à l'élève A.
+        cls.parent = User.objects.create_user(
+            phone_number='72000001', password='pw', role=UserRole.PARENT, full_name='Parent A',
+        )
+        StudentGuardian.objects.create(guardian=cls.parent, student=cls.student_a, relationship='père')
 
+        # ENSEIGNANT de l'école A, assigné à la classe A uniquement (pas A2).
+        cls.teacher = User.objects.create_user(
+            phone_number='73000001', password='pw', role=UserRole.TEACHER, full_name='Prof A',
+        )
+        Membership.objects.create(user=cls.teacher, school=cls.school_a, role=UserRole.TEACHER, is_default=True)
+        subject = Subject.objects.create(school=cls.school_a, name='Maths')
+        ClassSubject.objects.create(school_class=cls.class_a, subject=subject, teacher=cls.teacher, is_active=True)
+
+        # PROMOTEUR propriétaire d'un groupe contenant SEULEMENT l'école A.
+        cls.promoter = User.objects.create_user(
+            phone_number='76000001', password='pw', role=UserRole.PROMOTER, full_name='Promo',
+        )
+        group = SchoolGroup.objects.create(name='Groupe Promo', owner=cls.promoter)
+        cls.school_a.group = group
+        cls.school_a.save(update_fields=['group'])
+
+        # STAFF de l'école A SANS permission comptabilité.
+        cls.staff = User.objects.create_user(
+            phone_number='74000001', password='pw', role=UserRole.STAFF, full_name='Staff A',
+        )
+        staff_m = Membership.objects.create(user=cls.staff, school=cls.school_a, role=UserRole.STAFF, is_default=True)
+        StaffPermission.objects.create(user=cls.staff, membership=staff_m, can_manage_accounting=False)
+
+    # ── DIRECTEUR ──────────────────────────────────────────────
     def test_directeur_voit_son_propre_eleve(self):
+        self.client.force_login(self.dir_a)
         r = self.client.get(reverse('students:detail', args=[self.student_a.id]))
         self.assertEqual(r.status_code, 200)
 
     def test_directeur_ne_voit_pas_eleve_autre_ecole(self):
-        # L'élève B (école B) doit être introuvable pour le directeur A → 404, jamais 200.
+        self.client.force_login(self.dir_a)
         r = self.client.get(reverse('students:detail', args=[self.student_b.id]))
         self.assertEqual(r.status_code, 404)
 
     def test_switch_school_sans_membership_interdit(self):
-        # Basculer sur l'école B (aucun membership) doit être refusé → 403.
-        # (La vue exige un POST ; un GET renverrait 405.)
+        self.client.force_login(self.dir_a)
         r = self.client.post(reverse('accounts:switch-school', args=[self.school_b.id]))
         self.assertEqual(r.status_code, 403)
 
     def test_session_forgee_est_ignoree(self):
-        # Forcer active_school_id sur l'école B en session ne doit rien débloquer :
-        # get_school valide contre les Memberships et retombe sur l'école A.
+        self.client.force_login(self.dir_a)
         session = self.client.session
         session['active_school_id'] = self.school_b.id
         session.save()
+        self.assertEqual(self.client.get(reverse('students:detail', args=[self.student_b.id])).status_code, 404)
+        self.assertEqual(self.client.get(reverse('students:detail', args=[self.student_a.id])).status_code, 200)
 
-        # L'élève B reste inaccessible…
-        r_b = self.client.get(reverse('students:detail', args=[self.student_b.id]))
-        self.assertEqual(r_b.status_code, 404)
-        # …et l'élève A reste bien accessible.
-        r_a = self.client.get(reverse('students:detail', args=[self.student_a.id]))
-        self.assertEqual(r_a.status_code, 200)
+    # ── PARENT ─────────────────────────────────────────────────
+    def test_parent_ne_voit_que_ses_enfants(self):
+        from apps.parent.children import parent_students
+        kids = parent_students(self.parent)
+        self.assertIn(self.student_a, kids)       # son enfant
+        self.assertNotIn(self.student_b, kids)    # jamais l'enfant d'un autre
+        self.assertNotIn(self.student_a2, kids)   # ni un autre élève non lié
+
+    # ── ENSEIGNANT ─────────────────────────────────────────────
+    def test_enseignant_ne_voit_pas_eleve_hors_ses_classes(self):
+        self.client.force_login(self.teacher)
+        # élève d'une classe qu'il n'enseigne pas (même école) → 403
+        r = self.client.get(reverse('teacher:student-detail', args=[self.student_a2.id]))
+        self.assertEqual(r.status_code, 403)
+        # son propre élève (classe qu'il enseigne) → 200
+        r_ok = self.client.get(reverse('teacher:student-detail', args=[self.student_a.id]))
+        self.assertEqual(r_ok.status_code, 200)
+
+    # ── PROMOTEUR ──────────────────────────────────────────────
+    def test_promoteur_ne_voit_que_ses_ecoles(self):
+        self.client.force_login(self.promoter)
+        r_a = self.client.get(reverse('promoter:school-detail', args=[self.school_a.id]))
+        self.assertEqual(r_a.status_code, 200)                 # école de son groupe
+        r_b = self.client.get(reverse('promoter:school-detail', args=[self.school_b.id]))
+        self.assertEqual(r_b.status_code, 404)                 # école hors de son groupe
+
+    # ── STAFF à permissions restreintes ────────────────────────
+    def test_staff_sans_permission_compta_bloque(self):
+        self.client.force_login(self.staff)
+        r = self.client.get(reverse('accounting:dashboard'))
+        self.assertEqual(r.status_code, 403)
