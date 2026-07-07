@@ -3,6 +3,13 @@
 Produit **K-12 pour le Mali** (Fondamental + Secondaire). Le supérieur (LMD) est **hors périmètre** assumé.
 Cette feuille de route liste ce qui reste à construire, priorisé, après la première démo directeur.
 
+> ## ⚠️ PRINCIPE — ne pas se noyer avant le lancement
+> **Avant de déployer, on ne construit QUE ce qui bloque le déploiement ou la vraie utilisation.**
+> Tout le reste (automatisations, cas avancés, confort) = **APRÈS lancement**. L'ordre de mise en
+> production est dans [go-live-checklist.md](go-live-checklist.md) — c'est **lui** qui pilote, pas
+> l'envie d'ajouter des fonctionnalités. Un enrichissement qui n'empêche pas une école d'utiliser
+> l'app au quotidien peut attendre.
+
 ---
 
 ## ✅ Fait
@@ -16,7 +23,7 @@ Cette feuille de route liste ce qui reste à construire, priorisé, après la pr
 - **Tranches auto-provisionnées** : 3 gabarits (Annuel/Trimestriel/Mensuel, Trimestriel défaut).
 - **Écran années peaufiné** + fix dashboard + wording « Tranches → Échéances ».
 
-### Fiabilisation + dossier élève + remises — branche `feature/dossier-eleve-identite` (à merger)
+### Fiabilisation + dossier élève + remises — **mergé dans `main`**
 - **68 tests + sécurité + base propre** : isolation multi-écoles, chemins argent, notes→bulletins,
   rate-limiting login fiabilisé. Recette prod vierge : `ouvrir-prod-vierge.md`.
 - **Identité élève** : Nom/Prénom séparés, lieu + date de naissance, **matricule** auto (AAAA-NNNN, immuable, modifiable).
@@ -24,23 +31,40 @@ Cette feuille de route liste ce qui reste à construire, priorisé, après la pr
 - **Remises manuelles** (`FeeAdjustment`) : % ou montant, motif, financé par, **immuable** ; garde-fou anti
   trop-perçu ; **reporting** directeur + promoteur ; solde **net** partout. (Auth élève/parent = analysé, pas construit → `decision-authentification.md`.)
 
+### Ciblage des frais par niveau + polish — branche `feature/chantiers-suivants` (poussée, à merger)
+- **Ciblage des frais par niveau** (`FeeType.applies_to_levels`) : un frais annexe cible certains niveaux
+  (vide = tous, rétro-compatible) ; `is_applicable()` combine niveau ET nouveau/ancien ; non-rétroactif ;
+  cases à cocher + badge + options d'inscription filtrées par classe. 72 tests.
+- Retrait de l'avatar redondant sur l'accueil enseignant.
+
 ---
 
 ## 🔴 Essentiel (le produit le réclame)
 
-### 1. Passage d'année (Chantier 2)
+### Passage d'année (Chantier 2)
 L'infra existe (`StudentEnrollment` est par année, statut `Passé/Diplômé`) mais **le flux de promotion
 N+1 n'est pas construit**. Sans lui, impossible d'« avancer » proprement d'une année à l'autre.
 - Promouvoir chaque inscription ACTIVE → classe supérieure (ou Diplômé pour la dernière), figer l'ancienne.
 - Créer l'année N+1 + ses périodes, reporter les soldes impayés (⚠ les frais ne sont pas rattachés à l'année).
 - Gros flux à haut risque → à faire proprement (maquette → validation → code → test).
+- *Ne mord qu'à la bascule (juin) → à finir avant, mais ne bloque pas le premier déploiement.*
 
-### 2. Ciblage des frais par cycle/niveau
-Aujourd'hui « obligatoire = tout le monde » (seule distinction : nouveau/ancien). Résultat : « Inscription
-préscolaire » tombe sur une 1ère année. **Plan déjà écrit** (même schéma que les périodes) :
-- `FeeType.applies_to_levels` (vide = tous, rétro-compatible) ; filtre à la génération des frais ; UI
-  « niveaux concernés » + badge dans le catalogue.
-- *NB : la scolarité est déjà par classe (montants variables par niveau OK) — ce chantier concerne les frais annexes.*
+---
+
+## ⏸️ APRÈS LANCEMENT (enrichissements — ne pas s'y noyer avant)
+
+Ces chantiers **n'empêchent pas** une école d'utiliser l'app au quotidien. On les prend **après** que
+l'app tourne en vrai, école par école, selon la demande réelle.
+
+### Remises — niveau 2 (le niveau 1 manuel est fait et suffit pour ouvrir)
+6 briques **indépendantes**, à activer une par une si le besoin vient :
+- **Fratrie automatique** : détecter les frères/sœurs (responsables partagés) + appliquer la remise
+  auto (2ᵉ enfant −X %…) + recalcul dynamique. *Risque argent → à faire prudemment.*
+- **Avoirs / remboursements** : au lieu de refuser un trop-perçu, créer un crédit (remboursable / reportable).
+- **Validation à deux** : le caissier propose, le directeur approuve (états brouillon/approuvé). *Grandes écoles.*
+- **Plafond de cumul** : limite max de remise par élève (ex. 30 %).
+- **Motifs configurables** par école (aujourd'hui « Autre + justification » suffit).
+- **Pénalités de retard** : l'inverse d'une remise. *Le modèle est déjà prêt (`FeeAdjustment.type`) → le plus rapide.*
 
 ---
 
