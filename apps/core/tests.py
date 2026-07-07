@@ -169,3 +169,27 @@ class MultiTenantIsolationTests(TestCase):
         r = self.client.get(reverse('parent:scolarite') + f'?child={self.student_b.id}')
         self.assertNotContains(r, 'Bintou')   # jamais l'enfant non lié (statut 200 vérifié aussi)
         self.assertContains(r, 'Awa')         # bien son propre enfant
+
+    # ── Multi-école LÉGITIME (isolation ≠ « une seule école ») ──
+    def test_multi_ecole_legitime(self):
+        # Un utilisateur PEUT appartenir à 2 écoles : directeur en A + enseignant en B.
+        multi = User.objects.create_user(
+            phone_number='75000001', password='pw', role=UserRole.DIRECTOR, full_name='Multi',
+        )
+        Membership.objects.create(user=multi, school=self.school_a, role=UserRole.DIRECTOR, is_default=True)
+        Membership.objects.create(user=multi, school=self.school_b, role=UserRole.TEACHER)
+
+        # Une 3e école où il n'a AUCUNE appartenance.
+        school_c = School.objects.create(
+            name='École C', short_name='C', city='Bamako', school_type='primary',
+        )
+
+        self.client.force_login(multi)
+
+        # Basculer vers B (où il est enseignant) → AUTORISÉ (pas 403).
+        r_b = self.client.post(reverse('accounts:switch-school', args=[self.school_b.id]))
+        self.assertNotEqual(r_b.status_code, 403)
+
+        # …mais une école dont il n'est PAS membre reste interdite → 403.
+        r_c = self.client.post(reverse('accounts:switch-school', args=[school_c.id]))
+        self.assertEqual(r_c.status_code, 403)
