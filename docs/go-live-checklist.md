@@ -28,7 +28,8 @@ Principe de l'ordre :
       (vérifier `SchoolMiddleware` + tous les querysets scopés par école).
 - [ ] **7. Tests automatisés sur les chemins critiques** : paiements/encaissement, génération des frais,
       notes → bulletins. *(Aujourd'hui : zéro test sur ces apps.)*
-- [ ] **8. Base propre** : nettoyer les données démo (frais d'exemple, élèves de test) ou repartir neuf.
+- [ ] **8. Base propre** : ouvrir la prod sur une base **vierge** (démo gardée en local). Le code a
+      été vérifié : rien ne fabrique de fausses données tout seul. Recette : [ouvrir-prod-vierge.md](ouvrir-prod-vierge.md).
 
 ## 🅲️ Pilote contrôlé (1-2 vraies écoles)
 
