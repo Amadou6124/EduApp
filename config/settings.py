@@ -159,6 +159,19 @@ LOGOUT_REDIRECT_URL = '/login/'
 SESSION_COOKIE_AGE = 8 * 60 * 60        # 8 heures en secondes
 SESSION_SAVE_EVERY_REQUEST = True        # réinitialise le timer à chaque requête
 
+# ── Cache — table Postgres partagée entre workers ─────────────────────────────
+# Indispensable au rate-limiting du login (apps/accounts/views.py) : le cache par
+# défaut (LocMemCache) est propre à chaque worker gunicorn — les compteurs d'échecs
+# ne seraient pas partagés, ni conservés au redémarrage. DatabaseCache réutilise le
+# Postgres existant (zéro infra en plus). La table est créée par `createcachetable`
+# (build.sh), et automatiquement par le test runner.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'eduapp_cache',
+    }
+}
+
 # Sécurité HTTPS — activée uniquement en production
 if not DEBUG:
     # Derrière un proxy HTTPS (Render, PythonAnywhere, ngrok…), Django voit du HTTP :

@@ -89,7 +89,7 @@ def login_view(request):
         return redirect(_post_login_url(request, request.user))
 
     ip    = _client_ip(request)
-    phone = request.POST.get('username', '').strip()
+    phone = request.POST.get('phone_number', '').strip()
 
     # Verrou par IP ou par numéro de compte (résistant au spoofing X-Forwarded-For)
     locked = _is_locked(f'ip_{ip}') or (phone and _is_locked(f'phone_{phone}'))
