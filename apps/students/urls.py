@@ -20,6 +20,7 @@ urlpatterns = [
     path('<int:student_id>/notes/',  views.student_notes_period,     name='notes-period'),
     path('<int:student_id>/edit/',                          views.student_update,        name='update'),
     path('<int:student_id>/withdraw/',                      views.student_withdraw,      name='withdraw'),
+    path('<int:student_id>/reactivate/',                    views.student_reactivate,    name='reactivate'),
     path('<int:student_id>/observations/<int:obs_id>/read/', views.observation_mark_read, name='obs-mark-read'),
     path('<int:student_id>/observations/<int:obs_id>/share/', views.observation_share_parent, name='obs-share-parent'),
     path('<int:student_id>/guardians/search/',                   views.guardian_search, name='guardian-search'),

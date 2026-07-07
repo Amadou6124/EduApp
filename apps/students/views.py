@@ -51,9 +51,10 @@ def _students_qs(school, status='all', class_id=None, no_parent=False):
     `status` ∈ {paid,partial,unpaid,no_fee} ; 'all' = pas de filtre statut.
     """
     from apps.finance.services import annotate_students_with_fees
+    # status 'archived' = les élèves retirés (is_active=False) ; sinon les actifs.
     qs = (
         Student.objects
-        .filter(school=school, is_active=True)
+        .filter(school=school, is_active=(status != 'archived'))
         .select_related('school_class')
         .order_by('last_name', 'first_name')
     )
@@ -152,7 +153,7 @@ def student_list(request):
         'school':        school,
         'status_pills': [
             ('all', 'Tous'), ('paid', 'Soldé'), ('partial', 'Partiel'),
-            ('unpaid', 'Impayé'), ('no_fee', 'Sans fiche'),
+            ('unpaid', 'Impayé'), ('no_fee', 'Sans fiche'), ('archived', 'Archivés'),
         ],
     })
     return render(request, 'students/student_list.html', ctx)
@@ -700,21 +701,9 @@ def student_withdraw(request, student_id):
         })
         return resp
 
-    from apps.schools.models import SchoolYear
-    active_year = SchoolYear.objects.filter(school=school, is_active=True).first()
-
-    with transaction.atomic():
-        StudentEnrollment.objects.create(
-            student=student,
-            school=school,
-            school_class=student.school_class,
-            school_year=active_year,
-            status=status,
-            enrolled_at=student.enrolled_at.date() if student.enrolled_at else None,
-            ended_at=timezone.now().date(),
-        )
-        student.is_active = False
-        student.save(update_fields=['is_active'])
+    # Archivage = TRANSITION de l'inscription active (jamais une nouvelle ligne) + is_active,
+    # atomiquement, via l'unique méthode autorisée. Voir Student.archive.
+    student.archive(status)
 
     invalidate_dashboard_cache(school)
 
@@ -725,6 +714,33 @@ def student_withdraw(request, student_id):
     )
     resp = HttpResponse(status=204)
     resp['HX-Redirect'] = reverse('students:list')
+    return resp
+
+
+@login_required
+@require_http_methods(['POST'])
+def student_reactivate(request, student_id):
+    """Réactive un élève archivé (annule un retrait) : inscription → active + is_active=True.
+    Refusé pour un diplômé (retour = nouvelle inscription). Réservé au directeur."""
+    school = get_school(request)
+    if request.role != UserRole.DIRECTOR and not request.user.is_superuser:
+        return HttpResponse(status=403)
+
+    student = get_object_or_404(Student, id=student_id, school=school, is_active=False)
+    reactivated = student.reactivate()
+    invalidate_dashboard_cache(school)
+
+    if not reactivated:
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': 'Un élève diplômé ne se réactive pas — créez une nouvelle inscription.',
+            'type': 'error',
+        }})
+        return resp
+
+    messages.success(request, f'{student.full_name} réactivé(e).')
+    resp = HttpResponse(status=204)
+    resp['HX-Redirect'] = reverse('students:list') + '?status=archived'
     return resp
 
 

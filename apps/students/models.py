@@ -1,5 +1,5 @@
 import random
-from django.db import models
+from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
 
@@ -236,6 +236,50 @@ class Student(models.Model):
     def check_student_password(self, raw):
         from django.contrib.auth.hashers import check_password
         return bool(self.password) and check_password(raw, self.password)
+
+    # ── Cycle de vie : archivage / réactivation ───────────────────────────────
+    # SEUL point autorisé à toucher is_active. Ces 2 méthodes changent le flag ET le statut
+    # de l'inscription ENSEMBLE, atomiquement → impossible que le flag et le statut divergent
+    # (la cause du bug d'archivage : is_active muté à la main, indépendamment de l'inscription).
+    def archive(self, status, ended_at=None):
+        """Archive l'élève : l'inscription ACTIVE (année active) passe au `status` donné
+        (transféré / diplômé / retiré) + `ended_at`, et is_active=False. On ne CRÉE jamais
+        d'inscription (une seule par élève et par année → on mute son statut). Idempotent."""
+        from django.utils import timezone
+        ended_at = ended_at or timezone.now().date()
+        with transaction.atomic():
+            enr = (
+                self.enrollments.filter(status=EnrollmentStatus.ACTIVE)
+                .order_by('-school_year__start_date').first()
+            )
+            if enr is not None:
+                enr.status = status
+                enr.ended_at = ended_at
+                enr.save(update_fields=['status', 'ended_at'])
+            if self.is_active:
+                self.is_active = False
+                self.save(update_fields=['is_active'])
+
+    def reactivate(self):
+        """Annule un retrait : l'inscription archivée la plus récente repasse ACTIVE +
+        is_active=True. REFUSÉ si elle est GRADUATED (diplômé = terminal : un retour se fait
+        par une NOUVELLE inscription, pas une réactivation). Retourne True si réactivé, sinon
+        False. Idempotent."""
+        with transaction.atomic():
+            enr = (
+                self.enrollments.exclude(status=EnrollmentStatus.ACTIVE)
+                .order_by('-school_year__start_date', '-created_at').first()
+            )
+            if enr is not None and enr.status == EnrollmentStatus.GRADUATED:
+                return False
+            if enr is not None:
+                enr.status = EnrollmentStatus.ACTIVE
+                enr.ended_at = None
+                enr.save(update_fields=['status', 'ended_at'])
+            if not self.is_active:
+                self.is_active = True
+                self.save(update_fields=['is_active'])
+            return True
 
 
 class StudentGuardian(models.Model):

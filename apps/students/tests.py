@@ -287,3 +287,89 @@ class ResponsablesTests(TestCase):
         self.assertTrue(g.is_primary)
         self.assertFalse(g.has_portal_access)
         self.assertTrue(student.matricule)      # matricule auto attribué
+
+
+class StudentLifecycleTests(TestCase):
+    """Archivage / réactivation : transition de l'inscription (jamais de doublon),
+    aller-retour, diplômé terminal, idempotence, et le withdraw qui ne plante plus.
+    Voir Student.archive / reactivate."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École L', short_name='EL', city='Bamako', school_type='primary',
+        )
+        cls.year = SchoolYear.objects.create(
+            school=cls.school, name='2025-2026',
+            start_date=date(2025, 10, 1), end_date=date(2026, 6, 30), is_active=True,
+        )
+        cls.klass = SchoolClass.objects.create(
+            school=cls.school, name='1A', level='fondamental_1',
+            annual_fee=Decimal('100000'), max_capacity=40,
+        )
+
+    def _enrolled(self, first='A', last='X'):
+        s = Student.objects.create(
+            school=self.school, school_class=self.klass,
+            first_name=first, last_name=last, tuition_fee=Decimal('0'),
+        )
+        ensure_active_enrollment(s)   # inscription ACTIVE (comme à la vraie inscription)
+        return s
+
+    def test_archive_transition_sans_doublon(self):
+        s = self._enrolled()
+        s.archive(EnrollmentStatus.WITHDRAWN)
+        self.assertFalse(s.is_active)
+        enrs = StudentEnrollment.objects.filter(student=s)
+        self.assertEqual(enrs.count(), 1)                        # PAS de doublon
+        self.assertEqual(enrs.first().status, EnrollmentStatus.WITHDRAWN)
+        self.assertIsNotNone(enrs.first().ended_at)
+
+    def test_archive_ne_plante_pas(self):
+        # Bug d'origine : archiver un élève normalement inscrit levait IntegrityError.
+        s = self._enrolled()
+        try:
+            s.archive(EnrollmentStatus.TRANSFERRED)
+        except Exception as e:                       # noqa: BLE001
+            self.fail(f'archive() a planté : {e}')
+
+    def test_reactivate_aller_retour(self):
+        s = self._enrolled()
+        s.archive(EnrollmentStatus.WITHDRAWN)
+        self.assertTrue(s.reactivate())
+        self.assertTrue(s.is_active)
+        enr = StudentEnrollment.objects.get(student=s)
+        self.assertEqual(enr.status, EnrollmentStatus.ACTIVE)    # retour à ACTIVE
+        self.assertIsNone(enr.ended_at)
+
+    def test_reactivate_diplome_bloque(self):
+        s = self._enrolled()
+        s.archive(EnrollmentStatus.GRADUATED)
+        self.assertFalse(s.reactivate())                        # diplômé = terminal
+        self.assertFalse(s.is_active)                           # reste archivé
+
+    def test_idempotence(self):
+        s = self._enrolled()
+        s.archive(EnrollmentStatus.WITHDRAWN)
+        s.archive(EnrollmentStatus.WITHDRAWN)                   # 2e fois → pas d'erreur
+        self.assertEqual(StudentEnrollment.objects.filter(student=s).count(), 1)
+
+    def test_withdraw_view_ne_plante_plus(self):
+        # Intégration : le bouton « Retirer » (500 avant le fix) fonctionne.
+        from django.urls import reverse
+        from apps.accounts.models import User, UserRole, Membership
+        director = User.objects.create_user(
+            phone_number='70000070', password='pw', role=UserRole.DIRECTOR, full_name='Dir',
+        )
+        Membership.objects.create(
+            user=director, school=self.school, role=UserRole.DIRECTOR, is_default=True,
+        )
+        s = self._enrolled()
+        self.client.force_login(director)
+        session = self.client.session
+        session['active_school_id'] = self.school.id
+        session.save()
+        resp = self.client.post(reverse('students:withdraw', args=[s.id]), {'status': 'withdrawn'})
+        self.assertIn(resp.status_code, (200, 204))             # plus de 500
+        s.refresh_from_db()
+        self.assertFalse(s.is_active)

@@ -38,7 +38,18 @@
   </td>
 
   <td class="text-right">
-    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 inline-block align-middle"></i>
+    {% if not student.is_active %}
+      <form hx-post="{% url 'students:reactivate' student.id %}" onclick="event.stopPropagation()"
+            hx-confirm="Réactiver {{ student.full_name }} ?" class="inline">
+        {% csrf_token %}
+        <button type="submit"
+                class="text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-1 rounded-lg hover:bg-primary-50 whitespace-nowrap">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline align-middle"></i> Réactiver
+        </button>
+      </form>
+    {% else %}
+      <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 inline-block align-middle"></i>
+    {% endif %}
   </td>
 
 </tr>
