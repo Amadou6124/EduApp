@@ -220,7 +220,6 @@ def _create_responsable_from_post(request, student, *, is_primary=False, prefix=
     name  = request.POST.get(f'{prefix}_name', '').strip()
     phone = request.POST.get(f'{prefix}_phone', '').strip()
     rel   = request.POST.get(f'{prefix}_relationship', '').strip()
-    email = request.POST.get(f'{prefix}_email', '').strip()
     portal = request.POST.get(f'{prefix}_portal') == 'on'
     if not (name or phone):
         return None
@@ -239,7 +238,7 @@ def _create_responsable_from_post(request, student, *, is_primary=False, prefix=
     valid_rel = rel if rel in {c[0] for c in ParentRelationship.choices} else ''
     sg = StudentGuardian.objects.create(
         student=student, guardian=guardian_user,
-        full_name=name, phone=phone, email=email,
+        full_name=name, phone=phone,
         relationship=valid_rel, is_primary=is_primary,
     )
     if phone:

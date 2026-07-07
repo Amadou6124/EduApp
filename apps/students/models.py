@@ -261,7 +261,6 @@ class StudentGuardian(models.Model):
     )
     full_name = models.CharField(_('nom du responsable'), max_length=200, blank=True)
     phone     = models.CharField(_('téléphone'), max_length=20, blank=True)
-    email     = models.EmailField(_('e-mail'), blank=True)
     relationship = models.CharField(
         _('lien de parenté'), max_length=10,
         choices=ParentRelationship.choices, blank=True,
