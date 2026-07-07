@@ -38,15 +38,9 @@
               <label class="block text-xs font-medium text-gray-600 mb-1">Nom <span class="text-red-400">*</span></label>
               <input name="name" value="{{ subject.name }}" required maxlength="100" class="input-field w-full text-sm">
             </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Abréviation <span class="text-gray-400 font-normal">auto</span></label>
-                <input name="short_name" value="{{ subject.short_name }}" maxlength="10" class="input-field w-full text-sm">
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Couleur <span class="text-gray-400 font-normal">auto</span></label>
-                <input name="color" value="{{ subject.color }}" maxlength="7" x-bind:style="'background-color:'+$el.value" class="input-field w-full text-sm text-white">
-              </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Abréviation <span class="text-gray-400 font-normal">auto si vide</span></label>
+              <input name="short_name" value="{{ subject.short_name }}" maxlength="10" class="input-field w-full text-sm">
             </div>
             <div class="flex gap-2 pt-1">
               <button type="submit" class="btn-primary flex-1 justify-center text-sm">Enregistrer</button>
