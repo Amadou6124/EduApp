@@ -16,7 +16,9 @@ from apps.accounts.models import User, UserRole
 from apps.schools.models import School, SchoolYear, SchoolClass
 from apps.students.models import Student, StudentEnrollment, EnrollmentStatus
 from apps.finance.models import FeeType, FeeVariant, FeeCategory, AppliesTo, FeeDebtKind
-from apps.finance.services import build_fee_account, allocate_payment
+from apps.finance.services import (
+    build_fee_account, allocate_payment, student_fee_summary, fee_accounts_annotated,
+)
 from apps.payments.models import Payment
 
 
@@ -109,3 +111,57 @@ class FinanceTests(TestCase):
         allocate_payment(self._pay('50000'), self._tuition())
         insc = self.account.debts.get(fee_type=self.inscription_fee)
         self.assertEqual(insc.installments.first().amount_allocated(), Decimal('0'))
+
+
+class SoldeCoherenceTests(TestCase):
+    """Cohérence du solde : la source unique (student_fee_summary / fee_accounts_annotated)
+    consommée par l'admin, le parent ET le promoteur donne le MÊME chiffre correct."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École Test', short_name='ET', city='Bamako', school_type='primary',
+        )
+        cls.year = SchoolYear.objects.create(
+            school=cls.school, name='2025-2026',
+            start_date=date(2025, 10, 1), end_date=date(2026, 6, 30), is_active=True,
+        )
+        cls.director = User.objects.create_user(
+            phone_number='70000001', password='pw', role=UserRole.DIRECTOR, full_name='Dir',
+        )
+        cls.klass = SchoolClass.objects.create(
+            school=cls.school, name='1A', level='fondamental_1',
+            annual_fee=Decimal('244000'), max_capacity=40,
+        )
+        cls.student = Student.objects.create(
+            school=cls.school, school_class=cls.klass, full_name='Awa Traore',
+            gender='F', tuition_fee=Decimal('244000'),
+        )
+        enr = StudentEnrollment.objects.create(
+            student=cls.student, school=cls.school, school_class=cls.klass,
+            school_year=cls.year, status=EnrollmentStatus.ACTIVE,
+        )
+        cls.account = build_fee_account(enr)   # scolarité 244000 seule (pas de catalogue)
+
+    def _pay_partial(self, amount):
+        tuition = self.account.debts.get(kind=FeeDebtKind.TUITION)
+        p = Payment.objects.create(
+            student=self.student, amount=Decimal(amount), payment_date=date.today(),
+            payment_method='cash', collected_by=self.director,
+        )
+        allocate_payment(p, tuition)
+
+    def test_solde_correct_apres_paiement(self):
+        self._pay_partial('100000')
+        s = student_fee_summary(self.student)
+        self.assertEqual(s['due'], Decimal('244000'))
+        self.assertEqual(s['paid'], Decimal('100000'))
+        self.assertEqual(s['balance'], Decimal('144000'))
+        self.assertEqual(s['status'], 'partial')
+
+    def test_agregat_promoteur_coherent(self):
+        # Le total dû/versé (fee_accounts_annotated, base du dashboard/promoteur) = le solde élève.
+        self._pay_partial('100000')
+        accounts = list(fee_accounts_annotated(school=self.school))
+        self.assertEqual(sum(a.due for a in accounts), Decimal('244000'))
+        self.assertEqual(sum(a.paid for a in accounts), Decimal('100000'))
