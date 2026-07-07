@@ -18,7 +18,7 @@ Contrats de données clés (lire avant de modifier) :
     non-scolarité (ex. Inscription, Fournitures).
 """
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -398,11 +398,14 @@ class StudentFeeAccount(models.Model):
     def total_due(self):
         return sum((d.total_amount for d in self.active_debts()), _D('0'))
 
+    def total_adjustments(self):
+        return sum((d.adjustments_total() for d in self.active_debts()), _D('0'))
+
     def total_paid(self):
         return sum((d.amount_paid() for d in self.active_debts()), _D('0'))
 
     def total_balance(self):
-        return self.total_due() - self.total_paid()
+        return self.total_due() - self.total_adjustments() - self.total_paid()
 
 
 class FeeDebt(models.Model):
@@ -463,16 +466,129 @@ class FeeDebt(models.Model):
         )
         return total or _D('0')
 
+    def adjustments_total(self):
+        """Σ des remises actives (non annulées) — valeurs FCFA figées à la création."""
+        return sum(
+            (a.resolved_amount for a in self.adjustments.all() if not a.is_cancelled),
+            _D('0'),
+        )
+
+    def net_due(self):
+        """Montant réellement dû = tarif officiel (snapshot INTOUCHABLE) − remises actives."""
+        return self.total_amount - self.adjustments_total()
+
     def balance(self):
-        return self.total_amount - self.amount_paid()
+        return self.net_due() - self.amount_paid()
 
     def status(self):
+        net  = self.net_due()
         paid = self.amount_paid()
+        if net <= 0 or paid >= net:
+            return DebtStatus.PAID
         if paid <= 0:
             return DebtStatus.UNPAID
-        if paid >= self.total_amount:
-            return DebtStatus.PAID
         return DebtStatus.PARTIAL
+
+
+class AdjustmentType(models.TextChoices):
+    DISCOUNT = 'discount', _('Remise')
+    # Prévus pour l'avenir (pas activés au niveau 1) : PENALTY, CORRECTION, WAIVER.
+
+
+class AdjustmentMotif(models.TextChoices):
+    FRATRIE  = 'fratrie',  _('Fratrie')
+    STAFF    = 'staff',    _('Enfant du personnel')
+    MERIT    = 'merit',    _('Bourse / mérite')
+    SOCIAL   = 'social',   _('Cas social')
+    RELATION = 'relation', _('Gratuité famille / relation')
+    GIRL     = 'girl',     _('Scolarisation fille')
+    EARLY    = 'early',    _('Paiement anticipé')
+    GESTURE  = 'gesture',  _('Geste commercial')
+    OTHER    = 'other',    _('Autre')
+
+
+class FundingSource(models.TextChoices):
+    SCHOOL   = 'school',   _('École')
+    DONOR    = 'donor',    _('Donateur')
+    PROMOTER = 'promoter', _('Promoteur')
+
+
+class FeeAdjustment(models.Model):
+    """
+    Remise (abandon partiel de créance) sur UNE dette. Ce n'est PAS un paiement.
+
+    - Le tarif officiel (FeeDebt.total_amount) n'est JAMAIS modifié.
+    - resolved_amount = valeur FCFA FIGÉE à la création (comme un snapshot) : soit le
+      montant fixe saisi, soit percent × total_amount. Tout le calcul de solde somme ce
+      seul champ (Python ET sous-requêtes SQL) → aucun recalcul, aucun écart d'arrondi.
+    - IMMUABLE : on ne modifie jamais une remise, on l'ANNULE (is_cancelled) et on recrée.
+      Audit parfait (accordée par / annulée par / quand / motif / justification).
+    """
+    debt = models.ForeignKey(
+        'FeeDebt', on_delete=models.CASCADE,
+        related_name='adjustments', verbose_name=_('dette'),
+    )
+    type = models.CharField(
+        _('type'), max_length=20, choices=AdjustmentType.choices,
+        default=AdjustmentType.DISCOUNT,
+    )
+    motif = models.CharField(_('motif'), max_length=20, choices=AdjustmentMotif.choices)
+    # Ce que le directeur a saisi : un pourcentage OU un montant fixe (jamais les deux).
+    percent = models.DecimalField(
+        _('pourcentage'), max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    amount = models.DecimalField(
+        _('montant fixe (FCFA)'), max_digits=12, decimal_places=0, null=True, blank=True,
+        validators=[MinValueValidator(0)],
+    )
+    # Valeur FCFA effective, figée à la création → source unique des calculs de solde.
+    resolved_amount = models.DecimalField(
+        _('montant de la remise (FCFA)'), max_digits=12, decimal_places=0,
+        validators=[MinValueValidator(0)],
+    )
+    funding_source = models.CharField(
+        _('financé par'), max_length=20, choices=FundingSource.choices,
+        default=FundingSource.SCHOOL,
+    )
+    justification = models.TextField(_('justification'), blank=True)
+    created_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='fee_adjustments_created', verbose_name=_('accordée par'),
+    )
+    created_at = models.DateTimeField(_('accordée le'), auto_now_add=True)
+    # Annulation (jamais de modification) :
+    is_cancelled = models.BooleanField(_('annulée'), default=False)
+    cancelled_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='fee_adjustments_cancelled', verbose_name=_('annulée par'),
+    )
+    cancelled_at = models.DateTimeField(_('annulée le'), null=True, blank=True)
+
+    class Meta:
+        verbose_name = _('remise')
+        verbose_name_plural = _('remises')
+        ordering = ['-created_at']
+        constraints = [
+            # Exactement un des deux : pourcentage OU montant fixe.
+            models.CheckConstraint(
+                check=(
+                    models.Q(percent__isnull=False, amount__isnull=True) |
+                    models.Q(percent__isnull=True, amount__isnull=False)
+                ),
+                name='adjustment_percent_xor_amount',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['debt', 'is_cancelled'], name='adjustment_debt_idx'),
+        ]
+
+    @property
+    def is_active(self):
+        return not self.is_cancelled
+
+    def __str__(self):
+        return f'{self.get_motif_display()} −{self.resolved_amount} FCFA'
 
 
 class Installment(models.Model):

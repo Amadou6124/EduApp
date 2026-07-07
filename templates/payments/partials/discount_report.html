@@ -1,0 +1,39 @@
+{% load humanize %}
+{% if report.total %}
+<div class="card p-6 mb-6">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Remises accordées</h3>
+    <span class="text-xs text-gray-400">{{ report.count }} remise{{ report.count|pluralize }} · année en cours</span>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+    <div class="bg-gray-50 rounded-xl p-4">
+      <p class="text-xs text-gray-400">Total accordé</p>
+      <p class="text-xl font-bold text-gray-900">{{ report.total|intcomma }} <span class="text-xs font-normal text-gray-400">F</span></p>
+    </div>
+    <div class="bg-gray-50 rounded-xl p-4">
+      <p class="text-xs text-gray-400">À la charge de l'école</p>
+      <p class="text-xl font-bold text-red-600">{{ report.school_funded|intcomma }} <span class="text-xs font-normal text-gray-400">F</span></p>
+      <p class="text-[11px] text-gray-400">manque à gagner réel</p>
+    </div>
+    <div class="bg-gray-50 rounded-xl p-4">
+      <p class="text-xs text-gray-400">Couvert (donateur / promoteur)</p>
+      <p class="text-xl font-bold text-green-600">{{ report.covered|intcomma }} <span class="text-xs font-normal text-gray-400">F</span></p>
+      <p class="text-[11px] text-gray-400">sans coût pour l'école</p>
+    </div>
+  </div>
+
+  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Par motif</p>
+  <div class="space-y-2.5">
+    {% for m in report.by_motif %}
+      <div>
+        <div class="flex items-center justify-between text-sm mb-1">
+          <span class="text-gray-700">{{ m.label }} <span class="text-gray-400">· {{ m.n }}</span></span>
+          <span class="text-gray-500">{{ m.amount|intcomma }}</span>
+        </div>
+        <div class="h-2 rounded-full bg-gray-100 overflow-hidden"><div class="h-full bg-primary-600" style="width:{{ m.pct }}%"></div></div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

@@ -14,7 +14,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import (
-    Sum, F, OuterRef, Subquery, Exists, Case, When, Value, CharField, DecimalField,
+    Sum, Count, F, OuterRef, Subquery, Exists, Case, When, Value, CharField, DecimalField,
 )
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -24,7 +24,7 @@ from apps.schools.periods import periods_for_class
 from .models import (
     FeeType, FeeCategory, AppliesTo,
     StudentFeeAccount, FeeDebt, FeeDebtKind, Installment, PaymentAllocation,
-    PaymentScheduleTemplate,
+    PaymentScheduleTemplate, FeeAdjustment,
 )
 
 
@@ -735,6 +735,14 @@ def _paid_subquery(account_ref):
     )
 
 
+def _adj_subquery(account_ref):
+    """Σ des remises ACTIVES (non annulées) des dettes d'une fiche (valeurs FCFA figées)."""
+    return (
+        FeeAdjustment.objects.filter(debt__account=account_ref, is_cancelled=False)
+        .values('debt__account').annotate(s=Sum('resolved_amount')).values('s')
+    )
+
+
 def fee_accounts_annotated(school=None, school_ids=None):
     """
     Queryset de StudentFeeAccount ACTIVES, annotées `due` / `paid` / `balance`
@@ -757,8 +765,9 @@ def fee_accounts_annotated(school=None, school_ids=None):
         .annotate(
             due=Coalesce(Subquery(_due_subquery(OuterRef('pk')), output_field=DecimalField()), Decimal('0')),
             paid=Coalesce(Subquery(_paid_subquery(OuterRef('pk')), output_field=DecimalField()), Decimal('0')),
+            adj=Coalesce(Subquery(_adj_subquery(OuterRef('pk')), output_field=DecimalField()), Decimal('0')),
         )
-        .annotate(balance=F('due') - F('paid'))
+        .annotate(balance=F('due') - F('adj') - F('paid'))
     )
 
 
@@ -798,14 +807,22 @@ def annotate_students_with_fees(student_qs):
         .values('installment__debt__account__enrollment__student')
         .annotate(s=Sum('amount')).values('s')
     )
+    adj_sq = (
+        FeeAdjustment.objects
+        .filter(debt__account__enrollment__student=OuterRef('pk'),
+                debt__account__enrollment__status='active', is_cancelled=False)
+        .values('debt__account__enrollment__student')
+        .annotate(s=Sum('resolved_amount')).values('s')
+    )
     return (
         student_qs
         .annotate(has_fee_account=Exists(active_acc))
         .annotate(
             fee_due=Coalesce(Subquery(due_sq, output_field=DecimalField()), Decimal('0')),
             fee_paid=Coalesce(Subquery(paid_sq, output_field=DecimalField()), Decimal('0')),
+            fee_adj=Coalesce(Subquery(adj_sq, output_field=DecimalField()), Decimal('0')),
         )
-        .annotate(fee_balance=F('fee_due') - F('fee_paid'))
+        .annotate(fee_balance=F('fee_due') - F('fee_adj') - F('fee_paid'))
         .annotate(fee_status=Case(
             When(has_fee_account=False, then=Value('no_fee')),
             When(fee_balance__lte=0,    then=Value('paid')),
@@ -851,8 +868,8 @@ def student_fee_summary(student, today=None):
     acc = _active_account_for(student)
     if acc is None:
         return None
-    due, paid = acc.due, acc.paid
-    balance = due - paid
+    due, paid, adj = acc.due, acc.paid, acc.adj
+    balance = due - adj - paid          # Net dû = officiel − remises − payé
     if balance <= 0:
         status = 'paid'
     elif paid > 0:
@@ -860,6 +877,93 @@ def student_fee_summary(student, today=None):
     else:
         status = 'unpaid'
     return {
-        'due': due, 'paid': paid, 'balance': balance, 'status': status,
+        'due': due, 'paid': paid, 'adjustments': adj, 'balance': balance, 'status': status,
         'has_overdue': student_has_overdue(acc, today), 'account': acc,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Remises (FeeAdjustment) — toute la logique argent vit ICI (jamais dans les vues)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def create_fee_discount(debt, *, motif, funding_source='school', percent=None,
+                        amount=None, justification='', created_by=None):
+    """Accorde une remise sur une dette. Fige la valeur FCFA et REFUSE tout trop-perçu.
+
+    - percent XOR amount (exactement un des deux).
+    - Le tarif officiel (debt.total_amount) n'est jamais touché.
+    - Lève ValueError si les paramètres sont invalides, si la remise est ≤ 0, ou si elle
+      dépasse le solde restant (elle créerait un trop-perçu) — refus, pas d'avoir au niveau 1.
+    """
+    if (percent is None) == (amount is None):
+        raise ValueError('Indiquez un pourcentage OU un montant fixe (exactement un).')
+    if percent is not None:
+        resolved = (debt.total_amount * Decimal(str(percent)) / Decimal('100')).quantize(Decimal('1'))
+    else:
+        resolved = Decimal(str(amount)).quantize(Decimal('1'))
+    if resolved <= 0:
+        raise ValueError('La remise doit être supérieure à 0.')
+    current_balance = debt.balance()
+    if resolved > current_balance:
+        raise ValueError(
+            f'Impossible : cette remise ({int(resolved)} FCFA) dépasse le solde restant '
+            f'({int(current_balance)} FCFA) et créerait un trop-perçu.'
+        )
+    return FeeAdjustment.objects.create(
+        debt=debt, motif=motif, funding_source=funding_source,
+        percent=percent, amount=amount, resolved_amount=resolved,
+        justification=justification, created_by=created_by,
+    )
+
+
+def cancel_fee_discount(adjustment, *, cancelled_by=None):
+    """Annule une remise (on ne la modifie jamais : on annule + recrée). Idempotent."""
+    if adjustment.is_cancelled:
+        return adjustment
+    adjustment.is_cancelled = True
+    adjustment.cancelled_by = cancelled_by
+    adjustment.cancelled_at = timezone.now()
+    adjustment.save(update_fields=['is_cancelled', 'cancelled_by', 'cancelled_at'])
+    return adjustment
+
+
+def discount_report(school=None, school_ids=None):
+    """Reporting des remises actives (non annulées) des fiches ACTIVES.
+
+    Retourne {total, count, school_funded, covered, by_motif[]} — total accordé, part à
+    la charge de l'école (funding_source='school' = manque à gagner réel), part couverte
+    (donateur/promoteur), et la répartition par motif (montant, nombre, % pour les barres).
+    Filtrable par école (directeur) ou groupe d'écoles (promoteur).
+    """
+    from .models import AdjustmentMotif, FundingSource
+    qs = FeeAdjustment.objects.filter(
+        debt__account__enrollment__status='active', is_cancelled=False,
+    )
+    if school is not None:
+        qs = qs.filter(debt__account__enrollment__school=school)
+    if school_ids is not None:
+        qs = qs.filter(debt__account__enrollment__school_id__in=school_ids)
+
+    total = qs.aggregate(s=Sum('resolved_amount'))['s'] or Decimal('0')
+    school_funded = (
+        qs.filter(funding_source=FundingSource.SCHOOL)
+        .aggregate(s=Sum('resolved_amount'))['s'] or Decimal('0')
+    )
+    labels = dict(AdjustmentMotif.choices)
+    by_motif = list(
+        qs.values('motif')
+        .annotate(amount=Sum('resolved_amount'), n=Count('id'))
+        .order_by('-amount')
+    )
+    top = by_motif[0]['amount'] if by_motif else Decimal('0')
+    for row in by_motif:
+        row['label'] = labels.get(row['motif'], row['motif'])
+        row['pct'] = int(row['amount'] / top * 100) if top else 0
+
+    return {
+        'total':         total,
+        'count':         qs.count(),
+        'school_funded': school_funded,
+        'covered':       total - school_funded,
+        'by_motif':      by_motif,
     }

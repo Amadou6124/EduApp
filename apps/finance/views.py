@@ -206,3 +206,75 @@ def collect_create(request, student_id):
         'payment-collected': {},
     })
     return resp
+
+
+# ── Remises (FeeAdjustment) — toute la logique argent est dans services.py ───────
+
+def _render_discount_section(request, student, account):
+    from .models import AdjustmentMotif, FundingSource
+    return render(request, 'finance/partials/discount_section.html', {
+        'student': student,
+        'account': account,
+        'debts': list(account.active_debts()) if account else [],
+        'motifs': AdjustmentMotif.choices,
+        'funding_sources': FundingSource.choices,
+    })
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['GET'])
+def discount_section(request, student_id):
+    school = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school, is_active=True)
+    return _render_discount_section(request, student, _active_account(student, school))
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def grant_discount(request, student_id):
+    from decimal import Decimal, InvalidOperation
+    from .services import create_fee_discount
+    school = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school, is_active=True)
+    account = _active_account(student, school)
+    debt = _get_debt(student, school, request.POST.get('debt_id'))
+
+    value_type = request.POST.get('value_type')          # 'percent' | 'amount'
+    raw = (request.POST.get('value') or '').replace(' ', '').replace('%', '')
+    try:
+        percent = Decimal(raw) if value_type == 'percent' else None
+        amount  = Decimal(raw) if value_type == 'amount'  else None
+        create_fee_discount(
+            debt,
+            motif=request.POST.get('motif', 'other'),
+            funding_source=request.POST.get('funding_source', 'school'),
+            percent=percent, amount=amount,
+            justification=(request.POST.get('justification') or '').strip(),
+            created_by=request.user,
+        )
+    except (ValueError, InvalidOperation) as e:
+        resp = _render_discount_section(request, student, account)
+        return _toast(resp, str(e) or 'Valeur invalide.', 'error')
+
+    resp = _render_discount_section(request, student, _active_account(student, school))
+    return _toast(resp, 'Remise accordée.', 'success', **{'refresh-rail': True})
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def cancel_discount(request, student_id, adj_id):
+    from .models import FeeAdjustment
+    from .services import cancel_fee_discount
+    school = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school, is_active=True)
+    adj = get_object_or_404(
+        FeeAdjustment, id=adj_id,
+        debt__account__enrollment__student=student,
+        debt__account__enrollment__school=school,
+    )
+    cancel_fee_discount(adj, cancelled_by=request.user)
+    resp = _render_discount_section(request, student, _active_account(student, school))
+    return _toast(resp, 'Remise annulée.', 'success', **{'refresh-rail': True})

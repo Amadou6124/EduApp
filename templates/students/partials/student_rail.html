@@ -13,7 +13,11 @@
          style="background-color:{{ colors.0 }};color:{{ colors.1 }}">{{ student.get_initials }}</div>
     <div>
       <h2 class="text-base font-semibold text-gray-900">{{ student.full_name }}</h2>
-      <p class="text-xs text-gray-400">{{ student.school_class.name }} · <span class="font-mono text-primary-700">{{ student.access_code }}</span></p>
+      <p class="text-xs text-gray-400">{{ student.school_class.name }}{% if student.matricule %} · Mat. <span class="font-mono text-gray-600">{{ student.matricule }}</span>{% endif %}</p>
+      {% if student.date_of_birth or student.birth_place %}
+        <p class="text-[11px] text-gray-400 mt-0.5">Né(e){% if student.date_of_birth %} le {{ student.date_of_birth|date:"d/m/Y" }}{% endif %}{% if student.birth_place %} à {{ student.birth_place }}{% endif %}</p>
+      {% endif %}
+      <p class="text-[11px] text-gray-400 mt-0.5">Code de connexion : <span class="font-mono text-primary-700">{{ student.access_code }}</span></p>
     </div>
     <div class="flex flex-wrap justify-center gap-1.5">
       {% include "students/partials/fee_status_badge.html" with status=fee_status %}

@@ -1,0 +1,30 @@
+# Blueprint Render — déploie l'app web + une base Postgres managée d'un coup.
+# (Les plans « starter » sont payants ; ajuste-les à ton offre.)
+services:
+  - type: web
+    name: eduapp
+    runtime: python
+    plan: starter
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true          # Render génère une clé forte
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eduapp-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        sync: false                   # à renseigner : ton domaine
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false                   # à renseigner : https://ton-domaine
+      - key: SENTRY_DSN
+        sync: false                   # à renseigner (optionnel)
+
+databases:
+  - name: eduapp-db
+    plan: starter

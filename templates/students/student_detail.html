@@ -104,6 +104,9 @@
       <div x-show="tab === 'finances'" x-cloak class="space-y-4">
         <div id="fee-timeline">{% include "finance/partials/timeline.html" with account=fee_account readonly=True %}</div>
 
+        {# Remises — chargé à l'ouverture, rafraîchi après accord/annulation #}
+        <div hx-get="{% url 'finance:discount-section' student.id %}" hx-trigger="load" hx-swap="outerHTML"></div>
+
         <div class="card p-6">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Journal des versements</h3>

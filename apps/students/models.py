@@ -8,6 +8,43 @@ def generate_student_access_code():
     return str(random.randint(100000, 999999))
 
 
+def generate_matricule(school, year=None):
+    """Prochain matricule pour cette école : format ``AAAA-NNNN``.
+
+    Séquence propre à chaque école, remise à zéro chaque année (l'année étant déjà
+    dans le matricule). Immuable une fois attribué. L'unicité par école est garantie
+    par la contrainte ``uniq_matricule_per_school`` ; ce compteur ne fait que proposer
+    le prochain numéro libre (échelle pilote : génération une à une).
+    """
+    from django.utils import timezone
+    year = year or timezone.now().year
+    prefix = f'{year}-'
+    max_seq = 0
+    for m in (Student.objects
+              .filter(school=school, matricule__startswith=prefix)
+              .values_list('matricule', flat=True)):
+        try:
+            max_seq = max(max_seq, int(m.rsplit('-', 1)[-1]))
+        except (ValueError, IndexError):
+            continue
+    return f'{prefix}{max_seq + 1:04d}'
+
+
+def split_full_name(full_name):
+    """Découpe « Prénom Nom » (au mieux) → (first_name, last_name).
+
+    Convention d'affichage de l'app : le prénom vient en premier. Utilisé par les chemins
+    qui ne fournissent qu'un nom complet (import en masse, seeds hérités). Approximatif
+    par nature — l'inscription unitaire, elle, saisit Nom et Prénom séparément.
+    """
+    parts = (full_name or '').split()
+    if len(parts) >= 2:
+        return parts[0], ' '.join(parts[1:])
+    if parts:
+        return '', parts[0]
+    return '', ''
+
+
 class ParentRelationship(models.TextChoices):
     FATHER   = 'father',   _('Père')
     MOTHER   = 'mother',   _('Mère')
@@ -36,9 +73,30 @@ class Student(models.Model):
         related_name='students',
         verbose_name=_('classe'),
     )
-    # db_index pour accélérer recherche et tri
-    full_name = models.CharField(_('nom complet'), max_length=200, db_index=True)
+    # ── Identité ──────────────────────────────────────────────────────────
+    # Nom de famille et prénom(s) SÉPARÉS = la source de vérité de l'identité
+    # (registre alphabétique par nom, documents officiels, correspondance état civil).
+    # blank=True : certains chemins hérités (seeds) ne passent que full_name ; save()
+    # les dérive alors au mieux. Le formulaire d'inscription, lui, les rend obligatoires.
+    last_name  = models.CharField(_('nom de famille'), max_length=100, blank=True, db_index=True)
+    first_name = models.CharField(_('prénom(s)'), max_length=100, blank=True)
+
+    # full_name — ⚠️ NE PAS SUPPRIMER, NE PAS SAISIR À LA MAIN. Ce n'est PAS du code mort :
+    # c'est un champ DÉRIVÉ, recomposé automatiquement dans save() à partir de « Prénom Nom ».
+    # On le garde STOCKÉ (et non calculé à la volée en @property) parce que le tri par défaut,
+    # la recherche, l'index base de données et ~70 affichages en dépendent — or une base ne
+    # peut ni trier ni filtrer sur une simple property Python. C'est donc un cache d'affichage
+    # cohérent (mis à jour à chaque save), la seule saisie réelle étant last_name + first_name.
+    full_name = models.CharField(_('nom complet (auto)'), max_length=200, db_index=True)
+
     date_of_birth = models.DateField(_('date de naissance'), null=True, blank=True)
+    birth_place   = models.CharField(_('lieu de naissance'), max_length=120, blank=True)
+
+    # Matricule administratif, immuable, unique par école. Généré dans save() (format
+    # AAAA-NNNN, séquence par école remise à zéro chaque année) mais MODIFIABLE : le directeur
+    # peut y saisir le matricule officiel. Ce n'est PAS un identifiant de connexion — il est
+    # public (imprimé sur les documents). Voir docs/decision-authentification.md.
+    matricule = models.CharField(_('matricule'), max_length=20, blank=True, db_index=True)
     # Genre — additif : null/blank car les élèves déjà inscrits n'ont pas cette donnée.
     # Pilote l'application automatique du tarif de tenue (variante fille/garçon) à
     # l'inscription ; tant qu'il est null, aucune variante genrée n'est appliquée.
@@ -49,22 +107,8 @@ class Student(models.Model):
         null=True,
         blank=True,
     )
-    phone_number = models.CharField(
-        _('téléphone élève'),
-        max_length=20,
-        blank=True,
-    )
-    parent_phone_number = models.CharField(
-        _('téléphone parent'),
-        max_length=20,
-        blank=True,
-    )
-    parent_relationship = models.CharField(
-        _('lien de parenté'),
-        max_length=10,
-        choices=ParentRelationship.choices,
-        blank=True,
-    )
+    # Les responsables (père, mère, tuteur…) sont désormais la SEULE source des contacts :
+    # voir StudentGuardian (couche « responsable » = info + accès portail optionnel).
     # Code à 6 chiffres, unique par école (contrainte unique_together dans Meta)
     access_code = models.CharField(
         _('code d\'accès'),
@@ -101,9 +145,18 @@ class Student(models.Model):
     class Meta:
         verbose_name = _('élève')
         verbose_name_plural = _('élèves')
-        ordering = ['full_name']
+        # Registre classé par nom de famille (convention scolaire), puis prénom.
+        ordering = ['last_name', 'first_name']
         # Code d'accès unique au sein d'une école
         unique_together = [('school', 'access_code')]
+        constraints = [
+            # Matricule unique par école (uniquement quand renseigné).
+            models.UniqueConstraint(
+                fields=['school', 'matricule'],
+                condition=models.Q(matricule__gt=''),
+                name='uniq_matricule_per_school',
+            ),
+        ]
         indexes = [
             models.Index(fields=['school', 'school_class'], name='student_school_class_idx'),
             models.Index(fields=['school', 'is_active'],    name='student_school_active_idx'),
@@ -111,6 +164,27 @@ class Student(models.Model):
 
     def __str__(self):
         return f'{self.full_name} — {self.school_class.name}'
+
+    def save(self, *args, **kwargs):
+        # full_name est DÉRIVÉ (voir le commentaire du champ) : on le recompose ici à partir
+        # de Prénom + Nom pour garantir sa cohérence partout où il est affiché et trié.
+        first = (self.first_name or '').strip()
+        last  = (self.last_name or '').strip()
+        composed = f'{first} {last}'.strip()
+        if composed:
+            self.full_name = composed
+        elif self.full_name:
+            # Chemin hérité (seed/import ne passant que full_name) : on préserve full_name et
+            # on dérive au mieux Prénom/Nom pour ne pas laisser l'identité séparée vide.
+            first, last = split_full_name(self.full_name)
+            self.first_name = self.first_name or first
+            self.last_name  = self.last_name or last
+
+        # Matricule : attribué une seule fois puis immuable (généré s'il est absent).
+        if not self.matricule and self.school_id:
+            self.matricule = generate_matricule(self.school)
+
+        super().save(*args, **kwargs)
 
     # ── Méthodes financières ──────────────────────────────────────────────
     # Utilisent self.payments.all() pour bénéficier du prefetch_related cache.
@@ -133,7 +207,7 @@ class Student(models.Model):
         return 'unpaid'
 
     def has_parent_linked(self):
-        return bool(self.parent_phone_number)
+        return self.guardians.exists()
 
     def get_avatar_colors(self):
         """Retourne (bg, text) selon la première lettre du nom (A-E/F-J/K-O/P-T/U-Z)."""
@@ -166,23 +240,46 @@ class Student(models.Model):
 
 class StudentGuardian(models.Model):
     """
-    Lien parent/tuteur ↔ élève. Permet à un compte parent de suivre
-    plusieurs enfants, éventuellement dans des écoles différentes.
+    Responsable d'un élève (père, mère, tuteur/tutrice…).
+
+    Deux couches en un seul modèle :
+      - INFO (toujours) : full_name, phone, email, relationship, is_primary. C'est le
+        contact du dossier — il n'exige AUCUN compte.
+      - ACCÈS PORTAIL (optionnel) : si `guardian` (User) est renseigné, ce responsable
+        peut se connecter au portail parent. Sinon (guardian=NULL) = info seule.
+
+    La résolution des enfants côté portail (apps/parent/children.py) filtre guardian=user :
+    les responsables info-seule en sont donc naturellement exclus.
     """
     guardian = models.ForeignKey(
-        'accounts.User', on_delete=models.CASCADE,
-        related_name='guarded_students', verbose_name=_('parent / tuteur'),
+        'accounts.User', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='guarded_students', verbose_name=_('compte portail (optionnel)'),
     )
     student = models.ForeignKey(
         'Student', on_delete=models.CASCADE,
         related_name='guardians', verbose_name=_('élève'),
     )
+    full_name = models.CharField(_('nom du responsable'), max_length=200, blank=True)
+    phone     = models.CharField(_('téléphone'), max_length=20, blank=True)
     relationship = models.CharField(
         _('lien de parenté'), max_length=10,
         choices=ParentRelationship.choices, blank=True,
     )
     is_primary = models.BooleanField(_('contact principal'), default=False)
     created_at = models.DateTimeField(_('créé le'), auto_now_add=True)
+
+    @property
+    def display_name(self):
+        """Nom à afficher : celui du responsable, sinon celui du compte lié."""
+        return self.full_name or (self.guardian.full_name if self.guardian_id else '')
+
+    @property
+    def display_phone(self):
+        return self.phone or (self.guardian.phone_number if self.guardian_id else '')
+
+    @property
+    def has_portal_access(self):
+        return self.guardian_id is not None
 
     class Meta:
         verbose_name = _('parent d\'élève')
@@ -198,7 +295,7 @@ class StudentGuardian(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.guardian.full_name} → {self.student.full_name}'
+        return f'{self.display_name or "?"} → {self.student.full_name}'
 
 
 class EnrollmentStatus(models.TextChoices):

@@ -1,6 +1,6 @@
 <div id="guardian-section" class="card p-6">
   <div class="flex items-center justify-between mb-5">
-    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Parents / Tuteurs</h3>
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Responsables</h3>
     <button type="button" @click="guardianPanel = true"
             class="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline">
       <i data-lucide="user-plus" class="w-4 h-4"></i> Ajouter
@@ -11,19 +11,23 @@
   <div class="space-y-3">
     {% for g in guardians %}
     <div class="flex items-center gap-3 p-3 rounded-xl border border-gray-100">
-      <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-           style="background:{{ g.guardian.get_avatar_colors.0 }};color:{{ g.guardian.get_avatar_colors.1 }}">
-        {{ g.guardian.get_initials }}
+      <div class="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-sm font-bold shrink-0">
+        {{ g.display_name|slice:":1"|upper|default:"?" }}
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-semibold text-gray-900 truncate">
-          {{ g.guardian.full_name }}
+          {{ g.display_name|default:"Sans nom" }}
           {% if g.is_primary %}<i data-lucide="star" class="inline w-3.5 h-3.5 text-amber-500 fill-amber-500 ml-1"></i>{% endif %}
         </p>
-        <p class="text-xs text-gray-500">
-          {% if g.relationship %}{{ g.get_relationship_display }} · {% endif %}{{ g.guardian.phone_number }}
+        <p class="text-xs text-gray-500 truncate">
+          {% if g.relationship %}{{ g.get_relationship_display }} · {% endif %}{{ g.display_phone }}
         </p>
       </div>
+      {% if g.has_portal_access %}
+        <span class="shrink-0 text-xs text-primary-700 bg-primary-50 px-2 py-0.5 rounded-md" title="Peut se connecter au portail">
+          <i data-lucide="key-round" class="inline w-3 h-3"></i> Portail
+        </span>
+      {% endif %}
       <div x-data="{ confirm: false }" class="shrink-0">
         <button type="button" x-show="!confirm" @click="confirm = true"
                 class="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="Retirer">
@@ -43,7 +47,7 @@
   {% else %}
   <div class="text-center py-6">
     <i data-lucide="users" class="w-10 h-10 mx-auto text-gray-200 mb-2"></i>
-    <p class="text-sm text-gray-400">Aucun parent/tuteur lié</p>
+    <p class="text-sm text-gray-400">Aucun responsable enregistré</p>
   </div>
   {% endif %}
 </div>

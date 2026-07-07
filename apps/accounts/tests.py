@@ -1,0 +1,57 @@
+"""
+Tests du rate-limiting de la connexion (protection anti-force-brute).
+
+Couvre : connexion normale OK, verrou après 5 échecs, et surtout le verrou
+*par compte* qui tient même quand l'IP change (défense contre une attaque
+distribuée sur un seul numéro). Ce dernier s'appuie sur le cache partagé
+(DatabaseCache) — d'où l'exécution avec un vrai backend de cache.
+
+Lancer : venv/bin/python manage.py test apps.accounts
+"""
+from django.test import TestCase
+from django.urls import reverse
+from django.core.cache import cache
+
+from apps.accounts.models import User, UserRole
+
+
+class LoginRateLimitTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(
+            phone_number='70000001', password='bon-mot-de-passe',
+            role=UserRole.DIRECTOR, full_name='Dir',
+        )
+        cls.url = reverse('accounts:login')
+
+    def setUp(self):
+        cache.clear()   # repart d'un compteur vierge (ceinture + bretelles)
+
+    def _try(self, password, ip='10.0.0.1'):
+        return self.client.post(
+            self.url, {'phone_number': '70000001', 'password': password},
+            HTTP_X_FORWARDED_FOR=ip,
+        )
+
+    def test_connexion_reussie(self):
+        # Le bon mot de passe connecte (prouve aussi que le champ posté est bien phone_number).
+        self._try('bon-mot-de-passe')
+        self.assertIn('_auth_user_id', self.client.session)
+
+    def test_verrou_apres_5_echecs(self):
+        for _ in range(5):
+            self._try('faux')
+        # 6e essai avec le BON mot de passe → refusé car verrouillé, pas de session.
+        r = self._try('bon-mot-de-passe')
+        self.assertTrue(r.context['locked'])
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_verrou_par_compte_meme_si_ip_change(self):
+        # 5 échecs sur le même compte depuis 5 IP différentes → le compte est verrouillé.
+        # (Sans la clé « par téléphone », aucune IP n'atteindrait 5 → pas de verrou.)
+        for i in range(5):
+            self._try('faux', ip=f'10.0.0.{i}')
+        r = self._try('bon-mot-de-passe', ip='10.0.0.99')
+        self.assertTrue(r.context['locked'])
+        self.assertNotIn('_auth_user_id', self.client.session)

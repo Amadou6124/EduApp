@@ -5,17 +5,24 @@ Cette feuille de route liste ce qui reste à construire, priorisé, après la pr
 
 ---
 
-## ✅ Fait (session « périodes par cycle » — branche `feature/periodes-par-cycle`)
+## ✅ Fait
 
+### Périodes par cycle (A+B) — **mergé dans `main`**
 - **Périodes par cycle (Étape A)** : compositions au fondamental / trimestres au secondaire dans la
   même année ; dates optionnelles (`is_notes_open` pilote le réel) ; résolveur central
   `apps/schools/periods.py` ; branché notes, bulletins, parent, dashboard, finances.
 - **Surcharge par classe (Étape B)** : une classe peut sortir de son cycle (`Period.school_class`) ;
   résolution **classe → cycle → école** ; UI « personnaliser une classe » + « revenir au cycle ».
-- **Tranches auto-provisionnées** : 3 gabarits (Annuel/Trimestriel/Mensuel, Trimestriel défaut) créés
-  automatiquement pour toute école (`ensure_default_schedule_templates`).
-- **Écran années peaufiné** : rappel école/année, archivage rassurant, suppression réservée aux années vides.
-- **Fix dashboard** (crash date `H:i`) + **wording** « Tranches → Échéances » (onglet En retard).
+- **Tranches auto-provisionnées** : 3 gabarits (Annuel/Trimestriel/Mensuel, Trimestriel défaut).
+- **Écran années peaufiné** + fix dashboard + wording « Tranches → Échéances ».
+
+### Fiabilisation + dossier élève + remises — branche `feature/dossier-eleve-identite` (à merger)
+- **68 tests + sécurité + base propre** : isolation multi-écoles, chemins argent, notes→bulletins,
+  rate-limiting login fiabilisé. Recette prod vierge : `ouvrir-prod-vierge.md`.
+- **Identité élève** : Nom/Prénom séparés, lieu + date de naissance, **matricule** auto (AAAA-NNNN, immuable, modifiable).
+- **Responsables** (`StudentGuardian` unifié) : info seule OU accès portail ; téléphone élève retiré (donnée morte).
+- **Remises manuelles** (`FeeAdjustment`) : % ou montant, motif, financé par, **immuable** ; garde-fou anti
+  trop-perçu ; **reporting** directeur + promoteur ; solde **net** partout. (Auth élève/parent = analysé, pas construit → `decision-authentification.md`.)
 
 ---
 
@@ -71,3 +78,33 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
   **pas** d'emploi du temps.
 - **Paie** (Comptabilité) : Permanent (salaire fixe) ou Vacataire (taux horaire, variable par cours) ;
   paie vacataire = Σ heures émargées × taux.
+
+---
+
+## 📥 Backlog produit (consolidé depuis les anciens `TODO.md` + `NOTES_TECHNIQUES.md`)
+
+> Items hérités des notes de développement. Certains peuvent être **partiellement faits** —
+> à re-vérifier au moment de les prendre. Regroupés ici pour avoir **une seule source de vérité**.
+
+### Fonctionnalités demandées (haute → moyenne)
+- **Demande de RDV parent → directeur** (modèle `MeetingRequest` : soumettre côté parent, gérer côté admin, notif directeur). *Priorité haute.*
+- **Page « Toutes mes observations »** (portail enseignant) — aujourd'hui le prof ne voit que ses 5 dernières. *Priorité haute.*
+- **Justification d'absence par le parent** (modèle `AbsenceJustification` : soumettre + valider/refuser). *Moyenne.*
+- **Caisse journalière** (`/accounting/caisse/`) — journal du jour, solde ouverture/clôture, « clôturer la journée ». *~3 j.*
+- **Certificats & attestations PDF** (scolarité, présence, radiation, transfert) avec en-tête + photo + signature. *~2 j.*
+- **Dossier élève — pièces jointes** (extrait de naissance, vaccins, photo) + indicateur complet/incomplet. *~3 j.*
+- **Messagerie bidirectionnelle parent ↔ école** (badge non-lu des deux côtés). *~4 j.*
+- **Bilan annuel consolidé** (P&L sur l'année + export PDF propriétaire). *~2 j.*
+- **Relances automatiques impayés** (SMS J+5 / J+15) — le bouton « Relancer » est aujourd'hui un **placeholder**.
+- **Restes du chantier multi-école** : portail parent multi-école + **transfert d'élève entre écoles** (historique préservé).
+
+### Dette technique / polish
+- **`forms.py` : `brand-blue` → `primary`** (focus ring perdu depuis la refonte design) — `accounts/team_forms.py`, `accounts/forms.py`, `payments/forms.py`, `schools/forms.py`.
+- **Réactivation d'un élève archivé** (onglet « Archivés » + bouton, équivalent de la réactivation équipe déjà faite).
+- **Alerte émargement dashboard** (profs attendus vs émargés du jour).
+- **Migration Lucide 1.20.0 → 0.577.x** (chore ; audit des noms d'icônes avant).
+- **Nettoyage `components.css` orphelin** (`brand-blue` hors build).
+- Cosmétiques divers : carte dashboard restée en demi-largeur, erreurs Alpine console, labels de groupe HTMX orphelins (notifications).
+
+*(Déjà faits, donc retirés du backlog : catalogue de frais + échéancier par tranches, liste rouge des impayés,
+portail parent financier, périodes par cycle.)*

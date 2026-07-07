@@ -38,6 +38,8 @@ function paymentsPageData() {
     {% include "payments/partials/payment_stats.html" %}
   </div>
 
+  {% include "payments/partials/discount_report.html" with report=discount_report %}
+
   {# Filtres : recherche en haut (pleine largeur), puis onglets + classe au même niveau (comme la liste élèves) #}
   <form hx-get="{% url 'payments:dashboard' %}"
         hx-target="#payment-list-area" hx-swap="outerHTML"
