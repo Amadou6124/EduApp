@@ -397,15 +397,17 @@ def _compute_activity(school):
             'text': f'{s.full_name} -- {s.school_class.name if s.school_class else "Aucune classe"}',
             'url': reverse('students:list'),
         })
-    # Normaliser date -> datetime aware, puis trier par timestamp
-    def _sort_key(item):
-        val = item['time']
-        if isinstance(val, datetime) and tz.is_aware(val):
-            return val
+    # Normaliser chaque 'time' en datetime aware (les DateField comme
+    # Payment.payment_date / Student.enrolled_at n'ont pas d'heure). On réécrit la
+    # valeur pour que le template puisse la formater avec l'heure (sinon
+    # {{ time|date:"d/m H:i" }} plante sur un objet date), puis on trie.
+    def _to_aware_dt(val):
         if isinstance(val, datetime):
-            return val.replace(tzinfo=aware_tz)
+            return val if tz.is_aware(val) else val.replace(tzinfo=aware_tz)
         return datetime(val.year, val.month, val.day, tzinfo=aware_tz)
-    activity.sort(key=_sort_key, reverse=True)
+    for item in activity:
+        item['time'] = _to_aware_dt(item['time'])
+    activity.sort(key=lambda item: item['time'], reverse=True)
     return activity[:10]
 
 
