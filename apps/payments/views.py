@@ -65,11 +65,13 @@ def _compute_stats(school, accounts):
     agg = accounts.aggregate(
         total_due=Sum('due'),
         total_paid=Sum('paid'),
+        total_adj=Sum('adj'),
         count_soldes=Count('id', filter=Q(balance__lte=0)),
         count_impayes=Count('id', filter=Q(paid=0)),
     )
     total_due = agg['total_due'] or Decimal('0')
     total_paid = agg['total_paid'] or Decimal('0')
+    total_adj = agg['total_adj'] or Decimal('0')     # remises → solde NET
 
     # Élèves actifs SANS fiche financière (pas encore entrés par le nouveau système).
     # En prod (base vierge) = 0 ; en dev, on l'affiche à part pour ne pas fausser les
@@ -80,7 +82,7 @@ def _compute_stats(school, accounts):
     return {
         'total_due':     total_due,
         'encaisse_mois': encaisse_mois,
-        'solde_restant': total_due - total_paid,
+        'solde_restant': total_due - total_adj - total_paid,   # net des remises
         'count_soldes':  agg['count_soldes'] or 0,
         'count_impayes': agg['count_impayes'] or 0,
         'sans_fiche':    sans_fiche,
@@ -238,6 +240,9 @@ def payment_dashboard(request):
 
     if request.htmx:
         return render(request, 'payments/partials/payment_list_refresh.html', ctx)
+
+    from apps.finance.services import discount_report
+    ctx['discount_report'] = discount_report(school)
     return render(request, 'payments/dashboard.html', ctx)
 
 

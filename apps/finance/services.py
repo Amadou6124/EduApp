@@ -14,7 +14,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import (
-    Sum, F, OuterRef, Subquery, Exists, Case, When, Value, CharField, DecimalField,
+    Sum, Count, F, OuterRef, Subquery, Exists, Case, When, Value, CharField, DecimalField,
 )
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -925,3 +925,45 @@ def cancel_fee_discount(adjustment, *, cancelled_by=None):
     adjustment.cancelled_at = timezone.now()
     adjustment.save(update_fields=['is_cancelled', 'cancelled_by', 'cancelled_at'])
     return adjustment
+
+
+def discount_report(school=None, school_ids=None):
+    """Reporting des remises actives (non annulées) des fiches ACTIVES.
+
+    Retourne {total, count, school_funded, covered, by_motif[]} — total accordé, part à
+    la charge de l'école (funding_source='school' = manque à gagner réel), part couverte
+    (donateur/promoteur), et la répartition par motif (montant, nombre, % pour les barres).
+    Filtrable par école (directeur) ou groupe d'écoles (promoteur).
+    """
+    from .models import AdjustmentMotif, FundingSource
+    qs = FeeAdjustment.objects.filter(
+        debt__account__enrollment__status='active', is_cancelled=False,
+    )
+    if school is not None:
+        qs = qs.filter(debt__account__enrollment__school=school)
+    if school_ids is not None:
+        qs = qs.filter(debt__account__enrollment__school_id__in=school_ids)
+
+    total = qs.aggregate(s=Sum('resolved_amount'))['s'] or Decimal('0')
+    school_funded = (
+        qs.filter(funding_source=FundingSource.SCHOOL)
+        .aggregate(s=Sum('resolved_amount'))['s'] or Decimal('0')
+    )
+    labels = dict(AdjustmentMotif.choices)
+    by_motif = list(
+        qs.values('motif')
+        .annotate(amount=Sum('resolved_amount'), n=Count('id'))
+        .order_by('-amount')
+    )
+    top = by_motif[0]['amount'] if by_motif else Decimal('0')
+    for row in by_motif:
+        row['label'] = labels.get(row['motif'], row['motif'])
+        row['pct'] = int(row['amount'] / top * 100) if top else 0
+
+    return {
+        'total':         total,
+        'count':         qs.count(),
+        'school_funded': school_funded,
+        'covered':       total - school_funded,
+        'by_motif':      by_motif,
+    }

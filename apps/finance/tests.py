@@ -290,3 +290,25 @@ class DiscountTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(self._tuition().balance(), Decimal('216000'))
+
+    def test_report_agrege_motif_et_financement(self):
+        from apps.finance.services import create_fee_discount, discount_report
+        t = self._tuition()
+        create_fee_discount(t, motif='fratrie', percent=10)                         # 24000, école
+        create_fee_discount(t, motif='merit', amount=20000, funding_source='donor') # 20000, donateur
+        rep = discount_report(school=self.school)
+        self.assertEqual(rep['total'], Decimal('44000'))
+        self.assertEqual(rep['count'], 2)
+        self.assertEqual(rep['school_funded'], Decimal('24000'))   # part école = manque à gagner
+        self.assertEqual(rep['covered'], Decimal('20000'))         # donateur = couvert
+        motifs = {m['motif']: m['amount'] for m in rep['by_motif']}
+        self.assertEqual(motifs['fratrie'], Decimal('24000'))
+        self.assertEqual(motifs['merit'], Decimal('20000'))
+
+    def test_report_exclut_les_annulees(self):
+        from apps.finance.services import create_fee_discount, cancel_fee_discount, discount_report
+        a = create_fee_discount(self._tuition(), motif='fratrie', percent=10)
+        cancel_fee_discount(a)
+        rep = discount_report(school=self.school)
+        self.assertEqual(rep['total'], Decimal('0'))
+        self.assertEqual(rep['count'], 0)
