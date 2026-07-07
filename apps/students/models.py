@@ -123,6 +123,11 @@ class Student(models.Model):
         decimal_places=0,
     )
     notes = models.TextField(_('informations supplémentaires'), blank=True)
+    # ⚠️ NE JAMAIS écrire `student.is_active = True/False` directement. Ce flag est un CACHE
+    # de l'état de scolarité, qui doit rester cohérent avec le statut de l'inscription
+    # (StudentEnrollment.status). Les deux se mutent ENSEMBLE, uniquement via Student.archive()
+    # et Student.reactivate() (atomiques). Toute mutation directe rouvre le bug de dérive
+    # (flag ≠ statut) — cf. le crash d'archivage réparé. Voir aussi docs/roadmap-post-demo.md.
     is_active = models.BooleanField(_('actif'), default=True)
     enrolled_at = models.DateTimeField(_('inscrit le'), auto_now_add=True)
     updated_at = models.DateTimeField(_('modifié le'), auto_now=True)

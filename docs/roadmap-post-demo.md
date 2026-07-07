@@ -95,7 +95,14 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
 - **École (persistant, réutilisé chaque année)** : classes, frais (catalogue + gabarits), matières, élèves.
 - **Année (archivé avec elle)** : périodes, inscriptions, notes, bulletins.
 - **Frais** : scolarité **par classe** (`annual_fee`) découpée en tranches (gabarit 1/3/9) ; frais ponctuels
-  (inscription, tenue) = **1 échéance** chacun ; **pas de ciblage par niveau** (cf. 🔴 #2).
+  (inscription, tenue) = **1 échéance** chacun. Ciblage sur **2 axes** (ET) : nouveau/ancien (`applies_to`)
+  **et niveau** (`applies_to_levels`, **vide = tous**) — via `FeeType.is_applicable(classe, is_returning)`.
+- **Élève actif** : `Student.is_active` est un **CACHE** qui doit rester cohérent avec le statut de
+  l'inscription (`StudentEnrollment.status`). **On ne le mute JAMAIS à la main** — uniquement via
+  `Student.archive(status)` / `Student.reactivate()` (atomiques, seules autorisées). Sinon le flag et le
+  statut divergent (= le bug 500 d'archivage réparé). « Revient l'année suivante » = **ré-inscription**
+  (nouvelle année), pas une réactivation. Matières : couleur **auto distincte** (`pick_subject_color`, pas de
+  choix manuel → pas de collision).
 - **Matière** = catalogue (nom/abréviation/couleur). **Classe-matière** = coefficient (déf. 1.0), note max
   (déf. 20), **durée d'un cours** (déf. 2h), enseignant — **tout par classe, libre**.
 - **Heures prof** = par cours (durée) + **émargement** (heures réelles). **Pas** de volume horaire au niveau prof,
