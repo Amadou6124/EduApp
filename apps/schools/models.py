@@ -346,9 +346,12 @@ class Period(models.Model):
 # Abréviation + couleur générées automatiquement depuis le nom (le directeur
 # ne tape que le nom ; il peut toujours les surcharger).
 _SUBJECT_STOPWORDS = {'de', 'la', 'le', 'les', 'des', 'du', 'et', 'à', 'a', 'en', 'l', 'd'}
+# 24 couleurs distinctes (assez pour couvrir 20-30 matières sans collision visuelle).
 _SUBJECT_PALETTE = [
-    '#7F77DD', '#D85A30', '#378ADD', '#1D9E75', '#BA7517',
-    '#D4537E', '#534AB7', '#0F6E56', '#993C1D', '#185FA5',
+    '#7F77DD', '#D85A30', '#378ADD', '#1D9E75', '#BA7517', '#D4537E',
+    '#534AB7', '#0F6E56', '#993C1D', '#185FA5', '#E24B4A', '#639922',
+    '#0C447C', '#B45309', '#3B6D11', '#A32D2D', '#7C3AED', '#0891B2',
+    '#DB2777', '#65A30D', '#EA580C', '#0D9488', '#6D28D9', '#B91C1C',
 ]
 
 
@@ -361,9 +364,22 @@ def auto_subject_abbrev(name):
     return (significant[0] if significant else '')[:4].upper()
 
 
-def auto_subject_color(name):
-    idx = sum(ord(c) for c in (name or '')) % len(_SUBJECT_PALETTE)
-    return _SUBJECT_PALETTE[idx]
+def pick_subject_color(school, exclude_id=None):
+    """Couleur de palette NON encore utilisée par les matières actives de l'école (sinon
+    la moins fréquente) → garantit des pastilles distinctes, sans collision, jusqu'à ~24
+    matières. Remplace l'ancien `somme des lettres modulo N` qui collisionnait facilement.
+    """
+    used = list(
+        Subject.objects.filter(school=school, is_active=True)
+        .exclude(id=exclude_id).exclude(color='')
+        .values_list('color', flat=True)
+    )
+    for c in _SUBJECT_PALETTE:
+        if c not in used:
+            return c
+    from collections import Counter
+    counts = Counter(used)
+    return min(_SUBJECT_PALETTE, key=lambda c: counts.get(c, 0))
 
 
 class Subject(models.Model):
@@ -394,7 +410,7 @@ class Subject(models.Model):
         if not (self.short_name or '').strip():
             self.short_name = auto_subject_abbrev(self.name)
         if not (self.color or '').strip() or self.color == '#4F46E5':
-            self.color = auto_subject_color(self.name)
+            self.color = pick_subject_color(self.school, exclude_id=self.pk)
         super().save(*args, **kwargs)
 
     def __str__(self):

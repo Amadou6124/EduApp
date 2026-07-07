@@ -103,3 +103,27 @@ class BulletinRankTests(TestCase):
         self.assertEqual(ranks[s1.id], 2)   # 15 → 2e ex æquo
         self.assertEqual(ranks[s2.id], 2)   # 15 → 2e ex æquo
         self.assertEqual(ranks[s3.id], 4)   # 12 → 4e (le rang 3 est sauté)
+
+
+class SubjectColorTests(TestCase):
+    """Couleur auto des matières : distinctes (zéro collision) jusqu'à la taille de la
+    palette + abréviation auto. Voir pick_subject_color / auto_subject_abbrev."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École S', short_name='ES', city='Bamako', school_type='primary',
+        )
+
+    def test_couleurs_toutes_distinctes(self):
+        from apps.schools.models import Subject, _SUBJECT_PALETTE
+        names = ['Maths', 'Français', 'Anglais', 'Physique', 'Chimie', 'SVT',
+                 'Histoire', 'Géographie', 'EPS', 'Arabe', 'Philosophie', 'Informatique']
+        colors = [Subject.objects.create(school=self.school, name=n).color for n in names]
+        self.assertEqual(len(colors), len(set(colors)))       # AUCUNE collision
+        self.assertTrue(all(c in _SUBJECT_PALETTE for c in colors))
+
+    def test_abreviation_auto_ignore_stopwords(self):
+        from apps.schools.models import Subject
+        s = Subject.objects.create(school=self.school, name='Sciences de la Vie et de la Terre')
+        self.assertEqual(s.short_name, 'SVT')   # acronyme, « de / la / et » ignorés
