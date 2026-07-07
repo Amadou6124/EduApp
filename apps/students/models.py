@@ -107,17 +107,8 @@ class Student(models.Model):
         null=True,
         blank=True,
     )
-    parent_phone_number = models.CharField(
-        _('téléphone parent'),
-        max_length=20,
-        blank=True,
-    )
-    parent_relationship = models.CharField(
-        _('lien de parenté'),
-        max_length=10,
-        choices=ParentRelationship.choices,
-        blank=True,
-    )
+    # Les responsables (père, mère, tuteur…) sont désormais la SEULE source des contacts :
+    # voir StudentGuardian (couche « responsable » = info + accès portail optionnel).
     # Code à 6 chiffres, unique par école (contrainte unique_together dans Meta)
     access_code = models.CharField(
         _('code d\'accès'),
@@ -216,7 +207,7 @@ class Student(models.Model):
         return 'unpaid'
 
     def has_parent_linked(self):
-        return bool(self.parent_phone_number)
+        return self.guardians.exists()
 
     def get_avatar_colors(self):
         """Retourne (bg, text) selon la première lettre du nom (A-E/F-J/K-O/P-T/U-Z)."""
@@ -249,23 +240,47 @@ class Student(models.Model):
 
 class StudentGuardian(models.Model):
     """
-    Lien parent/tuteur ↔ élève. Permet à un compte parent de suivre
-    plusieurs enfants, éventuellement dans des écoles différentes.
+    Responsable d'un élève (père, mère, tuteur/tutrice…).
+
+    Deux couches en un seul modèle :
+      - INFO (toujours) : full_name, phone, email, relationship, is_primary. C'est le
+        contact du dossier — il n'exige AUCUN compte.
+      - ACCÈS PORTAIL (optionnel) : si `guardian` (User) est renseigné, ce responsable
+        peut se connecter au portail parent. Sinon (guardian=NULL) = info seule.
+
+    La résolution des enfants côté portail (apps/parent/children.py) filtre guardian=user :
+    les responsables info-seule en sont donc naturellement exclus.
     """
     guardian = models.ForeignKey(
-        'accounts.User', on_delete=models.CASCADE,
-        related_name='guarded_students', verbose_name=_('parent / tuteur'),
+        'accounts.User', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='guarded_students', verbose_name=_('compte portail (optionnel)'),
     )
     student = models.ForeignKey(
         'Student', on_delete=models.CASCADE,
         related_name='guardians', verbose_name=_('élève'),
     )
+    full_name = models.CharField(_('nom du responsable'), max_length=200, blank=True)
+    phone     = models.CharField(_('téléphone'), max_length=20, blank=True)
+    email     = models.EmailField(_('e-mail'), blank=True)
     relationship = models.CharField(
         _('lien de parenté'), max_length=10,
         choices=ParentRelationship.choices, blank=True,
     )
     is_primary = models.BooleanField(_('contact principal'), default=False)
     created_at = models.DateTimeField(_('créé le'), auto_now_add=True)
+
+    @property
+    def display_name(self):
+        """Nom à afficher : celui du responsable, sinon celui du compte lié."""
+        return self.full_name or (self.guardian.full_name if self.guardian_id else '')
+
+    @property
+    def display_phone(self):
+        return self.phone or (self.guardian.phone_number if self.guardian_id else '')
+
+    @property
+    def has_portal_access(self):
+        return self.guardian_id is not None
 
     class Meta:
         verbose_name = _('parent d\'élève')
@@ -281,7 +296,7 @@ class StudentGuardian(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.guardian.full_name} → {self.student.full_name}'
+        return f'{self.display_name or "?"} → {self.student.full_name}'
 
 
 class EnrollmentStatus(models.TextChoices):

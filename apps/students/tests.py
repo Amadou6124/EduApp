@@ -15,7 +15,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.schools.models import School, SchoolYear, SchoolClass
-from apps.students.models import Student, StudentEnrollment, EnrollmentStatus
+from apps.students.models import Student, StudentEnrollment, EnrollmentStatus, StudentGuardian
 from apps.students.services import ensure_active_enrollment
 
 
@@ -147,3 +147,143 @@ class StudentIdentityTests(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn('date_of_birth', form.errors)
+
+
+class ResponsablesTests(TestCase):
+    """Couche « responsable » (StudentGuardian) : info seule vs accès portail, contact
+    principal, non-régression du portail parent. Voir apps/students/models.py + views.py."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École R', short_name='ER', city='Bamako', school_type='primary',
+        )
+        cls.klass = SchoolClass.objects.create(
+            school=cls.school, name='1A', level='fondamental_1',
+            annual_fee=Decimal('100000'), max_capacity=40,
+        )
+
+    def _student(self, first='A', last='X'):
+        return Student.objects.create(
+            school=self.school, school_class=self.klass,
+            first_name=first, last_name=last, tuition_fee=Decimal('0'),
+        )
+
+    # ── Modèle ─────────────────────────────────────────────────
+    def test_responsable_info_seule(self):
+        s = self._student()
+        g = StudentGuardian.objects.create(
+            student=s, full_name='Traoré Sékou', phone='76000001',
+            relationship='father', is_primary=True,
+        )
+        self.assertFalse(g.has_portal_access)          # pas de compte
+        self.assertEqual(g.display_name, 'Traoré Sékou')
+        self.assertEqual(g.display_phone, '76000001')
+
+    def test_responsable_portal_fallback_sur_compte(self):
+        from apps.accounts.models import User, UserRole
+        s = self._student()
+        u = User.objects.create_user(
+            phone_number='76000002', password='x', full_name='Diallo Aminata',
+            role=UserRole.PARENT,
+        )
+        g = StudentGuardian.objects.create(student=s, guardian=u)  # sans full_name/phone
+        self.assertTrue(g.has_portal_access)
+        self.assertEqual(g.display_name, 'Diallo Aminata')   # repli sur le compte
+        self.assertEqual(g.display_phone, '76000002')
+
+    def test_has_parent_linked_selon_responsables(self):
+        s = self._student()
+        self.assertFalse(s.has_parent_linked())
+        StudentGuardian.objects.create(student=s, full_name='X', phone='7', is_primary=True)
+        self.assertTrue(s.has_parent_linked())
+
+    def test_filtre_sans_responsable(self):
+        s_none = self._student(last='Sans')
+        s_with = self._student(last='Avec')
+        StudentGuardian.objects.create(student=s_with, full_name='R', phone='7', is_primary=True)
+        without = Student.objects.filter(school=self.school, guardians__isnull=True)
+        self.assertIn(s_none, without)
+        self.assertNotIn(s_with, without)
+
+    # ── Non-régression portail parent ──────────────────────────
+    def test_portail_parent_exclut_info_seule(self):
+        from apps.accounts.models import User, UserRole
+        from apps.parent.children import parent_students
+        s = self._student()
+        u = User.objects.create_user(
+            phone_number='76000003', password='x', full_name='Papa', role=UserRole.PARENT,
+        )
+        # Responsable info seule (aucun compte) → le parent u n'a AUCUN enfant lié.
+        StudentGuardian.objects.create(student=s, full_name='Info', phone='7', is_primary=True)
+        self.assertEqual(parent_students(u), [])
+        # Accès portail accordé → l'enfant apparaît.
+        StudentGuardian.objects.create(student=s, guardian=u)
+        self.assertIn(s, parent_students(u))
+
+    # ── Helper de création (inscription / fiche) ───────────────
+    def test_create_from_post_info(self):
+        from django.test import RequestFactory
+        from apps.students.views import _create_responsable_from_post
+        s = self._student()
+        req = RequestFactory().post('/', {
+            'responsable_name': 'Traoré Sékou', 'responsable_phone': '76000010',
+            'responsable_relationship': 'father',
+        })
+        g = _create_responsable_from_post(req, s, is_primary=True)
+        self.assertIsNotNone(g)
+        self.assertFalse(g.has_portal_access)
+        self.assertEqual(g.full_name, 'Traoré Sékou')
+        self.assertTrue(g.is_primary)
+
+    def test_create_from_post_avec_portail(self):
+        from django.test import RequestFactory
+        from apps.accounts.models import UserRole
+        from apps.students.views import _create_responsable_from_post
+        s = self._student()
+        req = RequestFactory().post('/', {
+            'responsable_name': 'Diallo Aminata', 'responsable_phone': '76000011',
+            'responsable_relationship': 'mother', 'responsable_portal': 'on',
+        })
+        g = _create_responsable_from_post(req, s, is_primary=True)
+        self.assertTrue(g.has_portal_access)
+        self.assertEqual(g.guardian.phone_number, '76000011')
+        self.assertEqual(g.guardian.role, UserRole.PARENT)
+
+    def test_create_from_post_vide(self):
+        from django.test import RequestFactory
+        from apps.students.views import _create_responsable_from_post
+        s = self._student()
+        req = RequestFactory().post('/', {})
+        self.assertIsNone(_create_responsable_from_post(req, s))
+
+    def test_inscription_view_cree_responsable(self):
+        # Flux complet : POST d'inscription avec responsable → élève + responsable principal.
+        from django.urls import reverse
+        from apps.accounts.models import User, UserRole, Membership
+        SchoolYear.objects.create(
+            school=self.school, name='2025-2026',
+            start_date=date(2025, 10, 1), end_date=date(2026, 6, 30), is_active=True,
+        )
+        director = User.objects.create_user(
+            phone_number='70000099', password='pw', role=UserRole.DIRECTOR, full_name='Dir',
+        )
+        Membership.objects.create(
+            user=director, school=self.school, role=UserRole.DIRECTOR, is_default=True,
+        )
+        self.client.force_login(director)
+        session = self.client.session
+        session['active_school_id'] = self.school.id
+        session.save()
+        self.client.post(reverse('students:create'), {
+            'school_class': self.klass.id, 'last_name': 'Keita', 'first_name': 'Modibo',
+            'gender': 'F', 'date_of_birth': '2015-05-10',
+            'responsable_name': 'Keita Awa', 'responsable_phone': '76001234',
+            'responsable_relationship': 'mother',
+        }, HTTP_HX_REQUEST='true')
+        student = Student.objects.get(school=self.school, last_name='Keita', first_name='Modibo')
+        g = student.guardians.get()
+        self.assertEqual(g.full_name, 'Keita Awa')
+        self.assertTrue(g.is_primary)
+        self.assertFalse(g.has_portal_access)
+        self.assertTrue(student.matricule)      # matricule auto attribué

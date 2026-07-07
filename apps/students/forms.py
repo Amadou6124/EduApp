@@ -13,7 +13,6 @@ class StudentCreateForm(forms.ModelForm):
     field_order = [
         'last_name', 'first_name', 'gender', 'date_of_birth', 'birth_place',
         'school_class', 'matricule',
-        'parent_phone_number', 'parent_relationship',
         'initial_payment', 'payment_method',
     ]
 
@@ -55,18 +54,14 @@ class StudentCreateForm(forms.ModelForm):
         fields = [
             'school_class', 'last_name', 'first_name', 'gender',
             'date_of_birth', 'birth_place',
-            'parent_phone_number', 'parent_relationship',
             'matricule',
         ]
         labels = {
-            'school_class':        _('Classe'),
-            'last_name':           _('Nom de famille'),
-            'first_name':          _('Prénom(s)'),
-            'birth_place':         _('Lieu de naissance'),
-            'phone_number':        _('Téléphone élève'),
-            'parent_phone_number': _('Téléphone parent'),
-            'parent_relationship': _('Lien de parenté'),
-            'matricule':           _('Matricule'),
+            'school_class': _('Classe'),
+            'last_name':    _('Nom de famille'),
+            'first_name':   _('Prénom(s)'),
+            'birth_place':  _('Lieu de naissance'),
+            'matricule':    _('Matricule'),
         }
         help_texts = {
             'matricule': _('Laisser vide pour une génération automatique (ex. 2026-0001).'),
@@ -93,7 +88,6 @@ class StudentUpdateForm(forms.ModelForm):
         fields = [
             'school_class', 'last_name', 'first_name',
             'date_of_birth', 'birth_place',
-            'parent_phone_number', 'parent_relationship',
             'matricule', 'notes',
         ]
         widgets = {

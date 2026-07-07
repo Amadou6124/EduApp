@@ -55,7 +55,7 @@ def _students_qs(school, status='all', class_id=None, no_parent=False):
         Student.objects
         .filter(school=school, is_active=True)
         .select_related('school_class')
-        .order_by('full_name')
+        .order_by('last_name', 'first_name')
     )
     qs = annotate_students_with_fees(qs)
     if status in ('unpaid', 'partial', 'paid', 'no_fee'):
@@ -63,7 +63,7 @@ def _students_qs(school, status='all', class_id=None, no_parent=False):
     if class_id:
         qs = qs.filter(school_class_id=class_id)
     if no_parent:
-        qs = qs.filter(parent_phone_number='')
+        qs = qs.filter(guardians__isnull=True)   # aucun responsable enregistré
     return qs
 
 
@@ -81,7 +81,7 @@ def compute_student_stats(school):
     return {
         'total':               base.count(),
         'enrolled_today':      base.filter(enrolled_at__date=today).count(),
-        'without_parent':      base.filter(parent_phone_number='').count(),
+        'without_parent':      base.filter(guardians__isnull=True).count(),
         'unpaid_balance':      int(unpaid_balance),
         'without_fee_account': count_without_account(school),
     }
@@ -208,6 +208,45 @@ def _enrollment_catalog_data(school):
     return fees_data, schedule_data, default_count
 
 
+def _create_responsable_from_post(request, student, *, is_primary=False, prefix='responsable'):
+    """Crée un responsable (StudentGuardian) depuis les champs POST `{prefix}_*`.
+
+    L'INFO est toujours enregistrée (nom/téléphone/e-mail/lien). Un compte portail n'est
+    créé/lié QUE si « accès portail » est coché et un téléphone fourni : compte existant
+    par téléphone → lié ; sinon création d'un compte parent (mot de passe temporaire).
+    Retourne le StudentGuardian, ou None si rien n'a été saisi.
+    """
+    from apps.students.models import StudentGuardian, ParentRelationship
+    name  = request.POST.get(f'{prefix}_name', '').strip()
+    phone = request.POST.get(f'{prefix}_phone', '').strip()
+    rel   = request.POST.get(f'{prefix}_relationship', '').strip()
+    email = request.POST.get(f'{prefix}_email', '').strip()
+    portal = request.POST.get(f'{prefix}_portal') == 'on'
+    if not (name or phone):
+        return None
+
+    guardian_user = None
+    if portal and phone:
+        from apps.accounts.models import User, UserRole
+        from apps.accounts.team_forms import generate_temp_password
+        guardian_user = User.objects.filter(phone_number=phone).first()
+        if guardian_user is None:
+            guardian_user = User.objects.create_user(
+                phone_number=phone, password=generate_temp_password(),
+                full_name=name or phone, role=UserRole.PARENT,
+            )
+
+    valid_rel = rel if rel in {c[0] for c in ParentRelationship.choices} else ''
+    sg = StudentGuardian.objects.create(
+        student=student, guardian=guardian_user,
+        full_name=name, phone=phone, email=email,
+        relationship=valid_rel, is_primary=is_primary,
+    )
+    if phone:
+        logger.info('[SMS] Notification responsable à envoyer — élève : %s', student.full_name)
+    return sg
+
+
 @login_required
 @director_or_staff_required
 @require_http_methods(['POST'])
@@ -294,8 +333,10 @@ def student_create(request):
                 if target is not None:
                     allocate_payment(payment, target)
 
-        if student.parent_phone_number:
-            logger.info('[SMS] Notification parent à envoyer — élève : %s', student.full_name)
+        # ── Responsable principal (couche « responsable ») ─────────────────────
+        # Info TOUJOURS ; compte portail SEULEMENT si « accès portail » coché. Un seul
+        # responsable à l'inscription (les autres s'ajoutent sur la fiche élève).
+        _create_responsable_from_post(request, student, is_primary=True)
 
         if request.htmx:
             ctx = _student_list_page(request, school)
@@ -702,12 +743,12 @@ def student_import_template(request):
     ws = wb.active
     ws.title = 'Élèves'
 
-    NUM_COLS = 7
+    NUM_COLS = 8
 
     # ── Ligne 1 : instructions ────────────────────────────────────────
     ws.append([
-        'OBLIGATOIRES : Nom, Prénom, Classe  |  OPTIONNELLES : Téléphone parent, '
-        'Date de naissance, Lien parenté, Genre (G/F)  |  '
+        'OBLIGATOIRES : Nom, Prénom, Classe  |  OPTIONNELLES : Nom du responsable, '
+        'Téléphone responsable, Date de naissance, Lien parenté, Genre (G/F)  |  '
         'Le matricule est attribué automatiquement. Les paiements se gèrent dans l\'application.'
     ])
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=NUM_COLS)
@@ -722,7 +763,8 @@ def student_import_template(request):
         'Nom *',
         'Prénom *',
         'Classe *',
-        'Téléphone parent',
+        'Nom du responsable',
+        'Téléphone responsable',
         'Date de naissance (JJ/MM/AAAA)',
         'Lien parenté (père/mère/tuteur)',
         'Genre (G/F)',   # lot 4b — optionnel, pilote la tenue auto
@@ -738,8 +780,8 @@ def student_import_template(request):
     # ── Lignes 3-4 : exemples ────────────────────────────────────────
     example_fill = PatternFill(start_color='F7F9FC', end_color='F7F9FC', fill_type='solid')
     for row_data in [
-        ['Kouassi', 'Jean', 'CP1',    '0700000002', '15/03/2015', 'père', 'G'],
-        ['Traoré',  'Awa',  '6ème A', '0600000003', '20/07/2013', 'mère', 'F'],
+        ['Kouassi', 'Jean', 'CP1',    'Kouassi Ama',  '0700000002', '15/03/2015', 'mère', 'G'],
+        ['Traoré',  'Awa',  '6ème A', 'Traoré Sékou', '0600000003', '20/07/2013', 'père', 'F'],
     ]:
         ws.append(row_data)
         for cell in ws[ws.max_row]:
@@ -756,8 +798,8 @@ def student_import_template(request):
 def _parse_student_rows(file_obj, filename, school):
     """Parse un fichier Excel/CSV et retourne (rows_valides, erreurs).
 
-    Colonnes attendues (7) :
-        Nom * | Prénom * | Classe * | Téléphone parent
+    Colonnes attendues (8) :
+        Nom * | Prénom * | Classe * | Nom du responsable | Téléphone responsable
         | Date de naissance | Lien parenté | Genre
     """
     rows, errors = [], []
@@ -813,8 +855,8 @@ def _parse_student_rows(file_obj, filename, school):
     for line_num, raw in enumerate(raw_rows, start=line_offset):
         if not any(raw):
             continue
-        cols = (raw + [''] * 7)[:7]
-        last_raw, first_raw, class_raw, parent_phone, dob_raw, rel_raw, gender_raw = [
+        cols = (raw + [''] * 8)[:8]
+        last_raw, first_raw, class_raw, resp_name, resp_phone, dob_raw, rel_raw, gender_raw = [
             c.strip() for c in cols
         ]
         composed = f'{first_raw} {last_raw}'.strip()   # « Prénom Nom » pour l'affichage
@@ -855,7 +897,8 @@ def _parse_student_rows(file_obj, filename, school):
                 'class_id':            school_class.id,
                 'class_name':          school_class.name,
                 'dob':                 dob.isoformat() if dob else '',
-                'parent_phone':        parent_phone,
+                'resp_name':           resp_name,
+                'resp_phone':          resp_phone,
                 'parent_relationship': parent_relationship,
                 'gender':              gender or '',     # '' = non renseigné
                 'annual_fee':          int(school_class.annual_fee),
@@ -970,8 +1013,6 @@ def student_import_confirm(request):
             last_name           = row.get('last_name', ''),
             first_name          = row.get('first_name', ''),
             full_name           = row['name'],
-            parent_phone_number = row.get('parent_phone', ''),
-            parent_relationship = row.get('parent_relationship', ''),
             gender              = row.get('gender') or None,   # lot 4b — pilote la tenue auto
             tuition_fee         = sc.annual_fee,
         )
@@ -980,6 +1021,8 @@ def student_import_confirm(request):
                 s.date_of_birth = date.fromisoformat(row['dob'])
             except ValueError:
                 pass
+        # Responsable (info seule, contact principal) créé après le bulk_create des élèves.
+        s._resp = (row.get('resp_name', ''), row.get('resp_phone', ''), row.get('parent_relationship', ''))
         students_to_create.append(s)
 
     # Assigner des codes uniques (lot + base) avant bulk_create
@@ -1039,6 +1082,20 @@ def student_import_confirm(request):
     # Les objets `enrollments` portent déjà .student (avec gender) et .school_class
     # (avec annual_fee) en mémoire → build_fee_accounts_bulk n'émet aucune requête N+1.
     build_fee_accounts_bulk(enrollments)
+
+    # ── Responsable principal par élève (info seule, sans compte) ───────────────
+    from apps.students.models import StudentGuardian, ParentRelationship
+    _valid_rel = {c[0] for c in ParentRelationship.choices}
+    guardians = []
+    for s in created:
+        r_name, r_phone, r_rel = getattr(s, '_resp', ('', '', ''))
+        if r_name or r_phone:
+            guardians.append(StudentGuardian(
+                student=s, guardian=None, full_name=r_name, phone=r_phone,
+                relationship=r_rel if r_rel in _valid_rel else '', is_primary=True,
+            ))
+    if guardians:
+        StudentGuardian.objects.bulk_create(guardians)
 
     if request.htmx:
         ctx = _student_list_page(request, school)
