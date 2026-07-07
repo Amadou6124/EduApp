@@ -52,7 +52,7 @@ class SchoolClassForm(forms.ModelForm):
 
 # ── Helpers styles ──────────────────────────────────────────────────────────
 _F = ('w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm '
-      'focus:outline-none focus:ring-2 focus:ring-brand-blue '
+      'focus:outline-none focus:ring-2 focus:ring-primary-500 '
       'text-gray-800 placeholder-gray-400')
 _S = _F + ' bg-white cursor-pointer'
 
@@ -138,7 +138,7 @@ class SchoolYearForm(forms.ModelForm):
             'name':       forms.TextInput(attrs={'class': _F, 'placeholder': '2025-2026'}),
             'start_date': forms.DateInput(attrs={'type': 'date', 'class': _F}),
             'end_date':   forms.DateInput(attrs={'type': 'date', 'class': _F}),
-            'is_active':  forms.CheckboxInput(attrs={'class': 'w-4 h-4 accent-brand-blue'}),
+            'is_active':  forms.CheckboxInput(attrs={'class': 'w-4 h-4 accent-primary-600'}),
         }
 
     def __init__(self, *args, **kwargs):

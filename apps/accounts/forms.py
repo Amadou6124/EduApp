@@ -5,7 +5,7 @@ from .models import User
 
 _INPUT_CLASS = (
     'w-full px-4 py-3 border border-gray-300 rounded-xl text-sm '
-    'focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue '
+    'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 '
     'placeholder-gray-400 transition'
 )
 

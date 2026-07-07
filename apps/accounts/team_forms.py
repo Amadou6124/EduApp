@@ -8,15 +8,15 @@ from .models import User, UserRole, StaffPermission, Membership
 
 _INPUT = (
     'w-full px-4 py-3 border border-gray-300 rounded-xl text-sm '
-    'focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue '
+    'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 '
     'placeholder-gray-400 transition'
 )
 _INPUT_SM = (
     'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm '
-    'focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue '
+    'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 '
     'placeholder-gray-400 transition'
 )
-_CHECKBOX = 'h-4 w-4 rounded border-gray-300 text-brand-blue focus:ring-brand-blue cursor-pointer'
+_CHECKBOX = 'h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer'
 
 
 def generate_temp_password(length=10):

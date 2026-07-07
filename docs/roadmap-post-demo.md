@@ -123,12 +123,11 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
 - **Restes du chantier multi-école** : portail parent multi-école + **transfert d'élève entre écoles** (historique préservé).
 
 ### Dette technique / polish
-- **`forms.py` : `brand-blue` → `primary`** (focus ring perdu depuis la refonte design) — `accounts/team_forms.py`, `accounts/forms.py`, `payments/forms.py`, `schools/forms.py`.
-- **Réactivation d'un élève archivé** (onglet « Archivés » + bouton, équivalent de la réactivation équipe déjà faite).
-- **Alerte émargement dashboard** (profs attendus vs émargés du jour).
-- **Migration Lucide 1.20.0 → 0.577.x** (chore ; audit des noms d'icônes avant).
-- **Nettoyage `components.css` orphelin** (`brand-blue` hors build).
-- Cosmétiques divers : carte dashboard restée en demi-largeur, erreurs Alpine console, labels de groupe HTMX orphelins (notifications).
+> Audité juillet 2026 : **`brand-blue → primary` FAIT** (focus ring restauré, 4 fichiers) ;
+> **alerte émargement** et **`components.css` orphelin** = déjà faits/inexistants (retirés).
+- **Réactivation d'un élève archivé** (onglet « Archivés » + bouton, comme la réactivation équipe). *Petit, après lancement.*
+- **Migration Lucide 1.20.0 → 0.5xx** (chore ; les noms d'icônes changent → audit avant). *Non urgent, après lancement.*
+- Cosmétiques divers : carte dashboard demi-largeur, erreurs Alpine console, labels de groupe HTMX orphelins (notifications).
 
 *(Déjà faits, donc retirés du backlog : catalogue de frais + échéancier par tranches, liste rouge des impayés,
 portail parent financier, périodes par cycle.)*
