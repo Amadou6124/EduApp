@@ -3,13 +3,6 @@
 
 {% block title %}Mon tableau de bord{% endblock %}
 
-{% block header_actions %}
-  <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-       style="background-color: {{ avatar_bg }}; color: {{ avatar_text }};">
-    {{ user.get_initials }}
-  </div>
-{% endblock %}
-
 {% block page_title %}Bonjour {{ first_name }}{% endblock %}
 {% block page_subtitle %}{% endblock %}
 
