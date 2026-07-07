@@ -48,14 +48,15 @@ class MultiTenantIsolationTests(TestCase):
         cls.class_b = SchoolClass.objects.create(
             school=cls.school_b, name='1B', level='fondamental_1', annual_fee=Decimal('100000'), max_capacity=40,
         )
+        # Noms volontairement distincts (pour tester les fuites de contenu).
         cls.student_a = Student.objects.create(
-            school=cls.school_a, school_class=cls.class_a, full_name='Élève A', tuition_fee=Decimal('100000'),
+            school=cls.school_a, school_class=cls.class_a, full_name='Awa Traore', tuition_fee=Decimal('100000'),
         )
         cls.student_a2 = Student.objects.create(
-            school=cls.school_a, school_class=cls.class_a2, full_name='Élève A2', tuition_fee=Decimal('100000'),
+            school=cls.school_a, school_class=cls.class_a2, full_name='Coumba Diallo', tuition_fee=Decimal('100000'),
         )
         cls.student_b = Student.objects.create(
-            school=cls.school_b, school_class=cls.class_b, full_name='Élève B', tuition_fee=Decimal('100000'),
+            school=cls.school_b, school_class=cls.class_b, full_name='Bintou Sanogo', tuition_fee=Decimal('100000'),
         )
 
         # PARENT lié uniquement à l'élève A.
@@ -142,3 +143,29 @@ class MultiTenantIsolationTests(TestCase):
         self.client.force_login(self.staff)
         r = self.client.get(reverse('accounting:dashboard'))
         self.assertEqual(r.status_code, 403)
+
+    # ── Isolation en PROFONDEUR (mutations, argent, vue forgée) ─
+    def test_directeur_ne_peut_pas_editer_eleve_autre_ecole(self):
+        # Charger le formulaire d'édition d'un élève de l'autre école → 404 (write isolé).
+        self.client.force_login(self.dir_a)
+        r = self.client.get(reverse('students:update', args=[self.student_b.id]))
+        self.assertEqual(r.status_code, 404)
+        # Son propre élève reste éditable.
+        self.assertNotEqual(
+            self.client.get(reverse('students:update', args=[self.student_a.id])).status_code, 404
+        )
+
+    def test_argent_isole_entre_ecoles(self):
+        # Le panneau d'encaissement (l'ARGENT) d'un élève de l'autre école → 404.
+        self.client.force_login(self.dir_a)
+        r = self.client.get(reverse('finance:collect-panel', args=[self.student_b.id]))
+        self.assertEqual(r.status_code, 404)
+        r_ok = self.client.get(reverse('finance:collect-panel', args=[self.student_a.id]))
+        self.assertEqual(r_ok.status_code, 200)
+
+    def test_parent_child_forge_ne_fuite_pas(self):
+        # Forcer ?child=<élève non lié> ne doit JAMAIS afficher ses données.
+        self.client.force_login(self.parent)
+        r = self.client.get(reverse('parent:scolarite') + f'?child={self.student_b.id}')
+        self.assertNotContains(r, 'Bintou')   # jamais l'enfant non lié (statut 200 vérifié aussi)
+        self.assertContains(r, 'Awa')         # bien son propre enfant
