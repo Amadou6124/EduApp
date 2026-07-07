@@ -1,0 +1,107 @@
+{% load humanize %}
+<div id="discount-section" class="card p-6" x-data="{ grant: false, vtype: 'percent' }">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Remises</h3>
+    {% if account %}
+    <button type="button" @click="grant = !grant"
+            class="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline">
+      <i data-lucide="plus" class="w-4 h-4"></i> Accorder une remise
+    </button>
+    {% endif %}
+  </div>
+
+  {% if account %}
+    <div x-show="grant" x-cloak class="mb-4 p-4 rounded-xl border border-gray-100 bg-gray-50">
+      <form hx-post="{% url 'finance:discount-grant' student.id %}"
+            hx-target="#discount-section" hx-swap="outerHTML" hx-sync="this:drop"
+            @submit="grant = false">
+        {% csrf_token %}
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Sur quelle dette</label>
+            <select name="debt_id" class="input-field" required>
+              {% for d in debts %}<option value="{{ d.id }}">{{ d.label }} — {{ d.total_amount|intcomma }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Motif</label>
+            <select name="motif" class="input-field" required>
+              {% for val, label in motifs %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Type</label>
+            <div class="flex gap-2">
+              <button type="button" @click="vtype = 'percent'"
+                      :class="vtype==='percent' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500'"
+                      class="flex-1 border-2 rounded-xl py-2 text-sm font-medium transition">Pourcentage</button>
+              <button type="button" @click="vtype = 'amount'"
+                      :class="vtype==='amount' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500'"
+                      class="flex-1 border-2 rounded-xl py-2 text-sm font-medium transition">Montant fixe</button>
+            </div>
+            <input type="hidden" name="value_type" :value="vtype">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1"><span x-text="vtype==='percent' ? 'Pourcentage (%)' : 'Montant (FCFA)'"></span></label>
+            <input type="text" name="value" class="input-field" required :placeholder="vtype==='percent' ? '10' : '25000'">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Financé par</label>
+            <select name="funding_source" class="input-field">
+              {% for val, label in funding_sources %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Justification</label>
+            <input type="text" name="justification" class="input-field" placeholder="ex. 2ᵉ enfant">
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-3">
+          <button type="button" @click="grant = false" class="btn-secondary">Annuler</button>
+          <button type="submit" class="btn-primary">Accorder</button>
+        </div>
+        <p class="text-[11px] text-gray-400 mt-2">Le tarif officiel ne change jamais. Une remise ne peut pas créer de trop-perçu.</p>
+      </form>
+    </div>
+
+    <div class="space-y-3">
+      {% for d in debts %}
+        <div class="p-3 rounded-xl border border-gray-100">
+          <div class="flex items-center justify-between text-sm">
+            <span class="font-medium text-gray-800">{{ d.label }}</span>
+            <span class="text-gray-500">{{ d.total_amount|intcomma }}</span>
+          </div>
+          {% for a in d.adjustments.all %}{% if not a.is_cancelled %}
+            <div class="flex items-center justify-between mt-1.5 text-xs">
+              <span class="text-primary-700">
+                <i data-lucide="tag" class="inline w-3 h-3"></i>
+                {{ a.get_motif_display }}{% if a.percent %} (−{{ a.percent|floatformat:"-2" }} %){% endif %}
+                <span class="text-gray-400">· {{ a.get_funding_source_display }}</span>
+              </span>
+              <span class="flex items-center gap-2">
+                <span class="text-primary-700">− {{ a.resolved_amount|intcomma }}</span>
+                <form hx-post="{% url 'finance:discount-cancel' student.id a.id %}"
+                      hx-target="#discount-section" hx-swap="outerHTML" hx-sync="this:drop"
+                      hx-confirm="Annuler cette remise ?">
+                  {% csrf_token %}
+                  <button type="submit" class="text-gray-300 hover:text-red-500" title="Annuler la remise">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                  </button>
+                </form>
+              </span>
+            </div>
+          {% endif %}{% endfor %}
+          {% if d.adjustments_total %}
+            <div class="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-100 text-sm">
+              <span class="text-gray-500">Net dû</span>
+              <span class="font-semibold text-gray-800">{{ d.net_due|intcomma }}</span>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-sm text-gray-400 text-center py-4">Aucune fiche financière.</p>
+  {% endif %}
+  <script>if(window.lucide)lucide.createIcons();</script>
+</div>
