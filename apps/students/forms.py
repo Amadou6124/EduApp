@@ -8,6 +8,15 @@ from .models import ParentRelationship, Student, Gender
 
 
 class StudentCreateForm(forms.ModelForm):
+    # Ordre d'affichage logique du panneau d'inscription (le template rend les champs
+    # génériquement dans cet ordre).
+    field_order = [
+        'last_name', 'first_name', 'gender', 'date_of_birth', 'birth_place',
+        'school_class', 'matricule',
+        'phone_number', 'parent_phone_number', 'parent_relationship',
+        'initial_payment', 'payment_method',
+    ]
+
     # Genre OBLIGATOIRE à l'inscription unitaire (lot 4a) : pilote la variante de tenue
     # auto et, plus largement, la fiche financière. Le panneau envoie 'F'/'M' (codes du
     # lot 1). Requis ici uniquement — groupe/import laissent le genre nullable.
@@ -31,26 +40,44 @@ class StudentCreateForm(forms.ModelForm):
         required=False,
     )
 
+    # Date de naissance OBLIGATOIRE à l'inscription unitaire (état civil, documents officiels).
+    date_of_birth = forms.DateField(
+        label=_('Date de naissance'),
+        required=True,
+        error_messages={'required': _('La date de naissance est obligatoire.')},
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+
     class Meta:
         model = Student
+        # full_name est absent : il est recomposé automatiquement (Prénom + Nom) dans
+        # Student.save(). On saisit last_name + first_name séparément.
         fields = [
-            'school_class', 'full_name', 'gender', 'date_of_birth',
+            'school_class', 'last_name', 'first_name', 'gender',
+            'date_of_birth', 'birth_place',
             'phone_number', 'parent_phone_number', 'parent_relationship',
+            'matricule',
         ]
-        widgets = {
-            'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
-        }
         labels = {
             'school_class':        _('Classe'),
-            'full_name':           _('Nom complet'),
-            'date_of_birth':       _('Date de naissance'),
+            'last_name':           _('Nom de famille'),
+            'first_name':          _('Prénom(s)'),
+            'birth_place':         _('Lieu de naissance'),
             'phone_number':        _('Téléphone élève'),
             'parent_phone_number': _('Téléphone parent'),
             'parent_relationship': _('Lien de parenté'),
+            'matricule':           _('Matricule'),
+        }
+        help_texts = {
+            'matricule': _('Laisser vide pour une génération automatique (ex. 2026-0001).'),
         }
 
     def __init__(self, *args, school=None, **kwargs):
         super().__init__(*args, **kwargs)
+        # Nom et prénom obligatoires à l'inscription (blank=True au niveau modèle pour les
+        # chemins hérités uniquement — voir Student.last_name/first_name).
+        self.fields['last_name'].required = True
+        self.fields['first_name'].required = True
         if school:
             self.fields['school_class'].queryset = (
                 SchoolClass.objects.filter(school=school, is_active=True)
@@ -64,17 +91,26 @@ class StudentUpdateForm(forms.ModelForm):
     class Meta:
         model = Student
         fields = [
-            'school_class', 'full_name', 'date_of_birth',
+            'school_class', 'last_name', 'first_name',
+            'date_of_birth', 'birth_place',
             'phone_number', 'parent_phone_number', 'parent_relationship',
-            'notes',
+            'matricule', 'notes',
         ]
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'notes':         forms.Textarea(attrs={'rows': 3}),
         }
+        labels = {
+            'last_name':   _('Nom de famille'),
+            'first_name':  _('Prénom(s)'),
+            'birth_place': _('Lieu de naissance'),
+            'matricule':   _('Matricule'),
+        }
 
     def __init__(self, *args, school=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['last_name'].required = True
+        self.fields['first_name'].required = True
         if school:
             self.fields['school_class'].queryset = (
                 SchoolClass.objects.filter(school=school, is_active=True)

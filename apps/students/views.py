@@ -702,13 +702,13 @@ def student_import_template(request):
     ws = wb.active
     ws.title = 'Élèves'
 
-    NUM_COLS = 7
+    NUM_COLS = 8
 
     # ── Ligne 1 : instructions ────────────────────────────────────────
     ws.append([
-        'OBLIGATOIRES : Nom complet, Classe  |  OPTIONNELLES : Téléphone parent, '
+        'OBLIGATOIRES : Nom, Prénom, Classe  |  OPTIONNELLES : Téléphone parent, '
         'Téléphone élève, Date de naissance, Lien parenté, Genre (G/F)  |  '
-        'Les paiements se gèrent directement dans l\'application.'
+        'Le matricule est attribué automatiquement. Les paiements se gèrent dans l\'application.'
     ])
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=NUM_COLS)
     instr_cell = ws['A1']
@@ -719,7 +719,8 @@ def student_import_template(request):
 
     # ── Ligne 2 : en-têtes ───────────────────────────────────────────
     headers = [
-        'Nom complet *',
+        'Nom *',
+        'Prénom *',
         'Classe *',
         'Téléphone parent',
         'Téléphone élève',
@@ -733,13 +734,13 @@ def student_import_template(request):
         cell.font      = Font(bold=True, color='FFFFFF')
         cell.fill      = header_fill
         cell.alignment = Alignment(horizontal='center')
-        ws.column_dimensions[get_column_letter(col_idx)].width = 28
+        ws.column_dimensions[get_column_letter(col_idx)].width = 24
 
     # ── Lignes 3-4 : exemples ────────────────────────────────────────
     example_fill = PatternFill(start_color='F7F9FC', end_color='F7F9FC', fill_type='solid')
     for row_data in [
-        ['Jean Kouassi',  'CP1',    '0700000002', '0700000001', '15/03/2015', 'père', 'G'],
-        ['Awa Traoré',    '6ème A', '0600000003', '',           '20/07/2013', 'mère', 'F'],
+        ['Kouassi', 'Jean', 'CP1',    '0700000002', '0700000001', '15/03/2015', 'père', 'G'],
+        ['Traoré',  'Awa',  '6ème A', '0600000003', '',           '20/07/2013', 'mère', 'F'],
     ]:
         ws.append(row_data)
         for cell in ws[ws.max_row]:
@@ -756,9 +757,9 @@ def student_import_template(request):
 def _parse_student_rows(file_obj, filename, school):
     """Parse un fichier Excel/CSV et retourne (rows_valides, erreurs).
 
-    Colonnes attendues (6) :
-        Nom complet * | Classe * | Téléphone parent | Téléphone élève
-        | Date de naissance | Lien parenté
+    Colonnes attendues (8) :
+        Nom * | Prénom * | Classe * | Téléphone parent | Téléphone élève
+        | Date de naissance | Lien parenté | Genre
     """
     rows, errors = [], []
 
@@ -796,8 +797,9 @@ def _parse_student_rows(file_obj, filename, school):
             # pour gérer les deux formats (avec ou sans ligne d'instructions)
             data_start = 2
             for i, row in enumerate(ws.iter_rows(min_row=1, max_row=5, values_only=True), start=1):
-                first = str(row[0] or '').strip().lower()
-                if 'nom' in first and 'complet' in first:
+                first  = str(row[0] or '').strip().lower()
+                second = str(row[1] or '').strip().lower() if len(row) > 1 else ''
+                if 'nom' in first and 'prénom' in second:
                     data_start = i + 1
                     break
             raw_rows = [
@@ -812,14 +814,17 @@ def _parse_student_rows(file_obj, filename, school):
     for line_num, raw in enumerate(raw_rows, start=line_offset):
         if not any(raw):
             continue
-        cols = (raw + [''] * 7)[:7]
-        name_raw, class_raw, parent_phone, phone, dob_raw, rel_raw, gender_raw = [
+        cols = (raw + [''] * 8)[:8]
+        last_raw, first_raw, class_raw, parent_phone, phone, dob_raw, rel_raw, gender_raw = [
             c.strip() for c in cols
         ]
+        composed = f'{first_raw} {last_raw}'.strip()   # « Prénom Nom » pour l'affichage
         row_errors = []
 
-        if not name_raw:
+        if not last_raw:
             row_errors.append('Nom manquant')
+        if not first_raw:
+            row_errors.append('Prénom manquant')
 
         school_class = class_map.get(class_raw.lower())
         if not school_class:
@@ -839,13 +844,15 @@ def _parse_student_rows(file_obj, filename, school):
         parent_relationship = relationship_map.get(rel_raw.lower(), '') if rel_raw else ''
         # Genre : normalisé ou None. JAMAIS bloquant — pas une erreur de ligne.
         gender = gender_map.get(gender_raw.lower()) if gender_raw else None
-        is_duplicate = bool(school_class and (name_raw, school_class.name) in existing)
+        is_duplicate = bool(school_class and (composed, school_class.name) in existing)
 
         if row_errors:
-            errors.append({'line': line_num, 'name': name_raw or '—', 'errors': row_errors})
+            errors.append({'line': line_num, 'name': composed or '—', 'errors': row_errors})
         else:
             rows.append({
-                'name':                name_raw,
+                'name':                composed,
+                'last_name':           last_raw,
+                'first_name':          first_raw,
                 'class_id':            school_class.id,
                 'class_name':          school_class.name,
                 'phone':               phone,
@@ -876,6 +883,26 @@ def student_import_preview(request):
         'duplicates':  [r['name'] for r in rows if r['is_duplicate']],
         'rows_json':   json.dumps(rows),
     })
+
+
+def _batch_matricules(school, count, year=None):
+    """`count` matricules séquentiels (AAAA-NNNN) pour l'année, à assigner avant bulk_create.
+
+    Continue à partir du dernier numéro attribué à cette école pour l'année. Miroir en lot
+    de generate_matricule() du modèle (bulk_create ne déclenche pas save()).
+    """
+    from django.utils import timezone
+    year = year or timezone.now().year
+    prefix = f'{year}-'
+    max_seq = 0
+    for m in (Student.objects
+              .filter(school=school, matricule__startswith=prefix)
+              .values_list('matricule', flat=True)):
+        try:
+            max_seq = max(max_seq, int(m.rsplit('-', 1)[-1]))
+        except (ValueError, IndexError):
+            continue
+    return [f'{prefix}{max_seq + i:04d}' for i in range(1, count + 1)]
 
 
 def _unique_access_codes(school, count):
@@ -937,9 +964,13 @@ def student_import_confirm(request):
             skipped += 1
             continue
 
+        # bulk_create contourne save() : on renseigne last_name/first_name (colonnes
+        # séparées du modèle d'import) et le matricule (plus bas) explicitement.
         s = Student(
             school              = school,
             school_class        = sc,
+            last_name           = row.get('last_name', ''),
+            first_name          = row.get('first_name', ''),
             full_name           = row['name'],
             phone_number        = row.get('phone', ''),
             parent_phone_number = row.get('parent_phone', ''),
@@ -965,6 +996,11 @@ def student_import_confirm(request):
         )
     for student, code in zip(students_to_create, codes):
         student.access_code = code
+
+    # Matricules séquentiels pré-assignés (bulk_create contourne save() qui les génère).
+    matricules = _batch_matricules(school, len(students_to_create))
+    for student, mat in zip(students_to_create, matricules):
+        student.matricule = mat
 
     try:
         created = Student.objects.bulk_create(students_to_create)

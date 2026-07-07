@@ -9,16 +9,22 @@
   </div>
 
   <form hx-post="{% url 'students:update' student.id %}" hx-target="#edit-panel-body" hx-swap="innerHTML"
-        x-init="$nextTick(() => $el.querySelector('[name=full_name]')?.focus())"
+        x-init="$nextTick(() => $el.querySelector('[name=last_name]')?.focus())"
         class="flex-1 overflow-y-auto px-6 py-5">
     {% csrf_token %}
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div class="sm:col-span-2">
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom complet <span class="text-red-500">*</span></label>
-        <input type="text" name="full_name" required value="{{ form.full_name.value|default:'' }}"
-               class="input-field {% if form.full_name.errors %}is-error{% endif %}">
-        {% for error in form.full_name.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom de famille <span class="text-red-500">*</span></label>
+        <input type="text" name="last_name" required value="{{ form.last_name.value|default:'' }}"
+               class="input-field {% if form.last_name.errors %}is-error{% endif %}">
+        {% for error in form.last_name.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Prénom(s) <span class="text-red-500">*</span></label>
+        <input type="text" name="first_name" required value="{{ form.first_name.value|default:'' }}"
+               class="input-field {% if form.first_name.errors %}is-error{% endif %}">
+        {% for error in form.first_name.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
       </div>
 
       <div>
@@ -35,6 +41,19 @@
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Date de naissance</label>
         <input type="date" name="date_of_birth" value="{{ form.date_of_birth.value|date:'Y-m-d'|default:'' }}"
                class="input-field {% if form.date_of_birth.errors %}is-error{% endif %}">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Lieu de naissance</label>
+        <input type="text" name="birth_place" value="{{ form.birth_place.value|default:'' }}"
+               placeholder="Bamako" class="input-field {% if form.birth_place.errors %}is-error{% endif %}">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Matricule</label>
+        <input type="text" name="matricule" value="{{ form.matricule.value|default:'' }}"
+               placeholder="Auto" class="input-field {% if form.matricule.errors %}is-error{% endif %}">
+        {% for error in form.matricule.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
       </div>
 
       <div>
