@@ -71,3 +71,33 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
   **pas** d'emploi du temps.
 - **Paie** (Comptabilité) : Permanent (salaire fixe) ou Vacataire (taux horaire, variable par cours) ;
   paie vacataire = Σ heures émargées × taux.
+
+---
+
+## 📥 Backlog produit (consolidé depuis les anciens `TODO.md` + `NOTES_TECHNIQUES.md`)
+
+> Items hérités des notes de développement. Certains peuvent être **partiellement faits** —
+> à re-vérifier au moment de les prendre. Regroupés ici pour avoir **une seule source de vérité**.
+
+### Fonctionnalités demandées (haute → moyenne)
+- **Demande de RDV parent → directeur** (modèle `MeetingRequest` : soumettre côté parent, gérer côté admin, notif directeur). *Priorité haute.*
+- **Page « Toutes mes observations »** (portail enseignant) — aujourd'hui le prof ne voit que ses 5 dernières. *Priorité haute.*
+- **Justification d'absence par le parent** (modèle `AbsenceJustification` : soumettre + valider/refuser). *Moyenne.*
+- **Caisse journalière** (`/accounting/caisse/`) — journal du jour, solde ouverture/clôture, « clôturer la journée ». *~3 j.*
+- **Certificats & attestations PDF** (scolarité, présence, radiation, transfert) avec en-tête + photo + signature. *~2 j.*
+- **Dossier élève — pièces jointes** (extrait de naissance, vaccins, photo) + indicateur complet/incomplet. *~3 j.*
+- **Messagerie bidirectionnelle parent ↔ école** (badge non-lu des deux côtés). *~4 j.*
+- **Bilan annuel consolidé** (P&L sur l'année + export PDF propriétaire). *~2 j.*
+- **Relances automatiques impayés** (SMS J+5 / J+15) — le bouton « Relancer » est aujourd'hui un **placeholder**.
+- **Restes du chantier multi-école** : portail parent multi-école + **transfert d'élève entre écoles** (historique préservé).
+
+### Dette technique / polish
+- **`forms.py` : `brand-blue` → `primary`** (focus ring perdu depuis la refonte design) — `accounts/team_forms.py`, `accounts/forms.py`, `payments/forms.py`, `schools/forms.py`.
+- **Réactivation d'un élève archivé** (onglet « Archivés » + bouton, équivalent de la réactivation équipe déjà faite).
+- **Alerte émargement dashboard** (profs attendus vs émargés du jour).
+- **Migration Lucide 1.20.0 → 0.577.x** (chore ; audit des noms d'icônes avant).
+- **Nettoyage `components.css` orphelin** (`brand-blue` hors build).
+- Cosmétiques divers : carte dashboard restée en demi-largeur, erreurs Alpine console, labels de groupe HTMX orphelins (notifications).
+
+*(Déjà faits, donc retirés du backlog : catalogue de frais + échéancier par tranches, liste rouge des impayés,
+portail parent financier, périodes par cycle.)*
