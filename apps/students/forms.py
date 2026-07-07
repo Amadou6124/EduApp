@@ -13,7 +13,7 @@ class StudentCreateForm(forms.ModelForm):
     field_order = [
         'last_name', 'first_name', 'gender', 'date_of_birth', 'birth_place',
         'school_class', 'matricule',
-        'phone_number', 'parent_phone_number', 'parent_relationship',
+        'parent_phone_number', 'parent_relationship',
         'initial_payment', 'payment_method',
     ]
 
@@ -55,7 +55,7 @@ class StudentCreateForm(forms.ModelForm):
         fields = [
             'school_class', 'last_name', 'first_name', 'gender',
             'date_of_birth', 'birth_place',
-            'phone_number', 'parent_phone_number', 'parent_relationship',
+            'parent_phone_number', 'parent_relationship',
             'matricule',
         ]
         labels = {
@@ -93,7 +93,7 @@ class StudentUpdateForm(forms.ModelForm):
         fields = [
             'school_class', 'last_name', 'first_name',
             'date_of_birth', 'birth_place',
-            'phone_number', 'parent_phone_number', 'parent_relationship',
+            'parent_phone_number', 'parent_relationship',
             'matricule', 'notes',
         ]
         widgets = {

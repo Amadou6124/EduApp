@@ -702,12 +702,12 @@ def student_import_template(request):
     ws = wb.active
     ws.title = 'Élèves'
 
-    NUM_COLS = 8
+    NUM_COLS = 7
 
     # ── Ligne 1 : instructions ────────────────────────────────────────
     ws.append([
         'OBLIGATOIRES : Nom, Prénom, Classe  |  OPTIONNELLES : Téléphone parent, '
-        'Téléphone élève, Date de naissance, Lien parenté, Genre (G/F)  |  '
+        'Date de naissance, Lien parenté, Genre (G/F)  |  '
         'Le matricule est attribué automatiquement. Les paiements se gèrent dans l\'application.'
     ])
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=NUM_COLS)
@@ -723,7 +723,6 @@ def student_import_template(request):
         'Prénom *',
         'Classe *',
         'Téléphone parent',
-        'Téléphone élève',
         'Date de naissance (JJ/MM/AAAA)',
         'Lien parenté (père/mère/tuteur)',
         'Genre (G/F)',   # lot 4b — optionnel, pilote la tenue auto
@@ -739,8 +738,8 @@ def student_import_template(request):
     # ── Lignes 3-4 : exemples ────────────────────────────────────────
     example_fill = PatternFill(start_color='F7F9FC', end_color='F7F9FC', fill_type='solid')
     for row_data in [
-        ['Kouassi', 'Jean', 'CP1',    '0700000002', '0700000001', '15/03/2015', 'père', 'G'],
-        ['Traoré',  'Awa',  '6ème A', '0600000003', '',           '20/07/2013', 'mère', 'F'],
+        ['Kouassi', 'Jean', 'CP1',    '0700000002', '15/03/2015', 'père', 'G'],
+        ['Traoré',  'Awa',  '6ème A', '0600000003', '20/07/2013', 'mère', 'F'],
     ]:
         ws.append(row_data)
         for cell in ws[ws.max_row]:
@@ -757,8 +756,8 @@ def student_import_template(request):
 def _parse_student_rows(file_obj, filename, school):
     """Parse un fichier Excel/CSV et retourne (rows_valides, erreurs).
 
-    Colonnes attendues (8) :
-        Nom * | Prénom * | Classe * | Téléphone parent | Téléphone élève
+    Colonnes attendues (7) :
+        Nom * | Prénom * | Classe * | Téléphone parent
         | Date de naissance | Lien parenté | Genre
     """
     rows, errors = [], []
@@ -814,8 +813,8 @@ def _parse_student_rows(file_obj, filename, school):
     for line_num, raw in enumerate(raw_rows, start=line_offset):
         if not any(raw):
             continue
-        cols = (raw + [''] * 8)[:8]
-        last_raw, first_raw, class_raw, parent_phone, phone, dob_raw, rel_raw, gender_raw = [
+        cols = (raw + [''] * 7)[:7]
+        last_raw, first_raw, class_raw, parent_phone, dob_raw, rel_raw, gender_raw = [
             c.strip() for c in cols
         ]
         composed = f'{first_raw} {last_raw}'.strip()   # « Prénom Nom » pour l'affichage
@@ -855,7 +854,6 @@ def _parse_student_rows(file_obj, filename, school):
                 'first_name':          first_raw,
                 'class_id':            school_class.id,
                 'class_name':          school_class.name,
-                'phone':               phone,
                 'dob':                 dob.isoformat() if dob else '',
                 'parent_phone':        parent_phone,
                 'parent_relationship': parent_relationship,
@@ -972,7 +970,6 @@ def student_import_confirm(request):
             last_name           = row.get('last_name', ''),
             first_name          = row.get('first_name', ''),
             full_name           = row['name'],
-            phone_number        = row.get('phone', ''),
             parent_phone_number = row.get('parent_phone', ''),
             parent_relationship = row.get('parent_relationship', ''),
             gender              = row.get('gender') or None,   # lot 4b — pilote la tenue auto

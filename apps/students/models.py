@@ -107,11 +107,6 @@ class Student(models.Model):
         null=True,
         blank=True,
     )
-    phone_number = models.CharField(
-        _('téléphone élève'),
-        max_length=20,
-        blank=True,
-    )
     parent_phone_number = models.CharField(
         _('téléphone parent'),
         max_length=20,
