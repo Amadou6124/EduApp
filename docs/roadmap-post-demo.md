@@ -126,14 +126,15 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
 - **Dossier élève — pièces jointes** (extrait de naissance, vaccins, photo) + indicateur complet/incomplet. *~3 j.*
 - **Messagerie bidirectionnelle parent ↔ école** (badge non-lu des deux côtés). *~4 j.*
 - **Bilan annuel consolidé** (P&L sur l'année + export PDF propriétaire). *~2 j.*
-- **Relances automatiques impayés** (SMS J+5 / J+15) — le bouton « Relancer » est aujourd'hui un **placeholder**.
+- **Relances automatiques impayés** (SMS J+5 / J+15). ⚠️ La relance **manuelle est FAITE** : écran Paiements (onglet
+  « En retard », liste rouge triée) + boutons « Relancer » / « Tout relancer » → notification **in-app** aux
+  responsables (`_send_reminder` → `notify_guardians`, anti-spam 1×/jour). Reste à faire = le volet **automatique**
+  (cron/tâche planifiée — inexistant aujourd'hui) et un **canal SMS/email** (la relance est in-app seule).
 - **Restes du chantier multi-école** : portail parent multi-école + **transfert d'élève entre écoles** (historique préservé).
 
 ### Dette technique / polish
 > Audité juillet 2026 : **`brand-blue → primary` FAIT** (focus ring restauré, 4 fichiers) ;
 > **alerte émargement** et **`components.css` orphelin** = déjà faits/inexistants (retirés).
-- **Réactivation d'un élève archivé** (onglet « Archivés » + bouton, comme la réactivation équipe). *Petit, après lancement.*
-- **Migration Lucide 1.20.0 → 0.5xx** (chore ; les noms d'icônes changent → audit avant). *Non urgent, après lancement.*
 - Cosmétiques divers : carte dashboard demi-largeur, erreurs Alpine console, labels de groupe HTMX orphelins (notifications).
 
 *(Déjà faits, donc retirés du backlog : catalogue de frais + échéancier par tranches, liste rouge des impayés,
