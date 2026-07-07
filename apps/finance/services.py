@@ -20,6 +20,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.students.models import StudentEnrollment
+from apps.schools.periods import periods_for_class
 from .models import (
     FeeType, FeeCategory, AppliesTo,
     StudentFeeAccount, FeeDebt, FeeDebtKind, Installment, PaymentAllocation,
@@ -82,6 +83,7 @@ def build_fee_account(enrollment, fee_selections=None, template=None):
     reconstruit pas un échéancier possiblement déjà payé).
     """
     school = enrollment.school
+    ensure_default_schedule_templates(school)   # jamais d'école sans gabarit de tranches
     school_class = enrollment.school_class
     student = enrollment.student
     is_returning = is_returning_student(enrollment)
@@ -107,7 +109,8 @@ def build_fee_account(enrollment, fee_selections=None, template=None):
             )
             periods = []
             if enrollment.school_year_id:
-                periods = list(enrollment.school_year.periods.order_by('order'))
+                # Périodes du cycle de la classe de l'élève (compositions / trimestres).
+                periods = list(periods_for_class(enrollment.school_class, enrollment.school_year))
             generate_tuition_installments(tuition_debt, tpl, periods)
 
         rentree = _start_date_for(enrollment)
@@ -225,6 +228,7 @@ def build_fee_accounts_bulk(enrollments):
         return []
 
     school = enrollments[0].school
+    ensure_default_schedule_templates(school)   # jamais d'école sans gabarit de tranches
     active_year = enrollments[0].school_year
 
     # ── Préchargement UNIQUE (hors boucle) ──────────────────────────────────────
@@ -239,7 +243,9 @@ def build_fee_accounts_bulk(enrollments):
         PaymentScheduleTemplate.objects
         .filter(school=school, is_default=True, is_active=True).first()
     )
-    periods = list(active_year.periods.order_by('order')) if active_year else []
+    # Périodes du cycle de la classe du lot (import généralement homogène par classe) ;
+    # sert seulement aux dates d'échéance, avec repli sûr sur les segments d'année.
+    periods = list(periods_for_class(enrollments[0].school_class, active_year)) if active_year else []
     n_tuition = _template_count(template)
     tuition_due_dates, tuition_labels = _due_dates_for_year(active_year, n_tuition, periods)
     rentree = _start_date_for(enrollments[0])
@@ -357,6 +363,27 @@ def _start_date_for(enrollment):
 # 2. Découpage de la scolarité en tranches datées
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Gabarits de tranches standards, provisionnés automatiquement pour toute école.
+_STANDARD_SCHEDULE_TEMPLATES = [('Annuel', 1), ('Trimestriel', 3), ('Mensuel', 9)]
+_DEFAULT_SCHEDULE_NAME = 'Trimestriel'
+
+
+def ensure_default_schedule_templates(school):
+    """Garantit que l'école possède les 3 gabarits standards (Annuel / Trimestriel /
+    Mensuel), **Trimestriel par défaut**. Idempotent : ne fait RIEN si l'école a déjà
+    au moins un gabarit (on ne réécrit jamais le choix du directeur). Retourne True si
+    des gabarits ont été créés. Vaut pour les nouvelles écoles comme pour les anciennes
+    laissées vides — appelé à l'ouverture de l'écran Frais et à la génération des frais."""
+    if school is None or PaymentScheduleTemplate.objects.filter(school=school).exists():
+        return False
+    for name, count in _STANDARD_SCHEDULE_TEMPLATES:
+        PaymentScheduleTemplate.objects.create(
+            school=school, name=name, installments_count=count,
+            is_active=True, is_default=(name == _DEFAULT_SCHEDULE_NAME),
+        )
+    return True
+
+
 def generate_tuition_installments(debt, template, periods):
     """
     Génère les Installment d'une dette de SCOLARITÉ.
@@ -418,7 +445,9 @@ def _due_dates_for_year(school_year, n, periods):
     """
     from datetime import date, timedelta
 
-    if periods and n == len(periods):
+    # Une tranche par période : seulement si toutes les périodes sont datées
+    # (dates optionnelles) et que le nombre coïncide.
+    if periods and n == len(periods) and all(p.end_date for p in periods):
         return [p.end_date for p in periods], [p.name for p in periods]
 
     start = school_year.start_date if (school_year and school_year.start_date) else date.today()

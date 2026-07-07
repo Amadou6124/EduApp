@@ -24,6 +24,7 @@ from django.views.decorators.http import require_http_methods
 
 from apps.payments.models import Payment, PaymentMethod
 from apps.schools.models import SchoolClass
+from apps.schools.periods import periods_for_cycle, periods_for_student, resolve_active_period
 from apps.core.mixins import get_school, director_or_staff_required
 from apps.core.text import norm_name
 from apps.dashboard.views import invalidate_dashboard_cache
@@ -482,12 +483,12 @@ def student_notes_period(request, student_id):
     """Notes par matière pour une période donnée (sélecteur de l'onglet Scolarité)."""
     school = get_school(request)
     student = get_object_or_404(Student, id=student_id, school=school)
-    from apps.schools.models import Period
+    # Périodes du cycle de l'élève (compositions / trimestres selon sa classe).
+    periods = list(periods_for_student(student))
     pid = request.GET.get('period')
-    period = Period.objects.filter(id=pid, school_year__school=school).first() if pid else None
+    period = next((p for p in periods if str(p.pk) == pid), None) if pid else None
     if not period:
-        period = (Period.objects.filter(school_year__school=school, school_year__is_active=True)
-                  .order_by('-is_notes_open', 'order').first())
+        period = next((p for p in periods if p.is_notes_open), None) or (periods[0] if periods else None)
     return render(request, 'students/partials/notes_by_subject.html', {
         'student': student, 'active_period': period,
         'notes_by_subject': _notes_by_subject(student, period),
@@ -1159,12 +1160,16 @@ def _difficulty_flagged(school):
     month_start = today.replace(day=1)
 
     active_year = school.school_years.filter(is_active=True).first()
-    active_period = None
+    # Période active PAR cycle (compositions/trimestres) — l'établissement mélange
+    # les deux. On agrège les moyennes sur toutes ces périodes à la fois.
+    cycle_periods = []
     if active_year:
-        active_period = (
-            active_year.periods.filter(is_notes_open=True).first()
-            or active_year.periods.order_by('-order').first()
-        )
+        cycles = set(school.classes.filter(is_active=True).values_list('level', flat=True))
+        for cyc in cycles:
+            p = resolve_active_period(periods_for_cycle(active_year, cyc))
+            if p:
+                cycle_periods.append(p)
+    active_period = cycle_periods[0] if cycle_periods else None  # représentatif (entête)
 
     abs_map = dict(
         Attendance.objects.filter(school=school, status='absent', date__gte=month_start)
@@ -1173,17 +1178,17 @@ def _difficulty_flagged(school):
     # Moyenne académique = bulletin si généré (figé), sinon formatif (alerte précoce,
     # avant la composition). Fusion : formatif par défaut, bulletin non nul prioritaire.
     bul_map = {}
-    if active_period:
+    if cycle_periods:
         from apps.schools.models import FormativeGrade
         from decimal import Decimal
         bulletin_raw = dict(
-            Bulletin.objects.filter(student__school=school, is_cancelled=False, period=active_period)
+            Bulletin.objects.filter(student__school=school, is_cancelled=False, period__in=cycle_periods)
             .values_list('student_id', 'general_average')
         )
         acc = {}
         for sid, mx, val in (
             FormativeGrade.objects
-            .filter(evaluation__period=active_period, is_absent=False, value__isnull=False,
+            .filter(evaluation__period__in=cycle_periods, is_absent=False, value__isnull=False,
                     student__school=school)
             .values_list('student_id', 'evaluation__max_grade', 'value')
         ):

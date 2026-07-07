@@ -21,6 +21,7 @@ urlpatterns = [
     path('school-years/<int:year_id>/periods/',   settings_views.school_year_periods, name='school-year-periods'),
     path('school-years/<int:year_id>/periods/generate/', settings_views.period_generate, name='period-generate'),
     path('school-years/<int:year_id>/periods/add/',      settings_views.period_create,   name='period-create'),
+    path('school-years/<int:year_id>/class/<int:class_id>/reset-periods/', settings_views.period_class_reset, name='period-class-reset'),
 
     # Périodes
     path('periods/<int:period_id>/update/',       settings_views.period_update,       name='period-update'),

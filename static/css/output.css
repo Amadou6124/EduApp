@@ -4662,10 +4662,6 @@ p {
   text-decoration-line: line-through;
 }
 
-.decoration-dotted {
-  text-decoration-style: dotted;
-}
-
 .underline-offset-2 {
   text-underline-offset: 2px;
 }

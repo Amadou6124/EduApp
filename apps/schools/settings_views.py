@@ -16,7 +16,10 @@ from .forms import (
     SchoolYearForm, PeriodForm, SubjectForm, ClassSubjectForm,
     BulletinConfigForm,
 )
-from .models import SchoolYear, Period, PeriodType, Subject, ClassSubject, Note, BulletinConfig, AppreciationScale
+from .models import (
+    SchoolYear, Period, PeriodType, EducationLevel, SchoolClass,
+    Subject, ClassSubject, Note, BulletinConfig, AppreciationScale,
+)
 from apps.core.mixins import get_school, director_or_staff_required
 
 # ── Module Finances (Lot 2) — catalogue de frais ───────────────────────────────
@@ -24,6 +27,7 @@ from apps.finance.models import (
     FeeType, FeeVariant, PaymentScheduleTemplate, FeeCategory,
 )
 from apps.finance.forms import FeeTypeForm, FeeVariantForm
+from apps.finance.services import ensure_default_schedule_templates
 
 # Métadonnées des sections "coming soon"
 _COMING_SOON_META = {
@@ -261,16 +265,25 @@ def appreciation_seed(request):
 # Années scolaires
 # ─────────────────────────────────────────────────────────────
 
+def _annotated_years(school):
+    """Années de l'école, annotées du nb de périodes ET d'inscrits (distinct) —
+    pour savoir quelles années sont « vides » donc supprimables. Source unique."""
+    return (
+        SchoolYear.objects
+        .filter(school=school)
+        .annotate(
+            periods_count=Count('periods', distinct=True),
+            enrollments_count=Count('enrollments', distinct=True),
+        )
+        .order_by('-start_date')
+    )
+
+
 @login_required
 @director_or_staff_required
 def school_years(request):
     school = get_school(request)
-    years  = (
-        SchoolYear.objects
-        .filter(school=school)
-        .annotate(periods_count=Count('periods'))
-        .order_by('-start_date')
-    )
+    years  = _annotated_years(school)
     current_year = date.today().year
     suggested    = f'{current_year}-{current_year + 1}'
     form         = SchoolYearForm(initial={'name': suggested})
@@ -297,11 +310,7 @@ def school_year_create(request):
             form.add_error(None, e)
         else:
             year.save()
-            years = (
-                SchoolYear.objects
-                .filter(school=school)
-                .annotate(periods_count=Count('periods'))
-            )
+            years = _annotated_years(school)
             current_year = date.today().year
             suggested    = f'{current_year}-{current_year + 1}'
             empty_form   = SchoolYearForm(initial={'name': suggested})
@@ -325,11 +334,7 @@ def school_year_create(request):
 
 
 def _year_list_response(request, school, message, msg_type='success'):
-    years = (
-        SchoolYear.objects
-        .filter(school=school)
-        .annotate(periods_count=Count('periods'))
-    )
+    years = _annotated_years(school)
     resp = render(request, 'settings/partials/school_year_list.html', {'years': years})
     resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': msg_type}})
     return resp
@@ -414,11 +419,7 @@ def school_year_toggle(request, year_id):
             msg = f'Année {year.name} activée.'
         except ValidationError as e:
             year.is_active = False
-            years = (
-                SchoolYear.objects
-                .filter(school=school)
-                .annotate(periods_count=Count('periods'))
-            )
+            years = _annotated_years(school)
             resp = render(request, 'settings/partials/school_year_list.html', {
                 'years': years, 'error': str(e.message),
             })
@@ -427,11 +428,7 @@ def school_year_toggle(request, year_id):
             )
             return resp
 
-    years = (
-        SchoolYear.objects
-        .filter(school=school)
-        .annotate(periods_count=Count('periods'))
-    )
+    years = _annotated_years(school)
     resp = render(request, 'settings/partials/school_year_list.html', {'years': years})
     resp['HX-Trigger'] = json.dumps(
         {'showToast': {'message': msg, 'type': 'info'}}
@@ -443,79 +440,188 @@ def school_year_toggle(request, year_id):
 # Périodes
 # ─────────────────────────────────────────────────────────────
 
+# Ordre d'affichage des cycles (préscolaire → supérieur).
+_CYCLE_ORDER = [
+    EducationLevel.PRESCOLAIRE, EducationLevel.FONDAMENTAL_1, EducationLevel.FONDAMENTAL_2,
+    EducationLevel.SECONDAIRE_GEN, EducationLevel.SECONDAIRE_PRO, EducationLevel.SUPERIEUR,
+]
+# Rythme choisi à la génération → (type de période, préfixe de nom).
+_RYTHME_MAP = {
+    'composition': (PeriodType.COMPOSITION, 'Composition'),
+    'trimester':   (PeriodType.TRIMESTER,   'Trimestre'),
+    'semester':    (PeriodType.SEMESTER,    'Semestre'),
+}
+
+
+def _period_sections(school, year):
+    """Contexte des périodes : sections par cycle, périodes « toute l'école »
+    (legacy), classes personnalisées (surcharge, Étape B) et classes encore
+    personnalisables. Renvoie un dict prêt pour le template."""
+    used   = set(SchoolClass.objects.filter(school=school).values_list('level', flat=True))
+    labels = dict(EducationLevel.choices)
+    all_periods = list(year.periods.select_related('school_class').order_by('order'))
+
+    # Sections par cycle — HORS surcharges de classe.
+    sections = []
+    for cyc in _CYCLE_ORDER:
+        if cyc in used:
+            sections.append({
+                'value':       cyc,
+                'label':       labels.get(cyc, cyc),
+                'class_count': SchoolClass.objects.filter(school=school, level=cyc).count(),
+                'periods':     [p for p in all_periods
+                                if p.education_level == cyc and p.school_class_id is None],
+            })
+    legacy = [p for p in all_periods if p.education_level is None and p.school_class_id is None]
+
+    # Surcharges par classe (Étape B).
+    by_class = {}
+    for p in all_periods:
+        if p.school_class_id:
+            by_class.setdefault(p.school_class_id, []).append(p)
+    custom_classes = [
+        {'class': sc, 'cycle_label': labels.get(sc.level, sc.level), 'periods': by_class[sc.pk]}
+        for sc in SchoolClass.objects.filter(school=school, pk__in=by_class.keys())
+                                     .order_by('level', 'name')
+    ]
+    # Classes encore personnalisables (sans périodes propres) — pour le sélecteur.
+    customizable = [
+        {'class': sc, 'cycle_label': labels.get(sc.level, sc.level)}
+        for sc in SchoolClass.objects.filter(school=school, is_active=True)
+                                     .exclude(pk__in=by_class.keys())
+                                     .order_by('level', 'name')
+    ]
+    return {
+        'sections':             sections,
+        'legacy_periods':       legacy,
+        'custom_classes':       custom_classes,
+        'customizable_classes': customizable,
+    }
+
+
+def _render_period_sections(request, school, year, toast=None, status=200):
+    """Rend le bloc de sections groupées (réponse HTMX après génération/CRUD)."""
+    ctx = _period_sections(school, year)
+    ctx['year'] = year
+    html = render_to_string('settings/partials/periods_grouped.html', ctx, request=request)
+    resp = HttpResponse(html, status=status)
+    if toast:
+        resp['HX-Trigger'] = json.dumps({'showToast': {'message': toast, 'type': 'success'}})
+    return resp
+
+
 @login_required
 @director_or_staff_required
 def school_year_periods(request, year_id):
-    school  = get_school(request)
-    year    = get_object_or_404(SchoolYear, id=year_id, school=school)
-    periods = year.periods.order_by('order')
-    form    = PeriodForm(initial={'start_date': year.start_date, 'end_date': year.end_date, 'order': periods.count() + 1})
-    return render(request, 'settings/school_year_periods.html', {
+    school = get_school(request)
+    year   = get_object_or_404(SchoolYear, id=year_id, school=school)
+    ctx = _period_sections(school, year)
+    ctx.update({
         'year':           year,
-        'periods':        periods,
-        'form':           form,
+        'form':           PeriodForm(initial={'order': 1}),
         'active_section': 'school-years',
         'school':         school,
     })
+    return render(request, 'settings/school_year_periods.html', ctx)
 
 
 @login_required
 @director_or_staff_required
 @require_http_methods(['POST'])
 def period_generate(request, year_id):
-    """Génère automatiquement les périodes depuis un template prédéfini."""
-    school   = get_school(request)
-    year     = get_object_or_404(SchoolYear, id=year_id, school=school)
-    template = request.POST.get('template')
+    """Génère les périodes d'UN cycle (compositions / trimestres…), dates optionnelles.
 
-    if template == '3trimesters':
-        configs = [
-            ('Trimestre 1', PeriodType.TRIMESTER, 1),
-            ('Trimestre 2', PeriodType.TRIMESTER, 2),
-            ('Trimestre 3', PeriodType.TRIMESTER, 3),
-        ]
-    elif template == '2semesters':
-        configs = [
-            ('Semestre 1', PeriodType.SEMESTER, 1),
-            ('Semestre 2', PeriodType.SEMESTER, 2),
-        ]
-    else:
+    Ne supprime QUE les périodes du cycle visé (garde-fou : bloqué si des notes
+    y sont déjà saisies). Les dates ne sont posées que si `with_dates` est coché
+    ET si l'année est datée — sinon les périodes naissent sans dates.
+    """
+    school = get_school(request)
+    year   = get_object_or_404(SchoolYear, id=year_id, school=school)
+
+    class_id   = request.POST.get('class_id')
+    cycle      = request.POST.get('cycle') or None      # '' → toute l'école
+    rythme     = request.POST.get('rythme', 'trimester')
+    with_dates = request.POST.get('with_dates') in ('on', 'true', '1', 'yes')
+    try:
+        count = int(request.POST.get('count', 0))
+    except (TypeError, ValueError):
+        count = 0
+
+    if rythme not in _RYTHME_MAP or not (1 <= count <= 12):
         return HttpResponse(status=400)
+    ptype, prefix = _RYTHME_MAP[rythme]
 
-    # Supprimer les périodes existantes avant génération
-    periods_with_notes = year.periods.filter(grade_notes__isnull=False).distinct()
-    if periods_with_notes.exists():
+    # Cible : une CLASSE précise (surcharge) OU un cycle OU toute l'école.
+    school_class = None
+    if class_id:
+        school_class = get_object_or_404(SchoolClass, pk=class_id, school=school)
+        existing = year.periods.filter(school_class=school_class)
+        scope_label = 'cette classe'
+    elif cycle:
+        existing = year.periods.filter(education_level=cycle, school_class__isnull=True)
+        scope_label = 'ce cycle'
+    else:
+        existing = year.periods.filter(education_level__isnull=True, school_class__isnull=True)
+        scope_label = 'ces périodes'
+
+    # Garde-fou : notes déjà saisies → on bloque la régénération.
+    if existing.filter(notes__isnull=False).exists():
         return HttpResponse(
             '<div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">'
-            '<p class="font-medium">Impossible de régénérer les périodes.</p>'
-            '<p>Des notes existent déjà sur certaines périodes. Supprimez les notes d\'abord.</p>'
+            f'<p class="font-medium">Impossible de régénérer {scope_label}.</p>'
+            '<p>Des notes existent déjà sur ses périodes. Supprimez les notes d\'abord.</p>'
             '</div>',
-            status=422
+            status=422,
         )
-    year.periods.all().delete()
+    existing.delete()
 
-    n         = len(configs)
-    total_days = (year.end_date - year.start_date).days
-    segment   = total_days // n
-    current   = year.start_date
+    # Découpage des dates seulement si demandé ET si l'année est datée.
+    dated   = bool(with_dates and year.start_date and year.end_date)
+    segment = (year.end_date - year.start_date).days // count if dated else 0
+    current = year.start_date
 
-    for i, (name, ptype, order) in enumerate(configs):
-        is_last = (i == n - 1)
-        end     = year.end_date if is_last else current + timedelta(days=segment - 1)
+    for i in range(count):
+        if dated:
+            is_last = (i == count - 1)
+            start   = current
+            end     = year.end_date if is_last else current + timedelta(days=max(segment - 1, 0))
+            current = end + timedelta(days=1)
+        else:
+            start = end = None
         Period.objects.create(
-            school_year=year, name=name, period_type=ptype,
-            start_date=current, end_date=end, order=order,
+            school_year=year,
+            education_level=(None if school_class else cycle),
+            school_class=school_class,
+            name=f'{prefix} {i + 1}', period_type=ptype,
+            start_date=start, end_date=end, order=i + 1,
         )
-        current = end + timedelta(days=1)
 
-    periods = year.periods.order_by('order')
-    resp    = render(request, 'settings/partials/periods_list.html', {
-        'year': year, 'periods': periods,
-    })
-    resp['HX-Trigger'] = json.dumps(
-        {'showToast': {'message': f'{n} périodes générées.', 'type': 'success'}}
+    return _render_period_sections(request, school, year, toast=f'{count} périodes générées.')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST', 'DELETE'])
+def period_class_reset(request, year_id, class_id):
+    """« Revenir au cycle » : supprime les périodes propres d'une classe → elle
+    réhérite du rythme de son cycle. Bloqué si des notes y existent déjà."""
+    school = get_school(request)
+    year   = get_object_or_404(SchoolYear, id=year_id, school=school)
+    school_class = get_object_or_404(SchoolClass, pk=class_id, school=school)
+
+    own = year.periods.filter(school_class=school_class)
+    if own.filter(notes__isnull=False).exists():
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': "Impossible : des notes existent sur les périodes propres de "
+                       "cette classe. Supprimez-les d'abord.",
+            'type': 'error',
+        }})
+        return resp
+    own.delete()
+    return _render_period_sections(
+        request, school, year, toast=f'{school_class.name} suit de nouveau son cycle.',
     )
-    return resp
 
 
 @login_required
@@ -529,13 +635,13 @@ def period_create(request, year_id):
         period             = form.save(commit=False)
         period.school_year = year
         period.save()
-        periods = year.periods.order_by('order')
-        empty_form = PeriodForm(initial={'order': periods.count() + 1})
+        empty_form = PeriodForm(initial={'order': 1})
+        list_ctx = _period_sections(school, year)
+        list_ctx['year'] = year
         list_html = render_to_string(
-            'settings/partials/periods_list.html',
-            {'year': year, 'periods': periods}, request=request,
+            'settings/partials/periods_grouped.html', list_ctx, request=request,
         )
-        oob      = f'<div id="periods-list" hx-swap-oob="true">{list_html}</div>'
+        oob       = f'<div id="periods-list" hx-swap-oob="true">{list_html}</div>'
         form_html = render_to_string(
             'settings/partials/period_form.html',
             {'form': empty_form, 'year': year}, request=request,
@@ -563,11 +669,7 @@ def period_update(request, period_id):
         return resp
 
     form.save()
-    year    = period.school_year
-    periods = year.periods.order_by('order')
-    resp = render(request, 'settings/partials/periods_list.html', {'year': year, 'periods': periods})
-    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Période modifiée.', 'type': 'success'}})
-    return resp
+    return _render_period_sections(request, school, period.school_year, toast='Période modifiée.')
 
 
 @login_required
@@ -601,14 +703,7 @@ def period_delete(request, period_id):
         })
         return response
     period.delete()
-    periods = year.periods.order_by('order')
-    resp    = render(request, 'settings/partials/periods_list.html', {
-        'year': year, 'periods': periods,
-    })
-    resp['HX-Trigger'] = json.dumps(
-        {'showToast': {'message': 'Période supprimée.', 'type': 'info'}}
-    )
-    return resp
+    return _render_period_sections(request, school, year, toast='Période supprimée.')
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1023,6 +1118,9 @@ def _toast(resp, message, msg_type='success', **extra):
 def fees(request):
     """Écran principal : catalogue de frais + gabarit de tranches par défaut."""
     school = get_school(request)
+    # Les 3 gabarits standards (Annuel/Trimestriel/Mensuel) apparaissent d'eux-mêmes
+    # si l'école n'en a aucun — le directeur n'a plus qu'à choisir son défaut.
+    ensure_default_schedule_templates(school)
     return render(request, 'settings/fees.html', {
         **_catalog_context(school),
         'schedule_templates': PaymentScheduleTemplate.objects

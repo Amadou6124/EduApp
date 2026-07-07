@@ -261,9 +261,10 @@ class SchoolYear(models.Model):
 
 
 class PeriodType(models.TextChoices):
-    TRIMESTER = 'trimester', _('Trimestre')
-    SEMESTER  = 'semester',  _('Semestre')
-    CUSTOM    = 'custom',    _('Personnalisé')
+    COMPOSITION = 'composition', _('Composition')   # fondamental (1er cycle surtout)
+    TRIMESTER   = 'trimester',   _('Trimestre')     # secondaire général + technique
+    SEMESTER    = 'semester',    _('Semestre')      # (supérieur — hors périmètre K-12)
+    CUSTOM      = 'custom',      _('Personnalisé')
 
 
 class Period(models.Model):
@@ -273,15 +274,39 @@ class Period(models.Model):
         related_name='periods',
         verbose_name=_('année scolaire'),
     )
+    # Cycle auquel s'applique la période. Vide (NULL) = toute l'école (école
+    # mono-structure, comportement historique). Renseigné = ne s'applique qu'aux
+    # classes de ce cycle → permet compositions au fondamental / trimestres au
+    # secondaire dans la MÊME année scolaire.
+    education_level = models.CharField(
+        _('cycle'),
+        max_length=20,
+        choices=EducationLevel.choices,
+        null=True, blank=True,
+        help_text=_("Cycle concerné. Vide = s'applique à toute l'école."),
+    )
+    # Surcharge « une classe précise » (Étape B) : si renseigné, ces périodes ne
+    # s'appliquent QU'À cette classe — elle sort du rythme de son cycle. Priorité de
+    # résolution : classe > cycle > école.
+    school_class = models.ForeignKey(
+        SchoolClass,
+        on_delete=models.CASCADE,
+        related_name='own_periods',
+        null=True, blank=True,
+        verbose_name=_('classe personnalisée'),
+    )
     name        = models.CharField(_('nom'), max_length=50)  # ex : "Trimestre 1"
     period_type = models.CharField(
         _('type'),
-        max_length=10,
+        max_length=12,
         choices=PeriodType.choices,
         default=PeriodType.TRIMESTER,
     )
-    start_date    = models.DateField(_('début'))
-    end_date      = models.DateField(_('fin'))
+    # Dates optionnelles : le directeur ne connaît pas les dates à l'avance
+    # (grèves, imprévus). Il pose la structure ; le vrai signal « période en
+    # cours » est is_notes_open, basculé à la main. Les dates se remplissent après.
+    start_date    = models.DateField(_('début'), null=True, blank=True)
+    end_date      = models.DateField(_('fin'), null=True, blank=True)
     is_notes_open = models.BooleanField(_('saisie notes ouverte'), default=False)
     order         = models.PositiveSmallIntegerField(_('ordre'), default=1)
 
@@ -289,7 +314,26 @@ class Period(models.Model):
         verbose_name        = _('période')
         verbose_name_plural = _('périodes')
         ordering            = ['order']
-        unique_together     = [('school_year', 'name')]
+        constraints = [
+            # Périodes « toute l'école » (ni cycle ni classe) : nom unique dans l'année.
+            models.UniqueConstraint(
+                fields=['school_year', 'name'],
+                condition=models.Q(education_level__isnull=True, school_class__isnull=True),
+                name='uniq_period_year_name_school',
+            ),
+            # Périodes d'une classe précise (surcharge) : nom unique par (année, classe).
+            models.UniqueConstraint(
+                fields=['school_year', 'school_class', 'name'],
+                condition=models.Q(school_class__isnull=False),
+                name='uniq_period_year_class_name',
+            ),
+            # Périodes rattachées à un cycle : nom unique par (année, cycle).
+            models.UniqueConstraint(
+                fields=['school_year', 'education_level', 'name'],
+                condition=models.Q(education_level__isnull=False),
+                name='uniq_period_year_cycle_name',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.name} — {self.school_year.name}'
