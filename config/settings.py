@@ -97,6 +97,15 @@ DATABASES = {
     }
 }
 
+# En hébergement managé (Render/Heroku), la base est fournie via une seule variable
+# DATABASE_URL. Si elle est présente, elle prime sur les DB_* ci-dessus.
+_DATABASE_URL = config('DATABASE_URL', default='')
+if _DATABASE_URL:
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.parse(
+        _DATABASE_URL, conn_max_age=600, ssl_require=not DEBUG,
+    )
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -206,3 +215,17 @@ LOGGING = {
         'level': 'WARNING',
     },
 }
+
+# ── Monitoring des erreurs (Sentry) — actif uniquement si SENTRY_DSN est défini ──
+# En prod, permet d'être alerté d'un 500 avant que l'utilisateur n'appelle.
+SENTRY_DSN = config('SENTRY_DSN', default='')
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        environment=config('SENTRY_ENV', default='production'),
+        traces_sample_rate=0.0,     # pas de tracing perf par défaut (coût) ; à monter au besoin
+        send_default_pii=False,     # ne jamais envoyer de données perso par défaut
+    )
