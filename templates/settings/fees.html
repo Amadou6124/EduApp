@@ -76,15 +76,6 @@ conservés (cibles des swaps). Couleurs : primary-* uniquement.
         <h3 class="text-sm font-semibold text-gray-900">Frais annexes</h3>
         <p class="text-xs text-gray-400">Frais ponctuels et abonnements en plus de la scolarité.</p>
       </div>
-      {# Aide au test : ajoute des frais d'exemple (les gabarits sont auto-provisionnés). #}
-      <button type="button"
-              hx-post="{% url 'settings:fees-seed' %}"
-              hx-swap="none"
-              class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-primary-600 border border-gray-200 hover:border-primary-300 rounded-lg px-3 py-1.5 transition"
-              title="Ajoute des frais d'exemple pour tester rapidement (idempotent)">
-        <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
-        Charger des frais d'exemple
-      </button>
     </div>
 
     {# Cible HTMX : tout le catalogue est ré-rendu ici (OOB depuis les vues). #}

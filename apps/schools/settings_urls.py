@@ -64,7 +64,6 @@ urlpatterns = [
     path('frais/schedule/<int:template_id>/save/',    settings_views.schedule_save,        name='schedule-update'),
     path('frais/schedule/<int:template_id>/toggle/',  settings_views.schedule_toggle_active, name='schedule-toggle'),
     path('frais/schedule/<int:template_id>/default/', settings_views.schedule_set_default, name='schedule-set-default'),
-    path('frais/seed/',                   settings_views.fees_seed,         name='fees-seed'),
 
     # ── DOCUMENTS ─────────────────────────────────────────────────────
     path('bulletin/', settings_views.bulletin, name='bulletin'),

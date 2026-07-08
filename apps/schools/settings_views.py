@@ -1441,25 +1441,3 @@ def schedule_toggle_active(request, template_id):
         'success' if tpl.is_active else 'info',
         closeScheduleModal={},
     )
-
-
-@login_required
-@director_or_staff_required
-@require_http_methods(['POST'])
-def fees_seed(request):
-    """
-    Pré-remplit un catalogue type malien pour TESTER (déclenchable à la main).
-
-    Volontairement une vue POST et non une data migration : on ne veut pas polluer
-    les écoles réelles. Idempotent : get_or_create par nom, ne duplique rien.
-    """
-    school = get_school(request)
-    from apps.finance.seeds import seed_fee_catalog
-    seed_fee_catalog(school)
-    catalog = _render_catalog(request, school)
-    schedules = _render_schedules(request, school)
-    resp = HttpResponse(
-        f'<div id="fee-catalog" hx-swap-oob="true">{catalog}</div>'
-        f'<div id="schedule-templates" hx-swap-oob="true">{schedules}</div>'
-    )
-    return _toast(resp, 'Catalogue de démonstration chargé.')
