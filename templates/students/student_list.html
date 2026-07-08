@@ -215,6 +215,15 @@
     </div>
   </form>
 
+  {# ── Impression en masse des cartes élève (respecte le filtre classe courant) ── #}
+  <div class="flex justify-end mt-3">
+    <a href="#" target="_blank"
+       onclick="const c=document.querySelector('select[name=class_id]')?.value; window.open('{% url 'students:cards-sheet' %}'+(c?'?class_id='+c:''),'_blank'); return false;"
+       class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 rounded-lg px-3 py-1.5">
+      <i data-lucide="printer" class="w-3.5 h-3.5"></i> Imprimer les cartes élève
+    </a>
+  </div>
+
 
   {# ── Liste principale ── #}
   <div class="relative">
@@ -677,6 +686,8 @@
     </div>
   </div>
   </template>
+
+  {% include "students/partials/guardian_credentials_modal.html" %}
 
 </div>{# fin x-data #}
 {% endblock %}

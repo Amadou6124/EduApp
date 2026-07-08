@@ -55,3 +55,46 @@ class LoginRateLimitTests(TestCase):
         r = self._try('bon-mot-de-passe', ip='10.0.0.99')
         self.assertTrue(r.context['locked'])
         self.assertNotIn('_auth_user_id', self.client.session)
+
+
+class ForcePasswordChangeTests(TestCase):
+    """Le mot de passe temporaire posé par l'école DOIT mourir après un seul usage :
+    tant que must_change_password est vrai, tout est bloqué sauf la page de choix."""
+
+    def setUp(self):
+        from django.urls import reverse
+        self.parent = User.objects.create_user(
+            phone_number='70000099', password='TEMP1234',
+            full_name='Parent Force', role=UserRole.PARENT, must_change_password=True,
+        )
+        self.set_url = reverse('accounts:password-set')
+        self.client.force_login(self.parent)
+
+    def test_flag_bloque_toute_page(self):
+        r = self.client.get('/dashboard/')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn(self.set_url, r.headers['Location'])
+
+    def test_page_de_choix_ne_boucle_pas(self):
+        # La page de choix elle-même doit répondre 200 (sinon redirection infinie).
+        self.assertEqual(self.client.get(self.set_url).status_code, 200)
+
+    def test_mdp_trop_court_refuse(self):
+        self.client.post(self.set_url, {'password': '12', 'confirm': '12'})
+        self.parent.refresh_from_db()
+        self.assertTrue(self.parent.must_change_password)          # inchangé
+
+    def test_confirmation_differente_refuse(self):
+        self.client.post(self.set_url, {'password': 'abcd', 'confirm': 'abce'})
+        self.parent.refresh_from_db()
+        self.assertTrue(self.parent.must_change_password)
+
+    def test_choix_valide_libere_et_tue_le_temporaire(self):
+        from django.contrib.auth import authenticate
+        self.client.post(self.set_url, {'password': 'monsecret', 'confirm': 'monsecret'})
+        self.parent.refresh_from_db()
+        self.assertFalse(self.parent.must_change_password)         # libéré
+        self.assertIsNotNone(authenticate(phone_number='70000099', password='monsecret'))  # nouveau OK
+        self.assertIsNone(authenticate(phone_number='70000099', password='TEMP1234'))      # temporaire mort
+        # plus de redirection après le changement
+        self.assertNotIn(self.set_url, self.client.get('/dashboard/').headers.get('Location', ''))

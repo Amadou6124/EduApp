@@ -17,6 +17,9 @@ urlpatterns = [
     path('suivi/difficulty/',   views.tracking_difficulty,    name='suivi-difficulty'),
     path('<int:student_id>/',        views.student_detail,           name='detail'),
     path('<int:student_id>/rail/',   views.student_detail_rail,      name='detail-rail'),
+    path('cartes/',                  views.student_cards_sheet,      name='cards-sheet'),
+    path('<int:student_id>/carte/',  views.student_card,             name='card'),
+    path('<int:student_id>/code/reset/', views.student_reset_code,   name='reset-code'),
     path('<int:student_id>/notes/',  views.student_notes_period,     name='notes-period'),
     path('<int:student_id>/edit/',                          views.student_update,        name='update'),
     path('<int:student_id>/withdraw/',                      views.student_withdraw,      name='withdraw'),
@@ -26,4 +29,5 @@ urlpatterns = [
     path('<int:student_id>/guardians/search/',                   views.guardian_search, name='guardian-search'),
     path('<int:student_id>/guardians/add/',                      views.guardian_add,    name='guardian-add'),
     path('<int:student_id>/guardians/<int:guardian_id>/remove/', views.guardian_remove, name='guardian-remove'),
+    path('<int:student_id>/guardians/<int:guardian_id>/reset-password/', views.guardian_reset_password, name='guardian-reset-password'),
 ]

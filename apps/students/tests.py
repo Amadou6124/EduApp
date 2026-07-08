@@ -230,9 +230,10 @@ class ResponsablesTests(TestCase):
             'responsable_name': 'Traoré Sékou', 'responsable_phone': '76000010',
             'responsable_relationship': 'father',
         })
-        g = _create_responsable_from_post(req, s, is_primary=True)
+        g, creds = _create_responsable_from_post(req, s, is_primary=True)
         self.assertIsNotNone(g)
         self.assertFalse(g.has_portal_access)
+        self.assertIsNone(creds)                       # info seule → pas de compte → pas d'identifiants
         self.assertEqual(g.full_name, 'Traoré Sékou')
         self.assertTrue(g.is_primary)
 
@@ -245,17 +246,51 @@ class ResponsablesTests(TestCase):
             'responsable_name': 'Diallo Aminata', 'responsable_phone': '76000011',
             'responsable_relationship': 'mother', 'responsable_portal': 'on',
         })
-        g = _create_responsable_from_post(req, s, is_primary=True)
+        g, creds = _create_responsable_from_post(req, s, is_primary=True)
         self.assertTrue(g.has_portal_access)
         self.assertEqual(g.guardian.phone_number, '76000011')
         self.assertEqual(g.guardian.role, UserRole.PARENT)
+        # Compte créé → identifiants à afficher UNE fois (sinon mot de passe perdu).
+        self.assertIsNotNone(creds)
+        self.assertEqual(creds['phone'], '76000011')
+        self.assertTrue(creds['temp_pwd'])
+        self.assertEqual(creds['children_display'], s.full_name)   # 1 enfant → son nom
 
     def test_create_from_post_vide(self):
         from django.test import RequestFactory
         from apps.students.views import _create_responsable_from_post
         s = self._student()
         req = RequestFactory().post('/', {})
-        self.assertIsNone(_create_responsable_from_post(req, s))
+        self.assertEqual(_create_responsable_from_post(req, s), (None, None))
+
+    def test_format_children_display(self):
+        from apps.students.views import _format_children_display
+        self.assertEqual(_format_children_display([]), '')
+        self.assertEqual(_format_children_display(['Awa']), 'Awa')
+        self.assertEqual(_format_children_display(['Awa', 'Moussa']), 'Awa et Moussa')
+        self.assertEqual(_format_children_display(['Awa', 'Moussa', 'Fatou']), 'Awa, Moussa et Fatou')
+        self.assertEqual(_format_children_display(['A', 'B', 'C', 'D']), 'vos enfants')
+        self.assertEqual(_format_children_display(['Awa', 'Awa']), 'Awa')   # dédoublonné
+
+    def test_carte_eleve_nom_authentifie(self):
+        # Le nom affiché sur la carte DOIT être accepté par le login (un seul token).
+        from apps.students.views import student_login_name
+        from apps.core.student_auth import authenticate_student
+        s = self._student()   # full_name « Prénom Nom », last_name éventuellement vide
+        shown = student_login_name(s)
+        self.assertNotIn(' ', shown)                        # un seul mot, jamais « Prénom Nom »
+        self.assertIsNotNone(authenticate_student(s.access_code, shown))   # login OK
+        # Le nom complet (piège de l'ancienne carte) doit, lui, être refusé.
+        if ' ' in s.full_name:
+            self.assertIsNone(authenticate_student(s.access_code, s.full_name))
+
+    def test_temp_password_sans_caractere_ambigu(self):
+        from apps.accounts.team_forms import generate_temp_password
+        ambigu = set('IO01l')
+        for _ in range(200):
+            p = generate_temp_password()
+            self.assertFalse(ambigu & set(p), f'caractère ambigu dans {p}')
+            self.assertTrue(p.isupper() or p.isdigit())   # une seule casse (majuscule)
 
     def test_inscription_view_cree_responsable(self):
         # Flux complet : POST d'inscription avec responsable → élève + responsable principal.

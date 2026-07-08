@@ -38,6 +38,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     email = models.EmailField(_('adresse email'), blank=True)
     full_name = models.CharField(_('nom complet'), max_length=150)
+    # Vrai quand l'école a posé un mot de passe temporaire (compte parent créé/réinitialisé) :
+    # le middleware force alors le choix d'un mot de passe personnel à la 1ʳᵉ connexion, après
+    # quoi le temporaire est mort. Remis à False dès que l'utilisateur choisit le sien.
+    must_change_password = models.BooleanField(_('doit changer son mot de passe'), default=False)
     role = models.CharField(
         _('rôle'),
         max_length=20,

@@ -210,13 +210,122 @@ def _enrollment_catalog_data(school):
     return fees_data, schedule_data, default_count
 
 
+@login_required
+@director_or_staff_required
+def student_card(request, student_id):
+    """Carte d'accès élève imprimable (code + nom de famille).
+
+    Contrairement à la carte parent (mot de passe haché → imprimable une seule fois), le
+    code et le nom de famille ne sont PAS secrets → cette carte est **réimprimable à tout
+    moment** depuis la fiche. Page autonome (hors base.html) pour une impression propre,
+    N&B friendly. URL de l'espace élève auto-dérivée de l'hôte réel."""
+    from django.urls import reverse
+    school = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school)
+
+    return render(request, 'students/student_card.html', {
+        'student':    student,
+        'school':     school,
+        'login_name': student_login_name(student),
+        'portal_url': request.build_absolute_uri(reverse('learn:login')),
+    })
+
+
+@login_required
+@director_or_staff_required
+def student_cards_sheet(request):
+    """Feuille A4 de cartes d'accès élève à imprimer en MASSE (rentrée).
+
+    Portée = le filtre classe de la liste : `class_id` fourni → cette classe ; absent →
+    toutes les classes (groupées, saut de page par classe). Cartes compactes découpables,
+    `break-inside: avoid` (jamais coupées entre deux pages). N&B friendly. Élèves actifs."""
+    from django.urls import reverse
+    school = get_school(request)
+    class_id = request.GET.get('class_id') or None
+
+    qs = (Student.objects.filter(school=school, is_active=True)
+          .select_related('school_class')
+          .order_by('school_class__level', 'school_class__name', 'full_name'))
+    if class_id:
+        qs = qs.filter(school_class_id=class_id)
+
+    # Grouper par classe (ordre conservé) → un en-tête + un saut de page par classe.
+    groups, current, current_key = [], None, object()
+    for s in qs:
+        key = s.school_class_id
+        if key != current_key:
+            current = {'class_name': s.school_class.name if s.school_class else 'Sans classe',
+                       'cards': []}
+            groups.append(current)
+            current_key = key
+        current['cards'].append({'student': s, 'login_name': student_login_name(s)})
+
+    return render(request, 'students/student_cards_sheet.html', {
+        'school':     school,
+        'groups':     groups,
+        'total':      sum(len(g['cards']) for g in groups),
+        'portal_url': request.build_absolute_uri(reverse('learn:login')),
+    })
+
+
+def student_login_name(student):
+    """Le mot UNIQUE que l'élève doit taper pour se connecter (code + ce nom).
+
+    Le login accepte UN SEUL token du nom complet (`_name_matches`), pas le nom entier :
+    afficher « Prénom Nom » ferait échouer la saisie. On prend `last_name` ; vide (données
+    héritées) → dérivé du nom complet ; ultime repli = dernier mot. Toujours un token de
+    `full_name`, donc toujours accepté par `authenticate_student`."""
+    from apps.students.models import split_full_name
+    name = (student.last_name or '').strip()
+    if not name and student.full_name:
+        name = split_full_name(student.full_name)[1] or student.full_name.split()[-1]
+    return name
+
+
+def _format_children_display(names):
+    """Formate la liste des enfants pour la carte parent (scopée à une école).
+    1 → « Awa Traoré » ; 2-3 → « Awa, Moussa et Fatou » ; 4+ → « vos enfants »."""
+    seen = []
+    for n in names:
+        if n and n not in seen:
+            seen.append(n)
+    if not seen:
+        return ''
+    if len(seen) == 1:
+        return seen[0]
+    if len(seen) <= 3:
+        return ', '.join(seen[:-1]) + ' et ' + seen[-1]
+    return 'vos enfants'
+
+
+def _parent_credentials_payload(request, *, name, phone, temp_pwd, school, children):
+    """Payload complet pour le modal + la carte imprimable d'un compte parent créé.
+
+    Tout vient de la base sauf les textes fixes (rendus côté carte). L'URL du portail est
+    AUTO-DÉRIVÉE de l'hôte réel (PythonAnywhere aujourd'hui, domaine propre demain) → jamais
+    codée en dur. `children` = enfants de CETTE école seulement (cloisonnement cross-school)."""
+    from django.urls import reverse
+    return {
+        'name':             name,
+        'phone':            phone,
+        'temp_pwd':         temp_pwd,
+        'children_display': _format_children_display(children),
+        'school_name':      school.name,
+        'portal_url':       request.build_absolute_uri(reverse('accounts:login')),
+    }
+
+
 def _create_responsable_from_post(request, student, *, is_primary=False, prefix='responsable'):
     """Crée un responsable (StudentGuardian) depuis les champs POST `{prefix}_*`.
 
     L'INFO est toujours enregistrée (nom/téléphone/e-mail/lien). Un compte portail n'est
     créé/lié QUE si « accès portail » est coché et un téléphone fourni : compte existant
     par téléphone → lié ; sinon création d'un compte parent (mot de passe temporaire).
-    Retourne le StudentGuardian, ou None si rien n'a été saisi.
+
+    Retourne (StudentGuardian|None, credentials|None). `credentials` n'est renseigné QUE
+    si un compte vient d'être CRÉÉ : {'name','phone','temp_pwd'} — à AFFICHER au
+    directeur (modal identifiants) puis remettre au parent. Sans cet affichage, le mot
+    de passe temporaire serait perdu à jamais (compte verrouillé — bug historique).
     """
     from apps.students.models import StudentGuardian, ParentRelationship
     name  = request.POST.get(f'{prefix}_name', '').strip()
@@ -224,17 +333,24 @@ def _create_responsable_from_post(request, student, *, is_primary=False, prefix=
     rel   = request.POST.get(f'{prefix}_relationship', '').strip()
     portal = request.POST.get(f'{prefix}_portal') == 'on'
     if not (name or phone):
-        return None
+        return None, None
 
-    guardian_user = None
+    guardian_user, credentials = None, None
     if portal and phone:
         from apps.accounts.models import User, UserRole
         from apps.accounts.team_forms import generate_temp_password
         guardian_user = User.objects.filter(phone_number=phone).first()
         if guardian_user is None:
+            temp_pwd = generate_temp_password()
             guardian_user = User.objects.create_user(
-                phone_number=phone, password=generate_temp_password(),
+                phone_number=phone, password=temp_pwd,
                 full_name=name or phone, role=UserRole.PARENT,
+                must_change_password=True,   # temporaire → forcer le choix à la 1ʳᵉ connexion
+            )
+            # Nouveau compte parent → un seul enfant à cet instant : l'élève courant.
+            credentials = _parent_credentials_payload(
+                request, name=name or phone, phone=phone, temp_pwd=temp_pwd,
+                school=student.school, children=[student.full_name],
             )
 
     valid_rel = rel if rel in {c[0] for c in ParentRelationship.choices} else ''
@@ -245,7 +361,7 @@ def _create_responsable_from_post(request, student, *, is_primary=False, prefix=
     )
     if phone:
         logger.info('[SMS] Notification responsable à envoyer — élève : %s', student.full_name)
-    return sg
+    return sg, credentials
 
 
 @login_required
@@ -337,17 +453,22 @@ def student_create(request):
         # ── Responsable principal (couche « responsable ») ─────────────────────
         # Info TOUJOURS ; compte portail SEULEMENT si « accès portail » coché. Un seul
         # responsable à l'inscription (les autres s'ajoutent sur la fiche élève).
-        _create_responsable_from_post(request, student, is_primary=True)
+        _, guardian_credentials = _create_responsable_from_post(request, student, is_primary=True)
 
         if request.htmx:
             ctx = _student_list_page(request, school)
             ctx['stats'] = compute_student_stats(school)
             ctx['success_message'] = f'{student.full_name} inscrit(e) — Code : {student.access_code}'
             response = render(request, 'students/partials/student_list_refresh.html', ctx)
-            response['HX-Trigger'] = json.dumps({
+            triggers = {
                 'close-panel': True,
                 'showToast':   {'message': 'Élève inscrit avec succès.', 'type': 'success'},
-            })
+            }
+            # Compte parent créé à l'inscription → afficher les identifiants UNE fois
+            # (sinon le mot de passe temporaire est perdu et le compte reste verrouillé).
+            if guardian_credentials:
+                triggers['guardianCredentials'] = guardian_credentials
+            response['HX-Trigger'] = json.dumps(triggers)
             return response
 
     elif request.htmx:
@@ -499,13 +620,8 @@ def student_detail(request, student_id):
 
 
 @login_required
-def student_detail_rail(request, student_id):
-    """Rail identité + KPIs — rendu seul pour rafraîchissement HTMX après encaissement/édition."""
-    school = get_school(request)
-    student = get_object_or_404(
-        Student.objects.select_related('school_class').prefetch_related('payments'),
-        id=student_id, school=school,
-    )
+def _rail_context(request, student, school):
+    """Contexte du rail identité + KPIs (partagé : detail-rail ET régénération de code)."""
     from apps.schools.models import Period
     from apps.finance.models import StudentFeeAccount
     active_period = (Period.objects
@@ -517,7 +633,38 @@ def student_detail_rail(request, student_id):
     ctx = {'student': student, 'school': school, 'fee_account': fee_account,
            'is_director': request.role == UserRole.DIRECTOR or request.user.is_superuser}
     ctx.update(_rail_summary(student, school, active_period))
-    return render(request, 'students/partials/student_rail.html', ctx)
+    return ctx
+
+
+def student_detail_rail(request, student_id):
+    """Rail identité + KPIs — rendu seul pour rafraîchissement HTMX après encaissement/édition."""
+    school = get_school(request)
+    student = get_object_or_404(
+        Student.objects.select_related('school_class').prefetch_related('payments'),
+        id=student_id, school=school,
+    )
+    return render(request, 'students/partials/student_rail.html',
+                  _rail_context(request, student, school))
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def student_reset_code(request, student_id):
+    """Régénère le code d'accès de l'élève (code compromis / perdu et à révoquer).
+
+    L'ancien code cesse immédiatement de fonctionner (il sert à l'authentification). On
+    ré-imprime la carte élève ensuite. Re-rend le rail avec le nouveau code + toast."""
+    school = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school)
+    student.access_code = _unique_access_codes(school, 1)[0]
+    student.save(update_fields=['access_code'])
+    resp = render(request, 'students/partials/student_rail.html',
+                  _rail_context(request, student, school))
+    resp['HX-Trigger'] = json.dumps({'showToast': {
+        'message': 'Nouveau code généré. Réimprimez la carte élève.', 'type': 'success',
+    }})
+    return resp
 
 
 @login_required
@@ -1137,8 +1284,12 @@ def _toast_error(message):
     return resp
 
 
-def _render_guardian_section(request, student, *, toast=None, toast_type='success', close_panel=False):
-    """Re-rend la section parents/tuteurs avec HX-Trigger (toast + fermeture panel)."""
+def _render_guardian_section(request, student, *, toast=None, toast_type='success',
+                             close_panel=False, credentials=None):
+    """Re-rend la section parents/tuteurs avec HX-Trigger (toast + fermeture panel).
+
+    `credentials` ({'name','phone','temp_pwd'}) : posé UNIQUEMENT quand un compte
+    parent vient d'être créé → déclenche le modal « identifiants à remettre »."""
     guardians = (
         student.guardians.select_related('guardian')
         .order_by('-is_primary', 'created_at')
@@ -1151,6 +1302,8 @@ def _render_guardian_section(request, student, *, toast=None, toast_type='succes
         triggers['showToast'] = {'message': toast, 'type': toast_type}
     if close_panel:
         triggers['close-guardian-panel'] = True
+    if credentials:
+        triggers['guardianCredentials'] = credentials
     if triggers:
         resp['HX-Trigger'] = json.dumps(triggers)
     return resp
@@ -1201,6 +1354,7 @@ def guardian_add(request, student_id):
 
     user_id = request.POST.get('user_id', '').strip()
 
+    credentials = None
     if user_id:
         parent = get_object_or_404(User, id=user_id, role=UserRole.PARENT)
     else:
@@ -1210,10 +1364,16 @@ def guardian_add(request, student_id):
             return _toast_error('Nom et téléphone obligatoires.')
         if User.objects.filter(phone_number=phone).exists():
             return _toast_error('Ce numéro est déjà utilisé par un compte.')
+        temp_pwd = request.POST.get('password', '').strip() or generate_temp_password()
         parent = User.objects.create_user(
-            phone_number=phone,
-            password=request.POST.get('password', '').strip() or generate_temp_password(),
+            phone_number=phone, password=temp_pwd,
             full_name=full_name, role=UserRole.PARENT,
+            must_change_password=True,   # temporaire → forcer le choix à la 1ʳᵉ connexion
+        )
+        # Compte créé → identifiants à remettre au parent (affichés une seule fois).
+        credentials = _parent_credentials_payload(
+            request, name=full_name, phone=phone, temp_pwd=temp_pwd,
+            school=school, children=[student.full_name],
         )
 
     is_first = not student.guardians.exists()
@@ -1230,6 +1390,7 @@ def guardian_add(request, student_id):
     return _render_guardian_section(
         request, student,
         toast=f'{parent.full_name} lié à l\'élève.', close_panel=True,
+        credentials=credentials,
     )
 
 
@@ -1251,6 +1412,44 @@ def guardian_remove(request, student_id, guardian_id):
             nxt.save(update_fields=['is_primary'])
 
     return _render_guardian_section(request, student, toast=f'{name} retiré.', toast_type='info')
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def guardian_reset_password(request, student_id, guardian_id):
+    """Régénère le mot de passe d'un compte parent (oublié / carte perdue).
+
+    L'ancien mot de passe cesse de fonctionner. Le nouveau (temporaire, tapable) est
+    affiché UNE fois via le modal d'identifiants → réimpression de la carte parent. Les
+    enfants nommés = ceux de CE parent dans CETTE école (cloisonnement cross-school)."""
+    from apps.accounts.team_forms import generate_temp_password
+    school  = get_school(request)
+    student = get_object_or_404(Student, id=student_id, school=school)
+    # Le lien doit exister DANS cette école et porter un compte portail.
+    link = get_object_or_404(
+        StudentGuardian, id=guardian_id, student=student, guardian__isnull=False,
+    )
+    parent = link.guardian
+
+    temp_pwd = generate_temp_password()
+    parent.set_password(temp_pwd)
+    parent.must_change_password = True   # temporaire → re-forcer le choix à la prochaine connexion
+    parent.save(update_fields=['password', 'must_change_password'])
+
+    names = list(
+        StudentGuardian.objects
+        .filter(guardian=parent, student__school=school)
+        .order_by('-is_primary', 'student__full_name')
+        .values_list('student__full_name', flat=True)
+    )
+    credentials = _parent_credentials_payload(
+        request, name=parent.full_name, phone=parent.phone_number,
+        temp_pwd=temp_pwd, school=school, children=names,
+    )
+    return _render_guardian_section(
+        request, student, toast='Nouveau mot de passe généré.', credentials=credentials,
+    )
 
 
 # ─────────────────────────────────────────────────────────────

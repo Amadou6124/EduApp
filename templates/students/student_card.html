@@ -1,0 +1,66 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+Carte d'accès élève — page AUTONOME (n'étend pas base.html) pour une impression propre,
+sans le chrome de l'app. Code + nom de famille (non secrets) → réimprimable à tout moment.
+S'imprime automatiquement à l'ouverture ; bouton « Imprimer » pour relancer. N&B friendly.
+{% endcomment %}
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carte élève — {{ student.full_name }}</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+    body { margin: 0; padding: 24px; color: #1f2430; background: #f3f4f6; }
+    .toolbar { max-width: 420px; margin: 0 auto 14px; display: flex; justify-content: flex-end; gap: 8px; }
+    .btn { font-size: 13px; padding: 8px 14px; border-radius: 8px; border: 1px solid #ccc; background: #fff; cursor: pointer; text-decoration: none; color: #333; }
+    .btn.p { background: #0f766e; color: #fff; border-color: #0f766e; }
+    .card { max-width: 420px; margin: 0 auto; border: 1.5px solid #333; border-radius: 12px; overflow: hidden; background: #fff; }
+    .hd { background: #0f766e; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .hd .sc { font-size: 15px; font-weight: 600; }
+    .hd .tag { font-size: 10px; letter-spacing: .05em; opacity: .9; }
+    .bd { padding: 16px; }
+    .hi { font-size: 14px; line-height: 1.5; margin: 0 0 14px; }
+    .creds { border: 1.5px solid #333; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+    .row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+    .row + .row { border-top: 1px solid #ccc; }
+    .lbl { font-size: 12px; color: #555; }
+    .val { font-weight: 700; font-size: 16px; }
+    .code { font-family: ui-monospace, monospace; font-size: 20px; letter-spacing: .14em; }
+    .steps { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+    .steps li { display: flex; gap: 9px; margin-bottom: 6px; align-items: baseline; }
+    .steps li span { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+    .num { flex: none; width: 19px; height: 19px; border: 1.5px solid #333; border-radius: 50%; font-size: 11px; font-weight: 700; text-align: center; line-height: 17px; }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .toolbar { display: none; }
+      .card { border-color: #000; }
+      .hd { background: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <a class="btn" href="{% url 'students:detail' student.id %}">← Retour</a>
+    <button class="btn p" onclick="window.print()">Imprimer</button>
+  </div>
+
+  <div class="card">
+    <div class="hd">
+      <span class="sc">{{ school.name }}</span>
+      <span class="tag">ESPACE ÉLÈVE</span>
+    </div>
+    <div class="bd">
+      <p class="hi"><b>{{ student.full_name }}</b> — accède à <b>tes cours et tes notes</b> depuis n'importe quel appareil.</p>
+      <div class="creds">
+        <div class="row"><span class="lbl">Ton code</span><span class="val code">{{ student.access_code }}</span></div>
+        <div class="row"><span class="lbl">Ton nom de famille</span><span class="val">{{ login_name }}</span></div>
+      </div>
+      <ol class="steps">
+        <li><span class="num">1</span><span>Ouvre <b>{{ portal_url }}</b></span></li>
+        <li><span class="num">2</span><span>Entre ton code et ton nom de famille</span></li>
+      </ol>
+    </div>
+  </div>
+</body>
+</html>
