@@ -20,7 +20,7 @@ Contrats de données clés (lire avant de modifier) :
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.schools.models import EducationLevel
@@ -301,8 +301,12 @@ class PaymentScheduleTemplate(models.Model):
     )
     installments_count = models.PositiveSmallIntegerField(
         _('nombre de tranches'),
-        validators=[MinValueValidator(1)],
-        help_text=_('1 = paiement unique, 3 = trimestriel, 9 = mensuel…'),
+        # Bornes 1–12 au modèle (symétrie : le min y était déjà). NB Django : ces
+        # validators ne s'exécutent QUE via full_clean() (donc via le formulaire) ; un
+        # .create() brut passe outre. La vraie garantie « tous points d'entrée » serait
+        # un CheckConstraint — volontairement non posé (inutile avant lancement).
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text=_('Entre 1 et 12. Ex : 1 = paiement unique, 3 = trimestriel, 9 = mensuel…'),
     )
     # Un seul gabarit par défaut par école (garanti par save() + contrainte unique).
     is_default = models.BooleanField(_('par défaut'), default=False)
@@ -346,13 +350,17 @@ class PaymentScheduleTemplate(models.Model):
 
     def save(self, *args, **kwargs):
         # Si on passe ce gabarit en défaut, on retire le flag des autres de la même
-        # école dans la même transaction logique → bascule atomique côté application,
-        # et la contrainte DB partielle reste satisfaite.
+        # école. Enveloppé dans transaction.atomic : la démotion des autres et la
+        # promotion de celui-ci forment UN tout → jamais d'état « zéro défaut » visible
+        # (ni de démotion committée si le save échoue).
         if self.is_default:
-            PaymentScheduleTemplate.objects.filter(
-                school=self.school, is_default=True,
-            ).exclude(pk=self.pk).update(is_default=False)
-        super().save(*args, **kwargs)
+            with transaction.atomic():
+                PaymentScheduleTemplate.objects.filter(
+                    school=self.school, is_default=True,
+                ).exclude(pk=self.pk).update(is_default=False)
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

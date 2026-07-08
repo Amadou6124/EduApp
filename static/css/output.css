@@ -4068,6 +4068,10 @@ p {
   padding-right: 1rem;
 }
 
+.pr-6 {
+  padding-right: 1.5rem;
+}
+
 .pr-8 {
   padding-right: 2rem;
 }
@@ -5343,6 +5347,10 @@ p {
 
 .hover\:bg-white\/60:hover {
   background-color: rgb(255 255 255 / 0.6);
+}
+
+.hover\:bg-white\/70:hover {
+  background-color: rgb(255 255 255 / 0.7);
 }
 
 .hover\:text-amber-600:hover {

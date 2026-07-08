@@ -1,0 +1,75 @@
+{% load i18n %}
+{% comment %}
+Corps du modal créer / éditer un gabarit de tranches. Chargé dans #schedule-modal-body
+par HTMX. Succès : la vue swappe #schedule-templates (OOB) et ferme le modal
+(closeScheduleModal) ; erreur de formulaire → ce partiel re-rendu ici avec les messages.
+Édition NON rétroactive (bandeau info) : seules les futures inscriptions sont touchées.
+{% endcomment %}
+
+<form hx-post="{% if template %}{% url 'settings:schedule-update' template.id %}{% else %}{% url 'settings:schedule-create' %}{% endif %}"
+      hx-target="#schedule-modal-body" hx-swap="innerHTML">
+  {% csrf_token %}
+
+  {# En-tête #}
+  <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+    <h3 class="text-base font-semibold text-gray-900">
+      {% if template %}Modifier le gabarit{% else %}Nouveau gabarit{% endif %}
+    </h3>
+    <button type="button" @click="showScheduleModal = false"
+            class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+      <i data-lucide="x" class="w-4 h-4 text-gray-500"></i>
+    </button>
+  </div>
+
+  <div class="px-6 py-5 space-y-4">
+
+    {# Nom #}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom <span class="text-red-500">*</span></label>
+      {{ form.name }}
+      {% for e in form.name.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}
+    </div>
+
+    {# Nombre de tranches #}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">Nombre de tranches</label>
+      {{ form.installments_count }}
+      {% for e in form.installments_count.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}
+      <p class="text-xs text-gray-400 mt-1">
+        Entre 1 et 12. Astuce : choisir le nombre de périodes de votre cycle (compositions, trimestres) cale les échéances sur le calendrier scolaire.
+      </p>
+    </div>
+
+    {# Bandeau : non-rétroactif #}
+    <div class="flex items-start gap-2.5 rounded-lg bg-primary-50 p-3">
+      <i data-lucide="info" class="w-4 h-4 text-primary-600 shrink-0 mt-0.5"></i>
+      <p class="text-xs text-primary-700 leading-relaxed">
+        Les modifications s'appliquent uniquement aux futures inscriptions. Les échéanciers déjà créés ne sont jamais modifiés.
+      </p>
+    </div>
+
+    {% comment %}Désactiver — édition seule. Jamais de suppression (réactivable ensuite).
+    Le garde-fou « défaut » est côté serveur : désactiver le défaut renvoie un toast.{% endcomment %}
+    {% if template %}
+      <div class="pt-1">
+        <button type="button"
+                hx-post="{% url 'settings:schedule-toggle' template.id %}"
+                hx-target="#schedule-templates" hx-swap="innerHTML"
+                hx-confirm="Désactiver « {{ template.name }} » ? Il ne sera plus proposé à l'inscription (réactivable ensuite)."
+                class="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700">
+          <i data-lucide="ban" class="w-3.5 h-3.5"></i> Désactiver ce gabarit
+        </button>
+      </div>
+    {% endif %}
+
+  </div>
+
+  {# Pied — boutons #}
+  <div class="px-6 py-4 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white">
+    <button type="submit" class="btn-primary flex-1 justify-center min-h-[44px]">
+      {% if template %}Enregistrer{% else %}Créer le gabarit{% endif %}
+    </button>
+    <button type="button" @click="showScheduleModal = false"
+            class="btn-secondary flex-1 justify-center min-h-[44px]">Annuler</button>
+  </div>
+</form>

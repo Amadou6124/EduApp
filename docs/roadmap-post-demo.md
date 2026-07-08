@@ -84,7 +84,15 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
 
 ## 🟢 Confort (petits polish)
 
-5. **Nombre de tranches libre** (2/4/6…) — actuellement figé à 1/3/9.
+5. **Nombre de tranches libre** (2/4/6…) — actuellement figé à 1/3/9. Périmètre retenu = petit CRUD sur
+   `PaymentScheduleTemplate` (créer/éditer/désactiver, borne 1–12, désactivation seule, défaut protégé, snapshot
+   non-rétroactif). Doublon de nombre = optionnel (contrainte d'unicité sur `installments_count` si ça gêne).
+   ⏸️ **Parqué (post-lancement, NE PAS anticiper)** : passer du modèle « nombre » à un modèle « rythme »
+   (`kind` = Annuel / Par période auto-adaptatif au cycle / Personnalisé). L'analyse est bonne — le moteur cale
+   déjà les tranches sur les périodes *du cycle de l'élève* (`periods_for_class`) quand nombre == nb de périodes,
+   donc un gabarit à nombre fixe ne peut pas dire « par période » pour une école fondamental+secondaire. **Mais
+   c'est une décision produit, pas technique** : à ne construire QUE si une vraie école demande « facturer par
+   période sur plusieurs cycles ». Sinon un gabarit par classe suffit.
 6. **Cosmétique matières** — collision de couleur auto entre 2 matières ; abréviation affichée trop pâle.
 7. **Frais de démo** — le bouton « Charger un exemple » ajoute des frais à nettoyer sur une vraie école.
 

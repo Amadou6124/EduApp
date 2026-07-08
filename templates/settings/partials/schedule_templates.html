@@ -1,38 +1,84 @@
 {% load i18n %}
 {% comment %}
-Gabarits de tranches — tuiles sélectionnables avec barre segmentée (N versements
-égaux). La tuile is_default a une bordure primary + badge « Par défaut ». Cliquer
-sur une autre la passe par défaut (HTMX). Cible #schedule-templates.
-Le nombre de segments = installments_count (boucle via le filtre natif `center`).
-Responsive : 1 colonne mobile, 3 colonnes desktop.
+Gabarits de tranches — tuiles avec barre segmentée (N versements égaux). La tuile
+is_default a une bordure primary. Cliquer une AUTRE tuile la passe par défaut (HTMX).
+Le crayon (contrôle SÉPARÉ, jamais imbriqué dans le bouton set-default) ouvre le modal
+d'édition. « + Nouveau gabarit » ouvre le modal de création. Section repliée pour les
+gabarits désactivés (réactivables). Cible #schedule-templates. Couleurs : primary-*.
 {% endcomment %}
 
 {% if schedule_templates %}
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
     {% for tpl in schedule_templates %}
-      <button type="button"
-              {% if not tpl.is_default %}
-              hx-post="{% url 'settings:schedule-set-default' tpl.id %}"
-              hx-target="#schedule-templates" hx-swap="innerHTML"
-              {% endif %}
-              class="rounded-xl border p-3.5 text-left transition relative
-                     {% if tpl.is_default %}border-primary-500 ring-1 ring-primary-500 bg-primary-50/40{% else %}border-gray-200 bg-white hover:border-primary-300 cursor-pointer{% endif %}">
+      <div class="relative">
+        {# Crayon d'édition — SÉPARÉ du bouton set-default (sinon bouton imbriqué invalide). #}
+        <button type="button" aria-label="Modifier {{ tpl.name }}"
+                hx-get="{% url 'settings:schedule-edit-form' tpl.id %}"
+                hx-target="#schedule-modal-body" hx-swap="innerHTML"
+                @click="showScheduleModal = true"
+                class="absolute top-2 right-2 z-10 p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-white/70 transition">
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+        </button>
+
         {% if tpl.is_default %}
-          <span class="badge-primary absolute top-3 right-3">Par défaut</span>
+          <div class="rounded-xl border border-primary-500 ring-1 ring-primary-500 bg-primary-50/40 p-3.5">
+        {% else %}
+          <button type="button"
+                  hx-post="{% url 'settings:schedule-set-default' tpl.id %}"
+                  hx-target="#schedule-templates" hx-swap="innerHTML"
+                  class="w-full text-left rounded-xl border border-gray-200 bg-white hover:border-primary-300 cursor-pointer p-3.5 transition">
         {% endif %}
-        <p class="font-semibold text-gray-900 text-sm">{{ tpl.name }}</p>
-        <p class="text-xs text-gray-500 mt-0.5 mb-3">
-          {{ tpl.installments_count }} versement{{ tpl.installments_count|pluralize }}{% if tpl.installments_count > 1 %} égaux{% endif %}
-        </p>
-        {# Barre segmentée : un segment par versement. #}
-        <div class="flex gap-1" aria-hidden="true">
-          {% for _ in ""|center:tpl.installments_count %}
-            <span class="flex-1 h-2 rounded-sm {% if tpl.is_default %}bg-primary-500{% else %}bg-gray-200{% endif %}"></span>
-          {% endfor %}
-        </div>
-      </button>
+            <p class="font-semibold text-gray-900 text-sm pr-6">{{ tpl.name }}</p>
+            <p class="text-xs text-gray-500 mt-0.5 mb-3">
+              {{ tpl.installments_count }} versement{{ tpl.installments_count|pluralize }}{% if tpl.installments_count > 1 %} égaux{% endif %}{% if tpl.is_default %} · <span class="font-medium text-primary-700">par défaut</span>{% endif %}
+            </p>
+            {# Barre segmentée : un segment par versement. #}
+            <div class="flex gap-1" aria-hidden="true">
+              {% for _ in ""|center:tpl.installments_count %}
+                <span class="flex-1 h-2 rounded-sm {% if tpl.is_default %}bg-primary-500{% else %}bg-gray-200{% endif %}"></span>
+              {% endfor %}
+            </div>
+        {% if tpl.is_default %}
+          </div>
+        {% else %}
+          </button>
+        {% endif %}
+      </div>
     {% endfor %}
   </div>
+
+  {# + Nouveau gabarit — ouvre le modal de création. #}
+  <button type="button"
+          hx-get="{% url 'settings:schedule-form' %}"
+          hx-target="#schedule-modal-body" hx-swap="innerHTML"
+          @click="showScheduleModal = true"
+          class="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-primary-600 border border-dashed border-gray-300 hover:border-primary-300 rounded-lg px-3 py-2 transition">
+    <i data-lucide="plus" class="w-4 h-4"></i>
+    Nouveau gabarit
+  </button>
+
+  {# Section repliée : gabarits désactivés (réactivables ; jamais supprimés). #}
+  {% if schedule_templates_inactive %}
+    <div class="mt-4 pt-3 border-t border-gray-100">
+      <p class="text-xs font-medium text-gray-400 mb-2">Gabarits désactivés</p>
+      <div class="space-y-1.5">
+        {% for tpl in schedule_templates_inactive %}
+          <div class="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+            <span class="text-xs text-gray-500">
+              {{ tpl.name }} · {{ tpl.installments_count }} tranche{{ tpl.installments_count|pluralize }}
+            </span>
+            <button type="button"
+                    hx-post="{% url 'settings:schedule-toggle' tpl.id %}"
+                    hx-target="#schedule-templates" hx-swap="innerHTML"
+                    class="text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-1 rounded-lg hover:bg-primary-50 whitespace-nowrap">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline align-middle"></i> Réactiver
+            </button>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
 {% else %}
   <div class="rounded-xl border border-dashed border-gray-200 p-5 text-center">
     <p class="text-sm text-gray-500">

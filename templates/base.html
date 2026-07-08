@@ -1179,6 +1179,9 @@
     document.addEventListener('showToast', function(e) {
       window.dispatchEvent(new CustomEvent('show-toast', { detail: e.detail }));
     });
+    document.addEventListener('closeScheduleModal', function() {
+      window.dispatchEvent(new CustomEvent('close-schedule-modal'));
+    });
   </script>
 
   {% include "settings/partials/toast.html" %}

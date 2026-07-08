@@ -26,7 +26,7 @@ from apps.core.mixins import get_school, director_or_staff_required
 from apps.finance.models import (
     FeeType, FeeVariant, PaymentScheduleTemplate, FeeCategory,
 )
-from apps.finance.forms import FeeTypeForm, FeeVariantForm
+from apps.finance.forms import FeeTypeForm, FeeVariantForm, ScheduleTemplateForm
 from apps.finance.services import ensure_default_schedule_templates
 
 # Métadonnées des sections "coming soon"
@@ -1095,12 +1095,20 @@ def _render_catalog(request, school):
     )
 
 
+def _schedule_ctx(school):
+    """Contexte des gabarits : actifs (tuiles) + désactivés (section repliée)."""
+    templates = list(PaymentScheduleTemplate.objects.filter(school=school))
+    return {
+        'schedule_templates':          [t for t in templates if t.is_active],
+        'schedule_templates_inactive': [t for t in templates if not t.is_active],
+    }
+
+
 def _render_schedules(request, school):
-    """Rend le partial gabarits de tranches."""
+    """Rend le partial gabarits de tranches (actifs + désactivés)."""
     return render_to_string(
         'settings/partials/schedule_templates.html',
-        {'schedule_templates': PaymentScheduleTemplate.objects
-            .filter(school=school, is_active=True)},
+        _schedule_ctx(school),
         request=request,
     )
 
@@ -1123,8 +1131,8 @@ def fees(request):
     ensure_default_schedule_templates(school)
     return render(request, 'settings/fees.html', {
         **_catalog_context(school),
-        'schedule_templates': PaymentScheduleTemplate.objects
-            .filter(school=school, is_active=True),
+        **_schedule_ctx(school),
+        'schedule_form':      ScheduleTemplateForm(),
         'fee_form':           FeeTypeForm(),
         'active_section':     'fees',
         'school':             school,
@@ -1344,14 +1352,95 @@ def fee_variant_toggle(request, variant_id):
 def schedule_set_default(request, template_id):
     """Passe un gabarit de tranches en « par défaut » (les autres repassent à False)."""
     school = get_school(request)
-    tpl = get_object_or_404(PaymentScheduleTemplate, id=template_id, school=school)
+    tpl = get_object_or_404(PaymentScheduleTemplate, id=template_id, school=school, is_active=True)
     tpl.is_default = True
-    tpl.save()  # save() retire le flag des autres gabarits de l'école (cf. modèle)
-    resp = render(request, 'settings/partials/schedule_templates.html', {
-        'schedule_templates': PaymentScheduleTemplate.objects
-            .filter(school=school, is_active=True),
-    })
+    tpl.save()  # save() retire le flag des autres gabarits de l'école (cf. modèle, atomique)
+    resp = render(request, 'settings/partials/schedule_templates.html', _schedule_ctx(school))
     return _toast(resp, f'Gabarit « {tpl.name} » appliqué par défaut.')
+
+
+@login_required
+@director_or_staff_required
+def schedule_form(request, template_id=None):
+    """Renvoie le corps du modal gabarit (création si absent, édition sinon)."""
+    school = get_school(request)
+    instance = None
+    if template_id is not None:
+        instance = get_object_or_404(PaymentScheduleTemplate, id=template_id, school=school)
+    return render(request, 'settings/partials/schedule_form.html', {
+        'form':     ScheduleTemplateForm(instance=instance),
+        'template': instance,
+    })
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def schedule_save(request, template_id=None):
+    """Crée ou édite un gabarit depuis le modal.
+
+    Édition NON rétroactive : les échéanciers déjà générés sont figés (snapshot), on
+    ne touche que les prochaines inscriptions. L'unicité du nom (contrainte DB) est
+    remontée en toast 422 ; le modal reste ouvert sur erreur de formulaire (status 200).
+    """
+    school = get_school(request)
+    instance = None
+    if template_id is not None:
+        instance = get_object_or_404(PaymentScheduleTemplate, id=template_id, school=school)
+
+    form = ScheduleTemplateForm(request.POST, instance=instance)
+    if not form.is_valid():
+        return render(request, 'settings/partials/schedule_form.html',
+                      {'form': form, 'template': instance})
+
+    obj = form.save(commit=False)
+    obj.school = school
+    try:
+        with transaction.atomic():
+            obj.full_clean(exclude=['school'])   # rejoue les bornes 1–12 du modèle
+            obj.save()
+    except (IntegrityError, ValidationError):
+        return _toast(HttpResponse(status=422),
+                      f'Un gabarit « {obj.name} » existe déjà.', 'error')
+
+    # Succès : swap OOB du bloc gabarits + fermeture du modal.
+    schedules = render_to_string('settings/partials/schedule_templates.html',
+                                 _schedule_ctx(school), request=request)
+    resp = HttpResponse(
+        f'<div id="schedule-templates" hx-swap-oob="true">{schedules}</div>'
+    )
+    return _toast(
+        resp,
+        'Gabarit enregistré.' if instance is None else 'Gabarit modifié.',
+        closeScheduleModal={},
+    )
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def schedule_toggle_active(request, template_id):
+    """Désactive / réactive un gabarit. GARDE-FOU : on refuse de désactiver le gabarit
+    par défaut (sinon plus aucun défaut) → le directeur doit d'abord en promouvoir un
+    autre. On ne SUPPRIME jamais un gabarit (désactivation seule)."""
+    school = get_school(request)
+    tpl = get_object_or_404(PaymentScheduleTemplate, id=template_id, school=school)
+
+    if tpl.is_active and tpl.is_default:
+        return _toast(HttpResponse(status=422),
+                      'Choisissez d\'abord un autre gabarit par défaut.', 'error')
+
+    tpl.is_active = not tpl.is_active
+    tpl.save(update_fields=['is_active'])
+    resp = render(request, 'settings/partials/schedule_templates.html', _schedule_ctx(school))
+    # closeScheduleModal ferme le modal quand la désactivation vient de l'écran d'édition ;
+    # sans effet quand elle vient de la liste « désactivés » (aucun modal ouvert).
+    return _toast(
+        resp,
+        'Gabarit réactivé.' if tpl.is_active else 'Gabarit désactivé.',
+        'success' if tpl.is_active else 'info',
+        closeScheduleModal={},
+    )
 
 
 @login_required
