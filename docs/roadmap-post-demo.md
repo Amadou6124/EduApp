@@ -29,13 +29,21 @@ Cette feuille de route liste ce qui reste à construire, priorisé, après la pr
 - **Identité élève** : Nom/Prénom séparés, lieu + date de naissance, **matricule** auto (AAAA-NNNN, immuable, modifiable).
 - **Responsables** (`StudentGuardian` unifié) : info seule OU accès portail ; téléphone élève retiré (donnée morte).
 - **Remises manuelles** (`FeeAdjustment`) : % ou montant, motif, financé par, **immuable** ; garde-fou anti
-  trop-perçu ; **reporting** directeur + promoteur ; solde **net** partout. (Auth élève/parent = analysé, pas construit → `decision-authentification.md`.)
+  trop-perçu ; **reporting** directeur + promoteur ; solde **net** partout.
 
-### Ciblage des frais par niveau + polish — branche `feature/chantiers-suivants` (poussée, à merger)
+### Ciblage des frais + gabarits + auth portail — branche `feature/chantiers-suivants` (poussée, à merger)
 - **Ciblage des frais par niveau** (`FeeType.applies_to_levels`) : un frais annexe cible certains niveaux
   (vide = tous, rétro-compatible) ; `is_applicable()` combine niveau ET nouveau/ancien ; non-rétroactif ;
-  cases à cocher + badge + options d'inscription filtrées par classe. 72 tests.
+  cases à cocher + badge + options d'inscription filtrées par classe.
+- **Gabarits de tranches personnalisables** (CRUD) : le directeur crée/édite/désactive ses gabarits
+  (nombre 1–12, désactivation seule, défaut protégé, non-rétroactif). Moteur de découpe inchangé.
+- **Auth portail parent/élève CONSTRUIT** (Chantier B — était « analysé », `decision-authentification.md`) :
+  identifiants remis via **carte imprimable** (parent au modal, élève page réimprimable), mot de passe
+  temporaire **tapable** à usage unique (**changement forcé** à la 1re connexion via middleware),
+  **régénération** mdp parent + code élève, **impression de masse** des cartes élève par classe (A4).
+  Zéro SMS. Le portail reste un bonus, jamais un prérequis à l'inscription.
 - Retrait de l'avatar redondant sur l'accueil enseignant.
+- **187 tests** au total sur la branche.
 
 ---
 
@@ -84,16 +92,14 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
 
 ## 🟢 Confort (petits polish)
 
-5. **Nombre de tranches libre** (2/4/6…) — actuellement figé à 1/3/9. Périmètre retenu = petit CRUD sur
-   `PaymentScheduleTemplate` (créer/éditer/désactiver, borne 1–12, désactivation seule, défaut protégé, snapshot
-   non-rétroactif). Doublon de nombre = optionnel (contrainte d'unicité sur `installments_count` si ça gêne).
-   ⏸️ **Parqué (post-lancement, NE PAS anticiper)** : passer du modèle « nombre » à un modèle « rythme »
+5. ~~**Nombre de tranches libre**~~ **FAIT** (branche `feature/chantiers-suivants`) : CRUD gabarits 1–12.
+   ⏸️ **Reste parqué (post-lancement, NE PAS anticiper)** : passer du modèle « nombre » à un modèle « rythme »
    (`kind` = Annuel / Par période auto-adaptatif au cycle / Personnalisé). L'analyse est bonne — le moteur cale
    déjà les tranches sur les périodes *du cycle de l'élève* (`periods_for_class`) quand nombre == nb de périodes,
    donc un gabarit à nombre fixe ne peut pas dire « par période » pour une école fondamental+secondaire. **Mais
    c'est une décision produit, pas technique** : à ne construire QUE si une vraie école demande « facturer par
    période sur plusieurs cycles ». Sinon un gabarit par classe suffit.
-6. **Cosmétique matières** — collision de couleur auto entre 2 matières ; abréviation affichée trop pâle.
+6. **Cosmétique matières** — collision de couleur auto entre 2 matières ; abréviation affichée trop pâle. *(couleur auto-distincte déjà faite ; reste l'abréviation pâle.)*
 7. **Frais de démo** — le bouton « Charger un exemple » ajoute des frais à nettoyer sur une vraie école.
 
 ---

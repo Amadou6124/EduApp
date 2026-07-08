@@ -1,8 +1,17 @@
 # Décision — Authentification élève / parent (Chantier B)
 
-> **Statut : analysé, pas encore construit.** Ce document fige la direction retenue
-> après recherche terrain (Mali) + confrontation Gemini/ChatGPT. À implémenter comme
-> son propre chantier, **plus tard**. Il ne bloque pas le Chantier A (dossier d'inscription).
+> **Statut : CONSTRUIT** (branche `feature/chantiers-suivants`, poussée). Ce document a fixé la
+> direction ; l'onboarding est désormais implémenté. Ce qui a été livré :
+> - **Identifiants remis via carte imprimée** (pas de SMS) : carte parent (imprimée depuis le modal,
+>   mot de passe jamais dans une URL) + carte élève (page serveur réimprimable, code + nom de famille).
+> - **Mot de passe temporaire tapable** (majuscules sans I/O/0/1) à **usage unique** : `User.must_change_password`
+>   + middleware `ForcePasswordChangeMiddleware` → choix forcé d'un mot de passe personnel à la 1re connexion.
+> - **Régénération** (mot de passe parent, code élève) ; **impression de masse** des cartes élève par classe (A4).
+> - Cloisonnement cross-school préservé ; identité ≠ authentification respecté.
+>
+> **Reste à faire (post-lancement)** : canal **SMS/OTP** (Phase 2, si une école valide le budget) ;
+> **import en masse créant les comptes parents** (aujourd'hui : création 1-par-1 au guichet/inscription).
+> La direction ci-dessous reste la référence conceptuelle.
 
 ## Le principe fondateur : identité ≠ authentification
 
