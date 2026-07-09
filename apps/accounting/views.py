@@ -260,6 +260,25 @@ def emargement_dashboard(request):
         vr.class_subject_id: vr.hourly_rate
         for vr in VacataireRate.objects.filter(class_subject_id__in=vac_ids)
     }
+
+    # ── Pré-filtrage par l'emploi du temps (GUIDE, jamais verrou) ──────────────
+    # Les cours ayant un créneau CE jour-là remontent en tête avec leur horaire ;
+    # tous les autres restent émargeables (cours exceptionnel = réalité du terrain).
+    # Python weekday() : lundi=0 … dimanche=6 — même convention que Weekday.
+    from apps.schools.models import CourseSlot
+    from apps.schools.periods import active_year_for
+    year = active_year_for(school)
+    planned_map, edt_in_use = {}, False
+    if year:
+        slot_qs = CourseSlot.objects.filter(
+            school_year=year, class_subject__school_class__school=school,
+        )
+        edt_in_use = slot_qs.exists()
+        for s in slot_qs.filter(day=selected_date.weekday()).order_by('start_time'):
+            planned_map.setdefault(s.class_subject_id, []).append(
+                f'{s.start_time:%H:%M}–{s.end_time:%H:%M}'
+            )
+
     att_map = {
         a.class_subject_id: a
         for a in TeacherAttendance.objects
@@ -295,16 +314,24 @@ def emargement_dashboard(request):
             g['courses'].append({
                 'cs': cs, 'rate': rate, 'duration': cs.duration_hours,
                 'presets': _hour_presets(cs.duration_hours),
+                'planned': planned_map.get(cs.id),   # horaires prévus aujourd'hui (ou None)
             })
         else:
             perm_teacher_ids.add(cs.teacher_id)
             g = perm_by_class.setdefault(cs.school_class_id, {'sc': cs.school_class, 'courses': []})
             g['courses'].append({'cs': cs})
 
+    # Tri « prévus d'abord » : dans chaque groupe, les cours planifiés du jour en tête
+    # (par heure de début) ; puis les groupes ayant ≥1 cours prévu avant les autres.
+    for g in vac_groups.values():
+        g['courses'].sort(key=lambda c: (c['planned'] is None,
+                                         c['planned'][0] if c['planned'] else ''))
     vac_groups = [{
         'teacher': g['teacher'], 'courses': g['courses'],
         'course_ids': [c['cs'].id for c in g['courses']],
+        'planned_count': sum(1 for c in g['courses'] if c['planned']),
     } for g in vac_groups.values()]
+    vac_groups.sort(key=lambda g: g['planned_count'] == 0)
     perm_groups = []
     for e in perm_by_class.values():
         teachers = ' '.join(sorted({c['cs'].teacher.full_name for c in e['courses']}))
@@ -321,6 +348,8 @@ def emargement_dashboard(request):
         'next_date': selected_date + timedelta(days=1),
         'vac_groups': vac_groups,
         'vac_teacher_count': len(vac_groups),
+        'edt_in_use': edt_in_use,
+        'planned_total': sum(g['planned_count'] for g in vac_groups),
         'perm_groups': perm_groups,
         'perm_total': sum(len(g['courses']) for g in perm_groups),
         'perm_teacher_count': len(perm_teacher_ids),

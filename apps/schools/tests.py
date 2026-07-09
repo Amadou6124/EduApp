@@ -127,3 +127,182 @@ class SubjectColorTests(TestCase):
         from apps.schools.models import Subject
         s = Subject.objects.create(school=self.school, name='Sciences de la Vie et de la Terre')
         self.assertEqual(s.short_name, 'SVT')   # acronyme, « de / la / et » ignorés
+
+
+class CourseSlotTests(TestCase):
+    """Emploi du temps : créneaux libres à la minute, conflits refusés, pauses.
+    Contrat : le planning est un GUIDE (jamais de lien avec la paie)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.schools.models import Subject, ClassSubject
+        cls.school = School.objects.create(
+            name='École EDT', short_name='ED', city='Bamako', school_type='primary',
+        )
+        cls.year = SchoolYear.objects.create(
+            school=cls.school, name='2025-2026',
+            start_date=date(2025, 10, 1), end_date=date(2026, 6, 30), is_active=True,
+        )
+        cls.year2 = SchoolYear.objects.create(
+            school=cls.school, name='2026-2027',
+            start_date=date(2026, 10, 1), end_date=date(2027, 6, 30), is_active=False,
+        )
+        cls.k6a = SchoolClass.objects.create(
+            school=cls.school, name='6A', level='fondamental_2',
+            annual_fee=Decimal('100000'), max_capacity=40,
+        )
+        cls.k5b = SchoolClass.objects.create(
+            school=cls.school, name='5B', level='fondamental_2',
+            annual_fee=Decimal('100000'), max_capacity=40,
+        )
+        cls.prof = User.objects.create_user(
+            phone_number='70000100', password='pw', role=UserRole.TEACHER, full_name='M. Traoré',
+        )
+        cls.math   = Subject.objects.create(school=cls.school, name='Maths')
+        cls.frans  = Subject.objects.create(school=cls.school, name='Français')
+        cls.cs_math_6a  = ClassSubject.objects.create(
+            school_class=cls.k6a, subject=cls.math, teacher=cls.prof,
+        )
+        cls.cs_fr_6a    = ClassSubject.objects.create(
+            school_class=cls.k6a, subject=cls.frans, teacher=None,   # sans prof
+        )
+        cls.cs_math_5b  = ClassSubject.objects.create(
+            school_class=cls.k5b, subject=cls.math, teacher=cls.prof,
+        )
+
+    def _slot(self, cs, day, start, end, year=None, room=''):
+        from apps.schools.models import CourseSlot
+        from datetime import time
+        s = CourseSlot(
+            class_subject=cs, school_year=year or self.year, day=day,
+            start_time=time(*start), end_time=time(*end), room=room,
+        )
+        s.full_clean()
+        s.save()
+        return s
+
+    def test_journee_reelle_a_la_minute(self):
+        # L'exemple exact du fondateur : 8h-11h / 11h15-13h15 / 13h30-15h15 (même classe).
+        self._slot(self.cs_math_6a, 0, (8, 0), (11, 0))
+        self._slot(self.cs_fr_6a,   0, (11, 15), (13, 15))
+        self._slot(self.cs_math_6a, 0, (13, 30), (15, 15))
+        from apps.schools.models import CourseSlot
+        self.assertEqual(CourseSlot.objects.filter(school_year=self.year, day=0).count(), 3)
+
+    def test_durees_differentes_par_creneau(self):
+        # Math 2h le lundi ET 1h le jeudi : durée libre par créneau.
+        self._slot(self.cs_math_6a, 0, (8, 0), (10, 0))
+        self._slot(self.cs_math_6a, 3, (10, 0), (11, 0))
+
+    def test_conflit_classe_refuse(self):
+        from django.core.exceptions import ValidationError
+        self._slot(self.cs_math_6a, 0, (8, 0), (10, 0))
+        with self.assertRaises(ValidationError):
+            self._slot(self.cs_fr_6a, 0, (9, 0), (11, 0))    # même classe, chevauche
+
+    def test_conflit_prof_refuse(self):
+        from django.core.exceptions import ValidationError
+        self._slot(self.cs_math_6a, 1, (8, 0), (10, 0))
+        with self.assertRaises(ValidationError):
+            self._slot(self.cs_math_5b, 1, (9, 30), (11, 0))  # même prof, autre classe
+
+    def test_chevauchement_partiel_detecte(self):
+        # 8h00-9h30 vs 8h45-10h15 → conflit (le cas vicieux).
+        from django.core.exceptions import ValidationError
+        self._slot(self.cs_math_6a, 2, (8, 0), (9, 30))
+        with self.assertRaises(ValidationError):
+            self._slot(self.cs_math_5b, 2, (8, 45), (10, 15))
+
+    def test_creneaux_adjacents_ok(self):
+        # 9h-10h puis 10h-11h : PAS un conflit (bord à bord).
+        self._slot(self.cs_math_6a, 4, (9, 0), (10, 0))
+        self._slot(self.cs_math_5b, 4, (10, 0), (11, 0))
+
+    def test_pas_de_faux_conflit_entre_annees(self):
+        # Même horaire, années différentes → OK (l'année N+1 repart proprement).
+        self._slot(self.cs_math_6a, 0, (8, 0), (10, 0))
+        self._slot(self.cs_math_5b, 0, (8, 0), (10, 0), year=self.year2)
+
+    def test_cours_sans_prof_jamais_en_conflit_prof(self):
+        # Français 6A n'a pas de prof → aucun conflit prof possible avec lui.
+        self._slot(self.cs_fr_6a, 5, (8, 0), (10, 0))
+        self._slot(self.cs_math_5b, 5, (8, 0), (10, 0))      # autre classe, prof libre
+
+    def test_conflit_salle_seulement_si_renseignee(self):
+        from django.core.exceptions import ValidationError
+        self._slot(self.cs_math_6a, 3, (8, 0), (10, 0), room='Salle 1')
+        # Sans salle → pas de conflit salle.
+        self._slot(self.cs_fr_6a, 3, (10, 0), (12, 0))
+        # Même salle, chevauchement → refusé.
+        with self.assertRaises(ValidationError):
+            self._slot(self.cs_math_5b, 3, (9, 0), (11, 0), room='salle 1')
+
+    def test_fin_avant_debut_refusee(self):
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            self._slot(self.cs_math_6a, 0, (10, 0), (8, 0))
+
+    def test_pause_nommee(self):
+        from apps.schools.models import SchoolBreak
+        from datetime import time
+        b = SchoolBreak(school=self.school, label='Récréation',
+                        start_time=time(11, 0), end_time=time(11, 15))
+        b.full_clean(); b.save()
+        # Vendredi seulement (djoumou'a).
+        j = SchoolBreak(school=self.school, label='Djoumou\'a', day=4,
+                        start_time=time(13, 0), end_time=time(14, 30))
+        j.full_clean(); j.save()
+        self.assertEqual(self.school.school_breaks.count(), 2)
+
+    def test_dimanche_franco_arabe(self):
+        # Une école franco-arabe (repos vendredi) peut placer des cours le dimanche.
+        self._slot(self.cs_math_6a, 6, (8, 0), (10, 0))
+        # Et les conflits y sont contrôlés comme les autres jours.
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            self._slot(self.cs_math_5b, 6, (9, 0), (11, 0))   # même prof, dimanche
+
+
+class ResolveSubjectTests(TestCase):
+    """Création de matière à la volée : anti-doublon par nom normalisé (casse/accents)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École Volée', short_name='EV', city='Bamako', school_type='primary',
+        )
+
+    def test_creation_avec_couleur_auto(self):
+        from apps.schools.models import resolve_or_create_subject
+        s, created = resolve_or_create_subject(self.school, '  Dessin  ')
+        self.assertTrue(created)
+        self.assertEqual(s.name, 'Dessin')          # nom nettoyé (trim)
+        self.assertTrue(s.color)                    # couleur auto posée par save()
+
+    def test_reutilise_insensible_casse(self):
+        from apps.schools.models import Subject, resolve_or_create_subject
+        orig = Subject.objects.create(school=self.school, name='Maths')
+        s, created = resolve_or_create_subject(self.school, 'maths')
+        self.assertFalse(created)
+        self.assertEqual(s.id, orig.id)             # réutilisée, pas dupliquée
+
+    def test_reutilise_insensible_accents(self):
+        from apps.schools.models import Subject, resolve_or_create_subject
+        orig = Subject.objects.create(school=self.school, name='Français')
+        s, created = resolve_or_create_subject(self.school, 'francais')
+        self.assertFalse(created)
+        self.assertEqual(s.id, orig.id)
+
+    def test_reactive_matiere_desactivee(self):
+        from apps.schools.models import Subject, resolve_or_create_subject
+        old = Subject.objects.create(school=self.school, name='Musique', is_active=False)
+        s, created = resolve_or_create_subject(self.school, 'Musique')
+        self.assertFalse(created)
+        self.assertEqual(s.id, old.id)
+        self.assertTrue(Subject.objects.get(pk=old.pk).is_active)   # réactivée
+
+    def test_noms_differents_creent_bien(self):
+        from apps.schools.models import Subject, resolve_or_create_subject
+        Subject.objects.create(school=self.school, name='Math')
+        s, created = resolve_or_create_subject(self.school, 'Maths')   # ≠ normalisé
+        self.assertTrue(created)                    # « Math » vs « Maths » = 2 matières

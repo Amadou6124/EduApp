@@ -1,0 +1,226 @@
+{% load i18n %}
+{% comment %}
+Grille emploi du temps d'une classe (onglet « Emploi du temps » de la fiche classe).
+Positionnement PROPORTIONNEL : 1 px = 1 minute depuis 7h30 → les heures non rondes
+(11h15, 13h30…) tombent au bon endroit. Blocs = créneaux (couleur de la matière) ;
+bandes grises = pauses de l'ÉCOLE (communes à toutes les classes, informatives).
+Mobile : un jour à la fois (boutons Lun…Sam) ; desktop : semaine entière.
+Cible du swap HTMX : #class-timetable (les vues renvoient ce partial complet).
+{% endcomment %}
+
+<div id="class-timetable"
+     x-data="edtGrid()"
+     class="space-y-4">
+
+  {{ edt_durations|json_script:"edt-durations" }}
+
+  {# ── Barre d'actions ── #}
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <p class="text-xs text-gray-400">
+      {% if edt_year %}Année {{ edt_year.name }} · cliquez « + » sur un jour pour placer un cours.{% else %}Aucune année scolaire active.{% endif %}
+    </p>
+    <div class="flex items-center gap-2">
+      <button type="button" @click="showBreaks = !showBreaks"
+              class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-primary-600 border border-gray-200 hover:border-primary-300 rounded-lg px-3 py-1.5 transition">
+        <i data-lucide="coffee" class="w-3.5 h-3.5"></i> Pauses de l'école
+      </button>
+      <a href="{% url 'schools:class-edt-print' school_class.id %}" target="_blank"
+         class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 rounded-lg px-3 py-1.5 transition">
+        <i data-lucide="printer" class="w-3.5 h-3.5"></i> Imprimer
+      </a>
+    </div>
+  </div>
+
+  {# ── Panneau pauses (école entière) ── #}
+  <div x-show="showBreaks" x-cloak class="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+    <p class="text-xs text-gray-500">Les pauses s'affichent sur l'emploi du temps de <strong>toutes les classes</strong>. Informatives : elles ne bloquent jamais un créneau.</p>
+    {% if edt_breaks %}
+      <div class="space-y-1.5">
+        {% for b in edt_breaks %}
+          <div class="flex items-center justify-between rounded-lg bg-white border border-gray-200 px-3 py-1.5">
+            <span class="text-xs text-gray-700">
+              <span class="font-medium">{{ b.label }}</span>
+              · {{ b.start_time|time:"H:i" }}–{{ b.end_time|time:"H:i" }}
+              · {% if b.day is not None %}{{ b.get_day_display }}{% else %}tous les jours{% endif %}
+            </span>
+            <button type="button"
+                    hx-post="{% url 'schools:break-delete' school_class.id b.id %}"
+                    hx-target="#class-timetable" hx-swap="outerHTML"
+                    hx-confirm="Supprimer la pause « {{ b.label }} » ?"
+                    class="text-gray-300 hover:text-red-500 p-1 rounded transition">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <form hx-post="{% url 'schools:break-create' school_class.id %}"
+          hx-target="#class-timetable" hx-swap="outerHTML"
+          class="flex flex-wrap items-end gap-2">
+      {% csrf_token %}
+      <div><label class="block text-[11px] text-gray-400 mb-0.5">Nom</label>
+        <input type="text" name="label" placeholder="Récréation" required class="input-field h-8 text-xs w-32"></div>
+      <div><label class="block text-[11px] text-gray-400 mb-0.5">Jour</label>
+        <select name="day" class="input-field h-8 text-xs w-32">
+          <option value="">Tous les jours</option>
+          {% for val, label in weekday_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select></div>
+      <div><label class="block text-[11px] text-gray-400 mb-0.5">Début</label>
+        <input type="time" name="start_time" required class="input-field h-8 text-xs"></div>
+      <div><label class="block text-[11px] text-gray-400 mb-0.5">Fin</label>
+        <input type="time" name="end_time" required class="input-field h-8 text-xs"></div>
+      <button type="submit" class="btn-primary h-8 text-xs px-3"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Ajouter</button>
+    </form>
+  </div>
+
+  {# ── Formulaire créneau (création / édition) ── #}
+  <div x-show="showForm" x-cloak
+       class="rounded-xl border border-primary-200 bg-primary-50/60 p-4 max-w-lg">
+    <p class="text-xs font-semibold text-primary-700 mb-3" x-text="slotId ? 'Modifier le créneau' : 'Nouveau créneau — ' + dayNames[day]"></p>
+    <form :hx-post="slotId
+            ? '{% url 'schools:slot-update' school_class.id 0 %}'.replace('/0/', '/' + slotId + '/')
+            : '{% url 'schools:slot-create' school_class.id %}'"
+          hx-target="#class-timetable" hx-swap="outerHTML"
+          @htmx:after-swap.window="showForm = false">
+      {% csrf_token %}
+      <input type="hidden" name="day" :value="day">
+      <div class="space-y-2.5">
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-500 w-14 shrink-0">Cours</label>
+          <select name="class_subject" x-model="courseId" @change="autoEnd()" required class="input-field h-9 text-sm flex-1">
+            {% for cs in edt_subjects %}
+              <option value="{{ cs.id }}">{{ cs.subject.name }}{% if cs.teacher %} — {{ cs.teacher.full_name }}{% else %} — (sans prof){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <label class="text-xs text-gray-500 w-14 shrink-0">Jour</label>
+          <select x-model.number="day" class="input-field h-9 text-sm w-32">
+            {% for val, label in weekday_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+          <label class="text-xs text-gray-500 ml-2">Début</label>
+          <input type="time" name="start_time" x-model="start" @change="autoEnd()" required class="input-field h-9 text-sm w-28">
+          <label class="text-xs text-gray-500">Fin</label>
+          <input type="time" name="end_time" x-model="end" required class="input-field h-9 text-sm w-28">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-500 w-14 shrink-0">Salle</label>
+          <input type="text" name="room" x-model="room" placeholder="(optionnel)" class="input-field h-9 text-sm w-40">
+          <span class="text-[11px] text-gray-400">La fin est pré-remplie selon la durée du cours — ajustez librement.</span>
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-3.5">
+        <button type="button" x-show="slotId"
+                :hx-post="'{% url 'schools:slot-delete' school_class.id 0 %}'.replace('/0/', '/' + slotId + '/')"
+                hx-target="#class-timetable" hx-swap="outerHTML"
+                hx-confirm="Supprimer ce créneau ?"
+                @click="$nextTick(() => htmx.process($el))"
+                class="text-xs font-medium text-red-600 hover:text-red-700">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5 inline align-middle"></i> Supprimer
+        </button>
+        <span x-show="!slotId"></span>
+        <div class="flex gap-2">
+          <button type="button" @click="showForm = false" class="btn-secondary text-xs px-3 py-2">Annuler</button>
+          <button type="submit" class="btn-primary text-xs px-4 py-2">Placer</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  {# ── Sélecteur de jour (mobile) ── #}
+  <div class="flex gap-1 lg:hidden">
+    {% for col in day_columns %}
+      <button type="button" @click="selDay = {{ col.val }}"
+              :class="selDay === {{ col.val }} ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 border border-gray-200'"
+              class="flex-1 rounded-lg py-1.5 text-xs font-medium transition">{{ col.label|slice:":3" }}</button>
+    {% endfor %}
+  </div>
+
+  {# ── La grille ── #}
+  <div class="flex rounded-xl border border-gray-200 bg-white overflow-hidden">
+    {# Gouttière des heures #}
+    <div class="relative w-11 shrink-0 border-r border-gray-100" style="height:{{ grid_height }}px">
+      {% for m in hour_marks %}
+        <span class="absolute right-1.5 -translate-y-1/2 text-[10px] text-gray-300 tabular-nums" style="top:{{ m.top }}px">{{ m.label }}</span>
+      {% endfor %}
+    </div>
+
+    {% for col in day_columns %}
+      <div class="flex-1 min-w-0 border-r border-gray-100 last:border-r-0"
+           :class="selDay === {{ col.val }} ? 'block' : 'hidden lg:block'">
+        {# En-tête du jour + bouton d'ajout pré-réglé sur ce jour #}
+        <div class="flex items-center justify-between px-1.5 py-1 border-b border-gray-100 bg-gray-50/60">
+          <span class="text-[11px] font-medium text-gray-500">{{ col.label }}</span>
+          <button type="button" @click="openCreate({{ col.val }})"
+                  class="w-5 h-5 rounded text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition text-sm leading-none"
+                  aria-label="Ajouter un créneau le {{ col.label }}">+</button>
+        </div>
+        {# Corps proportionnel : 1 px = 1 min depuis 7h30 #}
+        <div class="relative" style="height:{{ grid_height }}px">
+          {% for m in hour_marks %}
+            <span class="absolute inset-x-0 border-t border-gray-50" style="top:{{ m.top }}px"></span>
+          {% endfor %}
+          {# Pauses (bandes grises, informatives) #}
+          {% for it in col.breaks %}
+            <div class="absolute inset-x-0 bg-gray-100/80 border-y border-gray-200 flex items-center justify-center overflow-hidden"
+                 style="top:{{ it.top }}px;height:{{ it.height }}px">
+              <span class="text-[9px] uppercase tracking-wide text-gray-400 truncate px-1">{{ it.brk.label }}</span>
+            </div>
+          {% endfor %}
+          {# Créneaux #}
+          {% for it in col.slots %}
+            <button type="button"
+                    @click="openEdit({{ it.slot.id }}, {{ it.slot.class_subject_id }}, {{ col.val }}, '{{ it.slot.start_time|time:"H:i" }}', '{{ it.slot.end_time|time:"H:i" }}', '{{ it.slot.room|escapejs }}')"
+                    class="absolute inset-x-0.5 rounded-r-md text-left px-1.5 py-0.5 overflow-hidden hover:brightness-95 transition"
+                    style="top:{{ it.top }}px;height:{{ it.height }}px;background-color:{{ it.subject.color|default:'#4F46E5' }}1A;border-left:3px solid {{ it.subject.color|default:'#4F46E5' }}">
+              <span class="block text-[11px] font-semibold text-gray-800 truncate">{{ it.subject.name }}</span>
+              <span class="block text-[10px] text-gray-500 truncate">{{ it.slot.start_time|time:"H:i" }}–{{ it.slot.end_time|time:"H:i" }}{% if it.teacher %} · {{ it.teacher.full_name }}{% endif %}{% if it.slot.room %} · {{ it.slot.room }}{% endif %}</span>
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if not edt_subjects %}
+    <p class="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
+      Cette classe n'a pas encore de matières —
+      <a href="{% url 'schools:class-list' %}" class="font-medium underline">configurez-les d'abord</a>, puis placez les créneaux.
+    </p>
+  {% endif %}
+</div>
+
+<script>
+function edtGrid() {
+  const durations = JSON.parse(document.getElementById('edt-durations').textContent || '{}');
+  // Jours réellement affichés (dimanche seulement s'il est utilisé) → le jour courant
+  // n'est présélectionné que s'il a une colonne, sinon repli sur lundi.
+  const availableDays = [{% for col in day_columns %}{{ col.val }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  const today = (new Date().getDay() + 6) % 7;   // lun=0 … dim=6
+  return {
+    showForm: false, showBreaks: false,
+    selDay: availableDays.includes(today) ? today : 0,
+    slotId: null, courseId: '', day: 0, start: '08:00', end: '10:00', room: '',
+    dayNames: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
+    openCreate(day) {
+      this.slotId = null; this.day = day; this.room = '';
+      this.courseId = String(Object.keys(durations)[0] || '');
+      this.start = '08:00'; this.autoEnd(); this.showForm = true;
+      this.$nextTick(() => { htmx.process(this.$root); lucide.createIcons(); });
+    },
+    openEdit(id, csId, day, start, end, room) {
+      this.slotId = id; this.courseId = String(csId); this.day = day;
+      this.start = start; this.end = end; this.room = room; this.showForm = true;
+      this.$nextTick(() => { htmx.process(this.$root); lucide.createIcons(); });
+    },
+    autoEnd() {
+      // Fin = début + durée par défaut du cours (le directeur peut ajuster ensuite).
+      const dur = durations[this.courseId] || 120;
+      const [h, m] = this.start.split(':').map(Number);
+      if (isNaN(h)) return;
+      const total = Math.min(h * 60 + m + dur, 23 * 60 + 59);
+      this.end = String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+    },
+  };
+}
+</script>

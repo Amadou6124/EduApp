@@ -111,20 +111,27 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
   <div class="px-4 py-6 text-center text-sm text-gray-400">Aucune matière assignée à cette classe.</div>
   {% endif %}
 
-  {# Ajouter une matière #}
+  {# Ajouter une matière — « + Nouvelle matière… » crée À LA VOLÉE (anti-doublon en vue :
+     nom normalisé casse/accents → réutilisée au lieu de dupliquée). Formulaire TOUJOURS
+     visible : même catalogue épuisé, on peut créer une nouvelle matière ici. #}
   <div class="px-3 pb-3">
-    {% if available_subjects %}
     <form hx-post="{% url 'settings:class-subject-add' school_class.id %}"
           hx-target="#class-subjects-panel" hx-swap="innerHTML"
+          x-data="{ newSubj: false }"
           class="rounded-xl border border-dashed border-gray-200 p-3">
       {% csrf_token %}
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
         <div class="col-span-2 sm:col-span-2">
           <label class="block text-[10px] font-semibold text-gray-500 mb-1">Matière <span class="text-red-400">*</span></label>
-          <select name="subject" required class="input-field h-9 text-sm w-full">
+          <select name="subject" required class="input-field h-9 text-sm w-full"
+                  @change="newSubj = ($event.target.value === '__new__')">
             <option value="">— Sélectionner —</option>
             {% for subj in available_subjects %}<option value="{{ subj.id }}">{{ subj.name }}</option>{% endfor %}
+            <option value="__new__">＋ Nouvelle matière…</option>
           </select>
+          <input type="text" name="new_subject_name" x-show="newSubj" x-cloak
+                 :required="newSubj" placeholder="Nom de la matière (ex : Dessin)"
+                 class="input-field h-9 text-sm w-full mt-1.5">
         </div>
         <div>
           <label class="block text-[10px] font-semibold text-gray-500 mb-1">Coeff.</label>
@@ -145,10 +152,11 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
         <button type="submit" class="btn-primary text-xs"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Ajouter</button>
       </div>
     </form>
-    {% else %}
-    <div class="flex items-center gap-2 text-xs text-green-700 px-1 py-2">
-      <i data-lucide="check-circle" class="w-4 h-4 text-green-500 shrink-0"></i> Toutes les matières du catalogue sont assignées.
-    </div>
+    {% if not available_subjects %}
+    <p class="flex items-center gap-2 text-xs text-green-700 px-1 pt-2">
+      <i data-lucide="check-circle" class="w-4 h-4 text-green-500 shrink-0"></i>
+      Toutes les matières du catalogue sont assignées — créez-en une nouvelle ci-dessus si besoin.
+    </p>
     {% endif %}
   </div>
 

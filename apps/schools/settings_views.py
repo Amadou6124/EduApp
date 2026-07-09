@@ -897,14 +897,39 @@ def class_subjects_search(request):
 def class_subject_add(request, class_id):
     school       = get_school(request)
     school_class = get_object_or_404(school.classes.filter(is_active=True), id=class_id)
-    form         = ClassSubjectForm(school, school_class, request.POST)
+
+    # Création de matière À LA VOLÉE (subject == '__new__') : plus d'aller-retour vers
+    # l'écran Matières. Anti-doublon : nom normalisé (casse/accents) → réutilisée.
+    post, flash = request.POST, None
+    if post.get('subject') == '__new__':
+        from .models import resolve_or_create_subject
+        name = (post.get('new_subject_name') or '').strip()
+        if not name:
+            resp = HttpResponse(status=422)
+            resp['HX-Trigger'] = json.dumps({'showToast': {
+                'message': 'Donnez un nom à la nouvelle matière.', 'type': 'error'}})
+            return resp
+        subject, created = resolve_or_create_subject(school, name)
+        if ClassSubject.objects.filter(school_class=school_class, subject=subject).exists():
+            resp = render(request, 'settings/partials/class_subjects.html',
+                          _class_subjects_ctx(school, school_class))
+            resp['HX-Trigger'] = json.dumps({'showToast': {
+                'message': f'« {subject.name} » est déjà dans cette classe.', 'type': 'info'}})
+            return resp
+        post = post.copy()
+        post['subject'] = str(subject.id)
+        flash = (f'Matière « {subject.name} » créée et ajoutée.' if created
+                 else f'« {subject.name} » existait déjà au catalogue — réutilisée.')
+
+    form = ClassSubjectForm(school, school_class, post)
     if form.is_valid():
         cs              = form.save(commit=False)
         cs.school_class = school_class
         cs.save()
         resp = render(request, 'settings/partials/class_subjects.html',
                       _class_subjects_ctx(school, school_class))
-        resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Matière ajoutée à la classe.', 'type': 'success'}})
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': flash or 'Matière ajoutée à la classe.', 'type': 'success'}})
         return resp
     return render(request, 'settings/partials/class_subjects.html',
                   _class_subjects_ctx(school, school_class))

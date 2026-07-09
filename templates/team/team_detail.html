@@ -79,6 +79,11 @@
         <div class="kpi !p-4"><p class="kpi-value text-2xl">{{ stats.subjects }}</p><p class="kpi-label text-xs">Matière{{ stats.subjects|pluralize }}</p></div>
         <div class="kpi !p-4"><p class="kpi-value text-2xl">{{ stats.students }}</p><p class="kpi-label text-xs">Élève{{ stats.students|pluralize }}</p></div>
       </div>
+      {# Emploi du temps du prof — dérivé de ses cours, consultable et imprimable. #}
+      <a href="{% url 'schools:teacher-edt' member.pk %}" target="_blank"
+         class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 rounded-lg px-3 py-1.5 transition">
+        <i data-lucide="calendar-days" class="w-3.5 h-3.5"></i> Emploi du temps
+      </a>
     {% endif %}
 
     {# Matières & classes (enseignant) — lazy #}

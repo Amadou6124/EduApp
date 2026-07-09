@@ -25,6 +25,7 @@
     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-sm font-medium"><i data-lucide="circle-check" class="w-4 h-4"></i> {{ summary.sessions_done }} séance{{ summary.sessions_done|pluralize }} émargée{{ summary.sessions_done|pluralize }}</span>
     {% if vac_groups %}<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-sm font-medium"><i data-lucide="banknote" class="w-4 h-4"></i> {{ summary.day_amount|floatformat:0|intcomma }} FCFA</span>{% endif %}
     {% if summary.absences %}<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-sm font-medium"><i data-lucide="alert-triangle" class="w-4 h-4"></i> {{ summary.absences }} absence{{ summary.absences|pluralize }}</span>{% endif %}
+    {% if edt_in_use %}<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-50 text-primary-700 text-sm font-medium"><i data-lucide="calendar-days" class="w-4 h-4"></i> {{ planned_total }} cours prévu{{ planned_total|pluralize }} ce jour</span>{% endif %}
   </div>
 
   {# ── Onglets Vacataires / Permanents ── #}
@@ -73,6 +74,14 @@
             <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ cs.subject.color|default:'#94a3b8' }}"></span>
             <span class="text-sm font-medium text-gray-900">{{ cs.subject.name }}</span>
             <span class="text-xs text-gray-400">· {{ cs.school_class.name }} · prévu {{ c.duration|floatformat:'-1' }}h{% if c.rate %} · {{ c.rate|floatformat:0|intcomma }}/h{% endif %}</span>
+            {# Guide emploi du temps : horaire du jour si planifié, mention discrète sinon. Jamais bloquant. #}
+            {% if c.planned %}
+              <span class="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-700 text-[11px] font-medium px-2 py-0.5">
+                <i data-lucide="clock" class="w-3 h-3"></i>{% for h in c.planned %}{{ h }}{% if not forloop.last %} & {% endif %}{% endfor %}
+              </span>
+            {% elif edt_in_use %}
+              <span class="text-[11px] text-gray-300">hors planning du jour</span>
+            {% endif %}
             <span x-show="cur('{{ id }}').status==='present' && {{ c.rate|default:0 }}" x-cloak class="ml-auto text-sm font-semibold text-gray-900" x-text="amount('{{ id }}', {{ c.rate|default:0 }}, {{ c.duration|stringformat:'s' }})+' FCFA'"></span>
           </div>
 

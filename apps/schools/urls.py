@@ -21,5 +21,13 @@ urlpatterns = [
     path('classes/<int:class_id>/delete/', views.class_delete, name='class-delete'),
     path('classes/<int:class_id>/row/', views.class_row, name='class-row'),
     path('classes/<int:class_id>/edit-modal/', views.class_edit_modal, name='class-edit-modal'),
+    # Emploi du temps (créneaux + pauses) — grille dans la fiche classe
+    path('classes/<int:class_id>/edt/slot/save/',                 views.slot_save,    name='slot-create'),
+    path('classes/<int:class_id>/edt/slot/<int:slot_id>/save/',   views.slot_save,    name='slot-update'),
+    path('classes/<int:class_id>/edt/slot/<int:slot_id>/delete/', views.slot_delete,  name='slot-delete'),
+    path('classes/<int:class_id>/edt/break/save/',                views.break_save,   name='break-create'),
+    path('classes/<int:class_id>/edt/break/<int:break_id>/delete/', views.break_delete, name='break-delete'),
+    path('classes/<int:class_id>/edt/imprimer/',                  views.class_timetable_print,   name='class-edt-print'),
+    path('edt/prof/<int:user_id>/',                               views.teacher_timetable_print, name='teacher-edt'),
     path('classes/<int:class_id>/', views.class_detail, name='class-detail'),
 ]
