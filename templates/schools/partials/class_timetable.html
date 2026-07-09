@@ -44,9 +44,11 @@ Cible du swap HTMX : #class-timetable (les vues renvoient ce partial complet).
               · {% if b.day is not None %}{{ b.get_day_display }}{% else %}tous les jours{% endif %}
             </span>
             <button type="button"
-                    hx-post="{% url 'schools:break-delete' school_class.id b.id %}"
-                    hx-target="#class-timetable" hx-swap="outerHTML"
-                    hx-confirm="Supprimer la pause « {{ b.label }} » ?"
+                    @click="$store.confirm.show({
+                      title: 'Supprimer la pause', message: 'La pause « {{ b.label|escapejs }} » sera retirée de toutes les classes.',
+                      confirmText: 'Supprimer', confirmIcon: 'trash-2', confirmClass: 'btn-danger',
+                      icon: 'alert-triangle', iconBg: 'bg-red-50', iconColor: 'text-red-500',
+                      onConfirm: () => htmx.ajax('POST', '{% url 'schools:break-delete' school_class.id b.id %}', {target: '#class-timetable', swap: 'outerHTML'}) })"
                     class="text-gray-300 hover:text-red-500 p-1 rounded transition">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
@@ -111,10 +113,11 @@ Cible du swap HTMX : #class-timetable (les vues renvoient ce partial complet).
       </div>
       <div class="flex items-center justify-between mt-3.5">
         <button type="button" x-show="slotId"
-                :hx-post="'{% url 'schools:slot-delete' school_class.id 0 %}'.replace('/0/', '/' + slotId + '/')"
-                hx-target="#class-timetable" hx-swap="outerHTML"
-                hx-confirm="Supprimer ce créneau ?"
-                @click="$nextTick(() => htmx.process($el))"
+                @click="$store.confirm.show({
+                  title: 'Supprimer le créneau', message: 'Ce créneau sera retiré de l\'emploi du temps. Les élèves déjà inscrits ne sont pas affectés.',
+                  confirmText: 'Supprimer', confirmIcon: 'trash-2', confirmClass: 'btn-danger',
+                  icon: 'alert-triangle', iconBg: 'bg-red-50', iconColor: 'text-red-500',
+                  onConfirm: () => { htmx.ajax('POST', '{% url 'schools:slot-delete' school_class.id 0 %}'.replace('/0/', '/' + slotId + '/'), {target: '#class-timetable', swap: 'outerHTML'}); showForm = false } })"
                 class="text-xs font-medium text-red-600 hover:text-red-700">
           <i data-lucide="trash-2" class="w-3.5 h-3.5 inline align-middle"></i> Supprimer
         </button>
