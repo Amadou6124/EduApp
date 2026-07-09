@@ -111,9 +111,9 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
   <div class="px-4 py-6 text-center text-sm text-gray-400">Aucune matière assignée à cette classe.</div>
   {% endif %}
 
-  {# Ajouter une matière — « + Nouvelle matière… » crée À LA VOLÉE (anti-doublon en vue :
-     nom normalisé casse/accents → réutilisée au lieu de dupliquée). Formulaire TOUJOURS
-     visible : même catalogue épuisé, on peut créer une nouvelle matière ici. #}
+  {% comment %}Ajouter une matière — « + Nouvelle matière… » crée À LA VOLÉE (anti-doublon en
+  vue : nom normalisé casse/accents → réutilisée au lieu de dupliquée). Formulaire TOUJOURS
+  visible : même catalogue épuisé, on peut créer une nouvelle matière ici.{% endcomment %}
   <div class="px-3 pb-3">
     <form hx-post="{% url 'settings:class-subject-add' school_class.id %}"
           hx-target="#class-subjects-panel" hx-swap="innerHTML"
