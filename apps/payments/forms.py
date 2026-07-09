@@ -7,7 +7,7 @@ from .models import Payment
 # (payment_create) n'existe plus. L'unique encaissement passe par finance:collect-create
 # (allocation FIFO, lot 5). Seule subsiste l'annulation de paiement ci-dessous.
 _F = ('w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm '
-      'focus:outline-none focus:ring-2 focus:ring-brand-blue '
+      'focus:outline-none focus:ring-2 focus:ring-primary-500 '
       'text-gray-800 placeholder-gray-400')
 
 

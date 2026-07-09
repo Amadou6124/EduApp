@@ -135,6 +135,7 @@ def class_detail(request, class_id):
         'school_class': school_class,
         'cockpit':      build_class_cockpit(school, school_class),
         'page_title':   school_class.name,
+        **_timetable_ctx(school, school_class),   # onglet « Emploi du temps »
     })
 
 
@@ -731,3 +732,324 @@ def announcement_delete(request, pk):
     resp = HttpResponse('')
     resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Brouillon supprimé.', 'type': 'success'}})
     return resp
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EMPLOI DU TEMPS — grille par classe (créneaux + pauses)
+# ══════════════════════════════════════════════════════════════════════════════
+# La grille dessine les blocs en positionnement PROPORTIONNEL (1 px = 1 minute) :
+# les heures non rondes (11h15, 13h30…) tombent naturellement au bon endroit.
+
+_GRID_START_MIN = 7 * 60 + 30   # 7h30
+_GRID_END_MIN   = 18 * 60       # 18h00
+
+
+def _min_of(t):
+    return t.hour * 60 + t.minute
+
+
+def _timetable_ctx(school, school_class):
+    """Contexte de la grille : créneaux positionnés par jour, pauses, cours de la
+    classe (pour le formulaire), repères d'heures. Année active uniquement."""
+    from .models import CourseSlot, SchoolBreak, ClassSubject, Weekday
+    from .periods import active_year_for
+
+    year = active_year_for(school)
+    days = list(Weekday.choices)
+
+    slots_by_day = {d: [] for d, _label in days}
+    scheduled_cs_ids = set()   # cours ayant AU MOINS un créneau (→ indicateur d'état)
+    if year:
+        qs = (CourseSlot.objects
+              .filter(school_year=year, class_subject__school_class=school_class)
+              .select_related('class_subject__subject', 'class_subject__teacher')
+              .order_by('day', 'start_time'))
+        for s in qs:
+            scheduled_cs_ids.add(s.class_subject_id)
+            top    = max(_min_of(s.start_time) - _GRID_START_MIN, 0)
+            height = max(_min_of(s.end_time) - max(_min_of(s.start_time), _GRID_START_MIN), 18)
+            slots_by_day.setdefault(s.day, []).append({
+                'slot': s, 'top': top, 'height': height,
+                'subject': s.class_subject.subject,
+                'teacher': s.class_subject.teacher,
+            })
+
+    breaks = list(SchoolBreak.objects.filter(school=school))
+    # Dimanche visible SEULEMENT sur contenu explicitement dominical (créneau ou pause
+    # « Dimanche ») — une pause « tous les jours » ne doit pas faire surgir la colonne.
+    sunday_visible = bool(slots_by_day.get(6)) or any(b.day == 6 for b in breaks)
+    visible_days = [d for d, _l in days if d != 6 or sunday_visible]
+
+    breaks_by_day = {d: [] for d, _label in days}
+    for b in breaks:
+        top    = max(_min_of(b.start_time) - _GRID_START_MIN, 0)
+        height = max(_min_of(b.end_time) - max(_min_of(b.start_time), _GRID_START_MIN), 12)
+        target_days = [b.day] if b.day is not None else visible_days
+        for d in target_days:
+            breaks_by_day.setdefault(d, []).append({'brk': b, 'top': top, 'height': height})
+
+    class_subjects = list(
+        ClassSubject.objects.filter(school_class=school_class, is_active=True)
+        .select_related('subject', 'teacher').order_by('order', 'subject__name')
+    )
+    # Durée par défaut (minutes) par cours → pré-remplissage de l'heure de fin côté JS.
+    durations = {cs.id: int((cs.duration_hours or 2) * 60) for cs in class_subjects}
+
+    hour_marks = []   # repères 8h → 17h (positions en px depuis 7h30)
+    for h in range(8, 18):
+        hour_marks.append({'label': f'{h}h', 'top': h * 60 - _GRID_START_MIN})
+
+    # Chaque jour porte directement ses créneaux/pauses → itération simple au template
+    # (pas de filtre custom pour indexer un dict par variable).
+    # Dimanche (6) : colonne affichée SEULEMENT si utilisée (franco-arabes) — mais
+    # toujours proposé dans les formulaires (weekday_choices complet).
+    day_columns = [
+        {'val': d, 'label': label,
+         'slots': slots_by_day.get(d, []), 'breaks': breaks_by_day.get(d, [])}
+        for d, label in days if d in visible_days
+    ]
+
+    # Indicateur d'état LOCAL (uniquement des trous que l'app SAIT détecter — jamais
+    # de « il manque EPS » : aucun référentiel de programme n'existe).
+    edt_no_teacher = sum(1 for cs in class_subjects if not cs.teacher_id)
+    edt_no_slot    = (sum(1 for cs in class_subjects if cs.id not in scheduled_cs_ids)
+                      if year else 0)
+
+    return {
+        'school_class':    school_class,
+        'edt_year':        year,
+        'day_columns':     day_columns,
+        'edt_breaks':      breaks,
+        'edt_subjects':    class_subjects,
+        'edt_durations':   durations,
+        'edt_no_teacher':  edt_no_teacher,
+        'edt_no_slot':     edt_no_slot,
+        'hour_marks':      hour_marks,
+        'grid_height':     _GRID_END_MIN - _GRID_START_MIN,
+        'weekday_choices': days,
+    }
+
+
+def _render_timetable(request, school, school_class):
+    from django.template.loader import render_to_string
+    return render_to_string('schools/partials/class_timetable.html',
+                            _timetable_ctx(school, school_class), request=request)
+
+
+def _edt_toast(message, msg_type='error', status=422):
+    resp = HttpResponse(status=status)
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': msg_type}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def slot_save(request, class_id, slot_id=None):
+    """Crée / édite un créneau. Les conflits (classe, prof, salle) sont refusés par
+    CourseSlot.clean() → toast 422 avec le message précis (« M. X déjà en 5B… »)."""
+    from .models import CourseSlot, ClassSubject
+    from .periods import active_year_for
+    from django.core.exceptions import ValidationError as DjValidationError
+
+    school       = get_school(request)
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school, is_active=True)
+    year = active_year_for(school)
+    if year is None:
+        return _edt_toast("Aucune année scolaire — créez-en une d'abord.")
+
+    instance = None
+    if slot_id is not None:
+        instance = get_object_or_404(
+            CourseSlot, id=slot_id, school_year__school=school,
+            class_subject__school_class=school_class,
+        )
+
+    cs = get_object_or_404(
+        ClassSubject, id=request.POST.get('class_subject'),
+        school_class=school_class, is_active=True,
+    )
+    slot = instance or CourseSlot(school_year=year)
+    slot.class_subject = cs
+    slot.day        = int(request.POST.get('day', 0))
+    slot.room       = (request.POST.get('room') or '').strip()
+    try:
+        from datetime import time as _time
+        sh, sm = (request.POST.get('start_time') or '').split(':')
+        eh, em = (request.POST.get('end_time') or '').split(':')
+        slot.start_time, slot.end_time = _time(int(sh), int(sm)), _time(int(eh), int(em))
+    except (ValueError, AttributeError):
+        return _edt_toast('Heures invalides.')
+
+    try:
+        slot.full_clean()
+    except DjValidationError as e:
+        return _edt_toast(' '.join(e.messages))
+    slot.save()
+
+    resp = HttpResponse(_render_timetable(request, school, school_class))
+    resp['HX-Trigger'] = json.dumps({'showToast': {
+        'message': 'Créneau enregistré.' if instance is None else 'Créneau modifié.',
+        'type': 'success'}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def slot_delete(request, class_id, slot_id):
+    from .models import CourseSlot
+    school       = get_school(request)
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school, is_active=True)
+    slot = get_object_or_404(
+        CourseSlot, id=slot_id, school_year__school=school,
+        class_subject__school_class=school_class,
+    )
+    slot.delete()   # sans risque : l'historique de paie ne référence JAMAIS un créneau
+    resp = HttpResponse(_render_timetable(request, school, school_class))
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Créneau supprimé.', 'type': 'info'}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def break_save(request, class_id):
+    """Ajoute une pause nommée (NIVEAU ÉCOLE — visible sur toutes les classes)."""
+    from .models import SchoolBreak
+    from django.core.exceptions import ValidationError as DjValidationError
+
+    school       = get_school(request)
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school, is_active=True)
+
+    label = (request.POST.get('label') or '').strip()
+    if not label:
+        return _edt_toast('Donnez un nom à la pause (ex. Récréation).')
+    day_raw = request.POST.get('day', '')
+    try:
+        from datetime import time as _time
+        sh, sm = (request.POST.get('start_time') or '').split(':')
+        eh, em = (request.POST.get('end_time') or '').split(':')
+        brk = SchoolBreak(
+            school=school, label=label,
+            day=int(day_raw) if day_raw != '' else None,
+            start_time=_time(int(sh), int(sm)), end_time=_time(int(eh), int(em)),
+        )
+        brk.full_clean()
+    except (ValueError, AttributeError):
+        return _edt_toast('Heures invalides.')
+    except DjValidationError as e:
+        return _edt_toast(' '.join(e.messages))
+    brk.save()
+
+    resp = HttpResponse(_render_timetable(request, school, school_class))
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Pause ajoutée.', 'type': 'success'}})
+    return resp
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def break_delete(request, class_id, break_id):
+    from .models import SchoolBreak
+    school       = get_school(request)
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school, is_active=True)
+    get_object_or_404(SchoolBreak, id=break_id, school=school).delete()
+    resp = HttpResponse(_render_timetable(request, school, school_class))
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Pause supprimée.', 'type': 'info'}})
+    return resp
+
+
+# ── Impression / consultation : emploi du temps d'une CLASSE ou d'un PROF ──────
+# Une seule page autonome (toolbar Retour/Imprimer masquée à l'impression, A4
+# paysage, N&B friendly) sert de vue lecture seule ET de document mural.
+
+def _print_timetable_ctx(school, *, school_class=None, teacher=None):
+    """Colonnes positionnées (1 px = 1 min) pour la page d'impression.
+    Bloc classe → « Matière / prof » ; bloc prof → « Classe / matière ».
+    Même règle dimanche que la grille : colonne seulement si contenu dominical."""
+    from .models import CourseSlot, SchoolBreak, Weekday
+    from .periods import active_year_for
+
+    year = active_year_for(school)
+    days = list(Weekday.choices)
+
+    qs = CourseSlot.objects.none()
+    if year:
+        qs = (CourseSlot.objects.filter(school_year=year)
+              .select_related('class_subject__subject', 'class_subject__teacher',
+                              'class_subject__school_class')
+              .order_by('day', 'start_time'))
+        if school_class is not None:
+            qs = qs.filter(class_subject__school_class=school_class)
+        else:
+            qs = qs.filter(class_subject__school_class__school=school,
+                           class_subject__teacher=teacher)
+
+    slots_by_day = {d: [] for d, _l in days}
+    for s in qs:
+        top    = max(_min_of(s.start_time) - _GRID_START_MIN, 0)
+        height = max(_min_of(s.end_time) - max(_min_of(s.start_time), _GRID_START_MIN), 18)
+        cs = s.class_subject
+        if school_class is not None:
+            line1, line2 = cs.subject.name, (cs.teacher.full_name if cs.teacher else '')
+        else:
+            line1, line2 = cs.school_class.name, cs.subject.name
+        hours = f'{s.start_time:%H:%M}–{s.end_time:%H:%M}'
+        if s.room:
+            hours += f' · {s.room}'
+        slots_by_day[s.day].append({'top': top, 'height': height,
+                                    'line1': line1, 'line2': line2, 'hours': hours})
+
+    breaks = list(SchoolBreak.objects.filter(school=school))
+    sunday_visible = bool(slots_by_day.get(6)) or any(b.day == 6 for b in breaks)
+    visible_days = [d for d, _l in days if d != 6 or sunday_visible]
+
+    breaks_by_day = {d: [] for d, _l in days}
+    for b in breaks:
+        top    = max(_min_of(b.start_time) - _GRID_START_MIN, 0)
+        height = max(_min_of(b.end_time) - max(_min_of(b.start_time), _GRID_START_MIN), 12)
+        for d in ([b.day] if b.day is not None else visible_days):
+            breaks_by_day[d].append({'label': b.label, 'top': top, 'height': height})
+
+    return {
+        'columns': [{'label': label, 'slots': slots_by_day[d], 'breaks': breaks_by_day[d]}
+                    for d, label in days if d in visible_days],
+        'hour_marks':  [{'label': f'{h}h', 'top': h * 60 - _GRID_START_MIN} for h in range(8, 18)],
+        'grid_height': _GRID_END_MIN - _GRID_START_MIN,
+        'edt_year':    year,
+        'school':      school,
+    }
+
+
+@login_required
+@director_or_staff_required
+def class_timetable_print(request, class_id):
+    """Emploi du temps de la CLASSE — page autonome consultable et imprimable."""
+    school       = get_school(request)
+    school_class = get_object_or_404(SchoolClass, id=class_id, school=school, is_active=True)
+    ctx = _print_timetable_ctx(school, school_class=school_class)
+    ctx.update({
+        'title':    f'Emploi du temps — {school_class.name}',
+        'subtitle': school_class.get_level_display(),
+        'back_url': reverse('schools:class-detail', args=[school_class.id]),
+    })
+    return render(request, 'schools/timetable_print.html', ctx)
+
+
+@login_required
+@director_or_staff_required
+def teacher_timetable_print(request, user_id):
+    """Emploi du temps d'un PROF (dérivé de ses cours) — consultable et imprimable."""
+    from apps.accounts.models import User
+    school  = get_school(request)
+    teacher = get_object_or_404(
+        User, id=user_id, memberships__school=school, memberships__is_active=True,
+    )
+    ctx = _print_timetable_ctx(school, teacher=teacher)
+    ctx.update({
+        'title':    f'Emploi du temps — {teacher.full_name}',
+        'subtitle': 'Enseignant',
+        'back_url': reverse('team:detail', args=[teacher.id]),
+    })
+    return render(request, 'schools/timetable_print.html', ctx)

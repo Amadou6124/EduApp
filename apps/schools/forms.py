@@ -1,5 +1,3 @@
-import re
-
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
@@ -52,7 +50,7 @@ class SchoolClassForm(forms.ModelForm):
 
 # ── Helpers styles ──────────────────────────────────────────────────────────
 _F = ('w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm '
-      'focus:outline-none focus:ring-2 focus:ring-brand-blue '
+      'focus:outline-none focus:ring-2 focus:ring-primary-500 '
       'text-gray-800 placeholder-gray-400')
 _S = _F + ' bg-white cursor-pointer'
 
@@ -138,7 +136,7 @@ class SchoolYearForm(forms.ModelForm):
             'name':       forms.TextInput(attrs={'class': _F, 'placeholder': '2025-2026'}),
             'start_date': forms.DateInput(attrs={'type': 'date', 'class': _F}),
             'end_date':   forms.DateInput(attrs={'type': 'date', 'class': _F}),
-            'is_active':  forms.CheckboxInput(attrs={'class': 'w-4 h-4 accent-brand-blue'}),
+            'is_active':  forms.CheckboxInput(attrs={'class': 'w-4 h-4 accent-primary-600'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -177,27 +175,18 @@ class SubjectForm(forms.ModelForm):
 
     class Meta:
         model  = Subject
-        fields = ['name', 'short_name', 'color']
+        # La couleur est attribuée AUTOMATIQUEMENT (couleurs distinctes, sans collision —
+        # voir Subject.save). Pas de saisie manuelle : sinon on ré-introduit des collisions.
+        fields = ['name', 'short_name']
         widgets = {
             'name':       forms.TextInput(attrs={'class': _F, 'placeholder': 'Ex : Mathématiques'}),
-            'short_name': forms.TextInput(attrs={'class': _F, 'placeholder': 'Auto', 'maxlength': '10'}),
-            'color':      forms.TextInput(attrs={
-                'class': _F, 'placeholder': 'Auto', 'maxlength': '7',
-                'x-bind:style': "'background-color:'+$el.value",
-            }),
+            'short_name': forms.TextInput(attrs={'class': _F, 'placeholder': 'Auto (ex. MATH)', 'maxlength': '10'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Abréviation + couleur : optionnelles → générées auto (Subject.save) si vides.
+        # Abréviation optionnelle → générée auto (Subject.save) si laissée vide.
         self.fields['short_name'].required = False
-        self.fields['color'].required = False
-
-    def clean_color(self):
-        color = self.cleaned_data.get('color', '').strip()
-        if color and not re.match(r'^#[0-9A-Fa-f]{6}$', color):
-            raise forms.ValidationError('Format invalide. Utilisez #RRGGBB.')
-        return color
 
 
 # ── Bulletin config ────────────────────────────────────────────────────────

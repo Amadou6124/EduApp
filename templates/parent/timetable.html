@@ -1,0 +1,109 @@
+{% extends "parent/base_parent.html" %}
+
+{% block title %}Emploi du temps{% endblock %}
+
+{% block bottom_nav %}
+{% include "parent/partials/bottom_nav.html" with active="scolarite" %}
+{% endblock %}
+
+{% block content %}
+
+{% if not active_student %}
+<div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-8">
+  <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
+    <i data-lucide="calendar-days" class="w-10 h-10 text-gray-300"></i>
+  </div>
+  <h2 class="text-lg font-semibold text-gray-700 mt-4">Aucun enfant lié</h2>
+  <p class="text-sm text-gray-400 mt-1">Votre compte n'est pas encore associé à un élève.</p>
+</div>
+
+{% else %}
+<div x-data="{ day: {{ default_day }} }" class="px-4 pb-10">
+
+  {# En-tête #}
+  <div class="pt-4 pb-3">
+    <a href="{% url 'parent:scolarite' %}" class="inline-flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-gray-600 mb-2">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Scolarité
+    </a>
+    <h1 class="text-xl font-extrabold text-gray-900">Emploi du temps</h1>
+    <p class="text-[13px] text-gray-500 mt-1">
+      {{ active_student.full_name }}{% if school_class %} · <span class="font-semibold text-gray-800">{{ school_class.name }}</span>{% endif %}
+    </p>
+  </div>
+
+  {% if not has_any %}
+    {# Aucun créneau du tout → état vide honnête #}
+    <div class="flex flex-col items-center justify-center text-center py-16 px-6">
+      <div class="w-16 h-16 rounded-full bg-primary-50 flex items-center justify-center">
+        <i data-lucide="calendar-clock" class="w-8 h-8 text-primary-300"></i>
+      </div>
+      <p class="text-sm font-medium text-gray-600 mt-4">Emploi du temps pas encore disponible</p>
+      <p class="text-xs text-gray-400 mt-1">L'école ne l'a pas encore renseigné pour cette classe.</p>
+    </div>
+  {% else %}
+
+  {# Pastilles jours #}
+  <div class="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+    {% for d in edt_days %}
+      <button type="button" @click="day = {{ d.val }}"
+              :class="day === {{ d.val }} ? 'bg-primary-600 text-white shadow-md shadow-primary-600/25' : 'bg-white text-gray-600 border border-gray-100'"
+              class="flex-none w-[52px] rounded-2xl py-2 text-center transition">
+        <span class="block text-[10px] uppercase tracking-wide"
+              :class="day === {{ d.val }} ? 'text-white/70' : 'text-gray-400'">{{ d.short }}</span>
+        {% if d.is_today %}
+          <span class="block text-[11px] font-bold mt-0.5"
+                :class="day === {{ d.val }} ? 'text-white' : 'text-primary-600'">auj.</span>
+        {% else %}
+          <span class="block w-1.5 h-1.5 rounded-full mx-auto mt-1.5"
+                :class="day === {{ d.val }} ? 'bg-white/70' : '{% if d.course_count %}bg-primary-300{% else %}bg-gray-200{% endif %}'"></span>
+        {% endif %}
+      </button>
+    {% endfor %}
+  </div>
+
+  {# Timeline par jour #}
+  {% for d in edt_days %}
+    <div x-show="day === {{ d.val }}" x-cloak class="mt-4 space-y-3">
+      {% if not d.course_count %}
+        {# Jour sans COURS → état vide (même s'il porte une pause « tous les jours »). #}
+        <div class="flex flex-col items-center justify-center text-center py-14">
+          <i data-lucide="coffee" class="w-8 h-8 text-gray-200"></i>
+          <p class="text-sm text-gray-400 mt-3">Pas de cours ce jour</p>
+        </div>
+      {% else %}
+        {% for it in d.timeline %}
+          {% if it.kind == 'slot' %}
+            <div class="flex gap-3">
+              <div class="flex-none w-[52px] text-right pt-0.5">
+                <div class="text-[13px] font-bold text-gray-800 tabular-nums">{{ it.start|time:"H:i" }}</div>
+                <div class="text-[11px] text-gray-400 tabular-nums">{{ it.end|time:"H:i" }}</div>
+              </div>
+              <div class="flex-1 min-w-0 bg-white rounded-2xl border border-gray-100 p-3.5"
+                   style="border-left:4px solid {{ it.color }}">
+                <p class="text-[15px] font-bold text-gray-900 truncate">{{ it.subject }}</p>
+                <p class="text-xs text-gray-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                  {% if it.teacher %}<span class="inline-flex items-center gap-1"><i data-lucide="user" class="w-3.5 h-3.5"></i>{{ it.teacher }}</span>{% endif %}
+                  {% if it.teacher and it.room %}<span class="text-gray-300">·</span>{% endif %}
+                  {% if it.room %}<span class="inline-flex items-center gap-1"><i data-lucide="door-open" class="w-3.5 h-3.5"></i>{{ it.room }}</span>{% endif %}
+                </p>
+              </div>
+            </div>
+          {% else %}
+            {# Pause — séparateur discret #}
+            <div class="flex gap-3 items-center">
+              <div class="flex-none w-[52px] text-right"><span class="text-[11px] text-gray-300 tabular-nums">{{ it.start|time:"H:i" }}</span></div>
+              <div class="flex-1 relative border-t border-dashed border-gray-200 h-px">
+                <span class="absolute -top-2 left-3 bg-gray-50 px-2 text-[10px] uppercase tracking-wide text-gray-400">{{ it.label }}</span>
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

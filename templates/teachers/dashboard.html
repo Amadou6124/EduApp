@@ -3,13 +3,6 @@
 
 {% block title %}Mon tableau de bord{% endblock %}
 
-{% block header_actions %}
-  <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-       style="background-color: {{ avatar_bg }}; color: {{ avatar_text }};">
-    {{ user.get_initials }}
-  </div>
-{% endblock %}
-
 {% block page_title %}Bonjour {{ first_name }}{% endblock %}
 {% block page_subtitle %}{% endblock %}
 
@@ -21,6 +14,10 @@
     <p class="text-sm text-gray-500">
       {{ today_label }}{% if active_period %} · {{ active_period.name }}{% endif %}
     </p>
+    <a href="{% url 'teacher:my-schedule' %}"
+       class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 rounded-full px-3 py-1 transition">
+      <i data-lucide="calendar-days" class="w-3.5 h-3.5"></i> Mon emploi du temps
+    </a>
     {% if active_period %}
       {% if saisie_open %}
       <span class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full">

@@ -566,3 +566,71 @@ def parent_bulletin_pdf(request, bulletin_id):
     resp = HttpResponse(pdf_bytes, content_type='application/pdf')
     resp['Content-Disposition'] = f'{disposition}; filename="{filename}"'
     return resp
+
+
+@login_required
+@parent_required
+def parent_timetable(request):
+    """Emploi du temps hebdomadaire de la classe de l'enfant ACTIF (lecture seule).
+
+    Sécurité : la classe vient de l'enfant actif, lui-même issu de la garde du parent
+    (resolve_active_child sur parent_students) → jamais un id forgé. Vue jour par jour :
+    créneaux + pauses fusionnés en une timeline triée par heure. Dimanche affiché
+    seulement s'il porte du contenu (franco-arabes)."""
+    from datetime import date
+    from apps.schools.models import CourseSlot, SchoolBreak, Weekday, SchoolYear
+
+    active = resolve_active_child(request, parent_students(request.user))
+    if not active:
+        return render(request, 'parent/timetable.html', {'active_student': None})
+
+    school_class = active.school_class
+    year = SchoolYear.objects.filter(school=active.school, is_active=True).first()
+    all_days = list(Weekday.choices)
+
+    slots_by_day = {d: [] for d, _l in all_days}
+    if year and school_class:
+        for s in (CourseSlot.objects
+                  .filter(school_year=year, class_subject__school_class=school_class)
+                  .select_related('class_subject__subject', 'class_subject__teacher')
+                  .order_by('day', 'start_time')):
+            cs = s.class_subject
+            slots_by_day[s.day].append({
+                'kind': 'slot', 't': s.start_time,
+                'start': s.start_time, 'end': s.end_time,
+                'subject': cs.subject.name, 'color': cs.subject.color or '#6d28d9',
+                'teacher': cs.teacher.full_name if cs.teacher else '',
+                'room': s.room,
+            })
+
+    breaks = list(SchoolBreak.objects.filter(school=active.school))
+    sunday_used = bool(slots_by_day.get(6)) or any(b.day == 6 for b in breaks)
+    visible = [d for d, _l in all_days if d != 6 or sunday_used]
+
+    breaks_by_day = {d: [] for d, _l in all_days}
+    for b in breaks:
+        item = {'kind': 'break', 't': b.start_time, 'label': b.label,
+                'start': b.start_time, 'end': b.end_time}
+        for d in ([b.day] if b.day is not None else visible):
+            breaks_by_day[d].append(item)
+
+    today = date.today().weekday()
+    days = []
+    for d, label in all_days:
+        if d not in visible:
+            continue
+        timeline = sorted(slots_by_day[d] + breaks_by_day[d], key=lambda x: x['t'])
+        days.append({
+            'val': d, 'label': label, 'short': str(label)[:3],
+            'is_today': d == today,
+            'timeline': timeline,
+            'course_count': len(slots_by_day[d]),
+        })
+
+    return render(request, 'parent/timetable.html', {
+        'active_student': active,
+        'school_class':   school_class,
+        'edt_days':       days,
+        'default_day':    today if any(x['val'] == today for x in days) else (days[0]['val'] if days else 0),
+        'has_any':        any(x['course_count'] for x in days),
+    })

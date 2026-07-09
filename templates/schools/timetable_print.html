@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+{% comment %}
+Emploi du temps imprimable (classe OU prof) — page AUTONOME (pas de base.html).
+Sert de vue lecture seule à l'écran ET de document mural : toolbar masquée à
+l'impression, A4 PAYSAGE, N&B friendly (bordures, pas de couleurs nécessaires).
+Positionnement proportionnel identique à la grille (1 px = 1 minute depuis 7h30).
+{% endcomment %}
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} — {{ school.name }}</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+    body { margin: 0; padding: 20px; color: #0f172a; background: #f3f4f6; }
+    .toolbar { max-width: 1000px; margin: 0 auto 14px; display: flex; justify-content: space-between; align-items: center; }
+    .btn { font-size: 13px; padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; text-decoration: none; color: #334155; }
+    .btn.p { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+    .sheet { max-width: 1000px; margin: 0 auto; background: #fff; padding: 18px; border-radius: 8px; }
+    .hd { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; }
+    .hd h1 { margin: 0; font-size: 17px; font-weight: 700; }
+    .hd .meta { font-size: 12px; color: #64748b; }
+    .grid { display: flex; border: 1px solid #94a3b8; }
+    .gutter { position: relative; width: 38px; flex: none; border-right: 1px solid #cbd5e1; }
+    .gutter span { position: absolute; right: 4px; transform: translateY(-50%); font-size: 9px; color: #94a3b8; }
+    .col { flex: 1 1 0; min-width: 0; border-right: 1px solid #cbd5e1; }
+    .col:last-child { border-right: none; }
+    .col-hd { text-align: center; font-size: 11px; font-weight: 700; padding: 5px 2px; border-bottom: 1px solid #cbd5e1; background: #f8fafc; }
+    .col-bd { position: relative; }
+    .hline { position: absolute; left: 0; right: 0; border-top: 1px solid #f1f5f9; }
+    .brk { position: absolute; left: 0; right: 0; background: repeating-linear-gradient(45deg, #f1f5f9, #f1f5f9 4px, #e2e8f0 4px, #e2e8f0 8px); border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .brk span { font-size: 8px; letter-spacing: .06em; color: #64748b; text-transform: uppercase; white-space: nowrap; }
+    .slot { position: absolute; left: 2px; right: 2px; border: 1px solid #334155; border-left-width: 3px; border-radius: 0 4px 4px 0; background: #fff; padding: 2px 4px; overflow: hidden; }
+    .slot .l1 { font-size: 10px; font-weight: 700; line-height: 1.25; }
+    .slot .l2 { font-size: 9px; color: #475569; line-height: 1.25; }
+    .slot .hrs { font-size: 8px; color: #64748b; }
+    .empty { text-align: center; color: #94a3b8; padding: 50px; font-size: 14px; }
+    @page { size: A4 landscape; margin: 10mm; }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .toolbar { display: none; }
+      .sheet { max-width: none; padding: 0; border-radius: 0; }
+      .grid, .col, .gutter, .col-hd, .slot, .brk { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <a class="btn" href="{{ back_url }}">← Retour</a>
+    <button class="btn p" onclick="window.print()">Imprimer</button>
+  </div>
+
+  <div class="sheet">
+    <div class="hd">
+      <h1>{{ school.name }} — {{ title }}</h1>
+      <span class="meta">{{ subtitle }}{% if edt_year %} · Année {{ edt_year.name }}{% endif %}</span>
+    </div>
+
+    {% if columns %}
+      <div class="grid">
+        <div class="gutter" style="height:{{ grid_height|add:'26' }}px">
+          {% for m in hour_marks %}<span style="top:{{ m.top|add:'26' }}px">{{ m.label }}</span>{% endfor %}
+        </div>
+        {% for col in columns %}
+          <div class="col">
+            <div class="col-hd">{{ col.label }}</div>
+            <div class="col-bd" style="height:{{ grid_height }}px">
+              {% for m in hour_marks %}<span class="hline" style="top:{{ m.top }}px"></span>{% endfor %}
+              {% for b in col.breaks %}
+                <div class="brk" style="top:{{ b.top }}px;height:{{ b.height }}px"><span>{{ b.label }}</span></div>
+              {% endfor %}
+              {% for s in col.slots %}
+                <div class="slot" style="top:{{ s.top }}px;height:{{ s.height }}px">
+                  <span class="l1">{{ s.line1 }}</span><br>
+                  {% if s.line2 %}<span class="l2">{{ s.line2 }}</span><br>{% endif %}
+                  <span class="hrs">{{ s.hours }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">Aucun créneau pour l'instant.</div>
+    {% endif %}
+  </div>
+</body>
+</html>

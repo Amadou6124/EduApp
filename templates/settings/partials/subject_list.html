@@ -7,7 +7,7 @@
          class="group inline-flex items-center gap-2 border border-gray-200 rounded-full pl-2.5 pr-1 py-1 hover:border-gray-300 transition">
       <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ subject.color }};"></span>
       <span class="text-sm text-gray-800">{{ subject.name }}</span>
-      <span class="text-[10px] font-mono text-gray-400">{{ subject.short_name }}</span>
+      <span class="text-[11px] font-mono font-medium text-gray-600">{{ subject.short_name }}</span>
       <span class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
         <button type="button" @click="edit = true" class="p-1 text-gray-300 hover:text-primary-600 rounded-full" title="Modifier">
           <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
@@ -38,15 +38,9 @@
               <label class="block text-xs font-medium text-gray-600 mb-1">Nom <span class="text-red-400">*</span></label>
               <input name="name" value="{{ subject.name }}" required maxlength="100" class="input-field w-full text-sm">
             </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Abréviation <span class="text-gray-400 font-normal">auto</span></label>
-                <input name="short_name" value="{{ subject.short_name }}" maxlength="10" class="input-field w-full text-sm">
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Couleur <span class="text-gray-400 font-normal">auto</span></label>
-                <input name="color" value="{{ subject.color }}" maxlength="7" x-bind:style="'background-color:'+$el.value" class="input-field w-full text-sm text-white">
-              </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Abréviation <span class="text-gray-400 font-normal">auto si vide</span></label>
+              <input name="short_name" value="{{ subject.short_name }}" maxlength="10" class="input-field w-full text-sm">
             </div>
             <div class="flex gap-2 pt-1">
               <button type="submit" class="btn-primary flex-1 justify-center text-sm">Enregistrer</button>

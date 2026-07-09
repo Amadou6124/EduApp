@@ -230,9 +230,10 @@ class ResponsablesTests(TestCase):
             'responsable_name': 'Traoré Sékou', 'responsable_phone': '76000010',
             'responsable_relationship': 'father',
         })
-        g = _create_responsable_from_post(req, s, is_primary=True)
+        g, creds = _create_responsable_from_post(req, s, is_primary=True)
         self.assertIsNotNone(g)
         self.assertFalse(g.has_portal_access)
+        self.assertIsNone(creds)                       # info seule → pas de compte → pas d'identifiants
         self.assertEqual(g.full_name, 'Traoré Sékou')
         self.assertTrue(g.is_primary)
 
@@ -245,17 +246,51 @@ class ResponsablesTests(TestCase):
             'responsable_name': 'Diallo Aminata', 'responsable_phone': '76000011',
             'responsable_relationship': 'mother', 'responsable_portal': 'on',
         })
-        g = _create_responsable_from_post(req, s, is_primary=True)
+        g, creds = _create_responsable_from_post(req, s, is_primary=True)
         self.assertTrue(g.has_portal_access)
         self.assertEqual(g.guardian.phone_number, '76000011')
         self.assertEqual(g.guardian.role, UserRole.PARENT)
+        # Compte créé → identifiants à afficher UNE fois (sinon mot de passe perdu).
+        self.assertIsNotNone(creds)
+        self.assertEqual(creds['phone'], '76000011')
+        self.assertTrue(creds['temp_pwd'])
+        self.assertEqual(creds['children_display'], s.full_name)   # 1 enfant → son nom
 
     def test_create_from_post_vide(self):
         from django.test import RequestFactory
         from apps.students.views import _create_responsable_from_post
         s = self._student()
         req = RequestFactory().post('/', {})
-        self.assertIsNone(_create_responsable_from_post(req, s))
+        self.assertEqual(_create_responsable_from_post(req, s), (None, None))
+
+    def test_format_children_display(self):
+        from apps.students.views import _format_children_display
+        self.assertEqual(_format_children_display([]), '')
+        self.assertEqual(_format_children_display(['Awa']), 'Awa')
+        self.assertEqual(_format_children_display(['Awa', 'Moussa']), 'Awa et Moussa')
+        self.assertEqual(_format_children_display(['Awa', 'Moussa', 'Fatou']), 'Awa, Moussa et Fatou')
+        self.assertEqual(_format_children_display(['A', 'B', 'C', 'D']), 'vos enfants')
+        self.assertEqual(_format_children_display(['Awa', 'Awa']), 'Awa')   # dédoublonné
+
+    def test_carte_eleve_nom_authentifie(self):
+        # Le nom affiché sur la carte DOIT être accepté par le login (un seul token).
+        from apps.students.views import student_login_name
+        from apps.core.student_auth import authenticate_student
+        s = self._student()   # full_name « Prénom Nom », last_name éventuellement vide
+        shown = student_login_name(s)
+        self.assertNotIn(' ', shown)                        # un seul mot, jamais « Prénom Nom »
+        self.assertIsNotNone(authenticate_student(s.access_code, shown))   # login OK
+        # Le nom complet (piège de l'ancienne carte) doit, lui, être refusé.
+        if ' ' in s.full_name:
+            self.assertIsNone(authenticate_student(s.access_code, s.full_name))
+
+    def test_temp_password_sans_caractere_ambigu(self):
+        from apps.accounts.team_forms import generate_temp_password
+        ambigu = set('IO01l')
+        for _ in range(200):
+            p = generate_temp_password()
+            self.assertFalse(ambigu & set(p), f'caractère ambigu dans {p}')
+            self.assertTrue(p.isupper() or p.isdigit())   # une seule casse (majuscule)
 
     def test_inscription_view_cree_responsable(self):
         # Flux complet : POST d'inscription avec responsable → élève + responsable principal.
@@ -287,3 +322,89 @@ class ResponsablesTests(TestCase):
         self.assertTrue(g.is_primary)
         self.assertFalse(g.has_portal_access)
         self.assertTrue(student.matricule)      # matricule auto attribué
+
+
+class StudentLifecycleTests(TestCase):
+    """Archivage / réactivation : transition de l'inscription (jamais de doublon),
+    aller-retour, diplômé terminal, idempotence, et le withdraw qui ne plante plus.
+    Voir Student.archive / reactivate."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École L', short_name='EL', city='Bamako', school_type='primary',
+        )
+        cls.year = SchoolYear.objects.create(
+            school=cls.school, name='2025-2026',
+            start_date=date(2025, 10, 1), end_date=date(2026, 6, 30), is_active=True,
+        )
+        cls.klass = SchoolClass.objects.create(
+            school=cls.school, name='1A', level='fondamental_1',
+            annual_fee=Decimal('100000'), max_capacity=40,
+        )
+
+    def _enrolled(self, first='A', last='X'):
+        s = Student.objects.create(
+            school=self.school, school_class=self.klass,
+            first_name=first, last_name=last, tuition_fee=Decimal('0'),
+        )
+        ensure_active_enrollment(s)   # inscription ACTIVE (comme à la vraie inscription)
+        return s
+
+    def test_archive_transition_sans_doublon(self):
+        s = self._enrolled()
+        s.archive(EnrollmentStatus.WITHDRAWN)
+        self.assertFalse(s.is_active)
+        enrs = StudentEnrollment.objects.filter(student=s)
+        self.assertEqual(enrs.count(), 1)                        # PAS de doublon
+        self.assertEqual(enrs.first().status, EnrollmentStatus.WITHDRAWN)
+        self.assertIsNotNone(enrs.first().ended_at)
+
+    def test_archive_ne_plante_pas(self):
+        # Bug d'origine : archiver un élève normalement inscrit levait IntegrityError.
+        s = self._enrolled()
+        try:
+            s.archive(EnrollmentStatus.TRANSFERRED)
+        except Exception as e:                       # noqa: BLE001
+            self.fail(f'archive() a planté : {e}')
+
+    def test_reactivate_aller_retour(self):
+        s = self._enrolled()
+        s.archive(EnrollmentStatus.WITHDRAWN)
+        self.assertTrue(s.reactivate())
+        self.assertTrue(s.is_active)
+        enr = StudentEnrollment.objects.get(student=s)
+        self.assertEqual(enr.status, EnrollmentStatus.ACTIVE)    # retour à ACTIVE
+        self.assertIsNone(enr.ended_at)
+
+    def test_reactivate_diplome_bloque(self):
+        s = self._enrolled()
+        s.archive(EnrollmentStatus.GRADUATED)
+        self.assertFalse(s.reactivate())                        # diplômé = terminal
+        self.assertFalse(s.is_active)                           # reste archivé
+
+    def test_idempotence(self):
+        s = self._enrolled()
+        s.archive(EnrollmentStatus.WITHDRAWN)
+        s.archive(EnrollmentStatus.WITHDRAWN)                   # 2e fois → pas d'erreur
+        self.assertEqual(StudentEnrollment.objects.filter(student=s).count(), 1)
+
+    def test_withdraw_view_ne_plante_plus(self):
+        # Intégration : le bouton « Retirer » (500 avant le fix) fonctionne.
+        from django.urls import reverse
+        from apps.accounts.models import User, UserRole, Membership
+        director = User.objects.create_user(
+            phone_number='70000070', password='pw', role=UserRole.DIRECTOR, full_name='Dir',
+        )
+        Membership.objects.create(
+            user=director, school=self.school, role=UserRole.DIRECTOR, is_default=True,
+        )
+        s = self._enrolled()
+        self.client.force_login(director)
+        session = self.client.session
+        session['active_school_id'] = self.school.id
+        session.save()
+        resp = self.client.post(reverse('students:withdraw', args=[s.id]), {'status': 'withdrawn'})
+        self.assertIn(resp.status_code, (200, 204))             # plus de 500
+        s.refresh_from_db()
+        self.assertFalse(s.is_active)

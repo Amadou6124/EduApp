@@ -1,25 +1,36 @@
 {% load humanize %}
-{# Card mobile — toute la card est cliquable → fiche. status 'no_fee' = badge neutre. #}
+{# Card mobile — cliquable → fiche (actif). Pour un élève archivé : bouton Réactiver. #}
 {% with colors=student.get_avatar_colors status=student.fee_status %}
+{% if student.is_active %}
 <a href="{% url 'students:detail' student.id %}"
    class="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3.5 transition active:bg-gray-50">
-
   <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-       style="background-color:{{ colors.0 }};color:{{ colors.1 }}">
-    {{ student.get_initials }}
-  </div>
-
+       style="background-color:{{ colors.0 }};color:{{ colors.1 }}">{{ student.get_initials }}</div>
   <div class="min-w-0 flex-1">
     <p class="font-medium text-gray-900 text-sm truncate">{{ student.full_name }}</p>
     <p class="text-xs text-gray-400 truncate">
       {{ student.school_class.name }}{% if not student.has_parent_linked %} · <span class="text-amber-500">sans parent</span>{% endif %}
     </p>
   </div>
-
   <div class="flex items-center gap-2 shrink-0">
     {% include "students/partials/fee_status_badge.html" with status=status %}
     <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
   </div>
-
 </a>
+{% else %}
+<div class="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3.5">
+  <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+       style="background-color:{{ colors.0 }};color:{{ colors.1 }}">{{ student.get_initials }}</div>
+  <div class="min-w-0 flex-1">
+    <a href="{% url 'students:detail' student.id %}" class="font-medium text-gray-900 text-sm truncate block hover:text-primary-700">{{ student.full_name }}</a>
+    <p class="text-xs text-gray-400 truncate">{{ student.school_class.name }} · archivé</p>
+  </div>
+  <form hx-post="{% url 'students:reactivate' student.id %}" hx-confirm="Réactiver {{ student.full_name }} ?" class="shrink-0">
+    {% csrf_token %}
+    <button type="submit" class="text-xs font-medium text-primary-600 hover:text-primary-700 px-2.5 py-1.5 rounded-lg bg-primary-50 whitespace-nowrap">
+      <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline align-middle"></i> Réactiver
+    </button>
+  </form>
+</div>
+{% endif %}
 {% endwith %}

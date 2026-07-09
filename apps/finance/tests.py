@@ -15,7 +15,9 @@ from django.test import TestCase
 from apps.accounts.models import User, UserRole
 from apps.schools.models import School, SchoolYear, SchoolClass
 from apps.students.models import Student, StudentEnrollment, EnrollmentStatus
-from apps.finance.models import FeeType, FeeVariant, FeeCategory, AppliesTo, FeeDebtKind
+from apps.finance.models import (
+    FeeType, FeeVariant, FeeCategory, AppliesTo, FeeDebtKind, PaymentScheduleTemplate,
+)
 from apps.finance.services import (
     build_fee_account, allocate_payment, student_fee_summary, fee_accounts_annotated,
 )
@@ -312,3 +314,190 @@ class DiscountTests(TestCase):
         rep = discount_report(school=self.school)
         self.assertEqual(rep['total'], Decimal('0'))
         self.assertEqual(rep['count'], 0)
+
+
+class FeeLevelTargetingTests(TestCase):
+    """Ciblage des frais par niveau (applies_to_levels) : vide = tous, ciblé = bon niveau
+    seulement, non rétroactif (idempotence). Voir FeeType.is_applicable."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École N', short_name='EN', city='Bamako', school_type='primary',
+        )
+        cls.year = SchoolYear.objects.create(
+            school=cls.school, name='2025-2026',
+            start_date=date(2025, 10, 1), end_date=date(2026, 6, 30), is_active=True,
+        )
+        cls.klass_pre = SchoolClass.objects.create(
+            school=cls.school, name='Maternelle', level='prescolaire',
+            annual_fee=Decimal('100000'), max_capacity=40,
+        )
+        cls.klass_fond = SchoolClass.objects.create(
+            school=cls.school, name='1A', level='fondamental_1',
+            annual_fee=Decimal('100000'), max_capacity=40,
+        )
+        # Obligatoire ciblé PRÉSCOLAIRE uniquement.
+        cls.fee_pre = FeeType.objects.create(
+            school=cls.school, name='Inscription préscolaire', category=FeeCategory.ONE_TIME,
+            default_amount=Decimal('5000'), is_mandatory=True, applies_to=AppliesTo.ALL,
+            applies_to_levels=['prescolaire'],
+        )
+        # Obligatoire TOUS niveaux (liste vide).
+        cls.fee_all = FeeType.objects.create(
+            school=cls.school, name='Assurance', category=FeeCategory.ONE_TIME,
+            default_amount=Decimal('2000'), is_mandatory=True, applies_to=AppliesTo.ALL,
+            applies_to_levels=[],
+        )
+
+    def _enroll(self, klass):
+        s = Student.objects.create(
+            school=self.school, school_class=klass, first_name='X', last_name='Y',
+            gender='F', tuition_fee=klass.annual_fee,
+        )
+        enr = StudentEnrollment.objects.create(
+            student=s, school=self.school, school_class=klass,
+            school_year=self.year, status=EnrollmentStatus.ACTIVE,
+        )
+        return build_fee_account(enr)
+
+    def test_modele_applies_to_level(self):
+        self.assertTrue(self.fee_pre.applies_to_level('prescolaire'))
+        self.assertFalse(self.fee_pre.applies_to_level('fondamental_1'))
+        self.assertTrue(self.fee_all.applies_to_level('fondamental_1'))   # vide = tous
+
+    def test_frais_cible_au_bon_niveau(self):
+        acc = self._enroll(self.klass_pre)
+        self.assertTrue(acc.debts.filter(fee_type=self.fee_pre).exists())   # préscolaire ✓
+        self.assertTrue(acc.debts.filter(fee_type=self.fee_all).exists())   # tous niveaux ✓
+
+    def test_frais_cible_absent_autre_niveau(self):
+        acc = self._enroll(self.klass_fond)
+        self.assertFalse(acc.debts.filter(fee_type=self.fee_pre).exists())  # pas préscolaire → absent
+        self.assertTrue(acc.debts.filter(fee_type=self.fee_all).exists())   # tous niveaux → présent
+
+    def test_modification_non_retroactive(self):
+        # Fiche générée SANS le frais (fondamental) ; on élargit ensuite le frais au fondamental.
+        acc = self._enroll(self.klass_fond)
+        self.assertFalse(acc.debts.filter(fee_type=self.fee_pre).exists())
+        self.fee_pre.applies_to_levels = ['prescolaire', 'fondamental_1']
+        self.fee_pre.save()
+        # build_fee_account est idempotent → la fiche existante N'EST PAS régénérée.
+        acc2 = build_fee_account(acc.enrollment)
+        self.assertFalse(acc2.debts.filter(fee_type=self.fee_pre).exists())  # inchangé
+
+
+class ScheduleTemplateTests(TestCase):
+    """Gabarits de tranches personnalisables : découpage exact pour un nombre QUELCONQUE
+    de tranches, non-rétroactivité de l'édition, unicité du nom, un seul défaut."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École G', short_name='EG', city='Bamako', school_type='primary',
+        )
+        cls.year = SchoolYear.objects.create(
+            school=cls.school, name='2025-2026',
+            start_date=date(2025, 10, 1), end_date=date(2026, 6, 30), is_active=True,
+        )
+
+    _seq = 0
+
+    def _enrollment(self, annual_fee):
+        """Crée classe + élève + inscription actifs pour un montant de scolarité donné."""
+        ScheduleTemplateTests._seq += 1
+        n = ScheduleTemplateTests._seq
+        klass = SchoolClass.objects.create(
+            school=self.school, name=f'C{n}', level='fondamental_1',
+            annual_fee=Decimal(annual_fee), max_capacity=40,
+        )
+        student = Student.objects.create(
+            school=self.school, school_class=klass, full_name=f'Élève {n}',
+            gender='M', tuition_fee=Decimal(annual_fee),
+        )
+        return StudentEnrollment.objects.create(
+            student=student, school=self.school, school_class=klass,
+            school_year=self.year, status=EnrollmentStatus.ACTIVE,
+        )
+
+    def _tuition_installs(self, account):
+        debt = account.debts.get(kind=FeeDebtKind.TUITION)
+        return list(debt.installments.order_by('sequence'))
+
+    # ── Découpage pour un nombre quelconque ────────────────────
+    def test_gabarit_personnalise_2_tranches(self):
+        tpl = PaymentScheduleTemplate.objects.create(
+            school=self.school, name='Semestriel', installments_count=2,
+        )
+        acc = build_fee_account(self._enrollment('244000'), template=tpl)
+        amounts = [i.amount_due for i in self._tuition_installs(acc)]
+        self.assertEqual(len(amounts), 2)
+        self.assertEqual(sum(amounts), Decimal('244000'))          # somme EXACTE
+        self.assertEqual(amounts, [Decimal('122000'), Decimal('122000')])
+
+    def test_extreme_12_tranches_montant_a_arrondi(self):
+        # 100 001 / 12 = 8333,4… → reste 5 réparti sur les 5 premières. Somme = 100 001.
+        tpl = PaymentScheduleTemplate.objects.create(
+            school=self.school, name='Douze', installments_count=12,
+        )
+        acc = build_fee_account(self._enrollment('100001'), template=tpl)
+        amounts = [i.amount_due for i in self._tuition_installs(acc)]
+        self.assertEqual(len(amounts), 12)
+        self.assertEqual(sum(amounts), Decimal('100001'))          # jamais un franc perdu
+        self.assertEqual(amounts.count(Decimal('8334')), 5)
+        self.assertEqual(amounts.count(Decimal('8333')), 7)
+
+    def test_extreme_1_tranche(self):
+        tpl = PaymentScheduleTemplate.objects.create(
+            school=self.school, name='Unique', installments_count=1,
+        )
+        acc = build_fee_account(self._enrollment('75000'), template=tpl)
+        amounts = [i.amount_due for i in self._tuition_installs(acc)]
+        self.assertEqual(amounts, [Decimal('75000')])              # une seule, montant total
+
+    # ── Non-rétroactivité de l'édition ─────────────────────────
+    def test_edition_du_nombre_non_retroactive(self):
+        tpl = PaymentScheduleTemplate.objects.create(
+            school=self.school, name='Évolutif', installments_count=3,
+        )
+        acc1 = build_fee_account(self._enrollment('90000'), template=tpl)
+        self.assertEqual(len(self._tuition_installs(acc1)), 3)     # inscription faite = 3
+
+        tpl.installments_count = 12                                 # le directeur édite
+        tpl.save()
+
+        acc1_reload = self.account_reload(acc1)
+        self.assertEqual(len(self._tuition_installs(acc1_reload)), 3)  # figé, inchangé
+
+        acc2 = build_fee_account(self._enrollment('90000'), template=tpl)
+        self.assertEqual(len(self._tuition_installs(acc2)), 12)    # nouvelle inscription = 12
+
+    def account_reload(self, account):
+        from apps.finance.models import StudentFeeAccount
+        return StudentFeeAccount.objects.get(pk=account.pk)
+
+    # ── Invariants de gestion ──────────────────────────────────
+    def test_nom_unique_par_ecole(self):
+        from django.db import IntegrityError, transaction
+        PaymentScheduleTemplate.objects.create(
+            school=self.school, name='Doublon', installments_count=2,
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                PaymentScheduleTemplate.objects.create(
+                    school=self.school, name='Doublon', installments_count=4,
+                )
+
+    def test_un_seul_defaut_par_ecole(self):
+        a = PaymentScheduleTemplate.objects.create(
+            school=self.school, name='A', installments_count=2, is_default=True,
+        )
+        b = PaymentScheduleTemplate.objects.create(
+            school=self.school, name='B', installments_count=4, is_default=True,
+        )
+        a.refresh_from_db()
+        self.assertFalse(a.is_default)                             # B a démoté A
+        self.assertTrue(PaymentScheduleTemplate.objects.get(pk=b.pk).is_default)
+        self.assertEqual(
+            PaymentScheduleTemplate.objects.filter(school=self.school, is_default=True).count(), 1,
+        )

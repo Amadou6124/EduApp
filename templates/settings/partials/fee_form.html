@@ -97,6 +97,19 @@ erreur → ce même partiel est re-rendu ici avec les messages.
       Les montants se définissent variante par variante, depuis la carte du frais.
     </p>
 
+    {# Niveaux concernés — cases à cocher (aucune = tous) #}
+    <div class="border-t border-gray-100 pt-3">
+      <label class="block text-sm font-medium text-gray-700 mb-2">Niveaux concernés</label>
+      <div class="space-y-1.5">
+        {% for cb in form.applies_to_levels %}
+          <label class="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+            {{ cb.tag }}<span>{{ cb.choice_label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <p class="text-xs text-gray-400 mt-2">Aucune case cochée = <span class="font-medium">tous</span> les niveaux.</p>
+    </div>
+
   </div>
 
   {# Pied — boutons #}

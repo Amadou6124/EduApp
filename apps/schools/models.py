@@ -346,9 +346,12 @@ class Period(models.Model):
 # Abréviation + couleur générées automatiquement depuis le nom (le directeur
 # ne tape que le nom ; il peut toujours les surcharger).
 _SUBJECT_STOPWORDS = {'de', 'la', 'le', 'les', 'des', 'du', 'et', 'à', 'a', 'en', 'l', 'd'}
+# 24 couleurs distinctes (assez pour couvrir 20-30 matières sans collision visuelle).
 _SUBJECT_PALETTE = [
-    '#7F77DD', '#D85A30', '#378ADD', '#1D9E75', '#BA7517',
-    '#D4537E', '#534AB7', '#0F6E56', '#993C1D', '#185FA5',
+    '#7F77DD', '#D85A30', '#378ADD', '#1D9E75', '#BA7517', '#D4537E',
+    '#534AB7', '#0F6E56', '#993C1D', '#185FA5', '#E24B4A', '#639922',
+    '#0C447C', '#B45309', '#3B6D11', '#A32D2D', '#7C3AED', '#0891B2',
+    '#DB2777', '#65A30D', '#EA580C', '#0D9488', '#6D28D9', '#B91C1C',
 ]
 
 
@@ -361,9 +364,43 @@ def auto_subject_abbrev(name):
     return (significant[0] if significant else '')[:4].upper()
 
 
-def auto_subject_color(name):
-    idx = sum(ord(c) for c in (name or '')) % len(_SUBJECT_PALETTE)
-    return _SUBJECT_PALETTE[idx]
+def pick_subject_color(school, exclude_id=None):
+    """Couleur de palette NON encore utilisée par les matières actives de l'école (sinon
+    la moins fréquente) → garantit des pastilles distinctes, sans collision, jusqu'à ~24
+    matières. Remplace l'ancien `somme des lettres modulo N` qui collisionnait facilement.
+    """
+    used = list(
+        Subject.objects.filter(school=school, is_active=True)
+        .exclude(id=exclude_id).exclude(color='')
+        .values_list('color', flat=True)
+    )
+    for c in _SUBJECT_PALETTE:
+        if c not in used:
+            return c
+    from collections import Counter
+    counts = Counter(used)
+    return min(_SUBJECT_PALETTE, key=lambda c: counts.get(c, 0))
+
+
+def resolve_or_create_subject(school, name):
+    """Création de matière « à la volée » avec garde-fou anti-doublon.
+
+    Réutilise une matière existante si le nom NORMALISÉ correspond (insensible
+    casse/accents : « math » ≡ « Math », « francais » ≡ « Français ») — une matière
+    désactivée est réactivée plutôt que dupliquée. Sinon crée (abréviation + couleur
+    autos via save()). Retourne (subject, created: bool)."""
+    from apps.core.text import norm_name
+    target = norm_name(name)
+    existing = next(
+        (s for s in Subject.objects.filter(school=school) if norm_name(s.name) == target),
+        None,
+    )
+    if existing:
+        if not existing.is_active:
+            existing.is_active = True
+            existing.save(update_fields=['is_active'])
+        return existing, False
+    return Subject.objects.create(school=school, name=name.strip()), True
 
 
 class Subject(models.Model):
@@ -394,7 +431,7 @@ class Subject(models.Model):
         if not (self.short_name or '').strip():
             self.short_name = auto_subject_abbrev(self.name)
         if not (self.color or '').strip() or self.color == '#4F46E5':
-            self.color = auto_subject_color(self.name)
+            self.color = pick_subject_color(self.school, exclude_id=self.pk)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -456,6 +493,152 @@ class ClassSubject(models.Model):
 
     def __str__(self):
         return f'{self.subject.name} — {self.school_class.name}'
+
+
+# ──────────────────────────────────────────────────────────────
+# Emploi du temps — créneaux et pauses
+# ──────────────────────────────────────────────────────────────
+
+class Weekday(models.IntegerChoices):
+    """Jours de cours. Dimanche INCLUS : les écoles franco-arabes (repos vendredi)
+    l'utilisent. La grille ne l'affiche que s'il porte des créneaux/pauses."""
+    MONDAY    = 0, _('Lundi')
+    TUESDAY   = 1, _('Mardi')
+    WEDNESDAY = 2, _('Mercredi')
+    THURSDAY  = 3, _('Jeudi')
+    FRIDAY    = 4, _('Vendredi')
+    SATURDAY  = 5, _('Samedi')
+    SUNDAY    = 6, _('Dimanche')
+
+
+class CourseSlot(models.Model):
+    """
+    Créneau d'emploi du temps : UN rendez-vous hebdomadaire d'un cours (ClassSubject).
+
+    Contrats (décidés, ne pas rediscuter sans raison forte) :
+      - 1 cours → N créneaux (Math lundi 8h-10h ET jeudi 10h-11h). Durées LIBRES par
+        créneau : implicite = end - start. ClassSubject.duration_hours n'est qu'une
+        durée par DÉFAUT pour pré-remplir la saisie.
+      - Le planning est un GUIDE ; l'émargement (TeacherAttendance) reste la VÉRITÉ
+        pour la paie. Un créneau ne paie personne, l'historique de paie ne référence
+        JAMAIS un créneau → modifier/supprimer un créneau ne casse rien.
+      - Rattaché à l'ANNÉE scolaire (archivé avec elle, comme les inscriptions).
+      - Heures EXACTES à la minute (8h / 11h15 / 13h30…), pas de demi-journées.
+    """
+    class_subject = models.ForeignKey(
+        ClassSubject, on_delete=models.CASCADE,
+        related_name='slots', verbose_name=_('cours'),
+    )
+    school_year = models.ForeignKey(
+        'schools.SchoolYear', on_delete=models.CASCADE,
+        related_name='course_slots', verbose_name=_('année scolaire'),
+    )
+    day        = models.PositiveSmallIntegerField(_('jour'), choices=Weekday.choices)
+    start_time = models.TimeField(_('début'))
+    end_time   = models.TimeField(_('fin'))
+    room       = models.CharField(_('salle'), max_length=50, blank=True)
+
+    class Meta:
+        verbose_name        = _('créneau de cours')
+        verbose_name_plural = _('créneaux de cours')
+        ordering            = ['day', 'start_time']
+        indexes = [
+            models.Index(fields=['school_year', 'day'], name='slot_year_day_idx'),
+        ]
+
+    def __str__(self):
+        return (f'{self.class_subject} — {self.get_day_display()} '
+                f'{self.start_time:%H:%M}–{self.end_time:%H:%M}')
+
+    def overlaps(self, other_start, other_end):
+        """Chevauchement strict d'horaires (8h-9h30 vs 8h45-10h15 → vrai ;
+        9h-10h vs 10h-11h adjacents → faux)."""
+        return self.start_time < other_end and other_start < self.end_time
+
+    def clean(self):
+        # Cohérence horaire.
+        if self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ValidationError(_("L'heure de fin doit être après l'heure de début."))
+        if self.class_subject_id is None or self.school_year_id is None:
+            return
+
+        # Candidats au conflit : créneaux de la MÊME année, le MÊME jour (self exclu).
+        same_day = (CourseSlot.objects
+                    .filter(school_year_id=self.school_year_id, day=self.day)
+                    .exclude(pk=self.pk)
+                    .select_related('class_subject__school_class',
+                                    'class_subject__subject',
+                                    'class_subject__teacher'))
+
+        me = self.class_subject
+        for other in same_day:
+            if not other.overlaps(self.start_time, self.end_time):
+                continue
+            oc = other.class_subject
+            # (a) La CLASSE ne peut pas avoir deux cours en même temps.
+            if oc.school_class_id == me.school_class_id:
+                raise ValidationError(_(
+                    'Conflit — la classe %(klass)s a déjà « %(subject)s » le %(day)s '
+                    'de %(start)s à %(end)s.'
+                ) % {'klass': oc.school_class.name, 'subject': oc.subject.name,
+                     'day': self.get_day_display(),
+                     'start': other.start_time.strftime('%Hh%M'),
+                     'end': other.end_time.strftime('%Hh%M')})
+            # (b) Le PROF ne peut pas être dans deux classes en même temps
+            #     (ignoré si l'un des cours n'a pas de prof assigné).
+            if me.teacher_id and oc.teacher_id == me.teacher_id:
+                raise ValidationError(_(
+                    'Conflit — %(teacher)s est déjà en %(klass)s le %(day)s '
+                    'de %(start)s à %(end)s.'
+                ) % {'teacher': oc.teacher.full_name, 'klass': oc.school_class.name,
+                     'day': self.get_day_display(),
+                     'start': other.start_time.strftime('%Hh%M'),
+                     'end': other.end_time.strftime('%Hh%M')})
+            # (c) La SALLE (si renseignée des deux côtés) ne peut pas être doublée.
+            if self.room.strip() and other.room.strip() \
+                    and self.room.strip().lower() == other.room.strip().lower():
+                raise ValidationError(_(
+                    'Conflit — la salle « %(room)s » est déjà occupée par %(klass)s '
+                    'le %(day)s de %(start)s à %(end)s.'
+                ) % {'room': self.room.strip(), 'klass': oc.school_class.name,
+                     'day': self.get_day_display(),
+                     'start': other.start_time.strftime('%Hh%M'),
+                     'end': other.end_time.strftime('%Hh%M')})
+
+
+class SchoolBreak(models.Model):
+    """
+    Pause nommée de l'école (récréation, pause prière, djoumou'a…), affichée dans la
+    grille de TOUTES les classes et sur l'impression murale.
+
+    INFORMATIVE, jamais bloquante : ne crée aucun conflit, ne touche pas la paie —
+    le planning guide, il ne verrouille pas. `day` vide = tous les jours ;
+    renseigné = ce jour-là seulement (ex. djoumou'a le vendredi).
+    """
+    school = models.ForeignKey(
+        School, on_delete=models.CASCADE,
+        related_name='school_breaks', verbose_name=_('école'),
+    )
+    label      = models.CharField(_('libellé'), max_length=50)
+    day        = models.PositiveSmallIntegerField(
+        _('jour'), choices=Weekday.choices, null=True, blank=True,
+        help_text=_('Vide = tous les jours.'),
+    )
+    start_time = models.TimeField(_('début'))
+    end_time   = models.TimeField(_('fin'))
+
+    class Meta:
+        verbose_name        = _('pause')
+        verbose_name_plural = _('pauses')
+        ordering            = ['start_time']
+
+    def __str__(self):
+        day = self.get_day_display() if self.day is not None else 'tous les jours'
+        return f'{self.label} ({day} {self.start_time:%H:%M}–{self.end_time:%H:%M})'
+
+    def clean(self):
+        if self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ValidationError(_("L'heure de fin doit être après l'heure de début."))
 
 
 # ──────────────────────────────────────────────────────────────

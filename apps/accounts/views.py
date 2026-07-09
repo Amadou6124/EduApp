@@ -170,6 +170,37 @@ def select_school(request):
 
 
 @login_required
+def password_set(request):
+    """Choix d'un mot de passe personnel après un temporaire posé par l'école (1ʳᵉ connexion).
+
+    Le middleware redirige ici tant que `must_change_password` est vrai. Validation LÉGÈRE
+    (public parent, littératie numérique variable) : ≥ 4 caractères + confirmation. Une fois
+    choisi, le temporaire est mort et le compte reprend son cours normal."""
+    from django.contrib.auth import update_session_auth_hash
+    user = request.user
+    if not user.must_change_password:
+        return redirect(_post_login_url(request, user))   # rien à changer
+
+    error = None
+    if request.method == 'POST':
+        pwd     = request.POST.get('password', '')
+        confirm = request.POST.get('confirm', '')
+        if len(pwd) < 4:
+            error = 'Choisissez un mot de passe d\'au moins 4 caractères.'
+        elif pwd != confirm:
+            error = 'Les deux mots de passe ne correspondent pas.'
+        else:
+            user.set_password(pwd)
+            user.must_change_password = False
+            user.save(update_fields=['password', 'must_change_password'])
+            update_session_auth_hash(request, user)       # garder la session après le changement
+            messages.success(request, 'Mot de passe enregistré. Bienvenue !')
+            return redirect(_post_login_url(request, user))
+
+    return render(request, 'accounts/password_set.html', {'error': error})
+
+
+@login_required
 def portal_coming_soon(request):
     role_labels = {
         UserRole.STUDENT: ('Portail Élève', 'student'),

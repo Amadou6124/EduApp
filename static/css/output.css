@@ -1545,6 +1545,11 @@ p {
   right: 0px;
 }
 
+.inset-x-0\.5 {
+  left: 0.125rem;
+  right: 0.125rem;
+}
+
 .inset-y-0 {
   top: 0px;
   bottom: 0px;
@@ -1564,6 +1569,10 @@ p {
 
 .-top-1 {
   top: -0.25rem;
+}
+
+.-top-2 {
+  top: -0.5rem;
 }
 
 .bottom-0 {
@@ -1640,6 +1649,10 @@ p {
 
 .right-0\.5 {
   right: 0.125rem;
+}
+
+.right-1\.5 {
+  right: 0.375rem;
 }
 
 .right-2 {
@@ -1943,6 +1956,10 @@ p {
   margin-top: 0.75rem;
 }
 
+.mt-3\.5 {
+  margin-top: 0.875rem;
+}
+
 .mt-4 {
   margin-top: 1rem;
 }
@@ -2236,6 +2253,10 @@ p {
   min-height: 44px;
 }
 
+.min-h-\[46px\] {
+  min-height: 46px;
+}
+
 .min-h-\[48px\] {
   min-height: 48px;
 }
@@ -2400,6 +2421,10 @@ p {
   width: 19px;
 }
 
+.w-\[52px\] {
+  width: 52px;
+}
+
 .w-\[76px\] {
   width: 76px;
 }
@@ -2482,6 +2507,10 @@ p {
 
 .min-w-\[44px\] {
   min-width: 44px;
+}
+
+.min-w-\[560px\] {
+  min-width: 560px;
 }
 
 .min-w-\[64px\] {
@@ -2586,6 +2615,10 @@ p {
 
 .flex-1 {
   flex: 1 1 0%;
+}
+
+.flex-none {
+  flex: none;
 }
 
 .flex-shrink {
@@ -3043,6 +3076,11 @@ p {
   border-bottom-left-radius: 1rem;
 }
 
+.rounded-r-md {
+  border-top-right-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+}
+
 .rounded-t-2xl {
   border-top-left-radius: 1rem;
   border-top-right-radius: 1rem;
@@ -3059,6 +3097,11 @@ p {
 
 .border-2 {
   border-width: 2px;
+}
+
+.border-y {
+  border-top-width: 1px;
+  border-bottom-width: 1px;
 }
 
 .border-b {
@@ -3407,6 +3450,10 @@ p {
   background-color: rgb(243 244 246 / var(--tw-bg-opacity, 1));
 }
 
+.bg-gray-100\/80 {
+  background-color: rgb(243 244 246 / 0.8);
+}
+
 .bg-gray-200 {
   --tw-bg-opacity: 1;
   background-color: rgb(229 231 235 / var(--tw-bg-opacity, 1));
@@ -3437,6 +3484,10 @@ p {
 
 .bg-gray-50\/50 {
   background-color: rgb(249 250 251 / 0.5);
+}
+
+.bg-gray-50\/60 {
+  background-color: rgb(249 250 251 / 0.6);
 }
 
 .bg-gray-50\/70 {
@@ -3538,6 +3589,11 @@ p {
 .bg-primary-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(224 231 255 / var(--tw-bg-opacity, 1));
+}
+
+.bg-primary-300 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(165 180 252 / var(--tw-bg-opacity, 1));
 }
 
 .bg-primary-50 {
@@ -3868,6 +3924,11 @@ p {
   padding-bottom: 3rem;
 }
 
+.py-14 {
+  padding-top: 3.5rem;
+  padding-bottom: 3.5rem;
+}
+
 .py-16 {
   padding-top: 4rem;
   padding-bottom: 4rem;
@@ -3958,6 +4019,10 @@ p {
 
 .pb-4 {
   padding-bottom: 1rem;
+}
+
+.pb-6 {
+  padding-bottom: 1.5rem;
 }
 
 .pb-7 {
@@ -4068,6 +4133,10 @@ p {
   padding-right: 1rem;
 }
 
+.pr-6 {
+  padding-right: 1.5rem;
+}
+
 .pr-8 {
   padding-right: 2rem;
 }
@@ -4082,6 +4151,10 @@ p {
 
 .pt-1 {
   padding-top: 0.25rem;
+}
+
+.pt-1\.5 {
+  padding-top: 0.375rem;
 }
 
 .pt-11 {
@@ -4517,6 +4590,11 @@ p {
   color: rgb(236 72 153 / var(--tw-text-opacity, 1));
 }
 
+.text-primary-300 {
+  --tw-text-opacity: 1;
+  color: rgb(165 180 252 / var(--tw-text-opacity, 1));
+}
+
 .text-primary-400 {
   --tw-text-opacity: 1;
   color: rgb(129 140 248 / var(--tw-text-opacity, 1));
@@ -4815,6 +4893,11 @@ p {
   --tw-shadow: var(--tw-shadow-colored);
 }
 
+.shadow-primary-600\/25 {
+  --tw-shadow-color: rgb(79 70 229 / 0.25);
+  --tw-shadow: var(--tw-shadow-colored);
+}
+
 .shadow-red-100 {
   --tw-shadow-color: #fee2e2;
   --tw-shadow: var(--tw-shadow-colored);
@@ -5100,6 +5183,10 @@ p {
   border-bottom-width: 0px;
 }
 
+.last\:border-r-0:last-child {
+  border-right-width: 0px;
+}
+
 .last\:pb-0:last-child {
   padding-bottom: 0px;
 }
@@ -5341,6 +5428,10 @@ p {
   background-color: rgb(255 255 255 / 0.6);
 }
 
+.hover\:bg-white\/70:hover {
+  background-color: rgb(255 255 255 / 0.7);
+}
+
 .hover\:text-amber-600:hover {
   --tw-text-opacity: 1;
   color: rgb(217 119 6 / var(--tw-text-opacity, 1));
@@ -5434,6 +5525,11 @@ p {
   --tw-shadow: 0 1px 3px rgba(0,0,0,0.08);
   --tw-shadow-colored: 0 1px 3px var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
+.hover\:brightness-95:hover {
+  --tw-brightness: brightness(.95);
+  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
 }
 
 .focus\:border-\[\#1E3A5F\]:focus {

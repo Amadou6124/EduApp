@@ -1,0 +1,82 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+Feuille A4 de cartes d'accès élève (impression en masse, rentrée). Page AUTONOME.
+Grille 2 colonnes ≈ 8 cartes/A4 ; une carte = break-inside:avoid (jamais coupée entre
+deux pages) ; saut de page par classe (page-break-before sur chaque groupe sauf le 1er).
+Portée pilotée par la vue (une classe ou toutes). Pas d'auto-print (page navigable).
+{% endcomment %}
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cartes élève — {{ school.name }}</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+    body { margin: 0; padding: 20px; color: #0f172a; background: #f3f4f6; }
+    .toolbar { max-width: 760px; margin: 0 auto 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .toolbar .info { font-size: 13px; color: #475569; }
+    .btn { font-size: 13px; padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; text-decoration: none; color: #334155; }
+    .btn.p { background: #0f766e; color: #fff; border-color: #0f766e; }
+    .sheet { max-width: 760px; margin: 0 auto; background: #fff; padding: 18px; border-radius: 8px; }
+    .group + .group { margin-top: 22px; }
+    .group-hd { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #0f766e; padding-bottom: 7px; margin-bottom: 12px; }
+    .group-hd .sc { font-size: 15px; font-weight: 600; }
+    .group-hd .cl { font-size: 12px; color: #64748b; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .card { border: 1px dashed #94a3b8; padding: 10px 12px; break-inside: avoid; }
+    .card .top { display: flex; justify-content: space-between; align-items: center; }
+    .card .nm { font-size: 12px; font-weight: 600; }
+    .card .tag { font-size: 9px; letter-spacing: .05em; color: #0f766e; font-weight: 600; }
+    .card .creds { display: flex; gap: 16px; margin: 6px 0 5px; }
+    .card .lbl { font-size: 9px; color: #64748b; }
+    .card .code { font-family: ui-monospace, monospace; font-size: 15px; font-weight: 700; letter-spacing: .08em; }
+    .card .val { font-size: 13px; font-weight: 600; }
+    .card .how { font-size: 9px; color: #64748b; line-height: 1.4; overflow-wrap: anywhere; }
+    .empty { text-align: center; color: #94a3b8; padding: 40px; font-size: 14px; }
+    @page { size: A4; margin: 12mm; }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .toolbar { display: none; }
+      .sheet { max-width: none; padding: 0; border-radius: 0; }
+      .group { break-before: page; }
+      .group:first-child { break-before: avoid; }
+      .group-hd { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <a class="btn" href="{% url 'students:list' %}">← Retour</a>
+    <span class="info">{{ total }} carte{{ total|pluralize }} · {{ groups|length }} classe{{ groups|length|pluralize }}</span>
+    <button class="btn p" onclick="window.print()">Imprimer</button>
+  </div>
+
+  <div class="sheet">
+    {% for g in groups %}
+      <div class="group">
+        <div class="group-hd">
+          <span class="sc">{{ school.name }} — Cartes d'accès élève</span>
+          <span class="cl">Classe {{ g.class_name }} · {{ g.cards|length }} élève{{ g.cards|length|pluralize }}</span>
+        </div>
+        <div class="grid">
+          {% for c in g.cards %}
+            <div class="card">
+              <div class="top">
+                <span class="nm">{{ c.student.full_name }}</span>
+                <span class="tag">ESPACE ÉLÈVE</span>
+              </div>
+              <div class="creds">
+                <div><div class="lbl">Code</div><div class="code">{{ c.student.access_code }}</div></div>
+                <div><div class="lbl">Nom</div><div class="val">{{ c.login_name }}</div></div>
+              </div>
+              <div class="how">{{ portal_url }} — code + nom de famille</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty">Aucun élève actif à imprimer.</div>
+    {% endfor %}
+  </div>
+</body>
+</html>

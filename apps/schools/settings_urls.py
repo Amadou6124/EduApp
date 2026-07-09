@@ -58,8 +58,12 @@ urlpatterns = [
     path('frais/<int:fee_id>/variants/add/',          settings_views.fee_variant_add,    name='fee-variant-add'),
     path('frais/variants/<int:variant_id>/update/',   settings_views.fee_variant_update, name='fee-variant-update'),
     path('frais/variants/<int:variant_id>/toggle/',   settings_views.fee_variant_toggle, name='fee-variant-toggle'),
+    path('frais/schedule/form/',                      settings_views.schedule_form,        name='schedule-form'),
+    path('frais/schedule/save/',                      settings_views.schedule_save,        name='schedule-create'),
+    path('frais/schedule/<int:template_id>/form/',    settings_views.schedule_form,        name='schedule-edit-form'),
+    path('frais/schedule/<int:template_id>/save/',    settings_views.schedule_save,        name='schedule-update'),
+    path('frais/schedule/<int:template_id>/toggle/',  settings_views.schedule_toggle_active, name='schedule-toggle'),
     path('frais/schedule/<int:template_id>/default/', settings_views.schedule_set_default, name='schedule-set-default'),
-    path('frais/seed/',                   settings_views.fees_seed,         name='fees-seed'),
 
     # ── DOCUMENTS ─────────────────────────────────────────────────────
     path('bulletin/', settings_views.bulletin, name='bulletin'),

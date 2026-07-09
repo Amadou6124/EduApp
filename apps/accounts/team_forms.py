@@ -1,5 +1,4 @@
 import secrets
-import string
 
 from django import forms
 from django.utils.crypto import get_random_string
@@ -8,21 +7,30 @@ from .models import User, UserRole, StaffPermission, Membership
 
 _INPUT = (
     'w-full px-4 py-3 border border-gray-300 rounded-xl text-sm '
-    'focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue '
+    'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 '
     'placeholder-gray-400 transition'
 )
 _INPUT_SM = (
     'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm '
-    'focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue '
+    'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 '
     'placeholder-gray-400 transition'
 )
-_CHECKBOX = 'h-4 w-4 rounded border-gray-300 text-brand-blue focus:ring-brand-blue cursor-pointer'
+_CHECKBOX = 'h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer'
 
 
-def generate_temp_password(length=10):
-    """Génère un mot de passe temporaire lisible : lettres + chiffres, sans ambiguïtés."""
-    alphabet = string.ascii_letters.replace('l', '').replace('O', '').replace('I', '') + string.digits
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
+_TYPEABLE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  # A-Z sans I/O + 2-9 (sans 0/1)
+
+
+def generate_temp_password(length=8):
+    """Mot de passe temporaire optimisé pour la SAISIE, pas l'esthétique.
+
+    Remis sur papier à des parents à littératie numérique variable, tapé sur un clavier
+    mobile. Donc : MAJUSCULES uniquement (aucune bascule de casse à chaque caractère) et
+    AUCUN caractère ambigu (pas de I/O/0/1 → jamais de « c'est un zéro ou un O ? »).
+    Il ne vit qu'une fois (changé à la 1ʳᵉ connexion), donc pas besoin qu'il soit « joli » —
+    juste tapable du premier coup, sinon le parent abandonne et la carte rate son but.
+    """
+    return ''.join(secrets.choice(_TYPEABLE_ALPHABET) for _ in range(length))
 
 
 class TeamMemberCreateForm(forms.Form):

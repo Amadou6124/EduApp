@@ -2,13 +2,17 @@
 Toast notification — bas-centre, fond sombre (design system).
 Usage : HX-Trigger {"showToast": {"message": "...", "type": "success"}}
 Ou Alpine : $dispatch('show-toast', { message: '...', type: 'success' })
+NB : htmx émet nativement la version kebab-case (show-toast) des HX-Trigger camelCase —
+aucun bridge nécessaire (un bridge = double toast). Id = compteur `seq`, pas Date.now()
+(deux add() dans la même ms donnaient des clés x-for dupliquées).
 {% endcomment %}
 <div id="toast-container"
      class="toast-stack"
      x-data="{
        toasts: [],
+       seq: 0,
        add(msg, type, receiptUrl) {
-         const id = Date.now();
+         const id = ++this.seq;
          this.toasts.push({ id, message: msg, type: type || 'success', receiptUrl: receiptUrl || null });
          setTimeout(() => this.remove(id), 5000);
        },

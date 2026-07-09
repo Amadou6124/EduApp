@@ -140,9 +140,16 @@ class MultiTenantIsolationTests(TestCase):
 
     # ── STAFF à permissions restreintes ────────────────────────
     def test_staff_sans_permission_compta_bloque(self):
+        # Accès REFUSÉ, mais poliment : redirigé vers SON portail (plus de 403 nu).
+        # Le contrat de sécurité reste : jamais de contenu comptable servi (jamais 200).
         self.client.force_login(self.staff)
         r = self.client.get(reverse('accounting:dashboard'))
-        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.status_code, 302)
+        self.assertNotIn('accounting', r['Location'])   # renvoyé AILLEURS (son accueil)
+        # En HTMX : pas de fragment servi non plus → 204 + HX-Redirect pleine page.
+        r_hx = self.client.get(reverse('accounting:dashboard'), headers={'HX-Request': 'true'})
+        self.assertEqual(r_hx.status_code, 204)
+        self.assertTrue(r_hx['HX-Redirect'])
 
     # ── Isolation en PROFONDEUR (mutations, argent, vue forgée) ─
     def test_directeur_ne_peut_pas_editer_eleve_autre_ecole(self):

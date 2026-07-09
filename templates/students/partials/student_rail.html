@@ -18,6 +18,21 @@
         <p class="text-[11px] text-gray-400 mt-0.5">Né(e){% if student.date_of_birth %} le {{ student.date_of_birth|date:"d/m/Y" }}{% endif %}{% if student.birth_place %} à {{ student.birth_place }}{% endif %}</p>
       {% endif %}
       <p class="text-[11px] text-gray-400 mt-0.5">Code de connexion : <span class="font-mono text-primary-700">{{ student.access_code }}</span></p>
+      <div class="flex items-center gap-3 mt-1">
+        <a href="{% url 'students:card' student.id %}" target="_blank"
+           class="inline-flex items-center gap-1 text-[11px] font-medium text-primary-600 hover:text-primary-700">
+          <i data-lucide="printer" class="w-3 h-3"></i> Imprimer la carte élève
+        </a>
+        {% if is_director %}
+        <button type="button"
+                hx-post="{% url 'students:reset-code' student.id %}"
+                hx-target="#student-rail" hx-swap="outerHTML"
+                hx-confirm="Régénérer le code de connexion ? L'ancien cessera de fonctionner."
+                class="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-red-600">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i> Régénérer le code
+        </button>
+        {% endif %}
+      </div>
     </div>
     <div class="flex flex-wrap justify-center gap-1.5">
       {% include "students/partials/fee_status_badge.html" with status=fee_status %}

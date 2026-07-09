@@ -3,6 +3,13 @@
 Produit **K-12 pour le Mali** (Fondamental + Secondaire). Le supérieur (LMD) est **hors périmètre** assumé.
 Cette feuille de route liste ce qui reste à construire, priorisé, après la première démo directeur.
 
+> ## ⚠️ PRINCIPE — ne pas se noyer avant le lancement
+> **Avant de déployer, on ne construit QUE ce qui bloque le déploiement ou la vraie utilisation.**
+> Tout le reste (automatisations, cas avancés, confort) = **APRÈS lancement**. L'ordre de mise en
+> production est dans [go-live-checklist.md](go-live-checklist.md) — c'est **lui** qui pilote, pas
+> l'envie d'ajouter des fonctionnalités. Un enrichissement qui n'empêche pas une école d'utiliser
+> l'app au quotidien peut attendre.
+
 ---
 
 ## ✅ Fait
@@ -16,31 +23,67 @@ Cette feuille de route liste ce qui reste à construire, priorisé, après la pr
 - **Tranches auto-provisionnées** : 3 gabarits (Annuel/Trimestriel/Mensuel, Trimestriel défaut).
 - **Écran années peaufiné** + fix dashboard + wording « Tranches → Échéances ».
 
-### Fiabilisation + dossier élève + remises — branche `feature/dossier-eleve-identite` (à merger)
+### Fiabilisation + dossier élève + remises — **mergé dans `main`**
 - **68 tests + sécurité + base propre** : isolation multi-écoles, chemins argent, notes→bulletins,
   rate-limiting login fiabilisé. Recette prod vierge : `ouvrir-prod-vierge.md`.
 - **Identité élève** : Nom/Prénom séparés, lieu + date de naissance, **matricule** auto (AAAA-NNNN, immuable, modifiable).
 - **Responsables** (`StudentGuardian` unifié) : info seule OU accès portail ; téléphone élève retiré (donnée morte).
 - **Remises manuelles** (`FeeAdjustment`) : % ou montant, motif, financé par, **immuable** ; garde-fou anti
-  trop-perçu ; **reporting** directeur + promoteur ; solde **net** partout. (Auth élève/parent = analysé, pas construit → `decision-authentification.md`.)
+  trop-perçu ; **reporting** directeur + promoteur ; solde **net** partout.
+
+### Ciblage des frais + gabarits + auth portail — branche `feature/chantiers-suivants` (poussée, à merger)
+- **Ciblage des frais par niveau** (`FeeType.applies_to_levels`) : un frais annexe cible certains niveaux
+  (vide = tous, rétro-compatible) ; `is_applicable()` combine niveau ET nouveau/ancien ; non-rétroactif ;
+  cases à cocher + badge + options d'inscription filtrées par classe.
+- **Gabarits de tranches personnalisables** (CRUD) : le directeur crée/édite/désactive ses gabarits
+  (nombre 1–12, désactivation seule, défaut protégé, non-rétroactif). Moteur de découpe inchangé.
+- **Auth portail parent/élève CONSTRUIT** (Chantier B — était « analysé », `decision-authentification.md`) :
+  identifiants remis via **carte imprimable** (parent au modal, élève page réimprimable), mot de passe
+  temporaire **tapable** à usage unique (**changement forcé** à la 1re connexion via middleware),
+  **régénération** mdp parent + code élève, **impression de masse** des cartes élève par classe (A4).
+  Zéro SMS. Le portail reste un bonus, jamais un prérequis à l'inscription.
+- Retrait de l'avatar redondant sur l'accueil enseignant.
+- **187 tests** au total sur la branche.
 
 ---
 
 ## 🔴 Essentiel (le produit le réclame)
 
-### 1. Passage d'année (Chantier 2)
+### Passage d'année (Chantier 2)
 L'infra existe (`StudentEnrollment` est par année, statut `Passé/Diplômé`) mais **le flux de promotion
 N+1 n'est pas construit**. Sans lui, impossible d'« avancer » proprement d'une année à l'autre.
 - Promouvoir chaque inscription ACTIVE → classe supérieure (ou Diplômé pour la dernière), figer l'ancienne.
 - Créer l'année N+1 + ses périodes, reporter les soldes impayés (⚠ les frais ne sont pas rattachés à l'année).
 - Gros flux à haut risque → à faire proprement (maquette → validation → code → test).
+- *Ne mord qu'à la bascule (juin) → à finir avant, mais ne bloque pas le premier déploiement.*
 
-### 2. Ciblage des frais par cycle/niveau
-Aujourd'hui « obligatoire = tout le monde » (seule distinction : nouveau/ancien). Résultat : « Inscription
-préscolaire » tombe sur une 1ère année. **Plan déjà écrit** (même schéma que les périodes) :
-- `FeeType.applies_to_levels` (vide = tous, rétro-compatible) ; filtre à la génération des frais ; UI
-  « niveaux concernés » + badge dans le catalogue.
-- *NB : la scolarité est déjà par classe (montants variables par niveau OK) — ce chantier concerne les frais annexes.*
+---
+
+## ⏸️ APRÈS LANCEMENT (enrichissements — ne pas s'y noyer avant)
+
+Ces chantiers **n'empêchent pas** une école d'utiliser l'app au quotidien. On les prend **après** que
+l'app tourne en vrai, école par école, selon la demande réelle.
+
+### Remises — niveau 2 (le niveau 1 manuel est fait et suffit pour ouvrir)
+6 briques **indépendantes**, à activer une par une si le besoin vient :
+- **Fratrie automatique** : détecter les frères/sœurs (responsables partagés) + appliquer la remise
+  auto (2ᵉ enfant −X %…) + recalcul dynamique. *Risque argent → à faire prudemment.*
+- **Avoirs / remboursements** : au lieu de refuser un trop-perçu, créer un crédit (remboursable / reportable).
+- **Validation à deux** : le caissier propose, le directeur approuve (états brouillon/approuvé). *Grandes écoles.*
+- **Plafond de cumul** : limite max de remise par élève (ex. 30 %).
+- **Motifs configurables** par école (aujourd'hui « Autre + justification » suffit).
+- **Pénalités de retard** : l'inverse d'une remise. *Le modèle est déjà prêt (`FeeAdjustment.type`) → le plus rapide.*
+
+### Auth staff par e-mail (prof / staff / directeur / promoteur) — décision produit posée
+Direction retenue : **e-mail pour le personnel** (reset self-service « mot de passe oublié »),
+**téléphone pour les parents** (inchangé). Conditions à valider AVANT de construire :
+(1) les profs cibles ont-ils un e-mail qu'ils consultent ? (directeurs oui, vacataires à vérifier) ;
+(2) infra d'envoi d'e-mails (SendGrid/Mailgun…) à poser au déploiement ;
+(3) double régime de connexion → page login + modèle à concevoir.
+**Niveau 1 (intérimaire) FAIT** en attendant : mot de passe staff temporaire à usage unique
+(**changement forcé** à la 1re connexion, comme les parents) + **régénération** par le directeur
+depuis la fiche membre (l'impasse « staff qui oublie son mdp » est donc résolue sans e-mail).
+L'e-mail reste le chantier de fond pour le self-service (sans passer par le directeur).
 
 ---
 
@@ -60,8 +103,14 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
 
 ## 🟢 Confort (petits polish)
 
-5. **Nombre de tranches libre** (2/4/6…) — actuellement figé à 1/3/9.
-6. **Cosmétique matières** — collision de couleur auto entre 2 matières ; abréviation affichée trop pâle.
+5. ~~**Nombre de tranches libre**~~ **FAIT** (branche `feature/chantiers-suivants`) : CRUD gabarits 1–12.
+   ⏸️ **Reste parqué (post-lancement, NE PAS anticiper)** : passer du modèle « nombre » à un modèle « rythme »
+   (`kind` = Annuel / Par période auto-adaptatif au cycle / Personnalisé). L'analyse est bonne — le moteur cale
+   déjà les tranches sur les périodes *du cycle de l'élève* (`periods_for_class`) quand nombre == nb de périodes,
+   donc un gabarit à nombre fixe ne peut pas dire « par période » pour une école fondamental+secondaire. **Mais
+   c'est une décision produit, pas technique** : à ne construire QUE si une vraie école demande « facturer par
+   période sur plusieurs cycles ». Sinon un gabarit par classe suffit.
+6. **Cosmétique matières** — collision de couleur auto entre 2 matières ; abréviation affichée trop pâle. *(couleur auto-distincte déjà faite ; reste l'abréviation pâle.)*
 7. **Frais de démo** — le bouton « Charger un exemple » ajoute des frais à nettoyer sur une vraie école.
 
 ---
@@ -71,7 +120,14 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
 - **École (persistant, réutilisé chaque année)** : classes, frais (catalogue + gabarits), matières, élèves.
 - **Année (archivé avec elle)** : périodes, inscriptions, notes, bulletins.
 - **Frais** : scolarité **par classe** (`annual_fee`) découpée en tranches (gabarit 1/3/9) ; frais ponctuels
-  (inscription, tenue) = **1 échéance** chacun ; **pas de ciblage par niveau** (cf. 🔴 #2).
+  (inscription, tenue) = **1 échéance** chacun. Ciblage sur **2 axes** (ET) : nouveau/ancien (`applies_to`)
+  **et niveau** (`applies_to_levels`, **vide = tous**) — via `FeeType.is_applicable(classe, is_returning)`.
+- **Élève actif** : `Student.is_active` est un **CACHE** qui doit rester cohérent avec le statut de
+  l'inscription (`StudentEnrollment.status`). **On ne le mute JAMAIS à la main** — uniquement via
+  `Student.archive(status)` / `Student.reactivate()` (atomiques, seules autorisées). Sinon le flag et le
+  statut divergent (= le bug 500 d'archivage réparé). « Revient l'année suivante » = **ré-inscription**
+  (nouvelle année), pas une réactivation. Matières : couleur **auto distincte** (`pick_subject_color`, pas de
+  choix manuel → pas de collision).
 - **Matière** = catalogue (nom/abréviation/couleur). **Classe-matière** = coefficient (déf. 1.0), note max
   (déf. 20), **durée d'un cours** (déf. 2h), enseignant — **tout par classe, libre**.
 - **Heures prof** = par cours (durée) + **émargement** (heures réelles). **Pas** de volume horaire au niveau prof,
@@ -95,16 +151,16 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
 - **Dossier élève — pièces jointes** (extrait de naissance, vaccins, photo) + indicateur complet/incomplet. *~3 j.*
 - **Messagerie bidirectionnelle parent ↔ école** (badge non-lu des deux côtés). *~4 j.*
 - **Bilan annuel consolidé** (P&L sur l'année + export PDF propriétaire). *~2 j.*
-- **Relances automatiques impayés** (SMS J+5 / J+15) — le bouton « Relancer » est aujourd'hui un **placeholder**.
+- **Relances automatiques impayés** (SMS J+5 / J+15). ⚠️ La relance **manuelle est FAITE** : écran Paiements (onglet
+  « En retard », liste rouge triée) + boutons « Relancer » / « Tout relancer » → notification **in-app** aux
+  responsables (`_send_reminder` → `notify_guardians`, anti-spam 1×/jour). Reste à faire = le volet **automatique**
+  (cron/tâche planifiée — inexistant aujourd'hui) et un **canal SMS/email** (la relance est in-app seule).
 - **Restes du chantier multi-école** : portail parent multi-école + **transfert d'élève entre écoles** (historique préservé).
 
 ### Dette technique / polish
-- **`forms.py` : `brand-blue` → `primary`** (focus ring perdu depuis la refonte design) — `accounts/team_forms.py`, `accounts/forms.py`, `payments/forms.py`, `schools/forms.py`.
-- **Réactivation d'un élève archivé** (onglet « Archivés » + bouton, équivalent de la réactivation équipe déjà faite).
-- **Alerte émargement dashboard** (profs attendus vs émargés du jour).
-- **Migration Lucide 1.20.0 → 0.577.x** (chore ; audit des noms d'icônes avant).
-- **Nettoyage `components.css` orphelin** (`brand-blue` hors build).
-- Cosmétiques divers : carte dashboard restée en demi-largeur, erreurs Alpine console, labels de groupe HTMX orphelins (notifications).
+> Audité juillet 2026 : **`brand-blue → primary` FAIT** (focus ring restauré, 4 fichiers) ;
+> **alerte émargement** et **`components.css` orphelin** = déjà faits/inexistants (retirés).
+- Cosmétiques divers : carte dashboard demi-largeur, erreurs Alpine console, labels de groupe HTMX orphelins (notifications).
 
 *(Déjà faits, donc retirés du backlog : catalogue de frais + échéancier par tranches, liste rouge des impayés,
 portail parent financier, périodes par cycle.)*

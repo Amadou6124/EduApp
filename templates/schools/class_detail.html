@@ -31,13 +31,28 @@
      @close-edit-modal.window="showEditModal = false; setTimeout(() => location.reload(), 250)"
      @keydown.escape.window="showEditModal = false">
 
-  {# Fil d'ariane + méta #}
-  <div class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+  {# Fil d'ariane + méta — flex-wrap : les badges passent à la ligne sur mobile (pas de scroll horizontal). #}
+  <div class="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-4">
     <a href="{% url 'schools:class-list' %}" class="hover:text-primary-600 flex items-center gap-1"><i data-lucide="arrow-left" class="w-4 h-4"></i> {% trans "Classes" %}</a>
     <span class="text-gray-300">/</span>
     <span class="badge-neutral">{{ school_class.get_level_display }}</span>
     {% if school_class.max_capacity and school_class.is_full %}<span class="badge-danger">{% trans "Complet" %}</span>
     {% elif school_class.max_capacity %}<span class="badge-success">{% trans "Disponible" %}</span>{% endif %}
+    {# Indicateur d'état local : seulement les trous DÉTECTABLES, cliquables vers l'onglet qui corrige. #}
+    {% if edt_no_teacher %}
+      <button type="button" @click="tab='subjects'"
+              class="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium px-2.5 py-0.5 hover:bg-amber-100 transition">
+        <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+        {{ edt_no_teacher }} matière{{ edt_no_teacher|pluralize }} sans prof
+      </button>
+    {% endif %}
+    {% if edt_no_slot and edt_subjects %}
+      <button type="button" @click="tab='edt'"
+              class="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium px-2.5 py-0.5 hover:bg-amber-100 transition">
+        <i data-lucide="calendar-x" class="w-3 h-3"></i>
+        {{ edt_no_slot }} cours sans créneau
+      </button>
+    {% endif %}
   </div>
 
   {# ════ KPIs (honnêtes : pas de faux taux de présence) ════ #}
@@ -94,6 +109,7 @@
     <button type="button" @click="tab='overview'" :class="tab==='overview' ? 'border-primary-600 text-gray-900 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'" class="px-4 py-2.5 text-sm border-b-2 -mb-px whitespace-nowrap transition-colors">{% trans "Vue d'ensemble" %}</button>
     <button type="button" @click="tab='students'" :class="tab==='students' ? 'border-primary-600 text-gray-900 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'" class="px-4 py-2.5 text-sm border-b-2 -mb-px whitespace-nowrap transition-colors">{% trans "Élèves" %} <span class="text-gray-400">{{ cockpit.roster|length }}</span></button>
     <button type="button" @click="tab='subjects'" :class="tab==='subjects' ? 'border-primary-600 text-gray-900 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'" class="px-4 py-2.5 text-sm border-b-2 -mb-px whitespace-nowrap transition-colors">{% trans "Matières" %} <span class="text-gray-400">{{ cockpit.class_subjects|length }}</span></button>
+    <button type="button" @click="tab='edt'" :class="tab==='edt' ? 'border-primary-600 text-gray-900 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'" class="px-4 py-2.5 text-sm border-b-2 -mb-px whitespace-nowrap transition-colors">{% trans "Emploi du temps" %}</button>
   </div>
 
   {# ════ Onglet : Vue d'ensemble ════ #}
@@ -207,6 +223,11 @@
     {% else %}
       <p class="text-sm text-gray-400 py-10 text-center">{% trans "Aucune matière configurée." %}</p>
     {% endif %}
+  </div>
+
+  {# ════ Onglet : Emploi du temps ════ #}
+  <div x-show="tab==='edt'" x-cloak>
+    {% include "schools/partials/class_timetable.html" %}
   </div>
 
   {# ════ Slide-over édition (téléporté) ════ #}
