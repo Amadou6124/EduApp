@@ -31,8 +31,8 @@
      @close-edit-modal.window="showEditModal = false; setTimeout(() => location.reload(), 250)"
      @keydown.escape.window="showEditModal = false">
 
-  {# Fil d'ariane + méta #}
-  <div class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+  {# Fil d'ariane + méta — flex-wrap : les badges passent à la ligne sur mobile (pas de scroll horizontal). #}
+  <div class="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-4">
     <a href="{% url 'schools:class-list' %}" class="hover:text-primary-600 flex items-center gap-1"><i data-lucide="arrow-left" class="w-4 h-4"></i> {% trans "Classes" %}</a>
     <span class="text-gray-300">/</span>
     <span class="badge-neutral">{{ school_class.get_level_display }}</span>
