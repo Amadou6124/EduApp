@@ -112,6 +112,23 @@
       {% include "team/partials/staff_permissions.html" with member=member perm=perm perm_form=perm_form is_director=is_director active_count=stats.permissions %}
     {% endif %}
 
+    {# Connexion — régénérer le mot de passe (directeur). Débloque un membre qui a oublié
+       le sien (en attendant l'auth par e-mail). Nouveau mdp affiché une fois + forcé. #}
+    {% if is_director and member.pk != request.user.pk %}
+    <div class="card p-5">
+      <h3 class="text-sm font-semibold text-gray-900 mb-1">Connexion</h3>
+      <p class="text-xs text-gray-500 mb-3 leading-relaxed">
+        Ce membre a oublié son mot de passe ? Régénérez-en un nouveau à lui remettre en personne —
+        l'ancien cesse aussitôt de fonctionner, et il choisira le sien à sa prochaine connexion.
+      </p>
+      <button type="button"
+              hx-post="{% url 'team:regenerate-password' member.pk %}" hx-swap="none"
+              class="inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 rounded-lg px-3.5 py-2 transition">
+        <i data-lucide="key-round" class="w-4 h-4"></i> Régénérer le mot de passe
+      </button>
+    </div>
+    {% endif %}
+
     {# Directeur — accès complet #}
     {% if member_role == 'director' %}
       <div class="card p-6 flex items-start gap-3">
@@ -239,6 +256,43 @@
       </div>
     </div>
   </template>
+
+  {# Modal identifiants après régénération — écoute staff-credentials (kebab émis
+     nativement par htmx depuis le HX-Trigger staffCredentials ; pas de bridge). #}
+  <div x-data="{ show:false, sName:'', sPhone:'', sPwd:'', sCopied:false }"
+       @staff-credentials.window="sName=$event.detail.name||''; sPhone=$event.detail.phone||''; sPwd=$event.detail.temp_pwd||''; sCopied=false; show=true; $nextTick(()=>window.lucide&&lucide.createIcons())">
+    <template x-teleport="body">
+      <div x-show="show" x-cloak class="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4">
+        <div @click.outside="show=false" class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+          <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="key-round" class="w-6 h-6 text-green-600"></i>
+          </div>
+          <h3 class="text-base font-semibold text-gray-900 text-center mb-1">Nouveau mot de passe</h3>
+          <p class="text-sm text-gray-500 text-center mb-5 leading-relaxed">
+            Remettez ces identifiants à <span x-text="sName" class="font-medium"></span> <strong>en personne</strong>.
+          </p>
+          <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-4 space-y-2">
+            <div class="flex items-center justify-between"><span class="text-xs text-gray-500">Téléphone</span><span class="text-sm font-semibold text-gray-800 font-mono" x-text="sPhone"></span></div>
+            <div class="border-t border-gray-100 pt-2 flex items-center justify-between"><span class="text-xs text-gray-500">Mot de passe</span><span class="text-sm font-semibold text-gray-800 font-mono" x-text="sPwd"></span></div>
+          </div>
+          <button type="button"
+                  @click="navigator.clipboard.writeText('Téléphone : '+sPhone+'\nMot de passe : '+sPwd).then(()=>{ sCopied=true; setTimeout(()=>sCopied=false,2500) })"
+                  :class="sCopied ? 'border-green-300 text-green-700 bg-green-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
+                  class="w-full flex items-center justify-center gap-2 border rounded-lg py-2.5 text-sm font-medium transition mb-4">
+            <i :data-lucide="sCopied ? 'check' : 'clipboard'" class="w-4 h-4"></i>
+            <span x-text="sCopied ? 'Copié !' : 'Copier les identifiants'"></span>
+          </button>
+          <div class="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 mb-5">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500 shrink-0 mt-0.5"></i>
+            <p class="text-xs text-amber-700 leading-relaxed">Affiché <strong>une seule fois</strong>. Le membre choisira le sien à sa prochaine connexion.</p>
+          </div>
+          <button type="button" @click="show=false" class="btn-primary w-full py-3 min-h-[44px]">J'ai noté les identifiants</button>
+        </div>
+      </div>
+    </template>
+  </div>
 
 </div>
 {% endwith %}

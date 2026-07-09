@@ -80,9 +80,10 @@ Direction retenue : **e-mail pour le personnel** (reset self-service « mot de p
 (1) les profs cibles ont-ils un e-mail qu'ils consultent ? (directeurs oui, vacataires à vérifier) ;
 (2) infra d'envoi d'e-mails (SendGrid/Mailgun…) à poser au déploiement ;
 (3) double régime de connexion → page login + modèle à concevoir.
-En attendant : ⚠️ **impasse connue** — un membre du personnel qui oublie son mot de passe n'a
-aucun dépannage dans l'app (pas de régénération côté Équipe, contrairement aux parents), et son
-mot de passe temporaire de création ne force pas le changement à la 1re connexion.
+**Niveau 1 (intérimaire) FAIT** en attendant : mot de passe staff temporaire à usage unique
+(**changement forcé** à la 1re connexion, comme les parents) + **régénération** par le directeur
+depuis la fiche membre (l'impasse « staff qui oublie son mdp » est donc résolue sans e-mail).
+L'e-mail reste le chantier de fond pour le self-service (sans passer par le directeur).
 
 ---
 

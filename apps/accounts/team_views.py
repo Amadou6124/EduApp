@@ -214,6 +214,11 @@ def team_member_create(request):
     form = TeamMemberCreateForm(school, request.POST)
     if form.is_valid():
         user = form.save()                       # crée User + Membership
+        # Le mot de passe posé par l'école est temporaire (affiché une seule fois) →
+        # changement forcé à la 1re connexion (même discipline que les parents), sinon
+        # il resterait éternel. Géré par ForcePasswordChangeMiddleware.
+        user.must_change_password = True
+        user.save(update_fields=['must_change_password'])
         role = form.cleaned_data['role']
         if role == UserRole.STAFF:
             membership = Membership.objects.filter(user=user, school=school).first()
@@ -505,6 +510,33 @@ def _detail_header_response(request, school, member, message, toast_type):
 
 def _from_detail_header(request):
     return request.headers.get('HX-Target') == 'member-detail-header'
+
+
+@login_required
+@director_required
+@require_POST
+def team_regenerate_password(request, user_id):
+    """Régénère le mot de passe d'un membre (directeur uniquement) — débloque un membre
+    qui a oublié le sien, en attendant l'auth par e-mail. Nouveau mdp temporaire affiché
+    UNE fois + changement forcé re-armé (le temporaire meurt à la 1re connexion)."""
+    from .team_forms import generate_temp_password
+    school  = get_school(request)
+    member  = get_object_or_404(User, pk=user_id, memberships__school=school)
+    temp_pwd = generate_temp_password()
+    member.set_password(temp_pwd)
+    member.must_change_password = True
+    member.save(update_fields=['password', 'must_change_password'])
+
+    resp = HttpResponse('')
+    # htmx émet nativement staff-credentials (kebab) → le modal écoute directement.
+    resp['HX-Trigger'] = json.dumps({
+        'staffCredentials': {
+            'name':     member.full_name,
+            'phone':    member.phone_number,
+            'temp_pwd': temp_pwd,
+        },
+    })
+    return resp
 
 
 @login_required

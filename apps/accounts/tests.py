@@ -98,3 +98,58 @@ class ForcePasswordChangeTests(TestCase):
         self.assertIsNone(authenticate(phone_number='70000099', password='TEMP1234'))      # temporaire mort
         # plus de redirection après le changement
         self.assertNotIn(self.set_url, self.client.get('/dashboard/').headers.get('Location', ''))
+
+
+class TeamPasswordLifecycleTests(TestCase):
+    """Niveau 1 (intérimaire, avant auth e-mail) : le mot de passe d'un membre d'équipe
+    posé par l'école est temporaire à usage unique, et régénérable par le directeur."""
+
+    def setUp(self):
+        from apps.schools.models import School
+        from apps.accounts.models import Membership
+        self.school = School.objects.create(
+            name='École RH', short_name='RH', city='Bamako', school_type='primary',
+        )
+        self.director = User.objects.create_user(
+            phone_number='70001000', password='pw', full_name='Directrice',
+            role=UserRole.DIRECTOR,
+        )
+        Membership.objects.create(user=self.director, school=self.school,
+                                  role=UserRole.DIRECTOR, is_active=True)
+        self.teacher = User.objects.create_user(
+            phone_number='70001001', password='ancien-mdp', full_name='Prof X',
+            role=UserRole.TEACHER, must_change_password=False,
+        )
+        Membership.objects.create(user=self.teacher, school=self.school,
+                                  role=UserRole.TEACHER, is_active=True)
+        # session multi-école : poser l'école active
+        self.client.force_login(self.director)
+        s = self.client.session
+        s['active_school_id'] = self.school.id
+        s.save()
+
+    def test_regeneration_change_le_mdp_arme_le_forcage(self):
+        import json
+        from django.contrib.auth import authenticate
+        from django.urls import reverse
+        r = self.client.post(reverse('team:regenerate-password', args=[self.teacher.id]))
+        self.assertEqual(r.status_code, 200)
+        creds = json.loads(r['HX-Trigger'])['staffCredentials']
+        new_pwd = creds['temp_pwd']
+        self.assertEqual(creds['phone'], '70001001')
+        self.teacher.refresh_from_db()
+        # nouveau marche, ancien mort, changement forcé armé
+        self.assertIsNotNone(authenticate(phone_number='70001001', password=new_pwd))
+        self.assertIsNone(authenticate(phone_number='70001001', password='ancien-mdp'))
+        self.assertTrue(self.teacher.must_change_password)
+
+    def test_regeneration_reservee_au_directeur(self):
+        from django.urls import reverse
+        from apps.accounts.models import Membership
+        # un prof (pas directeur) ne peut PAS régénérer
+        self.client.force_login(self.teacher)
+        s = self.client.session; s['active_school_id'] = self.school.id; s.save()
+        r = self.client.post(reverse('team:regenerate-password', args=[self.director.id]))
+        self.assertIn(r.status_code, (302, 403))               # refusé (jamais 200)
+        self.director.refresh_from_db()
+        self.assertFalse(self.director.must_change_password)   # mdp du directeur intact
