@@ -209,12 +209,18 @@ function edtGrid() {
       this.slotId = null; this.day = day; this.room = '';
       this.courseId = String(Object.keys(durations)[0] || '');
       this.start = '08:00'; this.autoEnd(); this.showForm = true;
-      this.$nextTick(() => { htmx.process(this.$root); lucide.createIcons(); });
+      this.$nextTick(() => { htmx.process(this.$root); lucide.createIcons(); this._scrollToForm(); });
     },
     openEdit(id, csId, day, start, end, room) {
       this.slotId = id; this.courseId = String(csId); this.day = day;
       this.start = start; this.end = end; this.room = room; this.showForm = true;
-      this.$nextTick(() => { htmx.process(this.$root); lucide.createIcons(); });
+      this.$nextTick(() => { htmx.process(this.$root); lucide.createIcons(); this._scrollToForm(); });
+    },
+    _scrollToForm() {
+      // Cliquer un créneau en BAS de la grille ouvre le formulaire en HAUT — sans ce
+      // défilement, il serait hors écran (« rien ne se passe »).
+      const f = this.$root.querySelector('select[name="class_subject"]');
+      if (f) f.closest('form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
     autoEnd() {
       // Fin = début + durée par défaut du cours (le directeur peut ajuster ensuite).
