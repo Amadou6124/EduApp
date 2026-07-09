@@ -1174,18 +1174,11 @@
     });
   </script>
 
-  {# ── Bridge HTMX → Alpine : showToast ── #}
-  <script>
-    document.addEventListener('showToast', function(e) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: e.detail }));
-    });
-    document.addEventListener('closeScheduleModal', function() {
-      window.dispatchEvent(new CustomEvent('close-schedule-modal'));
-    });
-    document.addEventListener('guardianCredentials', function(e) {
-      window.dispatchEvent(new CustomEvent('guardian-credentials', { detail: e.detail }));
-    });
-  </script>
+  {% comment %}PAS de bridge showToast → show-toast ici : htmx 2.x émet DÉJÀ chaque
+  événement HX-Trigger camelCase en DEUX versions (showToast ET show-toast, qui bulle
+  jusqu'à window). Un bridge qui re-dispatche show-toast crée un DOUBLON → double toast
+  (visible ou non selon la milliseconde). Les composants écoutent directement la version
+  kebab-case native (@show-toast.window, @close-schedule-modal.window, etc.).{% endcomment %}
 
   {% include "settings/partials/toast.html" %}
 
