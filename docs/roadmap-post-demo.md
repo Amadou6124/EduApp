@@ -74,6 +74,16 @@ l'app tourne en vrai, école par école, selon la demande réelle.
 - **Motifs configurables** par école (aujourd'hui « Autre + justification » suffit).
 - **Pénalités de retard** : l'inverse d'une remise. *Le modèle est déjà prêt (`FeeAdjustment.type`) → le plus rapide.*
 
+### Auth staff par e-mail (prof / staff / directeur / promoteur) — décision produit posée
+Direction retenue : **e-mail pour le personnel** (reset self-service « mot de passe oublié »),
+**téléphone pour les parents** (inchangé). Conditions à valider AVANT de construire :
+(1) les profs cibles ont-ils un e-mail qu'ils consultent ? (directeurs oui, vacataires à vérifier) ;
+(2) infra d'envoi d'e-mails (SendGrid/Mailgun…) à poser au déploiement ;
+(3) double régime de connexion → page login + modèle à concevoir.
+En attendant : ⚠️ **impasse connue** — un membre du personnel qui oublie son mot de passe n'a
+aucun dépannage dans l'app (pas de régénération côté Équipe, contrairement aux parents), et son
+mot de passe temporaire de création ne force pas le changement à la 1re connexion.
+
 ---
 
 ## 🟠 Important (réalisme terrain)

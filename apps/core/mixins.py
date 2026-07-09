@@ -1,7 +1,6 @@
 from functools import wraps
 
 from django.contrib.auth.mixins import AccessMixin
-from django.http import HttpResponseForbidden
 from django.urls import reverse
 
 from apps.accounts.models import UserRole
@@ -113,6 +112,22 @@ def get_active_role(request):
     return request.user.role  # fallback legacy
 
 
+def redirect_to_own_home(request):
+    """Un utilisateur CONNECTÉ mais du mauvais rôle est renvoyé vers SON portail
+    (prof → /teacher/, parent → /portal/parent/…) au lieu d'une page 403 nue —
+    le cas typique : un prof colle une URL admin reçue d'un collègue. On ne donne
+    aucun accès, on redirige poliment. HTMX → HX-Redirect (redirection pleine page)."""
+    from django.http import HttpResponse
+    from django.shortcuts import redirect
+    from apps.accounts.views import _role_home   # import différé (cycle)
+    home = _role_home(get_active_role(request))
+    if request.headers.get('HX-Request'):
+        resp = HttpResponse(status=204)
+        resp['HX-Redirect'] = home
+        return resp
+    return redirect(home)
+
+
 def director_or_staff_required(view_func):
     """Limite l'accès aux directeurs, staff et superadmins. À placer après @login_required."""
     from django.shortcuts import redirect
@@ -123,9 +138,7 @@ def director_or_staff_required(view_func):
             return redirect(reverse('accounts:login') + f'?next={request.path}')
         # Rôle de l'école active (multi-école), fallback legacy User.role
         if get_active_role(request) not in (UserRole.DIRECTOR, UserRole.STAFF) and not request.user.is_superuser:
-            return HttpResponseForbidden(
-                '<h1 style="font-family:sans-serif;padding:40px">403 — Accès réservé au directeur et au staff.</h1>'
-            )
+            return redirect_to_own_home(request)
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -149,9 +162,7 @@ def director_or_accounting_required(view_func):
             sp = getattr(request.user, 'staff_permission', None)
             allowed = bool(sp and sp.can_manage_accounting)
         if not allowed:
-            return HttpResponseForbidden(
-                '<h1 style="font-family:sans-serif;padding:40px">403 — Accès comptabilité réservé.</h1>'
-            )
+            return redirect_to_own_home(request)
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -175,9 +186,7 @@ def director_or_emargement_required(view_func):
             sp = getattr(request.user, 'staff_permission', None)
             allowed = bool(sp and (sp.can_record_emargement or sp.can_manage_accounting))
         if not allowed:
-            return HttpResponseForbidden(
-                '<h1 style="font-family:sans-serif;padding:40px">403 — Accès émargement réservé.</h1>'
-            )
+            return redirect_to_own_home(request)
         return view_func(request, *args, **kwargs)
     return wrapper
 
