@@ -1571,6 +1571,10 @@ p {
   top: -0.25rem;
 }
 
+.-top-2 {
+  top: -0.5rem;
+}
+
 .bottom-0 {
   bottom: 0px;
 }
@@ -2417,6 +2421,10 @@ p {
   width: 19px;
 }
 
+.w-\[52px\] {
+  width: 52px;
+}
+
 .w-\[76px\] {
   width: 76px;
 }
@@ -2607,6 +2615,10 @@ p {
 
 .flex-1 {
   flex: 1 1 0%;
+}
+
+.flex-none {
+  flex: none;
 }
 
 .flex-shrink {
@@ -3579,6 +3591,11 @@ p {
   background-color: rgb(224 231 255 / var(--tw-bg-opacity, 1));
 }
 
+.bg-primary-300 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(165 180 252 / var(--tw-bg-opacity, 1));
+}
+
 .bg-primary-50 {
   --tw-bg-opacity: 1;
   background-color: rgb(238 242 255 / var(--tw-bg-opacity, 1));
@@ -3905,6 +3922,11 @@ p {
 .py-12 {
   padding-top: 3rem;
   padding-bottom: 3rem;
+}
+
+.py-14 {
+  padding-top: 3.5rem;
+  padding-bottom: 3.5rem;
 }
 
 .py-16 {
@@ -4568,6 +4590,11 @@ p {
   color: rgb(236 72 153 / var(--tw-text-opacity, 1));
 }
 
+.text-primary-300 {
+  --tw-text-opacity: 1;
+  color: rgb(165 180 252 / var(--tw-text-opacity, 1));
+}
+
 .text-primary-400 {
   --tw-text-opacity: 1;
   color: rgb(129 140 248 / var(--tw-text-opacity, 1));
@@ -4863,6 +4890,11 @@ p {
 
 .shadow-gray-200\/60 {
   --tw-shadow-color: rgb(229 231 235 / 0.6);
+  --tw-shadow: var(--tw-shadow-colored);
+}
+
+.shadow-primary-600\/25 {
+  --tw-shadow-color: rgb(79 70 229 / 0.25);
   --tw-shadow: var(--tw-shadow-colored);
 }
 
