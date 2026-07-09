@@ -12,6 +12,9 @@ urlpatterns = [
     # ── Dashboard professeur ──────────────────────────────────
     path('', views.teacher_dashboard, name='dashboard'),
 
+    # ── Mon emploi du temps + mes heures (lecture seule) ──────
+    path('emploi-du-temps/', views.my_schedule, name='my-schedule'),
+
     # ── Absences ──────────────────────────────────────────────
     path('absences/', views.attendance_list, name='attendance-list'),
     path('absences/<int:class_id>/', views.attendance_class, name='attendance-class'),

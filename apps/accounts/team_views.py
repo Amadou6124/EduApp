@@ -361,7 +361,57 @@ def team_member_detail(request, user_id):
         context['perm_form'] = StaffPermissionForm(instance=perm)
         context['stats'] = {'permissions': _active_perm_count(perm)}
 
+    # « Fil vers la paie » : photo du mois COURANT sur la fiche du prof (lecture seule).
+    if (member_role == UserRole.TEACHER and school.accounting_enabled
+            and context['can_manage_accounting']):
+        context['pay_month'] = _teacher_pay_month(school, member)
+
     return render(request, 'team/team_detail.html', context)
+
+
+def _teacher_pay_month(school, member):
+    """Photo paie du mois courant pour la fiche prof : heures émargées (les heures de
+    REMPLAÇANT sont créditées — même règle que la paie), séances par statut, montant
+    estimé (vacataire) ou salaire − retenue (permanent), bulletin s'il existe.
+    Lecture seule : la vérité reste l'émargement + l'écran Salaires."""
+    from datetime import date
+    from apps.accounting.models import (
+        TeacherAttendance, EmployeeProfile, EmploymentType, SalaryPayment,
+    )
+    from apps.accounting.services import (
+        compute_teacher_hours, compute_vacataire_pay, compute_permanent_deductions,
+    )
+
+    today = date.today()
+    y, m = today.year, today.month
+
+    counts = {'present': 0, 'replaced': 0, 'absent': 0}
+    for a in TeacherAttendance.objects.filter(
+            school=school, teacher=member, date__year=y, date__month=m):
+        counts[a.status] = counts.get(a.status, 0) + 1
+
+    profile = EmployeeProfile.objects.filter(
+        membership__user=member, membership__school=school,
+    ).select_related('membership').first()
+
+    info = {
+        'ref':      date(y, m, 1),
+        'hours':    compute_teacher_hours(school, y, m).get(member.id, 0),
+        'counts':   counts,
+        'profile':  profile,
+        'is_vacataire': bool(profile and profile.employment_type == EmploymentType.VACATAIRE),
+        'amount': None, 'unrated_hours': 0, 'deduction': None,
+        'payment':  SalaryPayment.objects.filter(
+            school=school, employee__user=member, year=y, month=m,
+        ).first(),
+    }
+    if info['is_vacataire']:
+        row = compute_vacataire_pay(school, y, m).get(member.id)
+        if row:
+            info['amount'], info['unrated_hours'] = row['amount'], row['unrated_hours']
+    elif profile:
+        info['deduction'] = compute_permanent_deductions(school, y, m).get(member.id)
+    return info
 
 
 @login_required

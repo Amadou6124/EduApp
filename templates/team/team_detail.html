@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n humanize %}
 
 {% block title %}{{ member.full_name }}{% endblock %}
 {% block page_title %}Équipe{% endblock %}
@@ -123,6 +123,67 @@
           <p class="text-sm text-gray-500 mt-0.5">Le directeur dispose de tous les droits sur l'école — aucune permission à configurer.</p>
         </div>
       </div>
+    {% endif %}
+
+    {# « Ce mois-ci » — le fil fiche prof → paie : heures émargées, séances, estimation. #}
+    {% if pay_month %}
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center shrink-0">
+            <i data-lucide="clock" class="w-4 h-4 text-primary-600"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900">Ce mois-ci · {{ pay_month.ref|date:"F Y" }}</h3>
+            <p class="text-xs text-gray-400">D'après l'émargement — la paie se règle dans <a href="{% url 'accounting:salaires' %}" class="text-primary-600 hover:underline">Salaires</a>.</p>
+          </div>
+        </div>
+        {% if pay_month.payment %}
+          <a href="{% url 'accounting:payslip-pdf' pay_month.payment.id %}" target="_blank"
+             class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 border border-primary-200 bg-primary-50 rounded-lg px-3 py-1.5">
+            <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Bulletin {{ pay_month.payment.get_status_display|lower }}
+          </a>
+        {% endif %}
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="rounded-xl bg-gray-50 p-3">
+          <p class="text-lg font-semibold text-gray-900">{{ pay_month.hours|floatformat:"-1" }} h</p>
+          <p class="text-[11px] text-gray-400">heures émargées</p>
+        </div>
+        <div class="rounded-xl bg-gray-50 p-3">
+          <p class="text-lg font-semibold text-gray-900">{{ pay_month.counts.present }}<span class="text-xs text-gray-400"> / {{ pay_month.counts.replaced }} / {{ pay_month.counts.absent }}</span></p>
+          <p class="text-[11px] text-gray-400">présent / remplacé / absent</p>
+        </div>
+        {% if pay_month.is_vacataire %}
+          <div class="rounded-xl bg-gray-50 p-3">
+            <p class="text-lg font-semibold text-gray-900">{% if pay_month.amount %}≈ {{ pay_month.amount|floatformat:0|intcomma }}{% else %}0{% endif %} <span class="text-xs text-gray-400">FCFA</span></p>
+            <p class="text-[11px] text-gray-400">estimation vacataire</p>
+          </div>
+          {% if pay_month.unrated_hours %}
+            <div class="rounded-xl bg-amber-50 p-3">
+              <p class="text-lg font-semibold text-amber-700">{{ pay_month.unrated_hours|floatformat:"-1" }} h</p>
+              <p class="text-[11px] text-amber-600">sans tarif — <span class="underline cursor-pointer" onclick="document.getElementById('remuneration-section')?.scrollIntoView({behavior:'smooth'})">configurer</span></p>
+            </div>
+          {% endif %}
+        {% elif pay_month.profile %}
+          <div class="rounded-xl bg-gray-50 p-3">
+            <p class="text-lg font-semibold text-gray-900">{{ pay_month.profile.monthly_salary|default:0|floatformat:0|intcomma }} <span class="text-xs text-gray-400">FCFA</span></p>
+            <p class="text-[11px] text-gray-400">salaire mensuel</p>
+          </div>
+          {% if pay_month.deduction %}
+            <div class="rounded-xl bg-amber-50 p-3">
+              <p class="text-lg font-semibold text-amber-700">− {{ pay_month.deduction.deduction|floatformat:0|intcomma }} <span class="text-xs">FCFA</span></p>
+              <p class="text-[11px] text-amber-600">retenue ({{ pay_month.deduction.absences }} absence{{ pay_month.deduction.absences|pluralize }})</p>
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="rounded-xl bg-amber-50 p-3 col-span-2">
+            <p class="text-xs text-amber-700">Profil de paie non configuré — réglez-le dans la section Rémunération ci-dessous.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
     {% endif %}
 
     {# Rémunération — module comptabilité (lazy, tous rôles) #}

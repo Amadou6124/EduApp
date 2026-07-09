@@ -977,3 +977,67 @@ def teacher_observations(request):
         'observations': observations,
         'total_count':  len(observations),
     })
+
+
+# ─────────────────────────────────────────────────────────────
+# Mon emploi du temps + mes heures (Lot 3 — confiance du vacataire)
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+@teacher_required
+def my_schedule(request):
+    """Le prof voit SA semaine (lecture seule) + ses heures émargées du mois, avec le
+    détail séance par séance → un vacataire peut VÉRIFIER ce qu'on lui paie.
+
+    Lecture seule stricte : aucune écriture. Les chiffres viennent des mêmes services
+    que la paie (compute_teacher_hours / compute_vacataire_pay) — donc cohérents à 100 %
+    avec l'écran Salaires du directeur. Le prof ne peut rien modifier ici."""
+    from apps.schools.views import _print_timetable_ctx
+    from apps.accounting.models import (
+        TeacherAttendance, EmployeeProfile, EmploymentType,
+    )
+    from apps.accounting.services import compute_teacher_hours, compute_vacataire_pay
+
+    school  = get_school(request)
+    teacher = request.user
+
+    # Emploi du temps (dérivé de ses cours) — même moteur que l'impression.
+    ctx = _print_timetable_ctx(school, teacher=teacher)
+
+    ctx['pay'] = None
+    if school.accounting_enabled:
+        today = date.today()
+        y, m = today.year, today.month
+
+        profile = EmployeeProfile.objects.filter(
+            membership__user=teacher, membership__school=school,
+        ).first()
+        is_vac = bool(profile and profile.employment_type == EmploymentType.VACATAIRE)
+
+        # Détail des séances du mois (présent/remplacé/absent) — la preuve à vérifier.
+        sessions = list(
+            TeacherAttendance.objects
+            .filter(school=school, teacher=teacher, date__year=y, date__month=m)
+            .select_related('class_subject__subject', 'class_subject__school_class')
+            .order_by('-date')
+        )
+        counts = {'present': 0, 'replaced': 0, 'absent': 0}
+        for a in sessions:
+            counts[a.status] = counts.get(a.status, 0) + 1
+
+        amount = None
+        if is_vac:
+            row = compute_vacataire_pay(school, y, m).get(teacher.id)
+            amount = row['amount'] if row else 0
+
+        ctx['pay'] = {
+            'ref':      date(y, m, 1),
+            'hours':    compute_teacher_hours(school, y, m).get(teacher.id, 0),
+            'counts':   counts,
+            'sessions': sessions,
+            'is_vacataire': is_vac,
+            'amount':   amount,
+        }
+
+    ctx['page_title'] = 'Mon emploi du temps'
+    return render(request, 'teachers/my_schedule.html', ctx)

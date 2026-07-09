@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load i18n humanize %}
+
+{% block title %}Mon emploi du temps{% endblock %}
+{% block page_title %}Mon emploi du temps{% endblock %}
+{% block page_subtitle %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto pb-6 space-y-5">
+
+  {# ══════════ Ma semaine (lecture seule, dérivée de mes cours) ══════════ #}
+  <div class="card p-4 sm:p-5">
+    <div class="flex items-center gap-2.5 mb-4">
+      <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center shrink-0">
+        <i data-lucide="calendar-days" class="w-4 h-4 text-primary-600"></i>
+      </div>
+      <div>
+        <h2 class="text-sm font-semibold text-gray-900">Ma semaine</h2>
+        <p class="text-xs text-gray-400">{% if edt_year %}Année {{ edt_year.name }}{% endif %}</p>
+      </div>
+    </div>
+
+    {% if columns %}
+      <div class="overflow-x-auto">
+        <div class="flex border border-gray-200 rounded-xl overflow-hidden min-w-[560px]">
+          {# Gouttière des heures #}
+          <div class="relative w-10 shrink-0 border-r border-gray-100" style="height:{{ grid_height|add:'26' }}px">
+            {% for m in hour_marks %}<span class="absolute right-1.5 -translate-y-1/2 text-[10px] text-gray-300 tabular-nums" style="top:{{ m.top|add:'26' }}px">{{ m.label }}</span>{% endfor %}
+          </div>
+          {% for col in columns %}
+            <div class="flex-1 min-w-0 border-r border-gray-100 last:border-r-0">
+              <div class="text-center text-[11px] font-medium text-gray-500 py-1.5 border-b border-gray-100 bg-gray-50/60">{{ col.label }}</div>
+              <div class="relative" style="height:{{ grid_height }}px">
+                {% for m in hour_marks %}<span class="absolute inset-x-0 border-t border-gray-50" style="top:{{ m.top }}px"></span>{% endfor %}
+                {% for b in col.breaks %}
+                  <div class="absolute inset-x-0 bg-gray-100/80 border-y border-gray-200 flex items-center justify-center overflow-hidden" style="top:{{ b.top }}px;height:{{ b.height }}px">
+                    <span class="text-[9px] uppercase tracking-wide text-gray-400 truncate px-1">{{ b.label }}</span>
+                  </div>
+                {% endfor %}
+                {% for s in col.slots %}
+                  <div class="absolute inset-x-0.5 rounded-r-md px-1.5 py-0.5 overflow-hidden bg-primary-50 border-l-[3px] border-primary-500" style="top:{{ s.top }}px;height:{{ s.height }}px">
+                    <span class="block text-[11px] font-semibold text-gray-800 truncate">{{ s.line1 }}</span>
+                    <span class="block text-[10px] text-gray-500 truncate">{{ s.line2 }} · {{ s.hours }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-400 py-8 text-center">Aucun cours placé à votre emploi du temps pour l'instant.</p>
+    {% endif %}
+  </div>
+
+  {# ══════════ Mes heures ce mois (pour vérifier ma paie) ══════════ #}
+  {% if pay %}
+  <div class="card p-4 sm:p-5">
+    <div class="flex items-center gap-2.5 mb-4">
+      <div class="w-8 h-8 rounded-lg bg-primary-600/10 flex items-center justify-center shrink-0">
+        <i data-lucide="clock" class="w-4 h-4 text-primary-600"></i>
+      </div>
+      <div>
+        <h2 class="text-sm font-semibold text-gray-900">Mes heures · {{ pay.ref|date:"F Y" }}</h2>
+        <p class="text-xs text-gray-400">D'après vos émargements. Une question ? Voyez la direction.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 {% if pay.is_vacataire %}sm:grid-cols-3{% endif %} gap-3 mb-4">
+      <div class="rounded-xl bg-gray-50 p-3">
+        <p class="text-lg font-semibold text-gray-900">{{ pay.hours|floatformat:"-1" }} h</p>
+        <p class="text-[11px] text-gray-400">heures émargées</p>
+      </div>
+      <div class="rounded-xl bg-gray-50 p-3">
+        <p class="text-lg font-semibold text-gray-900">{{ pay.counts.present }}<span class="text-xs text-gray-400"> / {{ pay.counts.replaced }} / {{ pay.counts.absent }}</span></p>
+        <p class="text-[11px] text-gray-400">présent / remplacé / absent</p>
+      </div>
+      {% if pay.is_vacataire %}
+        <div class="rounded-xl bg-primary-50 p-3">
+          <p class="text-lg font-semibold text-primary-700">{% if pay.amount %}≈ {{ pay.amount|floatformat:0|intcomma }}{% else %}0{% endif %} <span class="text-xs text-primary-400">FCFA</span></p>
+          <p class="text-[11px] text-primary-500">estimation ce mois</p>
+        </div>
+      {% endif %}
+    </div>
+
+    {# Le détail séance par séance — la preuve que le vacataire peut vérifier. #}
+    {% if pay.sessions %}
+      <div class="border-t border-gray-100 pt-3">
+        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Détail des séances</p>
+        <div class="divide-y divide-gray-50">
+          {% for a in pay.sessions %}
+          <div class="flex items-center gap-3 py-2">
+            <span class="text-xs text-gray-400 tabular-nums w-16 shrink-0">{{ a.date|date:"d/m" }}</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-800 truncate">{{ a.class_subject.subject.name }} <span class="text-gray-400">· {{ a.class_subject.school_class.name }}</span></p>
+            </div>
+            {% if a.status == 'present' %}<span class="text-xs font-medium text-green-600 shrink-0">Présent{% if a.hours %} · {{ a.hours|floatformat:"-1" }}h{% endif %}</span>
+            {% elif a.status == 'replaced' %}<span class="text-xs font-medium text-blue-600 shrink-0">Remplacé</span>
+            {% else %}<span class="text-xs font-medium text-amber-600 shrink-0">Absent</span>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-400 py-2">Aucune séance émargée ce mois pour l'instant.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -2501,6 +2501,10 @@ p {
   min-width: 44px;
 }
 
+.min-w-\[560px\] {
+  min-width: 560px;
+}
+
 .min-w-\[64px\] {
   min-width: 64px;
 }
@@ -3993,6 +3997,10 @@ p {
 
 .pb-4 {
   padding-bottom: 1rem;
+}
+
+.pb-6 {
+  padding-bottom: 1.5rem;
 }
 
 .pb-7 {
