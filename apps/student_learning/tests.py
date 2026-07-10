@@ -714,3 +714,111 @@ class CahierDeriveTests(SRSBase):
         a = cahier.derive_cahier_tasks(cv, self.lesson)
         b = cahier.derive_cahier_tasks(cv, self.lesson)
         self.assertEqual([t['text'] for t in a], [t['text'] for t in b])
+
+
+class CahierViewTests(SRSBase):
+    """Vues /learn/v2/lesson/<id>/cahier/ + nœud non-bloquant dans assemble_nodes."""
+
+    def _login(self, student=None):
+        s = self.client.session
+        s['student_id'] = (student or self.student).pk
+        s.save()
+
+    def _with_reading(self):
+        self.cv.reading_data = _reading()
+        self.cv.save(update_fields=['reading_data'])
+
+    def _url(self, suffix=''):
+        return f'/learn/v2/lesson/{self.lesson.id}/cahier/{suffix}'
+
+    def test_anonyme_redirige_vers_login(self):
+        self._with_reading()
+        resp = self.client.get(self._url())
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/learn/login', resp.url)
+
+    def test_runner_affiche_les_taches(self):
+        self._with_reading()
+        self._login()
+        resp = self.client.get(self._url())
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'sur papier')
+        self.assertContains(resp, 'cahier-tasks')      # json_script des tâches
+
+    def test_404_si_aucune_tache_derivable(self):
+        self.cv.reading_data = {}
+        self.cv.concepts_data = []
+        self.cv.save(update_fields=['reading_data', 'concepts_data'])
+        self._login()
+        self.assertEqual(self.client.get(self._url()).status_code, 404)
+
+    def test_finish_persiste_l_auto_evaluation(self):
+        self._with_reading()
+        self._login()
+        resp = self.client.post(
+            self._url('finish/'),
+            {'results': [{'task_id': 'dictee', 'self': 'good'},
+                         {'task_id': 'copie', 'self': 'partial'}]},
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['first_time'])
+        att = CahierAttempt.objects.get(student=self.student, content_version=self.cv)
+        self.assertEqual(len(att.results), 2)
+        self.assertEqual(att.results[0], {'task_id': 'dictee', 'self': 'good'})
+
+    def test_finish_nettoie_les_resultats_invalides(self):
+        self._with_reading()
+        self._login()
+        resp = self.client.post(
+            self._url('finish/'),
+            {'results': [{'task_id': 'dictee', 'self': 'good'},
+                         {'task_id': 'x', 'self': 'triche'},   # self invalide → rejeté
+                         'pas-un-dict']},
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        att = CahierAttempt.objects.get(student=self.student, content_version=self.cv)
+        self.assertEqual(len(att.results), 1)   # seul le valide est gardé
+
+    def test_isolation_autre_classe_404(self):
+        self._with_reading()
+        autre_ecole = School.objects.create(
+            name='Autre', short_name='AU', city='Bamako', school_type='primary')
+        autre_classe = SchoolClass.objects.create(
+            school=autre_ecole, name='1B', level='fondamental_1',
+            annual_fee=Decimal('0'), max_capacity=40)
+        etr = Student.objects.create(
+            school=autre_ecole, school_class=autre_classe,
+            full_name='Étranger', tuition_fee=Decimal('0'))
+        self._login(etr)   # leçon PAS déployée dans sa classe
+        self.assertEqual(self.client.get(self._url()).status_code, 404)
+
+    # ── nœud non-bloquant dans le parcours ──
+    def _all_quizzes_done(self):
+        self._complete('c1', passes_done=1)
+        self._complete('c2', passes_done=2)
+
+    def test_noeud_cahier_bloque_tant_que_quiz_non_finis(self):
+        from apps.student_learning.views import assemble_nodes
+        self._with_reading()
+        self.cv.story_data = {'scene': {'name': 'S'}, 'characters': [{}], 'steps': [{}]}
+        self.cv.save(update_fields=['story_data'])
+        nodes = assemble_nodes(self.cv, self.student)
+        cah = next(n for n in nodes if n['type'] == 'cahier')
+        self.assertEqual(cah['status'], 'locked')   # quiz pas finis
+
+    def test_noeud_cahier_available_et_ne_bloque_pas_la_suite(self):
+        from apps.student_learning.views import assemble_nodes
+        self._with_reading()
+        self.cv.story_data = {'scene': {'name': 'S'}, 'characters': [{}], 'steps': [{}]}
+        self.cv.exam_data = {'questions': [{}]}
+        self.cv.save(update_fields=['story_data', 'exam_data'])
+        self._all_quizzes_done()
+        nodes = assemble_nodes(self.cv, self.student)
+        cah = next(n for n in nodes if n['type'] == 'cahier')
+        story = next(n for n in nodes if n['type'] == 'story')
+        # cahier = ouvert (available), mais NON fait...
+        self.assertEqual(cah['status'], 'available')
+        # ...et pourtant l'histoire APRÈS lui est jouable (current), pas verrouillée.
+        self.assertEqual(story['status'], 'current')
