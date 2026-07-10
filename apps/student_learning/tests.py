@@ -19,8 +19,8 @@ from apps.schools.models import (
 )
 from apps.students.models import Student
 
-from . import srs
-from .models import ConceptProgress, ConceptReview
+from . import srs, cahier
+from .models import ConceptProgress, ConceptReview, CahierAttempt
 
 User = get_user_model()
 
@@ -636,3 +636,81 @@ class ProgresViewTests(ProgressContextTests):
         self._login()   # connecté en self.student
         resp = self.client.get(f'/learn/grades/bulletin/{bul.pk}/pdf/')
         self.assertEqual(resp.status_code, 404)
+
+
+def _reading(with_terms=True):
+    """reading_data réaliste : sections avec text + simple, glossaire."""
+    r = {
+        'title': 'Le corps humain',
+        'direction': 'ltr',
+        'sections': [
+            {'id': 's1', 'title': 'Introduction', 'blocks': [
+                {'type': 'p',
+                 'text': "Chaque matin tu te lèves et tu entends les bruits du quartier autour de toi. "
+                         "Tout cela, c'est grâce à ton corps qui travaille sans arrêt.",
+                 'simple': "Ton corps t'aide à faire tes activités du matin au soir. Il travaille pour toi."},
+            ]},
+        ],
+    }
+    if with_terms:
+        r['terms'] = {'sens': "La capacité du corps à percevoir le monde autour de toi."}
+    return r
+
+
+class CahierDeriveTests(SRSBase):
+    """Dérivation des tâches Cahier (Voie B, sans IA) — calibrage par niveau."""
+
+    def _cv_with(self, level='fondamental_1', reading=None, concepts=None):
+        self.lesson.level = level
+        self.lesson.save(update_fields=['level'])
+        self.cv.reading_data = _reading() if reading is None else reading
+        if concepts is not None:
+            self.cv.concepts_data = concepts
+        self.cv.save(update_fields=['reading_data', 'concepts_data'])
+        return self.cv
+
+    def test_bas_niveau_dictee_simple_et_copie(self):
+        cv = self._cv_with('fondamental_1')
+        tasks = cahier.derive_cahier_tasks(cv, self.lesson)
+        kinds = [t['kind'] for t in tasks]
+        self.assertEqual(kinds, ['dictee', 'copie'])   # pas de composition
+        # bas niveau → phrase issue de la version « simple »
+        self.assertIn("Ton corps t'aide", tasks[0]['text'])
+        self.assertTrue(tasks[0]['hot'])               # mots pièges repérés
+        self.assertTrue(tasks[1]['text'].startswith('sens :'))
+
+    def test_haut_niveau_ajoute_la_composition(self):
+        cv = self._cv_with('secondaire_gen')
+        tasks = cahier.derive_cahier_tasks(cv, self.lesson)
+        kinds = [t['kind'] for t in tasks]
+        self.assertIn('production', kinds)
+        prod = next(t for t in tasks if t['kind'] == 'production')
+        self.assertIn('Compose sur ta feuille', prod['prompt'])
+        # haut niveau → phrase issue du texte riche (plus longue), pas du « simple »
+        self.assertIn('bruits du quartier', tasks[0]['text'])
+
+    def test_sans_lecture_ni_glossaire_aucune_tache(self):
+        cv = self._cv_with('fondamental_1', reading={}, concepts=[])
+        self.assertEqual(cahier.derive_cahier_tasks(cv, self.lesson), [])
+        self.assertFalse(cahier.has_cahier(cv, self.lesson))
+
+    def test_sans_glossaire_dictee_seule(self):
+        cv = self._cv_with('fondamental_1', reading=_reading(with_terms=False))
+        tasks = cahier.derive_cahier_tasks(cv, self.lesson)
+        self.assertEqual([t['kind'] for t in tasks], ['dictee'])
+
+    def test_reading_malforme_ne_plante_pas(self):
+        cv = self._cv_with('fondamental_1', reading={'sections': [None, {'blocks': [None, 'x']}]})
+        # aucune phrase exploitable → pas de dictée, mais pas d'erreur
+        self.assertEqual(cahier.derive_cahier_tasks(cv, self.lesson), [])
+
+    def test_cap_max_taches(self):
+        cv = self._cv_with('secondaire_gen')
+        tasks = cahier.derive_cahier_tasks(cv, self.lesson)
+        self.assertLessEqual(len(tasks), cahier.MAX_TASKS)
+
+    def test_deterministe(self):
+        cv = self._cv_with('fondamental_1')
+        a = cahier.derive_cahier_tasks(cv, self.lesson)
+        b = cahier.derive_cahier_tasks(cv, self.lesson)
+        self.assertEqual([t['text'] for t in a], [t['text'] for t in b])

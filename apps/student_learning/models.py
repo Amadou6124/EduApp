@@ -98,6 +98,37 @@ class StoryAttempt(models.Model):
         ordering = ['-completed_at']
 
 
+class CahierAttempt(models.Model):
+    """Complétion d'un nœud « Cahier » (travail à la main → auto-évaluation).
+
+    L'app ne lit JAMAIS l'écriture : l'élève écrit sur son vrai cahier, puis se
+    juge contre le modèle révélé. `results` = [{task_id, self}] où self ∈
+    {'good','partial'} (déclaratif, jamais une note). Rejouable (pas d'unique) ;
+    le nœud est « fait » dès qu'une complétion existe (comme StoryAttempt).
+    content_version PROTECT = même verrou anti-orphelinage que les autres modèles v2."""
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE,
+        related_name='cahier_attempts',
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE,
+        related_name='cahier_attempts',
+    )
+    content_version = models.ForeignKey(
+        LessonContentVersion, on_delete=models.PROTECT,
+        related_name='cahier_attempts',
+        null=True, blank=True,
+    )
+    results = models.JSONField(default=list)
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-completed_at']
+        indexes = [
+            models.Index(fields=['student', 'content_version'], name='cahier_student_ver_idx'),
+        ]
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # v2 (PORTAL_V2_SPEC) — Progression & examen, ancrés sur LessonContentVersion.
 # content_version en PROTECT = verrou anti-orphelinage (la progression d'élève
