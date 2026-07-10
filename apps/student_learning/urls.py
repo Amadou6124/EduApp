@@ -10,6 +10,10 @@ urlpatterns = [
     path('logout/', views.learn_logout, name='logout'),
     path('', views.learn_dashboard, name='dashboard'),
     path('profil/', views.learn_profil, name='profil'),
+    # Révision (répétition espacée) — l'onglet du nav-bottom qui s'allume
+    path('revision/', views.learn_revision, name='revision'),
+    path('revision/session/', views.revision_session, name='revision-session'),
+    path('revision/answer/', views.revision_answer, name='revision-answer'),
     # (v1 retiré : lesson reader, story v1, quiz v1, flashcards — remplacés par le portail v2)
     # (affichage clair Notes/Profil retiré ; plomberie données préservée dans views.py
     #  — student_grades_context / student_stats — pour rebrancher les futures pages dark)

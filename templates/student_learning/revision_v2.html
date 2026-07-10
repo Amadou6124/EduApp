@@ -1,0 +1,250 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Révision — EduApp</title>
+
+  {# Thème AVANT peinture (évite le flash) : choix mémorisé, sinon clair. #}
+  <script>(function(){try{document.documentElement.dataset.theme=localStorage.getItem('learn-theme')||'light';}catch(e){}})();</script>
+
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
+  <link rel="stylesheet" href="{% static 'css/learn-botnav.css' %}">
+
+  <style>
+    *{box-sizing:border-box} html,body{margin:0;height:100%} ::-webkit-scrollbar{width:0}
+    button{font-family:inherit}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--ink);
+         overflow:hidden;-webkit-font-smoothing:antialiased}
+    .app{display:flex;flex-direction:column;height:100dvh;max-width:480px;margin:0 auto}
+    .botnav{position:relative;flex-shrink:0}
+
+    /* ── Header banner (recette du parcours, en CORAL = transversal/marque) ── */
+    header.appHeader{flex-shrink:0;background:var(--bg);padding:8px 10px 4px}
+    .banner{border-radius:20px;overflow:hidden;background:linear-gradient(135deg,var(--coral-500),var(--coral-600));
+      box-shadow:0 8px 22px rgba(0,0,0,.12)}
+    [data-theme="dark"] .banner{background:linear-gradient(135deg,var(--coral-700),var(--coral-800));box-shadow:0 8px 22px rgba(0,0,0,.4)}
+    .bannerRow{display:flex;align-items:center;gap:11px;padding:13px 14px}
+    .bnIc{width:42px;height:42px;border-radius:13px;background:rgba(255,255,255,.2);display:flex;align-items:center;
+      justify-content:center;color:#fff;flex-shrink:0}
+    .bnIc svg{width:22px;height:22px}
+    .hdrCol{flex:1;min-width:0}
+    .hdrTitle{font-size:18px;font-weight:800;color:#fff;line-height:1.15}
+    .hdrSub{font-size:12px;font-weight:700;color:rgba(255,255,255,.85);margin-top:1px}
+    .hdrCount{flex-shrink:0;background:rgba(255,255,255,.92);color:var(--coral-700);font-weight:900;font-size:15px;
+      min-width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;padding:0 9px;
+      font-variant-numeric:tabular-nums}
+
+    /* ── Main ── */
+    main.appMain{flex:1;overflow-y:auto;min-width:0;padding:14px 14px 8px}
+    .secLabel{font-size:12px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-faint);margin:16px 4px 8px}
+    .secLabel:first-child{margin-top:2px}
+
+    /* Jardin de mémoire */
+    .garden{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .gTile{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:10px 10px 12px;
+      box-shadow:var(--shadow-sm);text-align:center}
+    .gNum{font-size:24px;font-weight:900;color:var(--ink-strong);font-variant-numeric:tabular-nums;line-height:1.1}
+    .gLbl{font-size:11px;font-weight:800;margin-top:1px}
+    .gBar{height:6px;border-radius:999px;background:var(--track);margin-top:8px;overflow:hidden}
+    .gBar>i{display:block;height:100%;border-radius:999px;width:0;transition:width .9s var(--ease-out) .25s}
+    .gTile.fragile .gLbl{color:var(--warn-ink)} .gTile.fragile .gBar>i{background:var(--warn)}
+    .gTile.solide  .gLbl{color:var(--info-ink)} .gTile.solide  .gBar>i{background:var(--info)}
+    .gTile.maitrise .gLbl{color:var(--success-ink)} .gTile.maitrise .gBar>i{background:var(--success)}
+
+    /* File du jour */
+    .queue{display:flex;flex-direction:column;gap:9px}
+    @keyframes cardIn{to{opacity:1;transform:translateY(0)}}
+    .qcard{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);
+      border-radius:18px;padding:11px 13px;box-shadow:var(--shadow-sm);
+      opacity:0;transform:translateY(14px);animation:cardIn .5s var(--ease-spring) forwards}
+    .qring{position:relative;width:48px;height:48px;flex-shrink:0}
+    .qring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+    .qletter{position:absolute;inset:7px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-size:15px;font-weight:900;background:color-mix(in srgb, var(--h500) 16%, var(--surface));color:var(--h700)}
+    [data-theme="dark"] .qletter{color:var(--h300)}
+    .qbody{flex:1;min-width:0}
+    .qname{font-size:14.5px;font-weight:800;color:var(--ink-strong);line-height:1.2;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .qfrom{font-size:11.5px;font-weight:700;color:var(--ink-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .qmeta{display:flex;gap:5px;margin-top:5px}
+    .qchips{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+    .chip{font-size:10.5px;font-weight:900;letter-spacing:.2px;padding:3px 8px;border-radius:999px;white-space:nowrap;
+      display:flex;align-items:center;gap:4px}
+    .chip svg{width:11px;height:11px}
+    .chip.fragile{background:var(--warn-soft);color:var(--warn-ink)}
+    .chip.solide{background:var(--info-soft);color:var(--info-ink)}
+    .chip.maitrise{background:var(--success-soft);color:var(--success-ink)}
+    .chip.late{background:var(--danger-soft);color:var(--danger-ink)}
+    .chip.demain{background:var(--accent-soft);color:var(--coral-700)}
+    [data-theme="dark"] .chip.demain{color:var(--coral-200)}
+
+    /* CTA dock */
+    .ctaDock{flex-shrink:0;padding:10px 14px 12px;background:linear-gradient(to top, var(--bg) 65%, transparent)}
+    .cta{display:block;width:100%;border:none;cursor:pointer;text-decoration:none;text-align:center;
+      font-weight:900;font-size:16.5px;letter-spacing:.3px;padding:14px;border-radius:16px;
+      background:var(--accent);color:var(--accent-ink);box-shadow:0 4px 0 var(--btn-primary-edge);
+      transition:transform .12s,box-shadow .12s}
+    .cta:active{transform:translateY(4px);box-shadow:0 0 0 var(--btn-primary-edge)}
+    .cta small{display:block;font-size:11.5px;font-weight:800;opacity:.85;margin-top:1px}
+    .ctaGhost{display:block;width:100%;border:none;cursor:pointer;text-decoration:none;text-align:center;
+      font-weight:900;font-size:15px;padding:13px;border-radius:16px;
+      background:var(--btn-secondary-bg);color:var(--ink);box-shadow:0 4px 0 var(--btn-secondary-edge);
+      transition:transform .12s,box-shadow .12s}
+    .ctaGhost:active{transform:translateY(4px);box-shadow:0 0 0 var(--btn-secondary-edge)}
+
+    /* État « tout est frais » */
+    @keyframes popIn{to{transform:scale(1)}}
+    .freshHero{text-align:center;padding:26px 12px 10px}
+    .freshArt{position:relative;width:110px;height:110px;margin:0 auto}
+    .freshOrb{position:absolute;inset:0;border-radius:50%;background:var(--accent-soft);transform:scale(0);
+      animation:popIn .6s var(--ease-spring) .05s forwards}
+    .freshOrb2{position:absolute;inset:16px;border-radius:50%;background:var(--surface);box-shadow:var(--shadow-md);
+      display:flex;align-items:center;justify-content:center;transform:scale(0);animation:popIn .6s var(--ease-spring) .18s forwards}
+    .freshOrb2 svg{width:40px;height:40px;color:var(--accent)}
+    @keyframes sparkle{0%,100%{opacity:0;transform:scale(.5)}50%{opacity:1;transform:scale(1)}}
+    .spark{position:absolute;color:var(--amber-500);opacity:0;animation:sparkle 1.8s ease-in-out infinite}
+    .spark svg{width:100%;height:100%}
+    .freshTitle{font-size:20px;font-weight:900;color:var(--ink-strong);margin-top:16px}
+    .freshSub{font-size:13px;font-weight:700;color:var(--ink-muted);margin-top:4px;line-height:1.45;padding:0 8px}
+    .nextList{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+    .nextRow{display:flex;align-items:center;gap:11px;background:var(--surface-2);border:1px dashed var(--warm-300);
+      border-radius:14px;padding:10px 13px;opacity:0;transform:translateY(10px);animation:cardIn .5s var(--ease-spring) forwards}
+    [data-theme="dark"] .nextRow{border-color:rgba(255,255,255,.14)}
+    .nextDay{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.4px;color:var(--coral-700);
+      background:var(--accent-soft);padding:4px 9px;border-radius:999px;flex-shrink:0}
+    [data-theme="dark"] .nextDay{color:var(--coral-200)}
+    .nextTxt{font-size:12.5px;font-weight:700;color:var(--ink-muted)}
+    .nextTxt b{color:var(--ink)}
+
+    @media (prefers-reduced-motion: reduce){
+      *{animation-duration:.001ms !important;transition-duration:.001ms !important}
+      .qcard,.nextRow{opacity:1;transform:none}
+      .freshOrb,.freshOrb2{transform:scale(1)}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header class="appHeader">
+    <div class="banner"><div class="bannerRow">
+      <div class="bnIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg></div>
+      <div class="hdrCol">
+        <div class="hdrTitle">Révision</div>
+        {% if items %}
+          <div class="hdrSub">Ta mémoire t'attend{% if student_first %}, {{ student_first }}{% endif %}&nbsp;!</div>
+        {% else %}
+          <div class="hdrSub">Rien à revoir aujourd'hui</div>
+        {% endif %}
+      </div>
+      {% if items %}<div class="hdrCount">{{ due_total }}</div>{% endif %}
+    </div></div>
+  </header>
+
+  <main class="appMain">
+    {% if items %}
+      <div class="secLabel">À revoir aujourd'hui · ≈ {{ est_minutes }} min</div>
+      <div class="queue">
+        {% for i in items %}
+        <div class="qcard" style="animation-delay:.{{ forloop.counter0 }}5s">
+          <div class="qring" data-box="{{ i.box }}" data-state="{{ i.state }}"
+               style="--h500:var(--{{ i.hue }}-500);--h700:var(--{{ i.hue }}-700);--h300:var(--{{ i.hue }}-300)">
+            <span class="qletter">{{ i.letter }}</span>
+          </div>
+          <div class="qbody">
+            <div class="qname">{{ i.name }}</div>
+            <div class="qfrom">{{ i.subject }} · {{ i.lesson_title }}</div>
+            {% if i.tomorrow_time %}
+            <div class="qmeta"><span class="chip demain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>Cours demain · {{ i.tomorrow_time|time:"H:i" }}</span></div>
+            {% endif %}
+          </div>
+          <div class="qchips">
+            {% if i.late_days > 0 %}
+              <span class="chip late"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{ i.late_days }} j de retard</span>
+            {% elif i.state == 'fragile' %}<span class="chip fragile">Fragile</span>
+            {% elif i.state == 'solide' %}<span class="chip solide">Solide</span>
+            {% else %}<span class="chip maitrise">Maîtrisé</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="freshHero">
+        <div class="freshArt">
+          <div class="freshOrb"></div>
+          <div class="freshOrb2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg></div>
+          <span class="spark" style="width:16px;height:16px;top:-2px;right:6px;animation-delay:.2s"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2 7 7 2-7 2-2 7-2-7-7-2 7-2z"/></svg></span>
+          <span class="spark" style="width:11px;height:11px;bottom:4px;left:-4px;animation-delay:.8s"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2 7 7 2-7 2-2 7-2-7-7-2 7-2z"/></svg></span>
+        </div>
+        <div class="freshTitle">Tout est frais dans ta tête&nbsp;!</div>
+        <div class="freshSub">Tu as fait le travail. Maintenant, ta mémoire travaille toute seule. Reviens demain&nbsp;🌙</div>
+      </div>
+      {% if next_days %}
+      <div class="nextList">
+        {% for d in next_days %}
+        <div class="nextRow" style="animation-delay:.{{ forloop.counter }}5s">
+          <span class="nextDay">{{ d.label }}</span>
+          <span class="nextTxt"><b>{{ d.count }} concept{{ d.count|pluralize }}</b>{% if d.subjects %} — {{ d.subjects|join:" et " }}{% endif %}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if garden.fragile or garden.solide or garden.maitrise %}
+    <div class="secLabel">Ta mémoire</div>
+    <div class="garden">
+      {% with total=garden.fragile|add:garden.solide|add:garden.maitrise %}
+      <div class="gTile fragile"><div class="gNum" data-count="{{ garden.fragile }}">0</div><div class="gLbl">Fragile</div><div class="gBar"><i data-w="{% widthratio garden.fragile total 100 %}%"></i></div></div>
+      <div class="gTile solide"><div class="gNum" data-count="{{ garden.solide }}">0</div><div class="gLbl">Solide</div><div class="gBar"><i data-w="{% widthratio garden.solide total 100 %}%"></i></div></div>
+      <div class="gTile maitrise"><div class="gNum" data-count="{{ garden.maitrise }}">0</div><div class="gLbl">Maîtrisé</div><div class="gBar"><i data-w="{% widthratio garden.maitrise total 100 %}%"></i></div></div>
+      {% endwith %}
+    </div>
+    {% endif %}
+    <div style="height:8px"></div>
+  </main>
+
+  <div class="ctaDock">
+    {% if items %}
+      <a class="cta" href="{% url 'learn:revision-session' %}">C'est parti&nbsp;!<small>{{ session_count }} concept{{ session_count|pluralize }} · ≈ {{ est_minutes }} min</small></a>
+    {% else %}
+      <a class="ctaGhost" href="{% url 'learn:dashboard' %}">Retour au parcours</a>
+    {% endif %}
+  </div>
+
+  {% include 'learn/_botnav.html' with active='revision' %}
+</div>
+
+<script>
+(function(){
+  /* Anneaux segmentés (4 boîtes) — même langage que les anneaux de passes du parcours. */
+  var STATE_COLOR = { fragile:'var(--warn)', solide:'var(--info)', maitrise:'var(--success)' };
+  document.querySelectorAll('.qring').forEach(function(el){
+    var box = parseInt(el.dataset.box||'1',10), state = el.dataset.state;
+    var R=21, C=2*Math.PI*R, GAP=5, seg=(C-4*GAP)/4;
+    var svg='<svg viewBox="0 0 48 48" aria-hidden="true">';
+    for(var i=0;i<4;i++){
+      var col = i<box ? (STATE_COLOR[state]||'var(--warn)') : 'var(--node-ring-track)';
+      svg+='<circle cx="24" cy="24" r="'+R+'" fill="none" stroke="'+col+'" stroke-width="4.5" stroke-linecap="round" '+
+           'stroke-dasharray="'+seg+' '+(C-seg)+'" stroke-dashoffset="'+(-(i*(seg+GAP)))+'"/>';
+    }
+    el.insertAdjacentHTML('afterbegin', svg+'</svg>');
+  });
+
+  /* Jauges : compteurs qui montent + barres qui se remplissent. */
+  document.querySelectorAll('.gNum').forEach(function(n){
+    var target=parseInt(n.dataset.count||'0',10), t0=null;
+    function step(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/700);
+      n.textContent=Math.round(target*(1-Math.pow(1-p,3))); if(p<1)requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  });
+  document.querySelectorAll('.gBar>i').forEach(function(b){
+    requestAnimationFrame(function(){ b.style.width=b.dataset.w; });
+  });
+})();
+</script>
+</body>
+</html>

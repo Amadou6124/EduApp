@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import timedelta
 from django.http import HttpResponse, JsonResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -1119,6 +1120,209 @@ def quiz_v2_answer(request, lesson_id, concept_id):
         'solution':    _quiz_solution(quiz, context),
         'passes_done': passes_done,
         'passes':      _concept_passes(concept),
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Révision (répétition espacée) — l'onglet qui s'allume. Logique dans srs.py ;
+# ici : la page « Ma révision », la session (réutilise le runner de quiz) et la
+# validation. Application des boîtes AU FIL DE L'EAU : dès que les 2 questions
+# d'un concept sont répondues, sa boîte bouge (quitter en cours ne perd rien).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _fr_day_label(d):
+    """Libellé français court d'une date à venir : Demain, sinon jour de semaine."""
+    from django.utils import timezone as _tz
+    today = _tz.localdate()
+    if d == today + timedelta(days=1):
+        return 'Demain'
+    days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+    return days[d.weekday()]
+
+
+@student_required
+def learn_revision(request):
+    """Page « Ma révision » : sync + file du jour, ou état « tout est frais »."""
+    from . import srs
+    from .theme import subject_hue_at
+    student = request.student
+
+    srs.sync_reviews(student)
+    queue = srs.today_queue(student)
+
+    # teinte par matière — même calcul par POSITION que parcours/quiz (repère).
+    subject_names = [s['subject'] for s in _student_v2_subjects(student)]
+    def _hue(subject):
+        return (subject_hue_at(subject_names.index(subject))
+                if subject in subject_names else subject_hue_at(0))
+
+    items = [{
+        'name': i['name'],
+        'subject': i['subject'] or 'Autre',
+        'lesson_title': i['lesson_title'],
+        'box': i['box'],
+        'state': i['state'],
+        'late_days': i['late_days'],
+        'tomorrow_time': i['tomorrow_time'],
+        'hue': _hue(i['subject']),
+        'letter': (i['subject'] or 'A')[:1].upper(),
+    } for i in queue]
+
+    _name = (student.first_name or student.full_name or '').strip()
+    return render(request, 'student_learning/revision_v2.html', {
+        'student': student,
+        'student_first': _name.split()[0] if _name else '',
+        'items': items,
+        'est_minutes': max(2, round(len(items) * 1.4)),
+        'garden': srs.garden_counts(student),
+        'next_days': [{'label': _fr_day_label(g['date']), 'count': g['count'],
+                       'subjects': g['subjects'][:2]} for g in srs.next_days_preview(student)],
+        'session_count': len(items),     # taille de la session (CTA)
+        'due_total': srs.due_count(student),   # total mûrs (en-tête, cohérent pastille)
+    })
+
+
+@student_required
+def revision_session(request):
+    """Construit la session du jour : 2 questions par concept mûr, tirées au
+    hasard dans la réserve du concept (types mélangés), puis ENTRELACÉES entre
+    concepts (interleaving). Servie par le runner de quiz en mode révision.
+    Le mapping question→concept reste CÔTÉ SERVEUR (session Django)."""
+    import random
+    from apps.lessons.services import draw_dynamic_formula
+    from . import srs
+    student = request.student
+
+    srs.sync_reviews(student)
+    queue = srs.today_queue(student)
+    if not queue:
+        return redirect('learn:revision')
+
+    questions, items = [], {}
+    for item in queue:
+        pool = [q for q in item['concept'].get('quiz', []) if q.get('id')]
+        if not pool:      # concept sans quiz (contenu IA incomplet) → on saute
+            continue
+        picks = random.sample(pool, min(srs.QUESTIONS_PER_CONCEPT, len(pool)))
+        for q in picks:
+            cv = item['review'].content_version
+            sid = f"r{item['review'].id}:{q.get('id')}"
+            cq = _quiz_to_client(q)
+            cq['id'] = sid   # id de session UNIQUE (2 leçons peuvent partager 'q1')
+            if q.get('type') == 'dynamic_formula':
+                drawn = draw_dynamic_formula(q)
+                QuestionDraw.objects.filter(student=student, content_version=cv,
+                                            quiz_id=str(q.get('id')),
+                                            exam_attempt__isnull=True).delete()
+                QuestionDraw.objects.create(student=student, content_version=cv,
+                                            quiz_id=str(q.get('id')),
+                                            variables=drawn['variables'])
+                cq['instruction'] = drawn['statement']
+            questions.append(cq)
+            items[sid] = {'review_id': item['review'].id,
+                          'quiz_id': str(q.get('id')), 'correct': None}
+    if not questions:
+        return redirect('learn:revision')
+    random.shuffle(questions)
+
+    request.session['srs_session'] = {'items': items, 'applied': []}
+
+    return render(request, 'student_learning/quiz_runner_v2.html', {
+        'mode': 'revision',
+        'hue': 'coral',   # la révision est TRANSVERSALE → couleur de marque
+        'lesson': {'title': 'Révision du jour', 'subject': 'Révision',
+                   'color': '#FF7A59'},
+        'concept': {'id': 'revision', 'name': 'Révision du jour'},
+        'pass_index': 0,
+        'passes': 1,
+        'questions': questions,
+        'n_questions': len(questions),
+        'answer_url': reverse('learn:revision-answer'),
+        'parcours_url': reverse('learn:revision'),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def revision_answer(request):
+    """Valide UNE réponse de révision (moteur serveur identique au quiz).
+    Quand les questions d'un concept sont toutes répondues, applique le
+    mouvement de boîte UNE seule fois et le renvoie (bilan côté client)."""
+    from apps.lessons.services import evaluate_answer_v2
+    from . import srs
+    from .models import ConceptReview
+    student = request.student
+
+    try:
+        data = json.loads(request.body)
+        sid = str(data.get('quiz_id', ''))
+        student_answer = data.get('answer')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    sess = request.session.get('srs_session') or {}
+    entry = (sess.get('items') or {}).get(sid)
+    if entry is None:
+        return JsonResponse({'error': 'Session expirée'}, status=409)
+
+    review = (ConceptReview.objects
+              .filter(id=entry['review_id'], student=student)
+              .select_related('lesson', 'content_version').first())
+    if review is None:
+        return JsonResponse({'error': 'Révision introuvable'}, status=404)
+    cv = review.content_version
+    concept = srs._concepts_map(cv).get(review.concept_id)
+    quiz = None
+    if concept:
+        quiz = next((q for q in concept.get('quiz', [])
+                     if str(q.get('id')) == entry['quiz_id']), None)
+    if quiz is None:
+        return JsonResponse({'error': 'Quiz introuvable'}, status=404)
+
+    # dynamic_formula : tirage serveur relu (jamais reçu du client)
+    context = None
+    draw_variables = None
+    if quiz.get('type') == 'dynamic_formula':
+        draw = (QuestionDraw.objects
+                .filter(student=student, content_version=cv,
+                        quiz_id=entry['quiz_id'], exam_attempt__isnull=True)
+                .order_by('-created_at').first())
+        if draw:
+            context = {'variables': draw.variables}
+            draw_variables = draw.variables
+
+    is_correct = bool(evaluate_answer_v2(quiz, student_answer, context))
+    QuizAttempt.objects.create(
+        student=student, lesson=review.lesson, content_version=cv,
+        quiz_id=entry['quiz_id'], question_type=quiz.get('type', ''),
+        student_answer=student_answer, is_correct=is_correct,
+        draw_variables=draw_variables, source='revision',
+    )
+
+    entry['correct'] = is_correct
+    move = None
+    siblings = [e for e in sess['items'].values()
+                if e['review_id'] == entry['review_id']]
+    if (all(e['correct'] is not None for e in siblings)
+            and entry['review_id'] not in sess.get('applied', [])):
+        success = all(e['correct'] for e in siblings)
+        old_box = review.box
+        srs.apply_result(review, success)
+        sess.setdefault('applied', []).append(entry['review_id'])
+        move = {
+            'name': (concept.get('name') or review.concept_id),
+            'subject': review.lesson.subject or '',
+            'up': success,
+            'from_state': srs.state_of(old_box),
+            'to_state': srs.state_of(review.box),
+        }
+    request.session['srs_session'] = sess
+
+    return JsonResponse({
+        'correct':     is_correct,
+        'explanation': quiz.get('explanation', ''),
+        'solution':    _quiz_solution(quiz, context),
+        'move':        move,
     })
 
 
