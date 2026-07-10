@@ -39,11 +39,17 @@
   </script>
 
   <style>
-    /* couche locale repointée sur les tokens ; --surface/-2, --border, --bg résolus par tokens.css */
+    /* couche locale repointée sur les tokens ; --surface/-2, --border, --bg résolus par tokens.css.
+       CONTRAT COULEUR (doctrine theme.py) : les ACTIONS restent CORAL (l'--accent des tokens,
+       identique au login/parcours, calibré jour ET nuit) ; la couleur MATIÈRE ne vit que sur
+       la carte-scène de la question (--scene). Succès/erreur : --ok/--ko avec variante nuit. */
     body {
       --text: var(--ink); --text-dim: var(--ink-muted); --text-mute: var(--ink-faint);
-      --accent: var(--{{ hue }}-600);
+      --scene: var(--{{ hue }}-500);
+      --ok: #1FA86A; --ko: #E5484D;
+      --edge: rgba(0,0,0,.08);
     }
+    [data-theme="dark"] body { --ok: #37D391; --ko: #FF7076; --edge: rgba(0,0,0,.45); }
     *, *::before, *::after { box-sizing: border-box }
     html, body { margin: 0; height: 100%; }
     ::-webkit-scrollbar { width: 0 }
@@ -65,35 +71,66 @@
     .iconBtn { width:44px; height:44px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:background .15s; }
     .iconBtn:hover { background:var(--surface-2) }
     .iconBtn:active { transform:scale(.92) }
-    .prog-track { flex:1; height:8px; border-radius:99px; background:var(--surface-2); overflow:hidden; }
+    .prog-track { flex:1; height:12px; border-radius:99px; background:var(--track, var(--surface-2)); overflow:hidden; }
     .prog-fill { height:100%; border-radius:99px; background:var(--accent); transition:width .35s cubic-bezier(.2,.9,.3,1); }
+    /* Combo : éteint (gris) → s'allume à 2 bonnes réponses d'affilée. Meurt à la 1re erreur. */
+    .combo { display:flex; align-items:center; gap:3px; background:var(--surface); border:1px solid var(--border); border-radius:99px; padding:5px 10px; font-size:12px; font-weight:900; color:var(--text-mute); flex-shrink:0; filter:grayscale(1); opacity:.6; transition:all .25s; }
+    .combo-on { filter:none; opacity:1; color:#C2660A; background:color-mix(in srgb, #F59E0B 14%, var(--surface)); border-color:color-mix(in srgb, #F59E0B 45%, transparent); animation:starPop .35s cubic-bezier(.34,1.56,.64,1); }
+    [data-theme="dark"] .combo-on { color:#FFC24B }
 
     .quiz-body { flex:1; overflow-y:auto; min-height:0; padding:20px 18px 4px; display:flex; flex-direction:column; animation:quizPop .3s cubic-bezier(.2,.9,.3,1); }
-    .q-instruction { font-size:21px; font-weight:800; line-height:1.38; margin:0 0 22px; }
 
-    .options { display:flex; flex-direction:column; gap:9px; }
-    .opt { display:flex; align-items:center; gap:12px; padding:13px 15px; min-height:48px; border-radius:14px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-size:15px; font-weight:600; cursor:pointer; text-align:left; width:100%; transition:border-color .13s, background .13s, transform .1s, opacity .15s; }
-    .opt:hover:not(:disabled):not(.correct):not(.wrong) { background:var(--surface-2); border-color:rgba(255,255,255,.18); }
-    .opt:active:not(:disabled) { transform:scale(.985) }
-    .opt.selected { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent) }
-    .opt.correct { border-color:#22C55E; background:rgba(34,197,94,.13); color:#22C55E }
-    .opt.wrong { border-color:#EF4444; background:rgba(239,68,68,.13); color:#EF4444 }
+    /* Carte-SCÈNE : la question en héros, teintée matière (SEUL endroit où vit --scene). */
+    .q-scene { position:relative; background:linear-gradient(150deg, color-mix(in srgb, var(--scene) 13%, transparent), color-mix(in srgb, var(--scene) 6%, transparent)); border:1px solid color-mix(in srgb, var(--scene) 20%, transparent); border-radius:22px; padding:18px 16px 20px; margin:0 0 18px; overflow:hidden; flex-shrink:0; }
+    .q-scene::after { content:''; position:absolute; top:-24px; right:-24px; width:92px; height:92px; border-radius:50%; background:color-mix(in srgb, var(--scene) 9%, transparent); pointer-events:none; }
+    .q-scene-row { position:relative; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; z-index:1; }
+    .q-instruction { font-size:21px; font-weight:800; line-height:1.38; margin:0; }
+    .q-audio { flex-shrink:0; width:44px; height:44px; border-radius:50%; border:1px solid var(--border); background:var(--surface); font-size:17px; cursor:pointer; box-shadow:0 3px 0 var(--edge); }
+    .q-audio:active { transform:translateY(2px); box-shadow:0 1px 0 var(--edge) }
+
+    /* Cascade d'apparition (60 ms d'écart). */
+    @keyframes riseIn { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:none } }
+    .options > *, .tf-grid > *, .kp-list > *, .ord-list > *, .match-col > * { animation:riseIn .32s cubic-bezier(.2,.9,.3,1) both; }
+    .options > :nth-child(2), .tf-grid > :nth-child(2), .kp-list > :nth-child(2), .ord-list > :nth-child(2), .match-col > :nth-child(2) { animation-delay:.06s }
+    .options > :nth-child(3), .kp-list > :nth-child(3), .ord-list > :nth-child(3), .match-col > :nth-child(3) { animation-delay:.12s }
+    .options > :nth-child(4), .kp-list > :nth-child(4), .ord-list > :nth-child(4), .match-col > :nth-child(4) { animation-delay:.18s }
+    .options > :nth-child(n+5), .kp-list > :nth-child(n+5), .ord-list > :nth-child(n+5), .match-col > :nth-child(n+5) { animation-delay:.24s }
+
+    /* Secousse courte sur mauvaise réponse. */
+    @keyframes shakeX { 0%,100% { transform:translateX(0) } 20% { transform:translateX(-7px) } 45% { transform:translateX(6px) } 70% { transform:translateX(-4px) } 85% { transform:translateX(2px) } }
+    .shake-wrong { animation:shakeX .4s ease-out; }
+
+    .options { display:flex; flex-direction:column; gap:11px; }
+    /* Boutons-JOUETS : relief pressable (ombre dure dessous), la signature tactile. */
+    .opt { display:flex; align-items:center; gap:12px; padding:13px 15px; min-height:52px; border-radius:16px; border:2px solid var(--border); background:var(--surface); color:var(--text); font-size:15px; font-weight:700; cursor:pointer; text-align:left; width:100%; box-shadow:0 3px 0 var(--edge); transition:border-color .13s, background .13s, transform .1s, opacity .15s, box-shadow .1s, color .13s; }
+    .opt:hover:not(:disabled):not(.correct):not(.wrong):not(.selected) { border-color:color-mix(in srgb, var(--accent) 45%, var(--border)); }
+    .opt:active:not(:disabled) { transform:translateY(2px); box-shadow:0 1px 0 var(--edge) }
+    /* Sélection FRANCHE : remplissage coral (la marque) — plus de bordure timide. */
+    .opt.selected { border-color:var(--accent-strong, var(--accent)); background:var(--accent); color:var(--accent-ink, #fff); box-shadow:0 3px 0 var(--btn-primary-edge, var(--edge)); }
+    .opt.correct { border-color:var(--ok); background:var(--ok); color:#fff; box-shadow:0 3px 0 color-mix(in srgb, var(--ok) 60%, #000) }
+    .opt.wrong { border-color:var(--ko); background:var(--ko); color:#fff; box-shadow:0 3px 0 color-mix(in srgb, var(--ko) 60%, #000) }
     .opt.dimmed { opacity:.38 }
-    .opt-check { width:22px; height:22px; border-radius:6px; flex-shrink:0; border:2px solid rgba(255,255,255,.2); background:transparent; display:flex; align-items:center; justify-content:center; transition:border-color .13s, background .13s; }
-    .opt.selected .opt-check { border-color:var(--accent); background:var(--accent) }
-    .opt.correct .opt-check { border-color:#22C55E; background:#22C55E }
-    .opt.wrong .opt-check { border-color:#EF4444; background:#EF4444 }
+    .opt-check { width:24px; height:24px; border-radius:8px; flex-shrink:0; border:2.5px solid color-mix(in srgb, var(--ink) 22%, transparent); background:transparent; display:flex; align-items:center; justify-content:center; transition:border-color .13s, background .13s; }
+    /* Sur fond plein, la puce devient blanche et l'icône prend la couleur d'état. */
+    .opt-check svg { color:#fff }
+    .opt.selected .opt-check { border-color:#fff; background:#fff }
+    .opt.selected .opt-check svg { color:var(--accent) }
+    .opt.correct .opt-check { border-color:#fff; background:#fff }
+    .opt.correct .opt-check svg { color:var(--ok) }
+    .opt.wrong .opt-check { border-color:#fff; background:#fff }
+    .opt.wrong .opt-check svg { color:var(--ko) }
 
     .tf-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .tf-card { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:36px 16px; border-radius:20px; gap:14px; border:2px solid var(--border); background:var(--surface); cursor:pointer; transition:border-color .15s, background .15s, transform .12s; font-size:19px; font-weight:800; color:var(--text); }
-    .tf-card:hover { background:var(--surface-2) }
-    .tf-card:active { transform:scale(.94) }
-    .tf-card.selected { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent) }
-    .tf-card.correct { border-color:#22C55E; background:rgba(34,197,94,.15); color:#22C55E }
-    .tf-card.wrong { border-color:#EF4444; background:rgba(239,68,68,.15); color:#EF4444 }
-    .tf-icon { width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
-    .tf-true-icon { background:rgba(34,197,94,.2) }
-    .tf-false-icon { background:rgba(239,68,68,.2) }
+    /* V/F : NEUTRES avant sélection (les couleurs n'arrivent qu'au feedback — sinon on
+       dirait une correction déjà donnée). Relief-jouet comme les options. */
+    .tf-card { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:34px 16px; border-radius:20px; gap:14px; border:2px solid var(--border); background:var(--surface); cursor:pointer; box-shadow:0 3px 0 var(--edge); transition:border-color .15s, background .15s, transform .12s, box-shadow .12s, color .15s; font-size:19px; font-weight:800; color:var(--text); }
+    .tf-card:hover:not(.selected):not(.correct):not(.wrong) { border-color:color-mix(in srgb, var(--accent) 45%, var(--border)) }
+    .tf-card:active { transform:translateY(2px); box-shadow:0 1px 0 var(--edge) }
+    .tf-card.selected { border-color:var(--accent-strong, var(--accent)); background:var(--accent); color:var(--accent-ink, #fff); box-shadow:0 3px 0 var(--btn-primary-edge, var(--edge)) }
+    .tf-card.correct { border-color:var(--ok); background:var(--ok); color:#fff; box-shadow:0 3px 0 color-mix(in srgb, var(--ok) 60%, #000) }
+    .tf-card.wrong { border-color:var(--ko); background:var(--ko); color:#fff; box-shadow:0 3px 0 color-mix(in srgb, var(--ko) 60%, #000) }
+    .tf-icon { width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:color-mix(in srgb, var(--ink) 7%, transparent); color:var(--text-dim); transition:background .15s, color .15s; }
+    .tf-card.selected .tf-icon, .tf-card.correct .tf-icon, .tf-card.wrong .tf-icon { background:rgba(255,255,255,.25); color:#fff }
 
     .kp-list { display:flex; flex-direction:column; gap:0; }
     .kp-row { display:flex; align-items:center; gap:10px; padding:13px 0; border-bottom:1px solid var(--border); }
@@ -105,16 +142,16 @@
     .kp-btn:hover:not(:disabled) { background:var(--surface-2) }
     .kp-btn.kp-on-v { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--text) }
     .kp-btn.kp-on-f { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--text) }
-    .kp-btn.kp-good { border-color:#22C55E; background:rgba(34,197,94,.2); color:#22C55E }
-    .kp-btn.kp-bad { border-color:#EF4444; background:rgba(239,68,68,.2); color:#EF4444 }
+    .kp-btn.kp-good { border-color:var(--ok); background:color-mix(in srgb, var(--ok) 20%, transparent); color:var(--ok) }
+    .kp-btn.kp-bad { border-color:var(--ko); background:color-mix(in srgb, var(--ko) 20%, transparent); color:var(--ko) }
 
     /* cloze_test — texte à trous */
     .cloze-text { font-size:17px; line-height:2.3; font-weight:600; }
     .cloze-input { display:inline-block; min-width:96px; padding:5px 10px; margin:0 3px; border-radius:9px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-family:inherit; font-size:15px; font-weight:700; text-align:center; }
     .cloze-input:focus { outline:none; border-color:var(--accent); }
-    .cloze-input.correct { border-color:#22C55E; background:rgba(34,197,94,.13); color:#22C55E }
-    .cloze-input.wrong { border-color:#EF4444; background:rgba(239,68,68,.13); color:#EF4444 }
-    .cloze-sol { display:inline-block; margin-left:4px; font-size:13px; font-weight:700; color:#22C55E }
+    .cloze-input.correct { border-color:var(--ok); background:color-mix(in srgb, var(--ok) 13%, transparent); color:var(--ok) }
+    .cloze-input.wrong { border-color:var(--ko); background:color-mix(in srgb, var(--ko) 13%, transparent); color:var(--ko) }
+    .cloze-sol { display:inline-block; margin-left:4px; font-size:13px; font-weight:700; color:var(--ok) }
 
     /* mcq_multiple — état "oubliée" (bonne réponse non cochée) */
     .opt.missed { border-color:#F59E0B; background:rgba(245,158,11,.13); color:#F59E0B }
@@ -125,13 +162,13 @@
     @keyframes pairSnap { 0% { transform:scale(.9) } 60% { transform:scale(1.04) } 100% { transform:scale(1) } }
     .match-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; align-items:start; }
     .match-col { display:flex; flex-direction:column; gap:6px; }
-    .match-card { display:flex; align-items:center; gap:6px; width:100%; padding:11px 10px; background:var(--surface); border:2px solid var(--border); border-radius:13px; font-family:inherit; font-size:13px; font-weight:600; color:var(--text); cursor:pointer; line-height:1.35; min-height:52px; text-align:left; transition:border-color .14s, background .14s, box-shadow .14s, transform .1s; -webkit-tap-highlight-color:transparent; }
+    .match-card { display:flex; align-items:center; gap:6px; width:100%; padding:11px 10px; background:var(--surface); border:2px solid var(--border); border-radius:14px; box-shadow:0 2px 0 var(--edge); font-family:inherit; font-size:13px; font-weight:600; color:var(--text); cursor:pointer; line-height:1.35; min-height:52px; text-align:left; transition:border-color .14s, background .14s, box-shadow .14s, transform .1s; -webkit-tap-highlight-color:transparent; }
     .match-card:active:not(:disabled) { transform:scale(.95) }
     .match-card:disabled { cursor:default }
     .match-card.is-selected { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
     .match-card.is-linked { border-color:var(--pair-c); background:color-mix(in srgb, var(--pair-c) 13%, transparent); animation:pairSnap .22s cubic-bezier(.34,1.56,.64,1); }
-    .match-card.is-correct { border-color:#22C55E; background:rgba(34,197,94,.15) }
-    .match-card.is-wrong { border-color:#EF4444; background:rgba(239,68,68,.15) }
+    .match-card.is-correct { border-color:var(--ok); background:color-mix(in srgb, var(--ok) 15%, transparent) }
+    .match-card.is-wrong { border-color:var(--ko); background:color-mix(in srgb, var(--ko) 15%, transparent) }
     .match-card-left { flex-direction:row; justify-content:space-between; }
     .match-card-right .pair-badge { order:-1; }
     .pair-badge { flex-shrink:0; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:#000; background:var(--pair-c); }
@@ -143,32 +180,33 @@
     .assoc-arr { color:var(--text-mute); flex-shrink:0; }
     .assoc-right { flex:1; color:var(--text-dim); }
 
-    .fb-panel { border-radius:16px; padding:14px 16px; margin-top:18px; animation:feedbackIn .22s cubic-bezier(.2,.9,.3,1); }
-    .fb-ok { background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.3) }
-    .fb-ko { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.3) }
-    .fb-title { display:flex; align-items:center; gap:7px; font-size:15px; font-weight:800; margin:0 0 5px; }
-    .fb-ok .fb-title { color:#22C55E }
-    .fb-ko .fb-title { color:#EF4444 }
+    .fb-panel { border-radius:20px; padding:16px 18px; margin-top:18px; border-width:2px; animation:feedbackIn .22s cubic-bezier(.2,.9,.3,1); flex-shrink:0; }
+    .fb-ok { background:color-mix(in srgb, var(--ok) 12%, transparent); border:1px solid color-mix(in srgb, var(--ok) 30%, transparent) }
+    .fb-ko { background:color-mix(in srgb, var(--ko) 12%, transparent); border:1px solid color-mix(in srgb, var(--ko) 30%, transparent) }
+    .fb-title { display:flex; align-items:center; gap:7px; font-size:17px; font-weight:900; margin:0 0 5px; }
+    .fb-ok .fb-title { color:var(--ok) }
+    .fb-ko .fb-title { color:var(--ko) }
     .fb-expl { font-size:13px; color:var(--text-dim); margin:0; line-height:1.55 }
 
     .quiz-footer { padding:10px 18px calc(14px + env(safe-area-inset-bottom)); flex-shrink:0; min-height:72px; display:flex; align-items:flex-end; }
-    .ctaBtn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:none; border-radius:14px; color:#fff; font-family:var(--font-ui); font-weight:800; font-size:16px; padding:15px 20px; cursor:pointer; transition:transform .12s, filter .12s; text-decoration:none; }
+    .ctaBtn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:none; border-radius:16px; color:var(--accent-ink, #fff); font-family:var(--font-ui); font-weight:900; font-size:17px; padding:16px 20px; min-height:56px; cursor:pointer; transition:transform .1s, filter .12s, box-shadow .1s; text-decoration:none; }
+    .ctaBtn:not(:disabled):active { transform:translateY(3px) !important; box-shadow:0 1px 0 var(--edge) !important }
     .ctaBtn:active { transform:scale(.97) }
     /* Désactivé = clairement inactif (gris plat), pas un bouton coloré à moitié
        transparent qui SEMBLE cliquable. */
-    .ctaBtn:disabled, .ctaBtn.cta-verify:disabled { cursor:default; background:var(--surface-2); color:var(--ink-faint); border:1px solid var(--border); opacity:1 }
-    .cta-verify { background:var(--accent) }
-    .cta-continue-ok { background:linear-gradient(135deg, #22C55E, #16A34A) }
-    .cta-continue-ko { background:var(--surface-2); border:1px solid var(--border); color:var(--ink) }
+    .ctaBtn:disabled, .ctaBtn.cta-verify:disabled { cursor:default; background:var(--surface-2); color:var(--ink-faint); border:1px solid var(--border); opacity:1; box-shadow:0 3px 0 var(--edge) }
+    .cta-verify { background:var(--accent); box-shadow:0 4px 0 var(--btn-primary-edge, var(--edge)) }
+    .cta-continue-ok { background:var(--ok); color:#fff; box-shadow:0 4px 0 color-mix(in srgb, var(--ok) 60%, #000) }
+    .cta-continue-ko { background:var(--surface); border:2px solid var(--border); color:var(--ink); box-shadow:0 4px 0 var(--edge) }
 
     .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
     .grid-2 .opt { justify-content:center; text-align:center; }
 
     /* chrono_order / parsons — lignes réordonnables */
     .ord-list { display:flex; flex-direction:column; gap:8px; }
-    .ord-row { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:13px; border:1.5px solid var(--border); background:var(--surface); transition:border-color .14s, background .14s; }
-    .ord-row.correct { border-color:#22C55E; background:rgba(34,197,94,.13) }
-    .ord-row.wrong { border-color:#EF4444; background:rgba(239,68,68,.13) }
+    .ord-row { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:14px; border:2px solid var(--border); background:var(--surface); box-shadow:0 2px 0 var(--edge); transition:border-color .14s, background .14s; }
+    .ord-row.correct { border-color:var(--ok); background:color-mix(in srgb, var(--ok) 13%, transparent) }
+    .ord-row.wrong { border-color:var(--ko); background:color-mix(in srgb, var(--ko) 13%, transparent) }
     .ord-rank { flex-shrink:0; width:24px; height:24px; border-radius:7px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:var(--text-dim) }
     .ord-text { flex:1; font-size:14px; font-weight:600; line-height:1.35; }
     /* Flèches ▲▼ et indentation : visuel compact mais ZONE TACTILE élargie (::after)
@@ -188,10 +226,10 @@
 
     /* number_input / dynamic_formula — champ numérique */
     .num-wrap { display:flex; align-items:center; gap:10px; }
-    .num-input { flex:1; padding:15px 16px; border-radius:14px; border:2px solid var(--border); background:var(--surface); color:var(--text); font-family:inherit; font-size:22px; font-weight:800; text-align:center; }
+    .num-input { flex:1; padding:15px 16px; border-radius:16px; border:2px solid var(--border); background:var(--surface); box-shadow:0 3px 0 var(--edge); color:var(--text); font-family:inherit; font-size:22px; font-weight:800; text-align:center; }
     .num-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent) }
-    .num-input.correct { border-color:#22C55E; color:#22C55E }
-    .num-input.wrong { border-color:#EF4444; color:#EF4444 }
+    .num-input.correct { border-color:var(--ok); color:var(--ok) }
+    .num-input.wrong { border-color:var(--ko); color:var(--ko) }
     .num-unit { font-size:16px; font-weight:700; color:var(--text-dim); flex-shrink:0 }
     .draw-tag { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--accent); margin-bottom:10px; }
 
@@ -201,18 +239,18 @@
     .code-line:last-child { border-bottom:none }
     .code-line:hover:not(.checked) { background:rgba(255,255,255,.06) }
     .code-line.ln-sel { background:color-mix(in srgb, var(--accent) 20%, transparent) }
-    .code-line.ln-correct { background:rgba(34,197,94,.22) !important }
-    .code-line.ln-wrong { background:rgba(239,68,68,.22) !important }
+    .code-line.ln-correct { background:color-mix(in srgb, var(--ok) 22%, transparent) !important }
+    .code-line.ln-wrong { background:color-mix(in srgb, var(--ko) 22%, transparent) !important }
     .line-num { padding:10px 10px 10px 14px; font-size:12px; color:#555; min-width:40px; text-align:right; border-right:1px solid rgba(255,255,255,.05); font-family:'Courier New', monospace; flex-shrink:0; }
     .line-code { padding:10px 14px; font-family:'Courier New', monospace; font-size:13px; line-height:1.55; white-space:pre; overflow-x:auto; color:#e4e4e7; }
-    .fix-hint { display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px 14px; border-radius:10px; background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.28); font-family:'Courier New', monospace; font-size:13px; color:#22C55E; }
+    .fix-hint { display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px 14px; border-radius:10px; background:color-mix(in srgb, var(--ok) 12%, transparent); border:1px solid color-mix(in srgb, var(--ok) 28%, transparent); font-family:'Courier New', monospace; font-size:13px; color:var(--ok); }
 
     /* math_expression — MathQuill + clavier */
     .mq-field { font-size:24px; min-height:62px; width:100%; display:block; padding:14px 16px; border-radius:16px; background:var(--surface); border:2px solid var(--border); color:var(--text); overflow-x:auto; white-space:nowrap; }
     .mq-field.mq-focused { border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent) }
     .mq-editable-field, .mq-math-mode { color:var(--text) }
     .kpad { display:grid; grid-template-columns:repeat(7,1fr); gap:7px; margin-top:14px; }
-    .kbtn { height:48px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:17px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .1s, background .15s; }
+    .kbtn { height:48px; border-radius:12px; border:1px solid var(--border); background:var(--surface); box-shadow:0 2px 0 var(--edge); color:var(--text); font-size:17px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .1s, background .15s; }
     .kbtn:hover { background:var(--surface-2) } .kbtn:active { transform:scale(.92) }
     .kbtn.accent { background:color-mix(in srgb, var(--accent) 14%, transparent); border-color:color-mix(in srgb, var(--accent) 40%, transparent); color:var(--accent) }
 
@@ -253,19 +291,20 @@
         <div style="font-size:12px;font-weight:700;color:var(--text-mute);white-space:nowrap;min-width:30px;text-align:right">
           <span x-text="idx+1"></span>/<span x-text="questions.length"></span>
         </div>
+        <div class="combo" :class="streak >= 2 ? 'combo-on' : ''" aria-label="Série de bonnes réponses">🔥<span x-text="'×' + streak"></span></div>
       </div>
 
       <!-- ───── mcq_single ───── -->
       <template x-if="q.type === 'mcq_single'">
         <div x-data="blockMcqSingle(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="options">
               <template x-for="(opt, i) in quiz.options" :key="i">
                 <button class="opt" :class="optClass(i)" @click="!checked && (selected=i)" :disabled="checked || busy">
                   <span class="opt-check">
-                    <i data-lucide="check" style="width:13px;height:13px;color:#fff" x-show="selected===i || optClass(i)==='correct'" x-cloak></i>
-                    <i data-lucide="x" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='wrong'" x-cloak></i>
+                    <i data-lucide="check" style="width:14px;height:14px" x-show="selected===i || optClass(i)==='correct'" x-cloak></i>
+                    <i data-lucide="x" style="width:14px;height:14px" x-show="optClass(i)==='wrong'" x-cloak></i>
                   </span>
                   <span x-text="opt"></span>
                 </button>
@@ -287,14 +326,14 @@
       <!-- ───── true_false ───── -->
       <template x-if="q.type === 'true_false'">
         <div x-data="blockTrueFalse(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="tf-grid">
               <button class="tf-card" :class="cardClass(true)" @click="!checked && (selected=true)" :disabled="checked || busy">
-                <span class="tf-icon tf-true-icon"><i data-lucide="check" style="width:28px;height:28px;color:#22C55E"></i></span>Vrai
+                <span class="tf-icon tf-true-icon"><i data-lucide="check" style="width:28px;height:28px"></i></span>Vrai
               </button>
               <button class="tf-card" :class="cardClass(false)" @click="!checked && (selected=false)" :disabled="checked || busy">
-                <span class="tf-icon tf-false-icon"><i data-lucide="x" style="width:28px;height:28px;color:#EF4444"></i></span>Faux
+                <span class="tf-icon tf-false-icon"><i data-lucide="x" style="width:28px;height:28px"></i></span>Faux
               </button>
             </div>
             <div x-show="checked" x-cloak class="fb-panel" :class="isRight ? 'fb-ok' : 'fb-ko'">
@@ -313,14 +352,14 @@
       <!-- ───── odd_one_out ───── -->
       <template x-if="q.type === 'odd_one_out'">
         <div x-data="blockOddOneOut(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="options">
               <template x-for="(item, i) in quiz.items" :key="i">
                 <button class="opt" :class="optClass(i)" @click="!checked && (selected=i)" :disabled="checked || busy">
                   <span class="opt-check">
-                    <i data-lucide="check" style="width:13px;height:13px;color:#fff" x-show="selected===i || optClass(i)==='correct'" x-cloak></i>
-                    <i data-lucide="x" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='wrong'" x-cloak></i>
+                    <i data-lucide="check" style="width:14px;height:14px" x-show="selected===i || optClass(i)==='correct'" x-cloak></i>
+                    <i data-lucide="x" style="width:14px;height:14px" x-show="optClass(i)==='wrong'" x-cloak></i>
                   </span>
                   <span x-text="item"></span>
                 </button>
@@ -342,8 +381,8 @@
       <!-- ───── k_prime ───── -->
       <template x-if="q.type === 'k_prime'">
         <div x-data="blockKPrime(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="kp-list">
               <template x-for="(st, i) in quiz.statements" :key="i">
                 <div class="kp-row">
@@ -371,8 +410,8 @@
       <!-- ───── cloze_test ───── -->
       <template x-if="q.type === 'cloze_test'">
         <div x-data="blockCloze(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="cloze-text">
               <template x-for="(seg, i) in segments" :key="i">
                 <span>
@@ -403,16 +442,16 @@
       <!-- ───── mcq_multiple ───── -->
       <template x-if="q.type === 'mcq_multiple'">
         <div x-data="blockMcqMultiple(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <p style="font-size:12px;color:var(--text-mute);margin:-14px 0 16px;font-weight:600">Coche toutes les bonnes réponses</p>
             <div class="options">
               <template x-for="(opt, i) in quiz.options" :key="i">
                 <button class="opt" :class="optClass(i)" @click="toggle(i)" :disabled="checked || busy">
                   <span class="opt-check">
-                    <i data-lucide="check" style="width:13px;height:13px;color:#fff" x-show="isSelected(i) || optClass(i)==='correct'" x-cloak></i>
-                    <i data-lucide="x" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='wrong'" x-cloak></i>
-                    <i data-lucide="alert-circle" style="width:13px;height:13px;color:#fff" x-show="optClass(i)==='missed'" x-cloak></i>
+                    <i data-lucide="check" style="width:14px;height:14px" x-show="isSelected(i) || optClass(i)==='correct'" x-cloak></i>
+                    <i data-lucide="x" style="width:14px;height:14px" x-show="optClass(i)==='wrong'" x-cloak></i>
+                    <i data-lucide="alert-circle" style="width:14px;height:14px" x-show="optClass(i)==='missed'" x-cloak></i>
                   </span>
                   <span x-text="opt"></span>
                   <span class="opt-tag" x-show="checked && optClass(i)==='missed'" x-cloak style="color:#F59E0B">oubliée</span>
@@ -435,8 +474,8 @@
       <!-- ───── matching ───── -->
       <template x-if="q.type === 'matching'">
         <div x-data="blockMatching(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
 
             <!-- grille tap-tap (avant vérification) -->
             <div x-show="!checked">
@@ -489,7 +528,7 @@
               </div>
               <template x-if="!isRight && solution.pairs">
                 <div class="assoc-list">
-                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#22C55E;margin:12px 0 6px">Bonnes associations :</div>
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ok);margin:12px 0 6px">Bonnes associations :</div>
                   <template x-for="(pair, i) in solution.pairs" :key="i">
                     <div class="assoc-row">
                       <span class="assoc-left" x-text="pair.left"></span>
@@ -516,8 +555,8 @@
       <!-- ───── chrono_order ───── -->
       <template x-if="q.type === 'chrono_order'">
         <div x-data="blockChrono(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="ord-list">
               <template x-for="(pos, rank) in order" :key="pos">
                 <div class="ord-row" :class="rowClass(rank)">
@@ -545,8 +584,8 @@
       <!-- ───── parsons_puzzle ───── -->
       <template x-if="q.type === 'parsons_puzzle'">
         <div x-data="blockParsons(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="ord-list">
               <template x-for="(row, rank) in rows" :key="row.id">
                 <div class="ord-row" :class="rowClass(rank)">
@@ -584,8 +623,8 @@
       <!-- ───── number_input ───── -->
       <template x-if="q.type === 'number_input'">
         <div x-data="blockNumber(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="num-wrap">
               <input class="num-input" :class="checked ? (isRight ? 'correct' : 'wrong') : ''" type="text" inputmode="decimal" x-model="val" :disabled="checked || busy" @keydown.enter.prevent="val!=='' && !checked && check()" placeholder="…">
               <span class="num-unit" x-show="quiz.unit" x-text="quiz.unit"></span>
@@ -605,9 +644,9 @@
       <!-- ───── dynamic_formula (énoncé tiré côté serveur) ───── -->
       <template x-if="q.type === 'dynamic_formula'">
         <div x-data="blockNumber(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
             <div class="draw-tag"><i data-lucide="shuffle" style="width:13px;height:13px"></i> valeurs tirées au hasard</div>
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="num-wrap">
               <input class="num-input" :class="checked ? (isRight ? 'correct' : 'wrong') : ''" type="text" inputmode="decimal" x-model="val" :disabled="checked || busy" @keydown.enter.prevent="val!=='' && !checked && check()" placeholder="…">
               <span class="num-unit" x-show="quiz.unit" x-text="quiz.unit"></span>
@@ -627,8 +666,8 @@
       <!-- ───── spot_the_bug ───── -->
       <template x-if="q.type === 'spot_the_bug'">
         <div x-data="blockSpotBug(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div class="code-block">
               <template x-for="(line, i) in quiz.code" :key="i">
                 <div class="code-line" :class="lineClass(i)" @click="!checked && (selected=i)">
@@ -653,8 +692,8 @@
       <!-- ───── math_expression (MathQuill) ───── -->
       <template x-if="q.type === 'math_expression'">
         <div x-data="blockMath(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="quiz-body">
-            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
+          <div class="quiz-body" :class="checked && !isRight ? 'shake-wrong' : ''">
+            <div class="q-scene"><div class="q-scene-row"><h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2><button type="button" class="q-audio" x-show="$store.tts.ok" @click="$store.tts.speak(quiz.instruction)" aria-label="Écouter la question">🔊</button></div></div>
             <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Ta réponse</div>
             <span class="mq-field" x-ref="mq"></span>
             <div class="kpad">
@@ -688,6 +727,7 @@
       <!-- ───── fallback minimal (type inconnu — sécurité) ───── -->
       <template x-if="!['mcq_single','true_false','odd_one_out','k_prime','cloze_test','mcq_multiple','matching','chrono_order','parsons_puzzle','number_input','dynamic_formula','spot_the_bug','math_expression'].includes(q.type)">
         <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+          {# Pas de :class shake ici : ce bloc n'a pas de blockBase (pas de checked). #}
           <div class="quiz-body">
             <h2 class="q-instruction" x-text="q.instruction"></h2>
             <div class="fallback-card">
@@ -719,7 +759,7 @@
       <p style="color:var(--text-dim);font-size:14px;margin:0 0 26px" x-text="`${score} / ${questions.length} bonnes réponses`"></p>
       <div style="display:flex;gap:14px;margin-bottom:30px">
         <div class="miniCard"><div style="font-size:26px;font-weight:800;color:var(--accent)" x-text="'+' + xp"></div><div style="font-size:12px;color:var(--text-dim)">XP gagnés</div></div>
-        <div class="miniCard"><div style="font-size:26px;font-weight:800;color:#22C55E" x-text="score"></div><div style="font-size:12px;color:var(--text-dim)">Réussites</div></div>
+        <div class="miniCard"><div style="font-size:26px;font-weight:800;color:var(--ok)" x-text="score"></div><div style="font-size:12px;color:var(--text-dim)">Réussites</div></div>
       </div>
       <a class="ctaBtn" :href="parcoursUrl" style="width:min(360px,90%);background:var(--accent)">
         Retour au parcours <i data-lucide="check" style="width:18px;height:18px"></i>
@@ -764,8 +804,26 @@ document.addEventListener('alpine:init', () => {
   // se retrouve seule en début de ligne (« … plus grand \n : »).
   window.frTypo = (s) => String(s || '').replace(/ ([:;!?»])/g, ' $1').replace(/(«) /g, '$1 ');
 
+  // Lecture audio de la question (TTS navigateur, v1 — MP3 pré-générés en cible).
+  // Bouton visible pour TOUS les niveaux : au Mali le français est souvent langue
+  // seconde — entendre la question aide du préscolaire au lycée.
+  Alpine.store('tts', {
+    ok: ('speechSynthesis' in window),
+    speak(text) {
+      try {
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(String(text || ''));
+        u.lang = 'fr-FR'; u.rate = 0.95;
+        const fr = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('fr'));
+        if (fr) u.voice = fr;
+        speechSynthesis.speak(u);
+        if (window.LearnSFX) LearnSFX.play('tap');
+      } catch (e) {}
+    },
+  });
+
   Alpine.data('quizShell', () => ({
-    idx: 0, results: [], phase: 'quiz', confirmExit: false,
+    idx: 0, results: [], phase: 'quiz', confirmExit: false, streak: 0,
     questions: _RQ,
     parcoursUrl: RUNNER_CFG.parcoursUrl,
     get q()        { return this.questions[this.idx]; },
@@ -776,6 +834,8 @@ document.addEventListener('alpine:init', () => {
     refreshIcons() { if (window.lucide) lucide.createIcons(); },
     advance(detail) {
       this.results.push(detail.correct);
+      // Flamme : chaque bonne réponse la nourrit ; la PREMIÈRE erreur l'éteint.
+      this.streak = detail.correct ? this.streak + 1 : 0;
       setTimeout(() => {
         if (this.idx + 1 >= this.questions.length) { this.phase = 'done'; if (window.LearnSFX) LearnSFX.play('win'); }
         else { this.idx++; this.$nextTick(() => this.refreshIcons()); }
@@ -783,7 +843,7 @@ document.addEventListener('alpine:init', () => {
     },
     spawnConfetti() {
       if (this.stars === 0) return;
-      const colors = ['#22D3EE','#F59E0B','#22C55E','#EF4444','#A78BFA','#FB7185','#FBBF24'];
+      const colors = ['#22D3EE','#F59E0B','var(--ok)','var(--ko)','#A78BFA','#FB7185','#FBBF24'];
       for (let k = 0; k < 44; k++) {
         const el = document.createElement('div');
         el.className = 'confetti-piece';
@@ -805,6 +865,7 @@ document.addEventListener('alpine:init', () => {
         const r = await postAnswer(this.quiz.id, answer);
         this.isRight = r.correct; this.solution = r.solution || {}; this.explanation = r.explanation || '';
         if (window.LearnSFX) LearnSFX.play(r.correct ? 'correct' : 'wrong');
+        try { navigator.vibrate && navigator.vibrate(r.correct ? 18 : [55, 40, 55]); } catch (e) {}
         this.checked = true;
         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
       } catch (e) {
