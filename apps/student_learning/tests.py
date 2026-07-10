@@ -236,6 +236,139 @@ class TodayQueueTests(SRSBase):
         self.assertEqual(srs.due_count(self.student), 0)
 
 
+class RevisionViewsTests(SRSBase):
+    """Vues /learn/revision/ — page, session, réponse (flux complet)."""
+
+    def _login(self, student=None):
+        s = self.client.session
+        s['student_id'] = (student or self.student).pk
+        s.save()
+
+    def test_anonyme_redirige_vers_login(self):
+        resp = self.client.get('/learn/revision/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/learn/login', resp.url)
+
+    def test_page_affiche_la_file(self):
+        self._login()
+        self._review('c1', due=timezone.localdate() - timedelta(days=3))
+        resp = self.client.get('/learn/revision/')
+        self.assertContains(resp, 'Concept Un')
+        self.assertContains(resp, '3 j de retard')
+        self.assertContains(resp, "C'est parti")
+
+    def test_page_etat_tout_est_frais(self):
+        self._login()
+        self._review('c1', due=timezone.localdate() + timedelta(days=1))
+        resp = self.client.get('/learn/revision/')
+        self.assertContains(resp, 'Tout est frais')
+        self.assertContains(resp, 'Demain')      # aperçu du prochain jour
+        # pas de CTA session quand rien n'est mûr
+        self.assertNotContains(resp, "C'est parti")
+
+    def test_session_sans_concept_mur_redirige(self):
+        self._login()
+        resp = self.client.get('/learn/revision/session/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/learn/revision/', resp.url)
+
+    def test_flux_complet_reussite_monte_la_boite(self):
+        """Session → 2 réponses justes → la boîte monte (1→2) et le bilan sort."""
+        self._login()
+        r = self._review('c1', box=1, due=timezone.localdate())
+        resp = self.client.get('/learn/revision/session/')
+        self.assertEqual(resp.status_code, 200)
+        sess = self.client.session['srs_session']
+        sids = list(sess['items'].keys())
+        self.assertEqual(len(sids), 2)   # 2 questions tirées pour c1
+
+        answers = {'q1': 0, 'q2': True}   # les bonnes réponses de _concepts()
+        move = None
+        for sid in sids:
+            quiz_id = sess['items'][sid]['quiz_id']
+            resp = self.client.post(
+                '/learn/revision/answer/',
+                {'quiz_id': sid, 'answer': answers[quiz_id]},
+                content_type='application/json',
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertTrue(data['correct'])
+            if data['move']:
+                move = data['move']
+
+        r.refresh_from_db()
+        self.assertEqual(r.box, 2)                      # monté
+        self.assertIsNotNone(move)                      # bilan renvoyé
+        self.assertEqual(move['from_state'], 'fragile')
+        self.assertTrue(move['up'])
+        # journal marqué révision
+        from .models import QuizAttempt
+        self.assertEqual(QuizAttempt.objects.filter(
+            student=self.student, source='revision', is_correct=True).count(), 2)
+
+    def test_une_erreur_fait_descendre(self):
+        self._login()
+        r = self._review('c1', box=3, due=timezone.localdate())
+        self.client.get('/learn/revision/session/')
+        sess = self.client.session['srs_session']
+        wrong = {'q1': 1, 'q2': False}    # tout faux
+        for sid, entry in sess['items'].items():
+            self.client.post('/learn/revision/answer/',
+                             {'quiz_id': sid, 'answer': wrong[entry['quiz_id']]},
+                             content_type='application/json')
+        r.refresh_from_db()
+        self.assertEqual(r.box, 2)   # 3 → 2, une seule marche
+
+    def test_mouvement_applique_une_seule_fois(self):
+        """Rejouer une réponse après complétion ne double pas le mouvement."""
+        self._login()
+        r = self._review('c1', box=1, due=timezone.localdate())
+        self.client.get('/learn/revision/session/')
+        sess = self.client.session['srs_session']
+        answers = {'q1': 0, 'q2': True}
+        for sid, entry in sess['items'].items():
+            self.client.post('/learn/revision/answer/',
+                             {'quiz_id': sid, 'answer': answers[entry['quiz_id']]},
+                             content_type='application/json')
+        # re-poste la 1ʳᵉ question : le concept est déjà appliqué
+        sid0 = list(sess['items'].keys())[0]
+        resp = self.client.post('/learn/revision/answer/',
+                                {'quiz_id': sid0,
+                                 'answer': answers[sess['items'][sid0]['quiz_id']]},
+                                content_type='application/json')
+        self.assertIsNone(resp.json()['move'])
+        r.refresh_from_db()
+        self.assertEqual(r.box, 2)   # toujours 2, pas 3
+
+    def test_reponse_hors_session_rejetee(self):
+        self._login()
+        resp = self.client.post('/learn/revision/answer/',
+                                {'quiz_id': 'r999:q1', 'answer': 0},
+                                content_type='application/json')
+        self.assertEqual(resp.status_code, 409)
+
+    def test_isolation_review_d_un_autre_eleve(self):
+        """Une session forgée pointant la review d'un autre élève → 404."""
+        autre = Student.objects.create(
+            school=self.school, school_class=self.klass,
+            full_name='Autre Élève', tuition_fee=Decimal('0'),
+        )
+        r_autre = ConceptReview.objects.create(
+            student=autre, lesson=self.lesson, content_version=self.cv,
+            concept_id='c1', box=1, due_date=timezone.localdate(),
+        )
+        self._login()
+        s = self.client.session
+        s['srs_session'] = {'items': {f'r{r_autre.id}:q1': {
+            'review_id': r_autre.id, 'quiz_id': 'q1', 'correct': None}}, 'applied': []}
+        s.save()
+        resp = self.client.post('/learn/revision/answer/',
+                                {'quiz_id': f'r{r_autre.id}:q1', 'answer': 0},
+                                content_type='application/json')
+        self.assertEqual(resp.status_code, 404)
+
+
 class DashboardsTests(SRSBase):
     def test_garden_counts(self):
         self._review('c1', box=1)

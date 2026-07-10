@@ -34,6 +34,7 @@
       csrf:        "{{ csrf_token }}",
       nQuestions:  {{ n_questions }},
       accent:      "{{ lesson.color }}",
+      mode:        "{{ mode|default:'quiz' }}",
     };
     LearnSFX.init("{% get_static_prefix %}vendor/sfx/");
   </script>
@@ -272,6 +273,17 @@
     .exit-stay { display:block; width:100%; border:none; border-radius:14px; background:var(--accent); color:#fff; font-family:inherit; font-weight:800; font-size:15px; padding:13px; cursor:pointer; margin-bottom:9px; min-height:48px; }
     .exit-stay:active { transform:scale(.97) }
     .exit-leave { display:block; width:100%; border:1px solid var(--border); border-radius:14px; background:transparent; color:var(--text-dim); font-family:inherit; font-weight:700; font-size:14px; padding:12px; cursor:pointer; text-decoration:none; min-height:44px; }
+
+    /* Bilan de révision (mode revision) : mouvements de boîtes de mémoire */
+    .mv-list { width:min(420px,100%); display:flex; flex-direction:column; gap:9px; margin:4px 0 24px; }
+    .mv-row { display:flex; flex-direction:column; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:11px 13px; text-align:left; }
+    .mv-name { font-size:13.5px; font-weight:800; color:var(--ink-strong, var(--ink)); display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; min-width:0; }
+    .mv-name small { font-weight:700; color:var(--text-dim); font-size:11px; }
+    .mv-arrow { display:flex; align-items:center; gap:5px; align-self:flex-end; }
+    .mv-chip { font-size:10.5px; font-weight:900; padding:3px 8px; border-radius:999px; white-space:nowrap; }
+    .mv-chip.fragile { background:var(--warn-soft); color:var(--warn-ink); }
+    .mv-chip.solide { background:var(--info-soft); color:var(--info-ink); }
+    .mv-chip.maitrise { background:var(--success-soft); color:var(--success-ink); }
   </style>
 </head>
 <body>
@@ -744,8 +756,8 @@
     </div>
   </template>
 
-  <!-- ════════════════ PHASE FINALE ════════════════ -->
-  <template x-if="phase === 'done'">
+  <!-- ════════════════ PHASE FINALE (quiz de concept) ════════════════ -->
+  <template x-if="phase === 'done' && mode !== 'revision'">
     <div class="final-wrap" x-init="$nextTick(() => { spawnConfetti(); refreshIcons(); })">
       <div class="trophy-ring"><i data-lucide="award" style="width:54px;height:54px;color:#fff"></i></div>
       <div style="display:flex;gap:8px;margin-bottom:16px">
@@ -767,14 +779,42 @@
     </div>
   </template>
 
+  <!-- ════════════════ PHASE FINALE (révision) : le BILAN ════════════════ -->
+  <template x-if="phase === 'done' && mode === 'revision'">
+    <div class="final-wrap" x-init="$nextTick(() => { spawnConfetti(); refreshIcons(); })">
+      <div class="trophy-ring"><i data-lucide="sparkles" style="width:54px;height:54px;color:#fff"></i></div>
+      <h1 style="font-size:25px;font-weight:800;margin:0 0 6px;text-align:center">Ta mémoire se renforce&nbsp;!</h1>
+      <p style="color:var(--text-dim);font-size:14px;margin:0 0 20px" x-text="`${score} / ${questions.length} bonnes réponses`"></p>
+      <div class="mv-list">
+        <template x-for="(m, k) in moves" :key="k">
+          <div class="mv-row">
+            <div class="mv-name"><span x-text="m.name"></span> <small x-text="m.subject"></small></div>
+            <div class="mv-arrow">
+              <span class="mv-chip" :class="m.from_state" x-text="stateLabel(m.from_state)"></span>
+              <i data-lucide="arrow-right" :style="`width:15px;height:15px;color:${m.up ? 'var(--ok)' : 'var(--warn, #F5A623)'}`"></i>
+              <span class="mv-chip" :class="m.up ? m.to_state : 'fragile'"
+                    x-text="m.up ? stateLabel(m.to_state) : 'On la reverra vite'"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+      <a class="ctaBtn" :href="parcoursUrl" style="width:min(360px,90%);background:var(--accent)">
+        Terminer <i data-lucide="check" style="width:18px;height:18px"></i>
+      </a>
+    </div>
+  </template>
+
   <!-- ════ Modal « quitter ? » — sortie toujours confirmée pendant le quiz ════ -->
   <template x-if="confirmExit && phase === 'quiz'">
     <div class="exit-veil" @click.self="confirmExit = false">
       <div class="exit-card">
         <div class="exit-emoji">🤔</div>
-        <p class="exit-title">Quitter le quiz ?</p>
-        <p class="exit-msg">Ta progression sur cette série ne sera pas gardée. Tu pourras recommencer depuis le parcours.</p>
-        <button type="button" class="exit-stay" @click="confirmExit = false">Continuer le quiz</button>
+        <p class="exit-title" x-text="mode === 'revision' ? 'Quitter la révision ?' : 'Quitter le quiz ?'"></p>
+        <p class="exit-msg" x-text="mode === 'revision'
+             ? 'Les concepts déjà terminés sont bien enregistrés. Le reste t\'attendra ici.'
+             : 'Ta progression sur cette série ne sera pas gardée. Tu pourras recommencer depuis le parcours.'"></p>
+        <button type="button" class="exit-stay" @click="confirmExit = false"
+                x-text="mode === 'revision' ? 'Continuer la révision' : 'Continuer le quiz'"></button>
         <a class="exit-leave" :href="parcoursUrl">Quitter</a>
       </div>
     </div>
@@ -826,6 +866,9 @@ document.addEventListener('alpine:init', () => {
     idx: 0, results: [], phase: 'quiz', confirmExit: false, streak: 0,
     questions: _RQ,
     parcoursUrl: RUNNER_CFG.parcoursUrl,
+    mode: RUNNER_CFG.mode || 'quiz',
+    moves: [],   // révision : mouvements de boîtes renvoyés par le serveur (bilan)
+    stateLabel(s) { return { fragile: 'Fragile', solide: 'Solide', maitrise: 'Maîtrisé' }[s] || s; },
     get q()        { return this.questions[this.idx]; },
     get score()    { return this.results.filter(Boolean).length; },
     get stars()    { const r = this.score / this.questions.length; return r >= .85 ? 3 : r >= .6 ? 2 : r > 0 ? 1 : 0; },
@@ -834,6 +877,7 @@ document.addEventListener('alpine:init', () => {
     refreshIcons() { if (window.lucide) lucide.createIcons(); },
     advance(detail) {
       this.results.push(detail.correct);
+      if (detail.move) this.moves.push(detail.move);   // un concept vient de bouger
       // Flamme : chaque bonne réponse la nourrit ; la PREMIÈRE erreur l'éteint.
       this.streak = detail.correct ? this.streak + 1 : 0;
       if (this.streak === 2 && window.LearnSFX) LearnSFX.play('combo');   // elle s'allume !
@@ -859,12 +903,13 @@ document.addEventListener('alpine:init', () => {
   // ── socle commun des blocs (état serveur) ──
   const blockBase = (quiz) => ({
     quiz, checked: false, busy: false, isRight: false,
-    solution: {}, explanation: '',
+    solution: {}, explanation: '', _move: null,
     async submit(answer) {
       this.busy = true;
       try {
         const r = await postAnswer(this.quiz.id, answer);
         this.isRight = r.correct; this.solution = r.solution || {}; this.explanation = r.explanation || '';
+        this._move = r.move || null;   // révision : mouvement de boîte éventuel
         if (window.LearnSFX) LearnSFX.play(r.correct ? 'correct' : 'wrong');
         try { navigator.vibrate && navigator.vibrate(r.correct ? 18 : [55, 40, 55]); } catch (e) {}
         this.checked = true;
@@ -874,7 +919,7 @@ document.addEventListener('alpine:init', () => {
       }
       this.busy = false;
     },
-    go() { this.$dispatch('quiz:answered', { correct: this.isRight }); },
+    go() { this.$dispatch('quiz:answered', { correct: this.isRight, move: this._move }); },
   });
 
   // ── mcq_single ──
