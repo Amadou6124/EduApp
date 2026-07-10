@@ -689,12 +689,14 @@ def learn_story_v2(request, lesson_id):
         raise Http404('Aucune histoire disponible.')
 
     sd = cv.story_data
+    _name = (student.first_name or student.full_name or '').strip()
     return render(request, 'student_learning/story_v2.html', {
         'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
                    'color': cv.color or '#10B981'},
         'scene':        sd.get('scene') or {},
         'characters':   sd.get('characters') or [],
         'steps':        sd.get('steps') or [],
+        'student_first': _name.split()[0] if _name else '',
         'finish_url':   reverse('learn:story-v2-finish', kwargs={'lesson_id': lesson_id}),
         'parcours_url': reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
     })
