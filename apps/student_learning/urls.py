@@ -33,6 +33,8 @@ urlpatterns = [
          views.quiz_v2_answer, name='quiz-v2-answer'),
     path('v2/lesson/<int:lesson_id>/story/',        views.learn_story_v2,  name='story-v2'),
     path('v2/lesson/<int:lesson_id>/story/finish/', views.story_v2_finish, name='story-v2-finish'),
+    path('v2/lesson/<int:lesson_id>/cahier/',        views.learn_cahier_v2,  name='cahier-v2'),
+    path('v2/lesson/<int:lesson_id>/cahier/finish/', views.cahier_v2_finish, name='cahier-v2-finish'),
     path('v2/lesson/<int:lesson_id>/exam/',         views.learn_exam_v2,   name='exam-v2'),
     path('v2/lesson/<int:lesson_id>/exam/submit/',  views.exam_v2_submit,  name='exam-v2-submit'),
 ]

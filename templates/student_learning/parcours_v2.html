@@ -274,14 +274,14 @@
         <!-- unlocked -->
         <template x-if="sheet.status!=='locked'">
           <div>
-            <template x-if="sheet.url_quiz || sheet.url_story || sheet.url_exam">
-              <a :href="sheet.url_quiz || sheet.url_story || sheet.url_exam" class="ctaBtn"
+            <template x-if="sheet.url_quiz || sheet.url_story || sheet.url_exam || sheet.url_cahier">
+              <a :href="sheet.url_quiz || sheet.url_story || sheet.url_exam || sheet.url_cahier" class="ctaBtn"
                  style="background:var(--accent);color:var(--accent-ink);box-shadow:0 3px 0 var(--accent-strong);text-decoration:none">
-                <i :data-lucide="sheet.type==='story' ? 'play' : 'arrow-right'" style="width:18px;height:18px"></i>
+                <i :data-lucide="sheet.type==='story' ? 'play' : (sheet.type==='cahier' ? 'pencil' : 'arrow-right')" style="width:18px;height:18px"></i>
                 <span x-text="sheet.cta"></span>
               </a>
             </template>
-            <template x-if="!sheet.url_quiz && !sheet.url_story && !sheet.url_exam">
+            <template x-if="!sheet.url_quiz && !sheet.url_story && !sheet.url_exam && !sheet.url_cahier">
               <button class="ctaBtn" @click="toast(sheet.cta + ' — bientôt'); sheet=null"
                       style="background:var(--accent);color:var(--accent-ink);box-shadow:0 3px 0 var(--accent-strong)">
                 <i :data-lucide="sheet.type==='story' ? 'play' : 'arrow-right'" style="width:18px;height:18px"></i>

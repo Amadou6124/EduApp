@@ -1,0 +1,314 @@
+{% load static l10n %}{% localize off %}
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{{ lesson.title }} — Cahier</title>
+
+  {# Thème AVANT peinture (évite le flash). #}
+  <script>(function(){try{document.documentElement.dataset.theme=localStorage.getItem('learn-theme')||'light';}catch(e){}})();</script>
+
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
+  <script src="{% static 'js/learn-sfx.js' %}"></script>
+  <script defer src="{% static 'vendor/alpine/alpine.min.js' %}"></script>
+
+  {{ tasks|json_script:"cahier-tasks" }}
+  <script>
+    const CAHIER_CFG = {
+      finishUrl:   "{{ finish_url }}",
+      parcoursUrl: "{{ parcours_url }}",
+      csrf:        "{{ csrf_token }}",
+    };
+    LearnSFX.init("{% get_static_prefix %}vendor/sfx/");
+  </script>
+
+  <style>
+    *{box-sizing:border-box} html,body{margin:0;height:100%} ::-webkit-scrollbar{width:0}
+    button{font-family:inherit}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased}
+    [x-cloak]{display:none !important}
+    :root{ --paper-bg:#FFFDF9; --paper-rule:#DCE8F5; --paper-margin:#F3B0A0; }
+    [data-theme="dark"]{ --paper-bg:#2F2836; --paper-rule:rgba(130,182,255,.16); --paper-margin:rgba(255,122,89,.45); }
+    .app{display:flex;flex-direction:column;height:100dvh;max-width:480px;margin:0 auto}
+
+    .rHead{flex-shrink:0;display:flex;align-items:center;gap:12px;padding:16px 16px 4px}
+    .iconBtn{width:42px;height:42px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+    .iconBtn:active{transform:scale(.92)}
+    .iconBtn svg{width:20px;height:20px}
+    .progTrack{flex:1;height:11px;border-radius:99px;background:var(--track);overflow:hidden}
+    .progFill{height:100%;border-radius:99px;background:var(--accent);transition:width .4s cubic-bezier(.2,.8,.2,1)}
+    .kicker{display:flex;align-items:center;gap:6px;padding:10px 18px 2px;font-size:11px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-faint)}
+    .kicker .dot{width:4px;height:4px;border-radius:50%;background:var(--ink-faint)}
+    .kicker .subj{color:var(--{{ hue }}-700)}
+    [data-theme="dark"] .kicker .subj{color:var(--{{ hue }}-300)}
+
+    .body{flex:1;overflow-y:auto;min-height:0;padding:6px 16px 8px}
+
+    /* Papier réglé */
+    .paper{position:relative;border-radius:18px;background:var(--paper-bg);border:1px solid var(--border);box-shadow:var(--shadow-md);
+      overflow:hidden;padding:20px 18px 22px 40px;
+      background-image:repeating-linear-gradient(to bottom, transparent 0, transparent 33px, var(--paper-rule) 33px, var(--paper-rule) 34px);
+      background-position:0 14px}
+    .paper::before{content:'';position:absolute;top:0;bottom:0;left:28px;width:2px;background:var(--paper-margin)}
+    .paper::after{content:'';position:absolute;top:12px;left:13px;width:9px;height:9px;border-radius:50%;background:var(--surface-2);box-shadow:0 46px 0 var(--surface-2),0 92px 0 var(--surface-2),0 138px 0 var(--surface-2);border:1px solid var(--border)}
+    .paperTag{position:absolute;top:10px;right:10px;z-index:2;display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900;letter-spacing:.3px;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:var(--accent-soft);color:var(--coral-700)}
+    [data-theme="dark"] .paperTag{color:var(--coral-200)}
+    .pInstruction{position:relative;font-size:19px;font-weight:800;line-height:1.75;color:var(--ink-strong);margin:0}
+    .pModel{position:relative;font-size:17px;font-weight:700;line-height:2.0;color:var(--ink);margin:0}
+    .pModel .hot{color:var(--accent);font-weight:900;text-decoration:underline;text-decoration-color:var(--coral-200);text-underline-offset:3px}
+
+    /* Audio */
+    .audioWrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 0 6px}
+    .audioBtn{position:relative;width:96px;height:96px;border-radius:50%;border:none;cursor:pointer;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 26px color-mix(in srgb,var(--accent) 45%,transparent);transition:transform .14s}
+    .audioBtn:active{transform:scale(.93)}
+    .audioBtn svg{width:40px;height:40px;margin-left:1px}
+    .audioBtn::before,.audioBtn::after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:ring 2.6s ease-out infinite}
+    .audioBtn::after{animation-delay:1.3s}
+    @keyframes ring{0%{transform:scale(1);opacity:.55}100%{transform:scale(1.7);opacity:0}}
+    .audioHint{font-size:13px;font-weight:800;color:var(--ink-muted)}
+    .audioReplay{font-size:12px;font-weight:800;color:var(--accent);background:none;border:none;cursor:pointer;padding:4px}
+
+    /* Encart « écris sur ton vrai cahier » */
+    .writeCallout{display:flex;align-items:center;gap:13px;margin-top:14px;padding:13px 15px;border-radius:16px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+    .wcArt{flex-shrink:0;width:56px;height:56px;border-radius:14px;background:var(--surface-2);display:flex;align-items:center;justify-content:center}
+    .wcArt svg{width:44px;height:44px}
+    .wcTitle{font-size:14.5px;font-weight:900;color:var(--ink-strong);line-height:1.2}
+    .wcSub{font-size:12px;font-weight:700;color:var(--ink-muted);margin-top:3px;line-height:1.45}
+    .wcSub b{color:var(--accent-strong)}
+    [data-theme="dark"] .wcSub b{color:var(--coral-300)}
+
+    /* Auto-correction */
+    .selfHead{text-align:center;padding:8px 6px 4px}
+    .selfTitle{font-size:18px;font-weight:900;color:var(--ink-strong)}
+    .selfSub{font-size:13px;font-weight:700;color:var(--ink-muted);margin-top:3px}
+    .honesty{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;font-size:12px;font-weight:800;color:var(--ink-faint)}
+    .selfBtns{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+    .selfBtn{display:flex;align-items:center;gap:12px;width:100%;border:none;cursor:pointer;text-align:left;padding:14px 16px;border-radius:16px;font-weight:900;font-size:15px;transition:transform .1s,box-shadow .1s}
+    .selfBtn:active{transform:translateY(3px)}
+    .selfBtn .ic{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .selfBtn .ic svg{width:19px;height:19px}
+    .selfBtn small{display:block;font-weight:700;font-size:11.5px;opacity:.8;margin-top:1px}
+    .sbGood{background:var(--success-soft);color:var(--success-ink);box-shadow:0 4px 0 color-mix(in srgb,var(--success) 35%,transparent)}
+    .sbGood:active{box-shadow:0 1px 0 color-mix(in srgb,var(--success) 35%,transparent)}
+    .sbGood .ic{background:var(--success);color:#fff}
+    .sbMid{background:var(--warn-soft);color:var(--warn-ink);box-shadow:0 4px 0 color-mix(in srgb,var(--warn) 35%,transparent)}
+    .sbMid:active{box-shadow:0 1px 0 color-mix(in srgb,var(--warn) 35%,transparent)}
+    .sbMid .ic{background:var(--warn);color:#fff}
+
+    /* Dock */
+    .dock{flex-shrink:0;padding:10px 16px 16px;background:linear-gradient(to top,var(--bg) 70%,transparent)}
+    .cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;border:none;cursor:pointer;font:inherit;font-weight:900;font-size:16px;padding:15px;border-radius:16px;background:var(--accent);color:var(--accent-ink);box-shadow:0 4px 0 var(--accent-edge, var(--coral-700));transition:transform .12s,box-shadow .12s;text-decoration:none}
+    .cta:active{transform:translateY(4px);box-shadow:0 0 0 var(--accent-edge, var(--coral-700))}
+    .cta svg{width:18px;height:18px}
+    .skip{display:block;text-align:center;margin-top:11px;font-size:12.5px;font-weight:800;color:var(--ink-faint);background:none;border:none;cursor:pointer;width:100%;text-decoration:none}
+    .skip u{text-decoration-color:var(--warm-300)}
+
+    /* Fin */
+    .doneWrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px}
+    .doneStar{width:96px;height:96px;border-radius:30px;background:linear-gradient(150deg,var(--coral-400),var(--amber-500));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-lg);animation:pop .5s cubic-bezier(.34,1.56,.64,1)}
+    @keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+    .doneStar svg{width:46px;height:46px;color:#fff}
+    .doneTitle{font-size:22px;font-weight:900;color:var(--ink-strong);margin-top:18px}
+    .doneSub{font-size:14px;font-weight:700;color:var(--ink-muted);margin-top:5px;line-height:1.5}
+
+    @keyframes cardIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+    .rise{animation:cardIn .45s cubic-bezier(.34,1.56,.64,1) both}
+    @media (prefers-reduced-motion: reduce){*{animation-duration:.001ms !important;transition-duration:.001ms !important}}
+  </style>
+</head>
+<body>
+<div class="app" x-data="cahierRunner" x-cloak>
+
+  <!-- Header -->
+  <template x-if="phase !== 'done'">
+    <div class="rHead">
+      <a class="iconBtn" :href="parcoursUrl" aria-label="Quitter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></a>
+      <div class="progTrack"><div class="progFill" :style="`width:${progress}%`"></div></div>
+    </div>
+  </template>
+
+  <template x-if="phase !== 'done'">
+    <div class="kicker">
+      <span>📓 <span x-text="phase==='correction' ? 'Correction' : 'Cahier'"></span></span>
+      <span class="dot"></span><span class="subj">{{ lesson.subject }}</span>
+    </div>
+  </template>
+
+  <!-- ═══ Phase TÂCHE : consigne + (audio) + encart écrire ═══ -->
+  <template x-if="phase === 'task'">
+    <div class="body">
+      <div class="paper rise" :key="'p'+idx">
+        <span class="paperTag">📓 sur papier</span>
+        <p class="pInstruction" x-show="!showText" x-text="t.prompt"></p>
+        <p class="pModel" x-show="showText" x-html="modelHtml"></p>
+      </div>
+
+      <template x-if="hasAudio">
+        <div class="audioWrap rise">
+          <button class="audioBtn" @click="speak(t.text)" aria-label="Écouter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5.5a9 9 0 0 1 0 13"/></svg>
+          </button>
+          <div class="audioHint" x-text="tts ? 'Touche pour écouter' : 'Lis la consigne et écris'"></div>
+          <button class="audioReplay" x-show="tts" @click="speak(t.text, .7)">↻ Réécouter au ralenti</button>
+        </div>
+      </template>
+
+      <div class="writeCallout rise">
+        <div class="wcArt">
+          <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <g transform="rotate(-7 24 24)">
+              <rect x="10" y="9" width="22" height="30" rx="2.5" fill="#FFFDF9" stroke="var(--warm-300)" stroke-width="1.6"/>
+              <line x1="15" y1="9" x2="15" y2="39" stroke="var(--coral-300)" stroke-width="1.4"/>
+              <line x1="18" y1="16" x2="28" y2="16" stroke="var(--sky-300)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="18" y1="21" x2="28" y2="21" stroke="var(--sky-300)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="18" y1="26" x2="25" y2="26" stroke="var(--sky-300)" stroke-width="1.4" stroke-linecap="round"/>
+            </g>
+            <g transform="rotate(40 31 28)">
+              <rect x="28" y="12" width="6" height="24" rx="1.6" fill="var(--amber-500)"/>
+              <rect x="28" y="12" width="6" height="4.5" rx="1.6" fill="var(--coral-400)"/>
+              <path d="M28 36 L31 41.5 L34 36 Z" fill="#E9E1DB"/>
+              <path d="M29 37 L31 40.4 L33 37 Z" fill="#3A2E28"/>
+            </g>
+          </svg>
+        </div>
+        <div>
+          <div class="wcTitle" x-text="calloutTitle"></div>
+          <div class="wcSub">L'écran sert à <b>lire</b> et <b>corriger</b> — jamais à écrire.</div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ═══ Phase CORRECTION : modèle révélé + auto-évaluation ═══ -->
+  <template x-if="phase === 'correction'">
+    <div class="body">
+      <div class="selfHead">
+        <div class="selfTitle" x-text="t.kind==='dictee' ? 'Voici la bonne écriture' : (t.kind==='copie' ? 'Vérifie ta copie' : 'Voici un modèle')"></div>
+        <div class="selfSub">Compare avec ton cahier, ligne par ligne.</div>
+      </div>
+
+      <div class="paper rise" style="margin-top:8px">
+        <p class="pModel" x-html="modelHtml"></p>
+      </div>
+
+      <div class="honesty rise">🤝 Sois honnête — c'est pour toi que tu progresses.</div>
+
+      <div class="selfBtns rise">
+        <button class="selfBtn sbGood" @click="assess('good')">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span>J'ai tout bon<small>Bravo ! Ta mémoire de l'écriture se renforce.</small></span>
+        </button>
+        <button class="selfBtn sbMid" @click="assess('partial')">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+          <span>J'avais des erreurs<small>Pas grave — recopie les mots ratés une fois.</small></span>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Dock (task phase seulement) -->
+  <template x-if="phase === 'task'">
+    <div class="dock">
+      <button class="cta" @click="toCorrection()">J'ai écrit, voir la correction <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <a class="skip" :href="parcoursUrl">Je préfère <u>passer</u></a>
+    </div>
+  </template>
+
+  <!-- ═══ Phase FIN ═══ -->
+  <template x-if="phase === 'done'">
+    <div class="doneWrap">
+      <div class="doneStar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+      <div class="doneTitle">Beau travail sur ton cahier&nbsp;!</div>
+      <div class="doneSub">Écrire à la main, c'est ce qui reste vraiment<br>dans ta tête. Continue comme ça&nbsp;💪</div>
+      <a class="cta" :href="parcoursUrl" style="width:min(320px,90%);margin-top:26px">Retour au parcours <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    </div>
+  </template>
+
+</div>
+
+<script>
+{% verbatim %}
+document.addEventListener('alpine:init', () => {
+  const TASKS = JSON.parse(document.getElementById('cahier-tasks').textContent);
+
+  // Échappe seulement & < > (sûrs dans du CONTENU texte) → les apostrophes des
+  // mots pièges (« jusqu'au ») restent intactes et se surlignent correctement.
+  function escapeHtml(s){ return String(s||'').replace(/[&<>]/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+  Alpine.data('cahierRunner', () => ({
+    tasks: TASKS,
+    idx: 0,
+    phase: 'task',           // 'task' | 'correction' | 'done'
+    results: [],
+    tts: ('speechSynthesis' in window),
+    parcoursUrl: CAHIER_CFG.parcoursUrl,
+
+    get t(){ return this.tasks[this.idx] || {}; },
+    get progress(){
+      const total = this.tasks.length * 2;           // 2 étapes par tâche
+      const step = this.idx * 2 + (this.phase === 'correction' ? 1 : 0);
+      return Math.min(100, Math.round((step / total) * 100));
+    },
+    // La dictée cache le texte (on l'écoute) ; copie/production montrent la consigne.
+    get showText(){ return this.t.kind === 'copie'; },
+    get hasAudio(){ return this.t.kind === 'dictee' || this.t.kind === 'copie'; },
+    get calloutTitle(){
+      return this.t.kind === 'production' ? "Compose sur ta feuille" : "Écris sur ton vrai cahier";
+    },
+    get modelHtml(){
+      let html = escapeHtml(this.t.text);
+      for (const w of (this.t.hot || [])) {
+        if (!w) continue;
+        const re = new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'i');
+        html = html.replace(re, '<span class="hot">$1</span>');
+      }
+      return html;
+    },
+
+    speak(text, rate){
+      if (!this.tts) return;
+      try {
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(String(text || ''));
+        u.lang = 'fr-FR'; u.rate = rate || 0.92;
+        const fr = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('fr'));
+        if (fr) u.voice = fr;
+        speechSynthesis.speak(u);
+        if (window.LearnSFX) LearnSFX.play('tap');
+      } catch(e){}
+    },
+
+    toCorrection(){
+      try { speechSynthesis && speechSynthesis.cancel(); } catch(e){}
+      this.phase = 'correction';
+    },
+
+    assess(self){
+      this.results.push({ task_id: this.t.id, self });
+      if (window.LearnSFX) LearnSFX.play(self === 'good' ? 'correct' : 'tap');
+      if (this.idx + 1 >= this.tasks.length) { this.finish(); }
+      else { this.idx++; this.phase = 'task'; }
+    },
+
+    async finish(){
+      this.phase = 'done';
+      if (window.LearnSFX) LearnSFX.play('complete');
+      try { if (navigator.vibrate) navigator.vibrate(20); } catch(e){}
+      try {
+        await fetch(CAHIER_CFG.finishUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CAHIER_CFG.csrf },
+          body: JSON.stringify({ results: this.results }),
+        });
+      } catch(e){ /* complétion best-effort : le nœud non-bloquant ne casse rien */ }
+    },
+  }));
+});
+{% endverbatim %}
+</script>
+</body>
+</html>
+{% endlocalize %}

@@ -12,7 +12,7 @@ from apps.core.student_auth import (
 )
 from apps.lessons.models import Lesson, LessonContentVersion, LessonDeployment, LessonStatus
 from apps.student_learning.models import (
-    QuizAttempt, StoryAttempt,
+    QuizAttempt, StoryAttempt, CahierAttempt,
     ConceptProgress, ExamAttempt, QuestionDraw, StudentNote,
 )
 
@@ -341,6 +341,8 @@ _PCRS_TYPE = {
                    'dark': "#1D4ED8", 'glow': "rgba(34,211,238,.45)", 'icon': "target"},
     'checkpoint': {'label': "Examen",   'cta': "Passer l'examen",   'g0': "#FBBF24", 'g1': "#F59E0B",
                    'dark': "#B45309", 'glow': "rgba(251,191,36,.5)",  'icon': "crown"},
+    'cahier':     {'label': "Cahier",   'cta': "Ouvrir le cahier",  'g0': "#FF8E6C", 'g1': "#F2683F",
+                   'dark': "#A83E22", 'glow': "rgba(255,122,89,.45)", 'icon': "pencil"},
 }
 _PCRS_COL_W, _PCRS_NODE, _PCRS_ROW_H, _PCRS_AMP, _PCRS_CX = 300, 74, 108, 60, 150
 
@@ -390,9 +392,11 @@ def assemble_nodes(cv, student):
         current — premier nœud non-done
         locked  — tout ce qui suit le premier nœud non-done
     """
+    from . import cahier as cahier_mod
     concepts = cv.concepts_data if isinstance(cv.concepts_data, list) else []
     has_story = bool(cv.story_data)
     has_exam = bool(cv.exam_data)
+    has_cahier = cahier_mod.has_cahier(cv, cv.lesson)   # dérivé (Voie B), non-bloquant
     url_lecteur = reverse('learn:lecteur-v2', kwargs={'lesson_id': cv.lesson_id})
 
     # Progression depuis la base (lecture seule — aucune écriture ici)
@@ -405,6 +409,7 @@ def assemble_nodes(cv, student):
     exam_passed = ExamAttempt.objects.filter(
         student=student, content_version=cv, passed=True
     ).exists()
+    cahier_done = CahierAttempt.objects.filter(student=student, content_version=cv).exists()
 
     # 1. Nœuds quiz (un par concept)
     raw = []
@@ -428,7 +433,26 @@ def assemble_nodes(cv, student):
             'url_exam': None,
         })
 
-    # 2. Nœud story — intercalé juste avant l'exam (spec §3.4)
+    # 2. Nœud cahier — travail à la main, intercalé après les quiz (NON-BLOQUANT :
+    #    ne verrouille jamais la suite ; l'élève peut le sauter en conscience).
+    if has_cahier:
+        raw.append({
+            'type': 'cahier',
+            'title': 'Sur le cahier',
+            'desc': "Écris à la main sur ton vrai cahier, puis auto-corrige.",
+            'passes': 1,
+            'passes_done': 1 if cahier_done else 0,
+            'is_done': cahier_done,
+            'xp': 30,
+            'concept_id': None,
+            'url_lecteur': None,
+            'url_quiz': None,
+            'url_story': None,
+            'url_exam': None,
+            'url_cahier': reverse('learn:cahier-v2', kwargs={'lesson_id': cv.lesson_id}),
+        })
+
+    # 3. Nœud story — intercalé juste avant l'exam (spec §3.4)
     if has_story:
         scene_name = 'Histoire interactive'
         if isinstance(cv.story_data, dict):
@@ -465,12 +489,22 @@ def assemble_nodes(cv, student):
             'url_exam': reverse('learn:exam-v2', kwargs={'lesson_id': cv.lesson_id}),
         })
 
-    # 4. Calcul des statuts séquentiels
-    first_non_done = next((i for i, r in enumerate(raw) if not r['is_done']), len(raw))
+    # 4. Calcul des statuts séquentiels. Le cahier est NON-BLOQUANT : il est exclu
+    #    du gating (ne fait pas avancer first_non_done) et prend le statut spécial
+    #    'available' (nœud vivant, coloré, cliquable, mais SANS glow ni « DÉMARRER »
+    #    — le template ne traite spécialement que 'locked' et 'current').
+    first_non_done = next(
+        (i for i, r in enumerate(raw) if not r['is_done'] and r['type'] != 'cahier'),
+        len(raw))
+    quizzes_all_done = all(r['is_done'] for r in raw if r['type'] == 'quiz')
 
     nodes = []
     for i, r in enumerate(raw):
-        if r['is_done']:
+        if r['type'] == 'cahier':
+            # débloqué une fois les quiz faits ; jamais 'current' → n'entre pas en
+            # concurrence de « DÉMARRER » avec la vraie étape en cours.
+            status = 'done' if r['is_done'] else ('available' if quizzes_all_done else 'locked')
+        elif r['is_done']:
             status = 'done'
         elif i == first_non_done:
             status = 'current'
@@ -503,6 +537,7 @@ def assemble_nodes(cv, student):
             'url_quiz': r['url_quiz'],
             'url_story': r.get('url_story'),
             'url_exam': r.get('url_exam'),
+            'url_cahier': r.get('url_cahier'),
             **t,
         })
 
@@ -850,6 +885,83 @@ def story_v2_finish(request, lesson_id):
     StoryAttempt.objects.create(
         student=student, lesson=lesson, content_version=cv,
         score=score, answers=answers if isinstance(answers, list) else [],
+    )
+    return JsonResponse({'ok': True, 'first_time': first_time})
+
+
+# ─── CAHIER v2 — travail à la main (Voie B, dérivé). Aucune correction serveur :
+# l'app dicte / révèle le modèle, l'élève écrit sur son VRAI cahier et s'auto-évalue.
+# Seule la complétion (auto-évaluation) est persistée (CahierAttempt).
+
+@student_required
+def learn_cahier_v2(request, lesson_id):
+    """Affiche le runner Cahier (tâches dérivées du contenu, gated)."""
+    from . import cahier as cahier_mod
+    student = request.student
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('active_content_version'),
+        pk=lesson_id, format_version=2,
+    )
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv:
+        raise Http404('Aucun contenu.')
+    tasks = cahier_mod.derive_cahier_tasks(cv, lesson)
+    if not tasks:
+        raise Http404('Aucune tâche de cahier.')
+
+    # Teinte de matière (repère) — même calcul par position que le reste du portail.
+    from apps.student_learning.theme import subject_hue_at
+    _names = [s['subject'] for s in _student_v2_subjects(student)]
+    _cur = lesson.subject or 'Autre'
+    hue = subject_hue_at(_names.index(_cur)) if _cur in _names else subject_hue_at(0)
+
+    _name = (student.first_name or student.full_name or '').strip()
+    return render(request, 'student_learning/cahier_v2.html', {
+        'hue': hue,
+        'lesson': {'title': lesson.title, 'subject': lesson.subject or '',
+                   'level': lesson.get_level_display()},
+        'tasks': tasks,
+        'n_tasks': len(tasks),
+        'student_first': _name.split()[0] if _name else '',
+        'finish_url': reverse('learn:cahier-v2-finish', kwargs={'lesson_id': lesson_id}),
+        'parcours_url': reverse('learn:parcours-v2', kwargs={'lesson_id': lesson_id}),
+    })
+
+
+@student_required
+@require_http_methods(['POST'])
+def cahier_v2_finish(request, lesson_id):
+    """Persiste l'auto-évaluation du Cahier (version-aware) → nœud « fait »."""
+    student = request.student
+    lesson = get_object_or_404(Lesson, pk=lesson_id, format_version=2)
+    get_object_or_404(LessonDeployment, lesson=lesson,
+                      school_class=student.school_class, is_active=True)
+    cv = lesson.active_content_version or (
+        LessonContentVersion.objects.filter(lesson=lesson).order_by('-version').first())
+    if not cv:
+        return JsonResponse({'error': 'Aucun contenu'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        raw = data.get('results', [])
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({'error': 'Invalid'}, status=400)
+
+    # Nettoyage défensif : on ne garde que {task_id, self ∈ {good, partial}}.
+    results = []
+    if isinstance(raw, list):
+        for r in raw:
+            if isinstance(r, dict) and r.get('self') in ('good', 'partial'):
+                results.append({'task_id': str(r.get('task_id', ''))[:40],
+                                'self': r['self']})
+
+    first_time = not CahierAttempt.objects.filter(
+        student=student, content_version=cv).exists()
+    CahierAttempt.objects.create(
+        student=student, lesson=lesson, content_version=cv, results=results,
     )
     return JsonResponse({'ok': True, 'first_time': first_time})
 
