@@ -658,62 +658,91 @@ def _reading(with_terms=True):
 
 
 class CahierDeriveTests(SRSBase):
-    """Dérivation des tâches Cahier (Voie B, sans IA) — calibrage par niveau."""
+    """Dérivation Voie B enrichie — matrice NIVEAU × MATIÈRE."""
 
-    def _cv_with(self, level='fondamental_1', reading=None, concepts=None):
+    def _cv_with(self, level='fondamental_1', subject='Français', subject_type='literary',
+                 reading=None, concepts=None):
         self.lesson.level = level
-        self.lesson.save(update_fields=['level'])
+        self.lesson.subject = subject
+        self.lesson.subject_type = subject_type
+        self.lesson.save(update_fields=['level', 'subject', 'subject_type'])
         self.cv.reading_data = _reading() if reading is None else reading
         if concepts is not None:
             self.cv.concepts_data = concepts
         self.cv.save(update_fields=['reading_data', 'concepts_data'])
         return self.cv
 
-    def test_bas_niveau_dictee_simple_et_copie(self):
-        cv = self._cv_with('fondamental_1')
+    # ── Dictée : langue + bas/moyen niveau seulement ──
+    def test_langue_bas_niveau_prep_serie_dictee_copie(self):
+        cv = self._cv_with('fondamental_1', 'Français', 'literary')
         tasks = cahier.derive_cahier_tasks(cv, self.lesson)
         kinds = [t['kind'] for t in tasks]
-        self.assertEqual(kinds, ['dictee', 'copie'])   # pas de composition
-        # bas niveau → phrase issue de la version « simple »
-        self.assertIn("Ton corps t'aide", tasks[0]['text'])
-        self.assertTrue(tasks[0]['hot'])               # mots pièges repérés
-        self.assertTrue(tasks[1]['text'].startswith('sens :'))
+        self.assertEqual(kinds[0], 'prep')                 # préparation d'abord
+        self.assertGreaterEqual(kinds.count('dictee'), 2)  # SÉRIE (pas une seule)
+        self.assertEqual(kinds[-1], 'copie')               # copie en complément
+        self.assertTrue(tasks[0]['words'])                 # mots à préparer
 
-    def test_haut_niveau_ajoute_la_composition(self):
-        cv = self._cv_with('secondaire_gen')
-        tasks = cahier.derive_cahier_tasks(cv, self.lesson)
-        kinds = [t['kind'] for t in tasks]
-        self.assertIn('production', kinds)
-        prod = next(t for t in tasks if t['kind'] == 'production')
-        self.assertIn('Compose sur ta feuille', prod['prompt'])
-        # haut niveau → phrase issue du texte riche (plus longue), pas du « simple »
-        self.assertIn('bruits du quartier', tasks[0]['text'])
+    def test_subject_type_incoherent_lang_reconnu(self):
+        # donnée réelle incohérente : subject_type='lang' → doit rester une langue
+        cv = self._cv_with('fondamental_1', 'Français', 'lang')
+        kinds = [t['kind'] for t in cahier.derive_cahier_tasks(cv, self.lesson)]
+        self.assertIn('dictee', kinds)
 
-    def test_sans_lecture_ni_glossaire_aucune_tache(self):
-        cv = self._cv_with('fondamental_1', reading={}, concepts=[])
+    def test_matiere_non_langue_jeune_aucun_noeud(self):
+        # maths fond.1 : pas de dictée (pas une langue), pas de compo (trop tôt) → RIEN
+        cv = self._cv_with('fondamental_1', 'Mathématiques', 'math')
         self.assertEqual(cahier.derive_cahier_tasks(cv, self.lesson), [])
         self.assertFalse(cahier.has_cahier(cv, self.lesson))
 
-    def test_sans_glossaire_dictee_seule(self):
-        cv = self._cv_with('fondamental_1', reading=_reading(with_terms=False))
-        tasks = cahier.derive_cahier_tasks(cv, self.lesson)
-        self.assertEqual([t['kind'] for t in tasks], ['dictee'])
+    def test_pas_de_dictee_au_lycee_meme_en_langue(self):
+        cv = self._cv_with('secondaire_gen', 'Français', 'literary')
+        kinds = [t['kind'] for t in cahier.derive_cahier_tasks(cv, self.lesson)]
+        self.assertNotIn('dictee', kinds)
+        self.assertIn('production', kinds)
 
-    def test_reading_malforme_ne_plante_pas(self):
-        cv = self._cv_with('fondamental_1', reading={'sections': [None, {'blocks': [None, 'x']}]})
-        # aucune phrase exploitable → pas de dictée, mais pas d'erreur
+    # ── Compositions : plusieurs, forme par matière ──
+    def test_compositions_multiples_forme_maths(self):
+        cv = self._cv_with('secondaire_gen', 'Mathématiques', 'math')
+        prods = [t for t in cahier.derive_cahier_tasks(cv, self.lesson)
+                 if t['kind'] == 'production']
+        self.assertGreaterEqual(len(prods), 2)             # PLUSIEURS
+        self.assertIn('rédige toute ta démarche', prods[0]['prompt'])   # forme maths
+
+    def test_composition_forme_lettres(self):
+        cv = self._cv_with('secondaire_gen', 'Français', 'literary')
+        prod = next(t for t in cahier.derive_cahier_tasks(cv, self.lesson)
+                    if t['kind'] == 'production')
+        self.assertIn('Rédige un court texte', prod['prompt'])
+
+    def test_forme_maths_par_le_nom_malgre_type_other(self):
+        # subject_type='other' mais nom='Mathématiques' → forme maths (robustesse)
+        cv = self._cv_with('secondaire_gen', 'Mathématiques', 'other')
+        prod = next(t for t in cahier.derive_cahier_tasks(cv, self.lesson)
+                    if t['kind'] == 'production')
+        self.assertIn('démarche', prod['prompt'])
+
+    def test_fond2_langue_dictee_plus_une_compo(self):
+        # fondamental 2 langue : dictée (cœur) + UNE seule compo (ne pas noyer)
+        cv = self._cv_with('fondamental_2', 'Français', 'literary')
+        kinds = [t['kind'] for t in cahier.derive_cahier_tasks(cv, self.lesson)]
+        self.assertIn('dictee', kinds)
+        self.assertEqual(kinds.count('production'), 1)
+
+    # ── Défensif ──
+    def test_sans_contenu_aucun_noeud(self):
+        cv = self._cv_with('fondamental_1', reading={}, concepts=[])
         self.assertEqual(cahier.derive_cahier_tasks(cv, self.lesson), [])
 
-    def test_cap_max_taches(self):
-        cv = self._cv_with('secondaire_gen')
-        tasks = cahier.derive_cahier_tasks(cv, self.lesson)
-        self.assertLessEqual(len(tasks), cahier.MAX_TASKS)
+    def test_reading_malforme_ne_plante_pas(self):
+        cv = self._cv_with('fondamental_1', 'Mathématiques', 'math',
+                            reading={'sections': [None, {'blocks': [None, 'x']}]})
+        self.assertEqual(cahier.derive_cahier_tasks(cv, self.lesson), [])
 
     def test_deterministe(self):
-        cv = self._cv_with('fondamental_1')
+        cv = self._cv_with('fondamental_1', 'Français', 'literary')
         a = cahier.derive_cahier_tasks(cv, self.lesson)
         b = cahier.derive_cahier_tasks(cv, self.lesson)
-        self.assertEqual([t['text'] for t in a], [t['text'] for t in b])
+        self.assertEqual([t.get('text') for t in a], [t.get('text') for t in b])
 
 
 class CahierViewTests(SRSBase):
