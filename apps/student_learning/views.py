@@ -106,8 +106,9 @@ def learn_dashboard(request):
 
 @student_required
 def learn_profil(request):
-    """Profil élève : identité + réglages (thème) + stats d'activité + déconnexion.
-    (Gamification XP/streak à venir — award_xp pas encore câblé.)"""
+    """Profil élève : identité + réglages (thème) + Mon rythme (usage sain) +
+    stats d'activité + déconnexion."""
+    from . import rhythm
     student = request.student
     cls = student.school_class
 
@@ -121,13 +122,24 @@ def learn_profil(request):
     parts = (student.full_name or '').split()
     initials = ''.join(p[0] for p in parts[:2]).upper() or '?'
 
+    goal = rhythm.daily_goal(student)
+    strip = rhythm.week_strip(student)
+    _name = (student.first_name or student.full_name or '').strip()
     return render(request, 'student_learning/profil_v2.html', {
         'active_tab':  'profil',
         'student':     student,
+        'student_first': _name.split()[0] if _name else '',
         'initials':    initials,
         'class_name':  cls.name if cls else '',
         'school_name': student.school.name if student.school_id else '',
         'stats':       {'quiz': quiz_ok, 'stories': stories, 'exams': exams},
+        # Mon rythme (usage sain)
+        'goal':        goal,
+        'goal_offset': round(220 * (1 - (goal['done'] / goal['total']))) if goal['total'] else 220,
+        'week':        strip,
+        'active_days': sum(1 for d in strip if d['active']),
+        'is_night':    rhythm.is_night(),
+        'revision_url': reverse('learn:revision'),
         'parcours_url': reverse('learn:dashboard'),
         'logout_url':   reverse('learn:logout'),
     })

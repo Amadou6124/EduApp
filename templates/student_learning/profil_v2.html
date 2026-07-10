@@ -36,6 +36,37 @@
              border-radius:14px;background:var(--surface);color:var(--danger-ink);font-weight:800;font-size:15px;cursor:pointer;
              transition:transform .1s}
   .pf-logout:active{transform:scale(.98)}
+
+  /* ── Mon rythme (usage sain) ── */
+  .ry{background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-md);
+      padding:18px 16px;margin-bottom:26px}
+  .ry-goal{display:flex;align-items:center;gap:15px}
+  .ry-ring{position:relative;width:84px;height:84px;flex-shrink:0}
+  .ry-ring svg{transform:rotate(-90deg)}
+  .ry-ring circle{transition:stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1)}
+  .ry-lbl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ry-lbl b{font-size:19px;font-weight:900;color:var(--ink-strong);font-variant-numeric:tabular-nums;line-height:1}
+  .ry-lbl span{font-size:9.5px;font-weight:800;color:var(--ink-faint);margin-top:2px}
+  .ry-lbl .big{font-size:30px;line-height:1}
+  .ry-txt{min-width:0}
+  .ry-kicker{font-size:10.5px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-faint)}
+  .ry-title{font-size:15.5px;font-weight:900;color:var(--ink-strong);line-height:1.25;margin-top:2px}
+  .ry-sub{font-size:12px;font-weight:700;color:var(--ink-muted);margin-top:3px;line-height:1.45}
+  .ry-cta{display:inline-flex;align-items:center;gap:6px;margin-top:9px;font-size:12.5px;font-weight:900;padding:8px 14px;
+          border-radius:12px;background:var(--accent);color:var(--accent-ink);box-shadow:0 3px 0 var(--btn-primary-edge);text-decoration:none}
+  .ry-done{display:inline-flex;align-items:center;gap:6px;margin-top:9px;font-size:12.5px;font-weight:900;padding:8px 14px;
+           border-radius:12px;background:var(--success-soft);color:var(--success-ink)}
+  .ry-week{display:flex;justify-content:space-between;gap:5px;margin-top:17px;padding-top:15px;border-top:1px dashed var(--border)}
+  .ry-day{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+  .ry-day i{width:26px;height:26px;border-radius:50%;background:var(--track);display:flex;align-items:center;justify-content:center;
+            font-style:normal;font-size:12px;color:#fff}
+  .ry-day.on i{background:var(--success)}
+  .ry-day.today i{outline:2.5px solid var(--accent);outline-offset:2px}
+  .ry-day span{font-size:9.5px;font-weight:900;color:var(--ink-faint);text-transform:uppercase}
+  .ry-note{text-align:center;font-size:11.5px;font-weight:800;color:var(--ink-muted);margin-top:11px}
+  .ry-night{display:flex;align-items:center;gap:11px;margin-top:12px;padding:12px 14px;border-radius:15px;
+            background:var(--info-soft);color:var(--info-ink);font-size:12.5px;font-weight:800;line-height:1.45}
+  .ry-night .moon{font-size:19px}
 </style>
 {% endblock %}
 
@@ -48,6 +79,60 @@
       <div class="pf-name">{{ student.full_name }}</div>
       <div class="pf-meta">{{ class_name }}{% if school_name %} · {{ school_name }}{% endif %}</div>
     </div>
+  </div>
+
+  <div class="pf-label">Mon rythme</div>
+  <div class="ry">
+    <div class="ry-goal">
+      <div class="ry-ring">
+        <svg width="84" height="84" viewBox="0 0 84 84">
+          <circle cx="42" cy="42" r="35" fill="none" stroke="var(--track)" stroke-width="9"/>
+          {% if goal.state == 'done' %}
+          <circle cx="42" cy="42" r="35" fill="none" stroke="var(--success)" stroke-width="9"
+                  stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="0"/>
+          {% elif goal.state == 'todo' %}
+          <circle cx="42" cy="42" r="35" fill="none" stroke="var(--accent)" stroke-width="9"
+                  stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="{{ goal_offset }}"/>
+          {% endif %}
+        </svg>
+        <div class="ry-lbl">
+          {% if goal.state == 'done' %}<span class="big">✅</span>
+          {% elif goal.state == 'fresh' %}<span class="big">✨</span>
+          {% else %}<b>{{ goal.done }}/{{ goal.total }}</b><span>concepts</span>{% endif %}
+        </div>
+      </div>
+      <div class="ry-txt">
+        <div class="ry-kicker">Objectif du jour</div>
+        {% if goal.state == 'done' %}
+          <div class="ry-title">C'est fait pour aujourd'hui&nbsp;!</div>
+          <div class="ry-sub">Ta mémoire travaille toute seule maintenant. Repose-toi.</div>
+          <span class="ry-done">✓ Révision du jour terminée</span>
+        {% elif goal.state == 'fresh' %}
+          <div class="ry-title">Tout est frais dans ta tête</div>
+          <div class="ry-sub">Rien à réviser aujourd'hui — continue ton parcours si tu veux.</div>
+        {% else %}
+          <div class="ry-title">Fais ta révision du jour</div>
+          <div class="ry-sub">Encore {{ goal.remaining }} concept{{ goal.remaining|pluralize }} et c'est bon — ta mémoire fait le reste.</div>
+          <a class="ry-cta" href="{{ revision_url }}">Continuer ma révision →</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="ry-week">
+      {% for d in week %}
+      <div class="ry-day {% if d.active %}on{% endif %} {% if d.is_today %}today{% endif %}">
+        <i>{% if d.active %}✓{% endif %}</i><span>{{ d.label }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="ry-note">
+      {% if active_days == 0 %}Chaque jour compte — commence quand tu veux 🌱
+      {% else %}{{ active_days }} jour{{ active_days|pluralize }} actif{{ active_days|pluralize }} cette semaine — {% if active_days >= 4 %}beau rythme{% else %}bien joué{% endif %} 🌱{% endif %}
+    </div>
+
+    {% if is_night %}
+    <div class="ry-night"><span class="moon">🌙</span>Il est tard{% if student_first %}, {{ student_first }}{% endif %}. Ce que tu as appris va se ranger pendant ton sommeil — bonne nuit&nbsp;!</div>
+    {% endif %}
   </div>
 
   <div class="pf-label">Apparence</div>
