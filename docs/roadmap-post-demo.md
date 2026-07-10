@@ -82,6 +82,20 @@ Troisième signal d'ordonnancement après (1) courbe d'oubli et (2) emploi du te
 (CourseSlot, déjà en base). Aucune app concurrente ne peut le faire : nous possédons les vraies
 données de l'école. **À ne pas oublier — post-lancement, après le SRS de base.**
 
+### Migration modèle IA — Gemini 3 Flash (réduction du coût de génération ~81%)
+Aujourd'hui : Claude Sonnet 4.6 ($3/$15 par M tokens), appel codé en dur dans services.py
+(4 endroits : Architecte, B1, B2, B3). Coût observé ~$0.30/leçon riche ; une Terminale complète
+(≈147 leçons) ≈ 96 500 FCFA une fois.
+**Cible recommandée : Gemini 3 Flash ($0.50/$3)** → même Terminale ≈ 18 400 FCFA (−81 %), vision
+native (lit les scans de manuels), déjà prévu dans AIProvider.GEMINI. Le tout dernier étage
+(Flash-Lite, −97 %) est écarté : risque sur la qualité pédagogique de B1 (concepts+quiz).
+**Méthode : ne PAS basculer à l'aveugle.** (1) Implémenter le chemin client Gemini (les prompts
+sont réglés pour Claude → re-tester), (2) **test A/B qualité** sur 3-4 vraies leçons (quiz,
+explications, français, lecture de scans), (3) si B1 faiblit → hybride (Claude pour B1 seul) ou
+monter à Gemini 3.5 Flash. Bonus : **Batch API −50 %** (génération non temps-réel) → ~9 200 FCFA/Terminale.
+Le coût IA n'est PAS le risque de survie (~10% du prix parent) → optimisation de marge à l'échelle,
+à faire après le développement des chantiers en cours. **Ne pas oublier.**
+
 ### Cahier élève — niveau 2 : bloc IA dédié « B4 Cahier »
 Le Cahier v1 est livré en **Voie B** (dérivation du contenu déjà généré, sans IA : dictée depuis
 la lecture, copie du glossaire, composition depuis un concept). Niveau 2 = un **bloc de génération
