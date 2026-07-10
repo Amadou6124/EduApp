@@ -82,6 +82,13 @@ Troisième signal d'ordonnancement après (1) courbe d'oubli et (2) emploi du te
 (CourseSlot, déjà en base). Aucune app concurrente ne peut le faire : nous possédons les vraies
 données de l'école. **À ne pas oublier — post-lancement, après le SRS de base.**
 
+### Cahier élève — niveau 2 : bloc IA dédié « B4 Cahier »
+Le Cahier v1 est livré en **Voie B** (dérivation du contenu déjà généré, sans IA : dictée depuis
+la lecture, copie du glossaire, composition depuis un concept). Niveau 2 = un **bloc de génération
+B4 dédié** (comme B1/B2/B3) qui produit de vraies tâches calibrées : dictées choisies au bon niveau,
+et surtout **corrigés-types de composition pour le lycée** (aujourd'hui pauvres car dérivés d'un
+concept). Nouveau prompt + coût de génération + régénération des leçons → à faire après lancement.
+
 ### Auth staff par e-mail (prof / staff / directeur / promoteur) — décision produit posée
 Direction retenue : **e-mail pour le personnel** (reset self-service « mot de passe oublié »),
 **téléphone pour les parents** (inchangé). Conditions à valider AVANT de construire :
