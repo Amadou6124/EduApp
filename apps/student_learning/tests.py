@@ -973,3 +973,64 @@ class RhythmTests(SRSBase):
             student=autre, lesson=self.lesson, content_version=self.cv, results=[])
         s = rhythm.week_summary(self.student)
         self.assertEqual(s['cahier_count'], 0)
+
+
+class RythmeViewsTests(SRSBase):
+    """Cartes Usage sain : profil élève + cockpit parent."""
+
+    def _login_student(self):
+        s = self.client.session
+        s['student_id'] = self.student.pk
+        s.save()
+
+    def test_profil_carte_todo(self):
+        self._review('c1', due=timezone.localdate())
+        self._login_student()
+        resp = self.client.get('/learn/profil/')
+        self.assertContains(resp, 'Mon rythme')
+        self.assertContains(resp, 'Fais ta révision du jour')
+        self.assertContains(resp, 'Continuer ma révision')
+
+    def test_profil_carte_done(self):
+        r = self._review('c1', due=timezone.localdate())
+        srs.apply_result(r, success=True)
+        self._login_student()
+        resp = self.client.get('/learn/profil/')
+        self.assertContains(resp, "C'est fait pour aujourd'hui")
+        self.assertNotContains(resp, 'Continuer ma révision')
+
+    def test_profil_carte_fresh(self):
+        self._login_student()
+        resp = self.client.get('/learn/profil/')
+        self.assertContains(resp, 'Tout est frais dans ta tête')
+
+    # ── cockpit parent ──
+    def _parent(self):
+        from apps.students.models import StudentGuardian
+        parent = User.objects.create_user(
+            phone_number='79990198', password='x', full_name='Papa Test',
+            role='parent',
+        )
+        StudentGuardian.objects.create(
+            guardian=parent, student=self.student, is_primary=True)
+        return parent
+
+    def test_parent_carte_visible_si_enfant_actif_dans_app(self):
+        parent = self._parent()
+        QuizAttempt.objects.create(
+            student=self.student, lesson=self.lesson, content_version=self.cv,
+            quiz_id='q1', question_type='mcq_single', student_answer=0, is_correct=True)
+        r = self._review('c1', box=3, due=timezone.localdate())
+        ConceptReview.objects.filter(pk=r.pk).update(last_reviewed_at=timezone.now())
+        self.client.force_login(parent)
+        resp = self.client.get('/portal/parent/')
+        self.assertContains(resp, "Sa semaine dans l'app")
+        self.assertContains(resp, 'travail efficace')
+        self.assertContains(resp, 'notion consolidée')
+
+    def test_parent_carte_absente_si_enfant_sans_app(self):
+        parent = self._parent()   # aucun QuizAttempt → portail élève inutilisé
+        self.client.force_login(parent)
+        resp = self.client.get('/portal/parent/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "Sa semaine dans l'app")

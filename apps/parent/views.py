@@ -129,11 +129,23 @@ def parent_dashboard(request):
 
     signals.sort(key=lambda x: x['urgency'])
 
+    # « Sa semaine dans l'app » (usage sain) — pour l'enfant ACTIF, seulement si
+    # il utilise le portail élève (sinon pas de carte morte — rien d'obligatoire).
+    app_week, app_week_child = None, ''
+    if active:
+        from apps.student_learning.models import QuizAttempt as _QA
+        from apps.student_learning import rhythm as _rhythm
+        if _QA.objects.filter(student=active).exists():
+            app_week = _rhythm.week_summary(active)
+            app_week_child = active.full_name.split()[0] if active.full_name else ''
+
     return render(request, 'parent/dashboard.html', {
         'first_name':   request.user.full_name.split()[0] if request.user.full_name else '',
         'signals':      signals,
         'child_cards':  child_cards,
         'has_multiple': len(students) > 1,
+        'app_week':     app_week,
+        'app_week_child': app_week_child,
     })
 
 

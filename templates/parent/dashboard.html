@@ -91,6 +91,49 @@
     {% endfor %}
   </div>
 
+  {# ════════════════════ SA SEMAINE DANS L'APP (usage sain) ════════════════════ #}
+  {% if app_week %}
+  <div class="flex items-center gap-2 mb-2.5 mt-6">
+    <span class="text-[12px] font-semibold text-gray-400 uppercase tracking-wide">Sa semaine dans l'app</span>
+    <span class="text-[10px] font-semibold text-primary-700 bg-primary-50 rounded-full px-2 py-0.5">Travail réel</span>
+  </div>
+  <div class="bg-white border border-gray-100 rounded-2xl p-4">
+    {# 7 pastilles L→D — le même langage que l'enfant #}
+    <div class="flex justify-between gap-1 mb-3.5">
+      {% for d in app_week.strip %}
+      <div class="flex flex-col items-center gap-1 flex-1">
+        <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold
+                     {% if d.active %}bg-green-500 text-white{% else %}bg-gray-100 text-transparent{% endif %}
+                     {% if d.is_today %}ring-2 ring-primary-400 ring-offset-1{% endif %}">✓</span>
+        <span class="text-[9px] font-bold text-gray-400 uppercase">{{ d.label }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <div class="border border-gray-100 rounded-xl px-3 py-2.5">
+        <div class="text-[18px] font-bold text-gray-900 tabular-nums">{{ app_week.active_days }}</div>
+        <div class="text-[11px] text-gray-400 font-medium leading-tight">jour{{ app_week.active_days|pluralize }} actif{{ app_week.active_days|pluralize }} cette semaine</div>
+      </div>
+      <div class="border border-gray-100 rounded-xl px-3 py-2.5">
+        <div class="text-[18px] font-bold text-gray-900 tabular-nums">{{ app_week.concepts_reviewed }}</div>
+        <div class="text-[11px] text-gray-400 font-medium leading-tight">concept{{ app_week.concepts_reviewed|pluralize }} révisé{{ app_week.concepts_reviewed|pluralize }}</div>
+      </div>
+      <div class="border border-gray-100 rounded-xl px-3 py-2.5">
+        <div class="text-[18px] font-bold text-gray-900 tabular-nums">{{ app_week.consolidated }} <span class="text-[11px] font-bold text-green-600">↗ solide{{ app_week.consolidated|pluralize }}</span></div>
+        <div class="text-[11px] text-gray-400 font-medium leading-tight">notion{{ app_week.consolidated|pluralize }} consolidée{{ app_week.consolidated|pluralize }} en mémoire</div>
+      </div>
+      <div class="border border-gray-100 rounded-xl px-3 py-2.5">
+        <div class="text-[18px] font-bold text-gray-900 tabular-nums">{{ app_week.cahier_count }}×</div>
+        <div class="text-[11px] text-gray-400 font-medium leading-tight">travail sur le cahier (à la main)</div>
+      </div>
+    </div>
+    <div class="mt-3 pt-2.5 border-t border-gray-100 text-[11px] text-gray-400 font-medium leading-relaxed">
+      Nous mesurons le <span class="font-semibold text-gray-600">travail efficace</span>{% if app_week_child %} de {{ app_week_child }}{% endif %}
+      (notions consolidées, écriture à la main) — pas le temps passé devant l'écran.
+    </div>
+  </div>
+  {% endif %}
+
   {# ════════════════════ ACCÈS RAPIDES ════════════════════ #}
   <div class="text-[12px] font-semibold text-gray-400 uppercase tracking-wide mb-2.5 mt-6">Accès rapides</div>
   <div class="grid grid-cols-2 gap-2">
