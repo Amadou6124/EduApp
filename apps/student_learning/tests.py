@@ -774,6 +774,24 @@ class CahierViewTests(SRSBase):
         self.assertContains(resp, 'sur papier')
         self.assertContains(resp, 'cahier-tasks')      # json_script des tâches
 
+    def test_runner_inclut_la_preparation_et_la_serie(self):
+        # leçon de langue (Français) au bas niveau → préparation + série de dictées
+        self.lesson.subject = 'Français'
+        self.lesson.subject_type = 'literary'
+        self.lesson.save(update_fields=['subject', 'subject_type'])
+        self._with_reading()
+        self._login()
+        resp = self.client.get(self._url())
+        self.assertContains(resp, 'prepCard')                  # carte de préparation
+        self.assertContains(resp, 'Regarde bien ces mots')
+        import json, re
+        tasks = json.loads(re.search(
+            r'id="cahier-tasks" type="application/json">(.*?)</script>',
+            resp.content.decode(), re.S).group(1))
+        kinds = [t['kind'] for t in tasks]
+        self.assertEqual(kinds[0], 'prep')                     # préparation d'abord
+        self.assertGreaterEqual(kinds.count('dictee'), 2)      # série (pas une seule)
+
     def test_404_si_aucune_tache_derivable(self):
         self.cv.reading_data = {}
         self.cv.concepts_data = []
