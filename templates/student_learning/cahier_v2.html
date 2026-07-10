@@ -70,6 +70,17 @@
     .audioHint{font-size:13px;font-weight:800;color:var(--ink-muted)}
     .audioReplay{font-size:12px;font-weight:800;color:var(--accent);background:none;border:none;cursor:pointer;padding:4px}
 
+    /* Préparation des mots (avant la dictée — le levier n°1) */
+    .prepCard{border-radius:18px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md);padding:18px 16px}
+    .prepHead{font-size:16px;font-weight:900;color:var(--ink-strong);text-align:center}
+    .prepSub{font-size:12.5px;font-weight:700;color:var(--ink-muted);text-align:center;margin-top:3px}
+    .prepListen{display:flex;align-items:center;gap:7px;margin:12px auto 4px;border:1px solid var(--border);background:var(--surface-2);color:var(--accent);font:inherit;font-weight:800;font-size:12.5px;padding:8px 14px;border-radius:999px;cursor:pointer}
+    .prepListen svg{width:15px;height:15px}
+    .prepList{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:9px}
+    .prepItem{padding:11px 14px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border)}
+    .pw{font-size:17px;font-weight:900;color:var(--accent)}
+    .ph{display:block;font-size:12.5px;font-weight:700;color:var(--ink-muted);line-height:1.4;margin-top:2px}
+
     /* Encart « écris sur ton vrai cahier » */
     .writeCallout{display:flex;align-items:center;gap:13px;margin-top:14px;padding:13px 15px;border-radius:16px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
     .wcArt{flex-shrink:0;width:56px;height:56px;border-radius:14px;background:var(--surface-2);display:flex;align-items:center;justify-content:center}
@@ -136,9 +147,33 @@
     </div>
   </template>
 
-  <!-- ═══ Phase TÂCHE : consigne + (audio) + encart écrire ═══ -->
+  <!-- ═══ Phase TÂCHE ═══ -->
   <template x-if="phase === 'task'">
     <div class="body">
+
+      <!-- PRÉPARATION des mots (avant la dictée) -->
+      <template x-if="isPrep">
+        <div class="prepCard rise">
+          <div class="prepHead">Regarde bien ces mots</div>
+          <div class="prepSub">Étudie-les dans ta tête, puis on écrit.</div>
+          <button class="prepListen" x-show="tts" @click="speakWords()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+            Écouter les mots
+          </button>
+          <ul class="prepList">
+            <template x-for="w in (t.words || [])" :key="w.word">
+              <li class="prepItem">
+                <span class="pw" x-text="w.word"></span>
+                <span class="ph" x-show="w.hint" x-text="w.hint"></span>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+
+      <!-- DICTÉE / COPIE / COMPOSITION -->
+      <template x-if="!isPrep">
+        <div>
       <div class="paper rise" :key="'p'+idx">
         <span class="paperTag">📓 sur papier</span>
         <p class="pInstruction" x-show="!showText" x-text="t.prompt"></p>
@@ -178,6 +213,9 @@
           <div class="wcSub">L'écran sert à <b>lire</b> et <b>corriger</b> — jamais à écrire.</div>
         </div>
       </div>
+        </div>
+      </template>
+
     </div>
   </template>
 
@@ -211,8 +249,15 @@
   <!-- Dock (task phase seulement) -->
   <template x-if="phase === 'task'">
     <div class="dock">
-      <button class="cta" @click="toCorrection()">J'ai écrit, voir la correction <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-      <a class="skip" :href="parcoursUrl">Je préfère <u>passer</u></a>
+      <template x-if="isPrep">
+        <button class="cta" @click="skipToNext()">J'ai étudié ces mots <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </template>
+      <template x-if="!isPrep">
+        <div>
+          <button class="cta" @click="toCorrection()">J'ai écrit, voir la correction <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <a class="skip" :href="parcoursUrl">Je préfère <u>passer</u></a>
+        </div>
+      </template>
     </div>
   </template>
 
@@ -247,10 +292,17 @@ document.addEventListener('alpine:init', () => {
     parcoursUrl: CAHIER_CFG.parcoursUrl,
 
     get t(){ return this.tasks[this.idx] || {}; },
+    get isPrep(){ return this.t.kind === 'prep'; },
     get progress(){
-      const total = this.tasks.length * 2;           // 2 étapes par tâche
-      const step = this.idx * 2 + (this.phase === 'correction' ? 1 : 0);
-      return Math.min(100, Math.round((step / total) * 100));
+      // prep = 1 étape ; dictée/copie/composition = 2 étapes (écrire + corriger)
+      const steps = t => (t.kind === 'prep' ? 1 : 2);
+      let total = 0, done = 0;
+      this.tasks.forEach((t, i) => {
+        total += steps(t);
+        if (i < this.idx) done += steps(t);
+        else if (i === this.idx && this.phase === 'correction') done += 1;
+      });
+      return total ? Math.min(100, Math.round((done / total) * 100)) : 0;
     },
     // La dictée cache le texte (on l'écoute) ; copie/production montrent la consigne.
     get showText(){ return this.t.kind === 'copie'; },
@@ -279,6 +331,17 @@ document.addEventListener('alpine:init', () => {
         speechSynthesis.speak(u);
         if (window.LearnSFX) LearnSFX.play('tap');
       } catch(e){}
+    },
+
+    speakWords(){
+      const words = (this.t.words || []).map(w => w.word).join(', ');
+      this.speak(words, 0.85);
+    },
+
+    skipToNext(){   // préparation : pas d'auto-évaluation, on passe à la tâche suivante
+      try { speechSynthesis && speechSynthesis.cancel(); } catch(e){}
+      if (this.idx + 1 >= this.tasks.length) { this.finish(); }
+      else { this.idx++; this.phase = 'task'; }
     },
 
     toCorrection(){
