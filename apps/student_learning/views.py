@@ -182,6 +182,128 @@ def student_grades_context(student) -> dict:
     }
 
 
+def student_progress_context(student):
+    """Volet « À l'école » de la page Progrès — assemble 3 couches, chacune
+    OPTIONNELLE (rien d'obligatoire pour l'école, aucun blocage) :
+
+      • bulletin publié de la période courante → officiel (moyenne, rang+tendance, PDF)
+      • sinon, notes de la période → moyennes PROVISOIRES (même logique que le parent)
+      • évaluations formatives PUBLIÉES au parent → fil daté (points d'étape)
+
+    Défensif : pas d'année/période/note → chaque bloc reste None et disparaît.
+    Barème lu des vraies données (max_grade par matière), jamais figé à /20.
+    """
+    from decimal import Decimal
+    from collections import OrderedDict
+    from apps.schools.models import Bulletin, Note, FormativeGrade
+    from apps.schools.periods import (
+        active_year_for, periods_for_student, resolve_active_period,
+    )
+
+    ctx = {'bulletin': None, 'subject_rows': [], 'is_provisional': False,
+           'evals': [], 'period_label': ''}
+
+    year = active_year_for(student.school)
+    period = resolve_active_period(periods_for_student(student, year))
+
+    # ── 1. Bulletin publié de la période courante (officiel) ──
+    bulletin = None
+    if period is not None:
+        bulletin = (
+            Bulletin.objects
+            .filter(student=student, period=period, is_published=True, is_cancelled=False)
+            .prefetch_related('lines__class_subject__subject')
+            .select_related('period').first()
+        )
+
+    if bulletin is not None:
+        ctx['period_label'] = str(bulletin.period)
+        # Tendance de rang vs bulletin publié précédent (rang plus petit = mieux).
+        prev = (Bulletin.objects
+                .filter(student=student, is_published=True, is_cancelled=False)
+                .exclude(pk=bulletin.pk).select_related('period')
+                .order_by('-published_at').first())
+        rank_trend, rank_delta = None, None
+        if bulletin.rank and prev and prev.rank:
+            diff = prev.rank - bulletin.rank
+            rank_trend = 'up' if diff > 0 else 'down' if diff < 0 else 'stable'
+            rank_delta = abs(diff)
+
+        lines = list(bulletin.lines.filter(final_average__isnull=False)
+                     .select_related('class_subject__subject')
+                     .order_by('class_subject__order', 'class_subject__subject__name'))
+        maxes = [ln.class_subject.max_grade for ln in lines if ln.class_subject.max_grade]
+        bul_max = max(maxes) if maxes else Decimal('20')
+        ctx['bulletin'] = {
+            'average': bulletin.general_average,
+            'max': bul_max,
+            'rank': bulletin.rank,
+            'class_size': bulletin.class_size,
+            'first_average': bulletin.first_average,
+            'appreciation': bulletin.appreciation,
+            'rank_trend': rank_trend,
+            'rank_delta': rank_delta,
+            'pdf_url': reverse('learn:bulletin-pdf', kwargs={'bulletin_id': bulletin.pk}),
+        }
+        for ln in lines:
+            ctx['subject_rows'].append({
+                'subject': ln.class_subject.subject,
+                'max': ln.class_subject.max_grade or Decimal('20'),
+                'average': ln.final_average,
+                'rank': ln.rank_in_subject,
+                'appreciation': ln.appreciation,
+            })
+
+    # ── 2. Sinon : moyennes PROVISOIRES depuis les notes de la période ──
+    elif period is not None:
+        notes = list(Note.objects
+                     .filter(student=student, period=period, is_cancelled=False)
+                     .select_related('class_subject__subject'))
+        by_sub = OrderedDict()
+        for n in notes:
+            cs = n.class_subject
+            row = by_sub.setdefault(cs.subject_id, {
+                'subject': cs.subject, 'max': cs.max_grade or Decimal('20'),
+                'devoir': None, 'compo': None,
+            })
+            if n.position == 2 or n.note_type == 'composition':
+                row['compo'] = n.value
+            else:
+                row['devoir'] = n.value
+        for row in by_sub.values():
+            vals = [v for v in (row['devoir'], row['compo']) if v is not None]
+            row['average'] = (sum(vals) / len(vals)) if vals else None
+        prov_rows = [r for r in by_sub.values() if r['average'] is not None]
+        if prov_rows:
+            ctx['is_provisional'] = True
+            ctx['period_label'] = str(period)
+            ctx['subject_rows'] = prov_rows
+            # moyenne provisoire globale = moyenne simple des matières notées
+            avg = sum(r['average'] for r in prov_rows) / len(prov_rows)
+            maxes = [r['max'] for r in prov_rows]
+            ctx['provisional_avg'] = avg
+            ctx['provisional_max'] = max(maxes) if maxes else Decimal('20')
+
+    # ── 3. Évaluations formatives PUBLIÉES au parent (fil daté, 5 dernières) ──
+    grades = (FormativeGrade.objects
+              .filter(student=student, value__isnull=False, is_absent=False,
+                      evaluation__is_published_to_parent=True)
+              .select_related('evaluation', 'evaluation__class_subject__subject')
+              .order_by('-evaluation__date', '-evaluation__id')[:5])
+    for g in grades:
+        ev = g.evaluation
+        ctx['evals'].append({
+            'title': ev.title or ev.get_eval_type_display(),
+            'subject': ev.class_subject.subject.name,
+            'date': ev.date,
+            'value': g.value,
+            'max': ev.max_grade,
+        })
+
+    ctx['has_school'] = bool(ctx['bulletin'] or ctx['subject_rows'] or ctx['evals'])
+    return ctx
+
+
 @student_required
 def learn_bulletin_pdf(request, bulletin_id):
     """PDF d'un bulletin — uniquement celui de l'élève connecté, publié."""

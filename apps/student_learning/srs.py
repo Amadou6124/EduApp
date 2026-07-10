@@ -226,3 +226,24 @@ def next_days_preview(student, limit=2):
         if subject and subject not in g['subjects']:
             g['subjects'].append(subject)
     return [groups[d] for d in sorted(groups)][:limit]
+
+
+def mastery_by_subject(student):
+    """Maîtrise (boîtes de mémoire) regroupée par matière — volet « Dans l'app »
+    de la page Progrès. Retourne (rows, total_fragile) où :
+      rows = {nom de matière: {'fragile': n, 'solide': n, 'maitrise': n, 'total': n}}
+    Ne compte QUE les concepts entrés en révision (donc terminés dans le parcours).
+    L'ordre/teinte des matières est appliqué par la vue (cohérence parcours)."""
+    rows = {}
+    qs = (ConceptReview.objects
+          .filter(student=student)
+          .select_related('lesson'))
+    total_fragile = 0
+    for r in qs:
+        subject = (r.lesson.subject or 'Autre').strip() or 'Autre'
+        row = rows.setdefault(subject, {'fragile': 0, 'solide': 0, 'maitrise': 0, 'total': 0})
+        row[state_of(r.box)] += 1
+        row['total'] += 1
+        if r.box <= 2:
+            total_fragile += 1
+    return rows, total_fragile

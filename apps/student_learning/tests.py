@@ -13,7 +13,9 @@ from apps.lessons.models import (
     Lesson, LessonContentVersion, LessonDeployment, LessonStatus,
 )
 from apps.schools.models import (
-    ClassSubject, CourseSlot, School, SchoolClass, SchoolYear, Subject,
+    Bulletin, BulletinLine, ClassSubject, CourseSlot, FormativeEvaluation,
+    FormativeGrade, Note, NoteType, Period, School, SchoolClass, SchoolYear,
+    Subject,
 )
 from apps.students.models import Student
 
@@ -391,3 +393,159 @@ class DashboardsTests(SRSBase):
         self._review('c1', due=today - timedelta(days=1))
         self._review('c2', due=today + timedelta(days=9))
         self.assertEqual(srs.due_count(self.student), 1)
+
+
+class MasteryBySubjectTests(SRSBase):
+    def test_groupe_par_matiere_et_compte_fragiles(self):
+        # 2 concepts Français dans self.lesson (boîtes 1 et 3)
+        self._review('c1', box=1)
+        self._review('c2', box=3)
+        rows, total_fragile = srs.mastery_by_subject(self.student)
+        self.assertEqual(rows['Français'],
+                         {'fragile': 1, 'solide': 1, 'maitrise': 0, 'total': 2})
+        self.assertEqual(total_fragile, 1)
+
+    def test_deux_matieres_distinctes(self):
+        other = Lesson.objects.create(
+            teacher=self.teacher, school=self.school, title='Leçon Maths',
+            subject='Mathématiques', format_version=2, status=LessonStatus.READY,
+        )
+        cv_o = LessonContentVersion.objects.create(
+            lesson=other, version=1, concepts_data=_concepts(),
+        )
+        self._review('c1', box=1)
+        ConceptReview.objects.create(
+            student=self.student, lesson=other, content_version=cv_o,
+            concept_id='c1', box=4, due_date=timezone.localdate(),
+        )
+        rows, total_fragile = srs.mastery_by_subject(self.student)
+        self.assertEqual(rows['Français']['fragile'], 1)
+        self.assertEqual(rows['Mathématiques']['maitrise'], 1)
+        self.assertEqual(total_fragile, 1)
+
+    def test_vide_si_aucune_revision(self):
+        rows, total_fragile = srs.mastery_by_subject(self.student)
+        self.assertEqual(rows, {})
+        self.assertEqual(total_fragile, 0)
+
+
+class ProgressContextTests(SRSBase):
+    """student_progress_context — les 3 couches école, chacune optionnelle."""
+
+    def _year_period(self, notes_open=True):
+        year = SchoolYear.objects.create(
+            school=self.school, name='2025-2026', is_active=True,
+            start_date=date(2025, 10, 1), end_date=date(2026, 6, 30),
+        )
+        period = Period.objects.create(
+            school_year=year, school_class=self.klass, name='Trimestre 1',
+            order=1, is_notes_open=notes_open,
+        )
+        return year, period
+
+    def _class_subject(self, name='Français', max_grade=Decimal('20')):
+        subj = Subject.objects.create(school=self.school, name=name)
+        return ClassSubject.objects.create(
+            school_class=self.klass, subject=subj, max_grade=max_grade)
+
+    def test_ecole_silencieuse_tout_none(self):
+        from apps.student_learning.views import student_progress_context
+        self._year_period()
+        ctx = student_progress_context(self.student)
+        self.assertFalse(ctx['has_school'])
+        self.assertIsNone(ctx['bulletin'])
+        self.assertEqual(ctx['subject_rows'], [])
+        self.assertEqual(ctx['evals'], [])
+
+    def test_pas_d_annee_ne_plante_pas(self):
+        from apps.student_learning.views import student_progress_context
+        ctx = student_progress_context(self.student)   # aucune année active
+        self.assertFalse(ctx['has_school'])
+
+    def test_bulletin_publie_officiel(self):
+        from apps.student_learning.views import student_progress_context
+        year, period = self._year_period()
+        cs = self._class_subject('Français', Decimal('20'))
+        bul = Bulletin.objects.create(
+            student=self.student, period=period, school_class=self.klass,
+            is_published=True, general_average=Decimal('14.50'),
+            rank=5, class_size=42, first_average=Decimal('16.20'),
+            appreciation='Bon trimestre', generated_by=self.teacher,
+        )
+        BulletinLine.objects.create(
+            bulletin=bul, class_subject=cs, final_average=Decimal('15.50'),
+            rank_in_subject=2, appreciation='Très bien',
+        )
+        ctx = student_progress_context(self.student)
+        self.assertTrue(ctx['has_school'])
+        self.assertFalse(ctx['is_provisional'])
+        self.assertEqual(ctx['bulletin']['average'], Decimal('14.50'))
+        self.assertEqual(ctx['bulletin']['rank'], 5)
+        self.assertEqual(ctx['bulletin']['max'], Decimal('20'))
+        self.assertIn('/learn/grades/bulletin/', ctx['bulletin']['pdf_url'])
+        self.assertEqual(len(ctx['subject_rows']), 1)
+        self.assertEqual(ctx['subject_rows'][0]['average'], Decimal('15.50'))
+
+    def test_bulletin_non_publie_bascule_en_provisoire(self):
+        from apps.student_learning.views import student_progress_context
+        year, period = self._year_period()
+        cs = self._class_subject('Mathématiques', Decimal('10'))
+        # bulletin existe mais PAS publié → ignoré
+        Bulletin.objects.create(
+            student=self.student, period=period, school_class=self.klass,
+            is_published=False, general_average=Decimal('8'),
+            generated_by=self.teacher,
+        )
+        Note.objects.create(
+            student=self.student, class_subject=cs, period=period,
+            note_type=NoteType.DEVOIR, position=1, value=Decimal('7'),
+            entered_by=self.teacher,
+        )
+        Note.objects.create(
+            student=self.student, class_subject=cs, period=period,
+            note_type=NoteType.COMPOSITION, position=2, value=Decimal('9'),
+            entered_by=self.teacher,
+        )
+        ctx = student_progress_context(self.student)
+        self.assertTrue(ctx['is_provisional'])
+        self.assertIsNone(ctx['bulletin'])
+        self.assertEqual(len(ctx['subject_rows']), 1)
+        self.assertEqual(ctx['subject_rows'][0]['average'], Decimal('8'))  # (7+9)/2
+        self.assertEqual(ctx['subject_rows'][0]['max'], Decimal('10'))     # barème réel
+        self.assertEqual(ctx['provisional_avg'], Decimal('8'))
+
+    def test_evaluations_publiees_seulement(self):
+        from apps.student_learning.views import student_progress_context
+        year, period = self._year_period()
+        cs = self._class_subject('Français')
+        ev_pub = FormativeEvaluation.objects.create(
+            class_subject=cs, period=period, date=date(2026, 7, 8),
+            title='Dictée', max_grade=Decimal('20'), is_published_to_parent=True,
+        )
+        ev_priv = FormativeEvaluation.objects.create(
+            class_subject=cs, period=period, date=date(2026, 7, 9),
+            title='Interro secrète', max_grade=Decimal('20'),
+            is_published_to_parent=False,
+        )
+        FormativeGrade.objects.create(evaluation=ev_pub, student=self.student, value=Decimal('16'))
+        FormativeGrade.objects.create(evaluation=ev_priv, student=self.student, value=Decimal('4'))
+        ctx = student_progress_context(self.student)
+        self.assertEqual(len(ctx['evals']), 1)          # seule la publiée
+        self.assertEqual(ctx['evals'][0]['title'], 'Dictée')
+        self.assertEqual(ctx['evals'][0]['value'], Decimal('16'))
+
+    def test_isolation_autre_eleve(self):
+        from apps.student_learning.views import student_progress_context
+        year, period = self._year_period()
+        cs = self._class_subject('Français')
+        autre = Student.objects.create(
+            school=self.school, school_class=self.klass,
+            full_name='Autre Élève', tuition_fee=Decimal('0'),
+        )
+        bul = Bulletin.objects.create(
+            student=autre, period=period, school_class=self.klass,
+            is_published=True, general_average=Decimal('18'),
+            generated_by=self.teacher,
+        )
+        ctx = student_progress_context(self.student)
+        self.assertIsNone(ctx['bulletin'])   # le bulletin de l'autre n'apparaît pas
