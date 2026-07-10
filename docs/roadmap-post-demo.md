@@ -74,6 +74,14 @@ l'app tourne en vrai, école par école, selon la demande réelle.
 - **Motifs configurables** par école (aujourd'hui « Autre + justification » suffit).
 - **Pénalités de retard** : l'inverse d'une remise. *Le modèle est déjà prêt (`FeeAdjustment.type`) → le plus rapide.*
 
+### Révision élève — niveau 2 : dates de compositions/examens saisies par l'école ⭐ vrai atout
+Quand la Révision (SRS) tournera : permettre à l'école de saisir les **dates de compositions/examens**
+par classe et par matière → le plan de révision de l'élève **s'intensifie automatiquement** à l'approche
+(« composition de Français dans 10 jours → priorité aux concepts fragiles de Français »).
+Troisième signal d'ordonnancement après (1) courbe d'oubli et (2) emploi du temps du lendemain
+(CourseSlot, déjà en base). Aucune app concurrente ne peut le faire : nous possédons les vraies
+données de l'école. **À ne pas oublier — post-lancement, après le SRS de base.**
+
 ### Auth staff par e-mail (prof / staff / directeur / promoteur) — décision produit posée
 Direction retenue : **e-mail pour le personnel** (reset self-service « mot de passe oublié »),
 **téléphone pour les parents** (inchangé). Conditions à valider AVANT de construire :
