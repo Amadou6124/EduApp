@@ -1,5 +1,5 @@
 {% load static student_filters %}
-{# Bottom-nav élève partagée. Contexte attendu : `active` ∈ {parcours, revision, profil}. #}
+{# Bottom-nav élève partagée. Contexte attendu : `active` ∈ {parcours, revision, progres, profil}. #}
 <nav class="botnav" aria-label="Navigation élève">
   <a href="{% url 'learn:dashboard' %}" class="botnav-item {% if active == 'parcours' %}is-active{% endif %}">
     <div class="botnav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg></div><span>Parcours</span>
@@ -8,9 +8,9 @@
   <a href="{% url 'learn:revision' %}" class="botnav-item {% if active == 'revision' %}is-active{% endif %}">
     <div class="botnav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>{% if rev_due %}<span class="botnav-pastille">{% if rev_due > 9 %}9+{% else %}{{ rev_due }}{% endif %}</span>{% endif %}</div><span>Révision</span>
   </a>
-  <button type="button" class="botnav-item is-soon" title="Bientôt" disabled>
+  <a href="{% url 'learn:progres' %}" class="botnav-item {% if active == 'progres' %}is-active{% endif %}">
     <div class="botnav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg></div><span>Progrès</span>
-  </button>
+  </a>
   <a href="{% url 'learn:profil' %}" class="botnav-item {% if active == 'profil' %}is-active{% endif %}">
     <div class="botnav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span>Profil</span>
   </a>

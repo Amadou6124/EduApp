@@ -1448,6 +1448,66 @@ def revision_answer(request):
     })
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Progrès — le 4ᵉ onglet. Assemble le volet école (student_progress_context) et le
+# volet app (maîtrise par matière). L'ordre s'ADAPTE : école d'abord si l'école
+# publie, app d'abord + carte neutre si l'école est silencieuse (rien d'obligatoire).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@student_required
+def learn_progres(request):
+    from . import srs
+    from .theme import subject_hue_at
+    student = request.student
+
+    school = student_progress_context(student)
+    rows, total_fragile = srs.mastery_by_subject(student)
+
+    # Palette UNIFIÉE : chaque matière (app OU école) a UNE teinte stable et
+    # distincte. Ordre : matières du parcours d'abord (cohérence avec parcours/
+    # quiz), puis les matières école supplémentaires. Une matière = une couleur.
+    ordered = [s['subject'] for s in _student_v2_subjects(student)]
+    for name in list(rows.keys()):
+        if name not in ordered:
+            ordered.append(name)
+    for r in school['subject_rows']:
+        nm = getattr(r.get('subject'), 'name', '') or ''
+        if nm and nm not in ordered:
+            ordered.append(nm)
+    def _hue(name):
+        return subject_hue_at(ordered.index(name)) if name in ordered else subject_hue_at(0)
+
+    subject_names = ordered
+    mastery = []
+    for name, c in rows.items():
+        mastery.append({
+            'subject': name, 'hue': _hue(name), 'letter': (name or 'A')[:1].upper(),
+            'fragile': c['fragile'], 'solide': c['solide'], 'maitrise': c['maitrise'],
+            'total': c['total'],
+            'pct_f': round(100 * c['fragile'] / c['total']) if c['total'] else 0,
+            'pct_s': round(100 * c['solide'] / c['total']) if c['total'] else 0,
+            'pct_m': round(100 * c['maitrise'] / c['total']) if c['total'] else 0,
+        })
+    mastery.sort(key=lambda m: (subject_names.index(m['subject'])
+                                if m['subject'] in subject_names else 99, m['subject']))
+
+    # teinte des lignes matière du volet école (repère cohérent avec le reste)
+    for r in school['subject_rows']:
+        nm = getattr(r.get('subject'), 'name', '') or ''
+        r['hue'] = _hue(nm)
+        r['letter'] = (nm or 'A')[:1].upper()
+
+    _name = (student.first_name or student.full_name or '').strip()
+    return render(request, 'student_learning/progres_v2.html', {
+        'student': student,
+        'student_first': _name.split()[0] if _name else '',
+        'school': school,
+        'mastery': mastery,
+        'total_fragile': total_fragile,
+        'has_app': bool(mastery),
+    })
+
+
 # ─── Phase 0 — Atelier du design system (styleguide dev, portail élève) ───────
 
 def design_system(request):

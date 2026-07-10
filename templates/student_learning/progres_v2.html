@@ -1,0 +1,195 @@
+{% load static l10n %}
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Mes progrès — EduApp</title>
+
+  {# Thème AVANT peinture (évite le flash) : choix mémorisé, sinon clair. #}
+  <script>(function(){try{document.documentElement.dataset.theme=localStorage.getItem('learn-theme')||'light';}catch(e){}})();</script>
+
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fonts/nunito/nunito.css' %}">
+  <link rel="stylesheet" href="{% static 'css/learn-botnav.css' %}">
+
+  <style>
+    *{box-sizing:border-box} html,body{margin:0;height:100%} ::-webkit-scrollbar{width:0}
+    a{text-decoration:none}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--ink);
+         overflow:hidden;-webkit-font-smoothing:antialiased}
+    .app{display:flex;flex-direction:column;height:100dvh;max-width:480px;margin:0 auto}
+    .botnav{position:relative;flex-shrink:0}
+
+    /* ── Header banner (coral = transversal/marque) ── */
+    header.appHeader{flex-shrink:0;background:var(--bg);padding:12px 10px 4px}
+    .banner{border-radius:20px;overflow:hidden;background:linear-gradient(135deg,var(--coral-500),var(--coral-600));box-shadow:0 8px 22px rgba(0,0,0,.14)}
+    [data-theme="dark"] .banner{background:linear-gradient(135deg,var(--coral-700),var(--coral-800));box-shadow:0 8px 22px rgba(0,0,0,.4)}
+    .bannerRow{display:flex;align-items:center;gap:11px;padding:13px 14px}
+    .bnIc{width:42px;height:42px;border-radius:13px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+    .bnIc svg{width:22px;height:22px}
+    .hdrCol{flex:1;min-width:0}
+    .hdrTitle{font-size:18px;font-weight:800;color:#fff;line-height:1.15}
+    .hdrSub{font-size:12px;font-weight:700;color:rgba(255,255,255,.85);margin-top:1px}
+
+    main.appMain{flex:1;overflow-y:auto;min-width:0;padding:14px 14px 20px}
+    .secLabel{font-size:12px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-faint);margin:18px 4px 8px;display:flex;align-items:center;gap:6px}
+    .secLabel:first-child{margin-top:2px}
+    .secLabel .tag{font-size:9.5px;font-weight:900;letter-spacing:.4px;padding:2px 7px;border-radius:999px;background:var(--warn-soft);color:var(--warn-ink)}
+
+    @keyframes cardIn{to{opacity:1;transform:translateY(0)}}
+    .anim{opacity:0;transform:translateY(14px);animation:cardIn .5s var(--ease-spring) forwards}
+
+    /* Bulletin héro */
+    .bul{background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-md);overflow:hidden}
+    .bulTop{display:flex;align-items:center;gap:14px;padding:16px 16px 12px}
+    .bulAvg{flex-shrink:0;width:86px;height:86px;border-radius:24px;background:linear-gradient(150deg,var(--coral-500),var(--amber-500));
+      display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;box-shadow:var(--shadow-md)}
+    .bulAvg b{font-size:24px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+    .bulAvg span{font-size:10px;font-weight:800;opacity:.9;margin-top:3px}
+    .bulMeta{flex:1;min-width:0}
+    .bulPeriod{font-size:11px;font-weight:900;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-faint)}
+    .bulRank{display:flex;align-items:baseline;gap:6px;margin-top:3px;flex-wrap:wrap}
+    .bulRank b{font-size:20px;font-weight:900;color:var(--ink-strong)}
+    .bulRank small{font-size:12px;font-weight:700;color:var(--ink-muted)}
+    .trend{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:999px}
+    .trend.up{background:var(--success-soft);color:var(--success-ink)}
+    .trend.down{background:var(--warn-soft);color:var(--warn-ink)}
+    .trend.stable{background:var(--info-soft);color:var(--info-ink)}
+    .trend svg{width:11px;height:11px}
+    .bulFirst{font-size:11.5px;font-weight:700;color:var(--ink-muted);margin-top:5px}
+    .bulAppr{margin:0 16px;padding:9px 12px;border-radius:12px;background:var(--surface-2);font-size:12.5px;font-weight:700;color:var(--ink-muted);font-style:italic}
+    .bulActions{padding:12px 16px 14px}
+    .btnGhost{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;border:none;cursor:pointer;
+      font:inherit;font-weight:900;font-size:13.5px;padding:11px;border-radius:13px;color:var(--ink);
+      background:var(--btn-secondary-bg);box-shadow:0 3px 0 var(--btn-secondary-edge);transition:transform .12s,box-shadow .12s}
+    .btnGhost:active{transform:translateY(3px);box-shadow:0 0 0 var(--btn-secondary-edge)}
+    .btnGhost svg{width:15px;height:15px}
+
+    /* Provisoire (pointillés = pas officiel) */
+    .provi{border:1.5px dashed var(--warm-300);border-radius:20px;background:var(--surface-2);padding:14px 16px;display:flex;align-items:center;gap:13px}
+    [data-theme="dark"] .provi{border-color:rgba(255,255,255,.14)}
+    .proviAvg{flex-shrink:0;width:64px;height:64px;border-radius:18px;border:1.5px dashed var(--warm-300);background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center}
+    [data-theme="dark"] .proviAvg{border-color:rgba(255,255,255,.14)}
+    .proviAvg b{font-size:19px;font-weight:900;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+    .proviAvg span{font-size:9px;font-weight:800;color:var(--ink-faint)}
+    .proviTxt{font-size:12.5px;font-weight:700;color:var(--ink-muted);line-height:1.45}
+    .proviTxt b{color:var(--ink)}
+
+    /* Lignes matière (école) */
+    .subs{display:flex;flex-direction:column;gap:8px}
+    .sub{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:10px 13px;box-shadow:var(--shadow-sm)}
+    .sChip{flex-shrink:0;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;
+      background:color-mix(in srgb, var(--h500) 16%, var(--surface));color:var(--h700)}
+    [data-theme="dark"] .sChip{color:var(--h300)}
+    .sBody{flex:1;min-width:0}
+    .sName{font-size:13.5px;font-weight:800;color:var(--ink-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sInfo{font-size:11px;font-weight:700;color:var(--ink-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sRank{flex-shrink:0;font-size:10px;font-weight:900;padding:3px 7px;border-radius:999px;background:var(--info-soft);color:var(--info-ink)}
+    .sAvg{flex-shrink:0;text-align:right}
+    .sAvg b{font-size:16px;font-weight:900;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+    .sAvg small{font-size:10px;font-weight:800;color:var(--ink-faint)}
+
+    /* Évaluations (fil) */
+    .evals{display:flex;flex-direction:column;gap:8px}
+    .ev{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:9px 12px;box-shadow:var(--shadow-sm)}
+    .evDate{flex-shrink:0;width:44px;text-align:center;background:var(--surface-2);border-radius:10px;padding:5px 2px}
+    .evDate b{display:block;font-size:14px;font-weight:900;color:var(--ink-strong);line-height:1;font-variant-numeric:tabular-nums}
+    .evDate span{font-size:9px;font-weight:800;text-transform:uppercase;color:var(--ink-faint)}
+    .evBody{flex:1;min-width:0}
+    .evTitle{font-size:12.5px;font-weight:800;color:var(--ink-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .evSub{font-size:10.5px;font-weight:700;color:var(--ink-muted)}
+    .evScore{flex-shrink:0;font-size:12px;font-weight:900;padding:4px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
+    .evScore.good{background:var(--success-soft);color:var(--success-ink)}
+    .evScore.mid{background:var(--warn-soft);color:var(--warn-ink)}
+
+    /* Volet app : maîtrise */
+    .mast{display:flex;flex-direction:column;gap:8px}
+    .mRow{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:11px 13px;box-shadow:var(--shadow-sm)}
+    .mTop{display:flex;align-items:center;gap:10px}
+    .mName{flex:1;font-size:13px;font-weight:800;color:var(--ink-strong);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mCount{font-size:10.5px;font-weight:800;color:var(--ink-muted);flex-shrink:0}
+    .mBar{display:flex;height:8px;border-radius:999px;background:var(--track);overflow:hidden;margin-top:8px;gap:2px}
+    .mBar i{display:block;height:100%;width:0;transition:width .8s var(--ease-out) .3s}
+    .mBar .f{background:var(--warn)} .mBar .s{background:var(--info)} .mBar .m{background:var(--success)}
+    .legend{display:flex;gap:12px;justify-content:center;margin-top:10px}
+    .legend span{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:var(--ink-muted)}
+    .legend i{width:8px;height:8px;border-radius:99px}
+    .ctaRevise{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;cursor:pointer;
+      font:inherit;font-weight:900;font-size:14.5px;padding:13px;border-radius:15px;margin-top:10px;
+      background:var(--accent);color:var(--accent-ink);box-shadow:0 4px 0 var(--btn-primary-edge);transition:transform .12s,box-shadow .12s}
+    .ctaRevise:active{transform:translateY(4px);box-shadow:0 0 0 var(--btn-primary-edge)}
+    .ctaRevise svg{width:16px;height:16px}
+
+    /* Teaser école silencieuse */
+    .quiet{border:1.5px dashed var(--warm-300);border-radius:18px;background:var(--surface-2);padding:18px 16px;text-align:center}
+    [data-theme="dark"] .quiet{border-color:rgba(255,255,255,.14)}
+    .quiet .qi{width:46px;height:46px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;color:var(--accent)}
+    .quiet .qi svg{width:22px;height:22px}
+    .quietTitle{font-size:13.5px;font-weight:800;color:var(--ink-strong)}
+    .quietTxt{font-size:12px;font-weight:700;color:var(--ink-muted);margin-top:3px;line-height:1.5}
+
+    /* État tout vide (ni école ni app) */
+    .blank{text-align:center;padding:36px 18px}
+    .blank .qi{width:56px;height:56px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:var(--accent)}
+    .blank .qi svg{width:26px;height:26px}
+    .blankTitle{font-size:16px;font-weight:900;color:var(--ink-strong)}
+    .blankTxt{font-size:13px;font-weight:700;color:var(--ink-muted);margin-top:5px;line-height:1.5}
+    .blankCta{display:inline-flex;align-items:center;gap:7px;margin-top:16px;font-weight:900;font-size:14px;padding:12px 20px;border-radius:14px;
+      background:var(--accent);color:var(--accent-ink);box-shadow:0 4px 0 var(--btn-primary-edge)}
+
+    @media (prefers-reduced-motion: reduce){
+      *{animation-duration:.001ms !important;transition-duration:.001ms !important}
+      .anim{opacity:1;transform:none}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header class="appHeader">
+    <div class="banner"><div class="bannerRow">
+      <div class="bnIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg></div>
+      <div class="hdrCol">
+        <div class="hdrTitle">Mes progrès</div>
+        <div class="hdrSub">{% if student_first %}{{ student_first }} · {% endif %}{{ student.school_class.name }}</div>
+      </div>
+    </div></div>
+  </header>
+
+  <main class="appMain">
+    {# ══ Ordre ADAPTATIF : école d'abord si elle publie, sinon app d'abord ══ #}
+    {% if school.has_school %}
+      {% include 'student_learning/_progres_ecole.html' %}
+      {% include 'student_learning/_progres_app.html' %}
+    {% elif has_app %}
+      {% include 'student_learning/_progres_app.html' %}
+      <div class="secLabel">À l'école</div>
+      <div class="quiet anim">
+        <div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
+        <div class="quietTitle">Tes notes d'école apparaîtront ici</div>
+        <div class="quietTxt">Dès que ton école publiera tes évaluations ou ton bulletin, tu les retrouveras sur cette page.</div>
+      </div>
+    {% else %}
+      {# Ni école ni app : élève tout nouveau #}
+      <div class="blank">
+        <div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg></div>
+        <div class="blankTitle">Ta page de progrès est prête</div>
+        <div class="blankTxt">Commence une leçon : ta maîtrise apparaîtra ici, et tes notes d'école aussi dès qu'elles seront publiées.</div>
+        <a class="blankCta" href="{% url 'learn:dashboard' %}">Commencer une leçon</a>
+      </div>
+    {% endif %}
+  </main>
+
+  {% include 'learn/_botnav.html' with active='progres' %}
+</div>
+
+<script>
+(function(){
+  document.querySelectorAll('.mBar i').forEach(function(b){
+    requestAnimationFrame(function(){ b.style.width=b.dataset.w; });
+  });
+})();
+</script>
+</body>
+</html>

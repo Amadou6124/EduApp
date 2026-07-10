@@ -14,6 +14,8 @@ urlpatterns = [
     path('revision/', views.learn_revision, name='revision'),
     path('revision/session/', views.revision_session, name='revision-session'),
     path('revision/answer/', views.revision_answer, name='revision-answer'),
+    # Progrès — vraies notes école + maîtrise app (le 4ᵉ onglet)
+    path('progres/', views.learn_progres, name='progres'),
     # (v1 retiré : lesson reader, story v1, quiz v1, flashcards — remplacés par le portail v2)
     # (affichage clair Notes/Profil retiré ; plomberie données préservée dans views.py
     #  — student_grades_context / student_stats — pour rebrancher les futures pages dark)

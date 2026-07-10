@@ -1,0 +1,92 @@
+{% load l10n %}
+{# Volet « À l'école » — bulletin publié OU moyennes provisoires + fil d'évaluations. #}
+
+{% if school.bulletin %}
+  <div class="secLabel">À l'école</div>
+  <div class="bul anim">
+    <div class="bulTop">
+      <div class="bulAvg">
+        <b>{% localize off %}{{ school.bulletin.average|floatformat:2 }}{% endlocalize %}</b>
+        <span>/ {{ school.bulletin.max|floatformat:0 }}</span>
+      </div>
+      <div class="bulMeta">
+        <div class="bulPeriod">Bulletin · {{ school.period_label }}</div>
+        {% if school.bulletin.rank %}
+        <div class="bulRank">
+          <b>{{ school.bulletin.rank }}ᵉ</b>{% if school.bulletin.class_size %}<small>sur {{ school.bulletin.class_size }}</small>{% endif %}
+          {% if school.bulletin.rank_trend == 'up' %}
+            <span class="trend up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>+{{ school.bulletin.rank_delta }} place{{ school.bulletin.rank_delta|pluralize }}</span>
+          {% elif school.bulletin.rank_trend == 'down' %}
+            <span class="trend down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10M17 9v8H9"/></svg>-{{ school.bulletin.rank_delta }} place{{ school.bulletin.rank_delta|pluralize }}</span>
+          {% elif school.bulletin.rank_trend == 'stable' %}
+            <span class="trend stable">= stable</span>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% if school.bulletin.first_average %}<div class="bulFirst">Moyenne du 1ᵉʳ : {% localize off %}{{ school.bulletin.first_average|floatformat:2 }}{% endlocalize %}</div>{% endif %}
+      </div>
+    </div>
+    {% if school.bulletin.appreciation %}<div class="bulAppr">« {{ school.bulletin.appreciation }} »</div>{% endif %}
+    <div class="bulActions">
+      <a class="btnGhost" href="{{ school.bulletin.pdf_url }}" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+        Voir mon bulletin (PDF)
+      </a>
+    </div>
+  </div>
+
+  {% if school.subject_rows %}
+  <div class="secLabel">Par matière</div>
+  <div class="subs">
+    {% for r in school.subject_rows %}
+    <div class="sub anim" style="animation-delay:.0{{ forloop.counter }}s;--h500:var(--{{ r.hue }}-500);--h700:var(--{{ r.hue }}-700);--h300:var(--{{ r.hue }}-300)">
+      <div class="sChip">{{ r.letter }}</div>
+      <div class="sBody">
+        <div class="sName">{{ r.subject.name }}</div>
+        {% if r.appreciation %}<div class="sInfo">« {{ r.appreciation }} »</div>{% endif %}
+      </div>
+      {% if r.rank %}<span class="sRank">{{ r.rank }}ᵉ</span>{% endif %}
+      <div class="sAvg"><b>{% localize off %}{{ r.average|floatformat:2 }}{% endlocalize %}</b> <small>/{{ r.max|floatformat:0 }}</small></div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+{% elif school.is_provisional %}
+  <div class="secLabel">À l'école <span class="tag">Provisoire</span></div>
+  <div class="provi anim">
+    <div class="proviAvg">
+      <b>{% localize off %}{{ school.provisional_avg|floatformat:1 }}{% endlocalize %}</b>
+      <span>/ {{ school.provisional_max|floatformat:0 }}</span>
+    </div>
+    <div class="proviTxt"><b>Moyenne provisoire</b> du {{ school.period_label }}, calculée avec tes devoirs déjà notés. Le bulletin officiel arrivera à la fin de la période.</div>
+  </div>
+
+  <div class="secLabel">Par matière <span class="tag">Provisoire</span></div>
+  <div class="subs">
+    {% for r in school.subject_rows %}
+    <div class="sub anim" style="animation-delay:.0{{ forloop.counter }}s;--h500:var(--{{ r.hue }}-500);--h700:var(--{{ r.hue }}-700);--h300:var(--{{ r.hue }}-300)">
+      <div class="sChip">{{ r.letter }}</div>
+      <div class="sBody">
+        <div class="sName">{{ r.subject.name }}</div>
+        <div class="sInfo">Devoir : {% if r.devoir is not None %}{% localize off %}{{ r.devoir|floatformat:"-2" }}{% endlocalize %}{% else %}—{% endif %} · Compo : {% if r.compo is not None %}{% localize off %}{{ r.compo|floatformat:"-2" }}{% endlocalize %}{% else %}—{% endif %}</div>
+      </div>
+      <div class="sAvg"><b>{% localize off %}{{ r.average|floatformat:2 }}{% endlocalize %}</b> <small>/{{ r.max|floatformat:0 }}</small></div>
+    </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% if school.evals %}
+<div class="secLabel">Dernières évaluations</div>
+<div class="evals">
+  {% for e in school.evals %}
+  <div class="ev anim" style="animation-delay:.0{{ forloop.counter }}s">
+    <div class="evDate"><b>{{ e.date|date:"j" }}</b><span>{{ e.date|date:"M" }}</span></div>
+    <div class="evBody"><div class="evTitle">{{ e.title }}</div><div class="evSub">{{ e.subject }}</div></div>
+    {% widthratio e.value e.max 100 as pct %}
+    <span class="evScore {% if pct >= 50 %}good{% else %}mid{% endif %}">{% localize off %}{{ e.value|floatformat:"-2" }}{% endlocalize %} / {{ e.max|floatformat:0 }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
