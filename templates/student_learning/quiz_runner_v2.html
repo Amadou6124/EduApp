@@ -3,7 +3,8 @@
 <html lang="fr" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  {# Pas de maximum-scale : un élève malvoyant doit pouvoir zoomer (accessibilité). #}
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{{ concept.name }} — Quiz</title>
 
   {# Thème AVANT peinture (évite le flash) : choix mémorisé, sinon clair. #}
@@ -61,18 +62,17 @@
 
     .quizPanel { position:fixed; inset:0; z-index:70; display:flex; flex-direction:column; background:var(--bg); color:var(--text); max-width:560px; margin:0 auto; }
     .quiz-header { display:flex; align-items:center; gap:12px; padding:18px 18px 0; flex-shrink:0; }
-    .iconBtn { width:40px; height:40px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:background .15s; }
+    .iconBtn { width:44px; height:44px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:background .15s; }
     .iconBtn:hover { background:var(--surface-2) }
     .iconBtn:active { transform:scale(.92) }
     .prog-track { flex:1; height:8px; border-radius:99px; background:var(--surface-2); overflow:hidden; }
     .prog-fill { height:100%; border-radius:99px; background:var(--accent); transition:width .35s cubic-bezier(.2,.9,.3,1); }
 
     .quiz-body { flex:1; overflow-y:auto; min-height:0; padding:20px 18px 4px; display:flex; flex-direction:column; animation:quizPop .3s cubic-bezier(.2,.9,.3,1); }
-    .q-badge { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
     .q-instruction { font-size:21px; font-weight:800; line-height:1.38; margin:0 0 22px; }
 
     .options { display:flex; flex-direction:column; gap:9px; }
-    .opt { display:flex; align-items:center; gap:12px; padding:13px 15px; border-radius:14px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-size:15px; font-weight:600; cursor:pointer; text-align:left; width:100%; transition:border-color .13s, background .13s, transform .1s, opacity .15s; }
+    .opt { display:flex; align-items:center; gap:12px; padding:13px 15px; min-height:48px; border-radius:14px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-size:15px; font-weight:600; cursor:pointer; text-align:left; width:100%; transition:border-color .13s, background .13s, transform .1s, opacity .15s; }
     .opt:hover:not(:disabled):not(.correct):not(.wrong) { background:var(--surface-2); border-color:rgba(255,255,255,.18); }
     .opt:active:not(:disabled) { transform:scale(.985) }
     .opt.selected { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent) }
@@ -100,7 +100,8 @@
     .kp-row:last-child { border-bottom:none }
     .kp-text { flex:1; font-size:14px; line-height:1.5; color:var(--text) }
     .kp-toggles { display:flex; gap:6px; flex-shrink:0 }
-    .kp-btn { padding:7px 13px; border-radius:10px; font-size:13px; font-weight:700; border:1.5px solid var(--border); background:var(--surface); color:var(--text-dim); cursor:pointer; transition:border-color .12s, background .12s, color .12s; }
+    /* Cibles tactiles enfants : ≥44px visibles (V/F du k-prime). */
+    .kp-btn { min-width:48px; min-height:44px; padding:8px 14px; border-radius:12px; font-size:15px; font-weight:800; border:1.5px solid var(--border); background:var(--surface); color:var(--text-dim); cursor:pointer; transition:border-color .12s, background .12s, color .12s; }
     .kp-btn:hover:not(:disabled) { background:var(--surface-2) }
     .kp-btn.kp-on-v { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--text) }
     .kp-btn.kp-on-f { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--text) }
@@ -153,7 +154,9 @@
     .quiz-footer { padding:10px 18px calc(14px + env(safe-area-inset-bottom)); flex-shrink:0; min-height:72px; display:flex; align-items:flex-end; }
     .ctaBtn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:none; border-radius:14px; color:#fff; font-family:var(--font-ui); font-weight:800; font-size:16px; padding:15px 20px; cursor:pointer; transition:transform .12s, filter .12s; text-decoration:none; }
     .ctaBtn:active { transform:scale(.97) }
-    .ctaBtn:disabled { cursor:default; opacity:.38 }
+    /* Désactivé = clairement inactif (gris plat), pas un bouton coloré à moitié
+       transparent qui SEMBLE cliquable. */
+    .ctaBtn:disabled, .ctaBtn.cta-verify:disabled { cursor:default; background:var(--surface-2); color:var(--ink-faint); border:1px solid var(--border); opacity:1 }
     .cta-verify { background:var(--accent) }
     .cta-continue-ok { background:linear-gradient(135deg, #22C55E, #16A34A) }
     .cta-continue-ko { background:var(--surface-2); border:1px solid var(--border); color:var(--ink) }
@@ -168,14 +171,18 @@
     .ord-row.wrong { border-color:#EF4444; background:rgba(239,68,68,.13) }
     .ord-rank { flex-shrink:0; width:24px; height:24px; border-radius:7px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:var(--text-dim) }
     .ord-text { flex:1; font-size:14px; font-weight:600; line-height:1.35; }
-    .ord-arrows { display:flex; flex-direction:column; gap:2px; flex-shrink:0 }
-    .ord-arrow { width:30px; height:22px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:11px; line-height:1; }
+    /* Flèches ▲▼ et indentation : visuel compact mais ZONE TACTILE élargie (::after)
+       — un doigt d'enfant doit toucher juste (≥ ~48px de zone réelle). */
+    .ord-arrows { display:flex; flex-direction:column; gap:6px; flex-shrink:0 }
+    .ord-arrow { position:relative; width:40px; height:32px; border-radius:9px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px; line-height:1; }
+    .ord-arrow::after { content:''; position:absolute; inset:-7px; }
     .ord-arrow:disabled { opacity:.25; cursor:default }
     .ord-arrow:active:not(:disabled) { transform:scale(.9) }
     /* parsons : indentation + code mono */
     .ord-code { font-family:'Courier New', monospace; font-size:13px; white-space:pre; overflow-x:auto; }
-    .ind-btns { display:flex; gap:3px; flex-shrink:0 }
-    .ind-btn { width:26px; height:22px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center }
+    .ind-btns { display:flex; gap:7px; flex-shrink:0 }
+    .ind-btn { position:relative; width:38px; height:32px; border-radius:9px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); font-size:15px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center }
+    .ind-btn::after { content:''; position:absolute; inset:-7px; }
     .ind-btn:disabled { opacity:.25; cursor:default }
     code[class*="language-"] { background:transparent !important; padding:0 !important }
 
@@ -205,7 +212,7 @@
     .mq-field.mq-focused { border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent) }
     .mq-editable-field, .mq-math-mode { color:var(--text) }
     .kpad { display:grid; grid-template-columns:repeat(7,1fr); gap:7px; margin-top:14px; }
-    .kbtn { height:46px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:17px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .1s, background .15s; }
+    .kbtn { height:48px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:17px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .1s, background .15s; }
     .kbtn:hover { background:var(--surface-2) } .kbtn:active { transform:scale(.92) }
     .kbtn.accent { background:color-mix(in srgb, var(--accent) 14%, transparent); border-color:color-mix(in srgb, var(--accent) 40%, transparent); color:var(--accent) }
 
@@ -217,6 +224,16 @@
     .confetti-piece { position:fixed; pointer-events:none; z-index:90; animation:confettiFall var(--dur,1.5s) ease-in var(--delay,0s) forwards; }
 
     .fallback-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px; text-align:center; color:var(--text-dim); }
+
+    /* Modal « quitter le quiz ? » — confirmation douce, jamais de sortie par accident. */
+    .exit-veil { position:fixed; inset:0; z-index:95; background:rgba(20,15,25,.45); display:flex; align-items:center; justify-content:center; padding:26px; animation:feedbackIn .18s ease-out; }
+    .exit-card { background:var(--surface); border:1px solid var(--border); border-radius:22px; padding:24px 22px; max-width:330px; width:100%; text-align:center; }
+    .exit-emoji { width:64px; height:64px; border-radius:50%; background:color-mix(in srgb, var(--accent) 14%, transparent); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:30px; }
+    .exit-title { font-size:18px; font-weight:800; margin:0 0 6px; color:var(--ink-strong, var(--ink)); }
+    .exit-msg { font-size:13.5px; color:var(--text-dim); line-height:1.55; margin:0 0 18px; }
+    .exit-stay { display:block; width:100%; border:none; border-radius:14px; background:var(--accent); color:#fff; font-family:inherit; font-weight:800; font-size:15px; padding:13px; cursor:pointer; margin-bottom:9px; min-height:48px; }
+    .exit-stay:active { transform:scale(.97) }
+    .exit-leave { display:block; width:100%; border:1px solid var(--border); border-radius:14px; background:transparent; color:var(--text-dim); font-family:inherit; font-weight:700; font-size:14px; padding:12px; cursor:pointer; text-decoration:none; min-height:44px; }
   </style>
 </head>
 <body>
@@ -229,8 +246,10 @@
   <template x-if="phase === 'quiz'">
     <div class="quizPanel">
       <div class="quiz-header">
-        <a class="iconBtn" :href="parcoursUrl"><i data-lucide="x" style="width:20px;height:20px"></i></a>
-        <div class="prog-track"><div class="prog-fill" :style="`width:${((idx)/questions.length)*100}%`"></div></div>
+        {# Sortie CONFIRMÉE : un enfant qui tape à côté ne doit pas perdre sa série. #}
+        <button type="button" class="iconBtn" @click="confirmExit = true"><i data-lucide="x" style="width:20px;height:20px"></i></button>
+        {# Plancher 5 % : dès la question 1 la barre montre « c'est parti », jamais vide. #}
+        <div class="prog-track"><div class="prog-fill" :style="`width:${Math.max((idx/questions.length)*100, 5)}%`"></div></div>
         <div style="font-size:12px;font-weight:700;color:var(--text-mute);white-space:nowrap;min-width:30px;text-align:right">
           <span x-text="idx+1"></span>/<span x-text="questions.length"></span>
         </div>
@@ -240,8 +259,7 @@
       <template x-if="q.type === 'mcq_single'">
         <div x-data="blockMcqSingle(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">QCM · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="options">
               <template x-for="(opt, i) in quiz.options" :key="i">
                 <button class="opt" :class="optClass(i)" @click="!checked && (selected=i)" :disabled="checked || busy">
@@ -270,8 +288,7 @@
       <template x-if="q.type === 'true_false'">
         <div x-data="blockTrueFalse(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Vrai ou Faux · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="tf-grid">
               <button class="tf-card" :class="cardClass(true)" @click="!checked && (selected=true)" :disabled="checked || busy">
                 <span class="tf-icon tf-true-icon"><i data-lucide="check" style="width:28px;height:28px;color:#22C55E"></i></span>Vrai
@@ -297,8 +314,7 @@
       <template x-if="q.type === 'odd_one_out'">
         <div x-data="blockOddOneOut(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">L'intrus · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="options">
               <template x-for="(item, i) in quiz.items" :key="i">
                 <button class="opt" :class="optClass(i)" @click="!checked && (selected=i)" :disabled="checked || busy">
@@ -327,8 +343,7 @@
       <template x-if="q.type === 'k_prime'">
         <div x-data="blockKPrime(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Vrai / Faux · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="kp-list">
               <template x-for="(st, i) in quiz.statements" :key="i">
                 <div class="kp-row">
@@ -357,8 +372,7 @@
       <template x-if="q.type === 'cloze_test'">
         <div x-data="blockCloze(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Compléter · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="cloze-text">
               <template x-for="(seg, i) in segments" :key="i">
                 <span>
@@ -390,8 +404,7 @@
       <template x-if="q.type === 'mcq_multiple'">
         <div x-data="blockMcqMultiple(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Choix multiples · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <p style="font-size:12px;color:var(--text-mute);margin:-14px 0 16px;font-weight:600">Coche toutes les bonnes réponses</p>
             <div class="options">
               <template x-for="(opt, i) in quiz.options" :key="i">
@@ -423,8 +436,7 @@
       <template x-if="q.type === 'matching'">
         <div x-data="blockMatching(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Associer · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
 
             <!-- grille tap-tap (avant vérification) -->
             <div x-show="!checked">
@@ -505,8 +517,7 @@
       <template x-if="q.type === 'chrono_order'">
         <div x-data="blockChrono(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Ordonner · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="ord-list">
               <template x-for="(pos, rank) in order" :key="pos">
                 <div class="ord-row" :class="rowClass(rank)">
@@ -535,8 +546,7 @@
       <template x-if="q.type === 'parsons_puzzle'">
         <div x-data="blockParsons(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Ordonner le code · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="ord-list">
               <template x-for="(row, rank) in rows" :key="row.id">
                 <div class="ord-row" :class="rowClass(rank)">
@@ -575,8 +585,7 @@
       <template x-if="q.type === 'number_input'">
         <div x-data="blockNumber(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Saisir un nombre · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="num-wrap">
               <input class="num-input" :class="checked ? (isRight ? 'correct' : 'wrong') : ''" type="text" inputmode="decimal" x-model="val" :disabled="checked || busy" @keydown.enter.prevent="val!=='' && !checked && check()" placeholder="…">
               <span class="num-unit" x-show="quiz.unit" x-text="quiz.unit"></span>
@@ -597,9 +606,8 @@
       <template x-if="q.type === 'dynamic_formula'">
         <div x-data="blockNumber(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Calcul · {{ concept.name }}</div>
             <div class="draw-tag"><i data-lucide="shuffle" style="width:13px;height:13px"></i> valeurs tirées au hasard</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="num-wrap">
               <input class="num-input" :class="checked ? (isRight ? 'correct' : 'wrong') : ''" type="text" inputmode="decimal" x-model="val" :disabled="checked || busy" @keydown.enter.prevent="val!=='' && !checked && check()" placeholder="…">
               <span class="num-unit" x-show="quiz.unit" x-text="quiz.unit"></span>
@@ -620,8 +628,7 @@
       <template x-if="q.type === 'spot_the_bug'">
         <div x-data="blockSpotBug(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Trouver le bug · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div class="code-block">
               <template x-for="(line, i) in quiz.code" :key="i">
                 <div class="code-line" :class="lineClass(i)" @click="!checked && (selected=i)">
@@ -647,8 +654,7 @@
       <template x-if="q.type === 'math_expression'">
         <div x-data="blockMath(q)" style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Expression maths · {{ concept.name }}</div>
-            <h2 class="q-instruction" x-text="quiz.instruction"></h2>
+            <h2 class="q-instruction" x-text="frTypo(quiz.instruction)"></h2>
             <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Ta réponse</div>
             <span class="mq-field" x-ref="mq"></span>
             <div class="kpad">
@@ -683,7 +689,6 @@
       <template x-if="!['mcq_single','true_false','odd_one_out','k_prime','cloze_test','mcq_multiple','matching','chrono_order','parsons_puzzle','number_input','dynamic_formula','spot_the_bug','math_expression'].includes(q.type)">
         <div style="flex:1;display:flex;flex-direction:column;min-height:0">
           <div class="quiz-body">
-            <div class="q-badge">Question · {{ concept.name }}</div>
             <h2 class="q-instruction" x-text="q.instruction"></h2>
             <div class="fallback-card">
               <i data-lucide="construction" style="width:26px;height:26px;color:var(--text-mute)"></i>
@@ -722,6 +727,19 @@
     </div>
   </template>
 
+  <!-- ════ Modal « quitter ? » — sortie toujours confirmée pendant le quiz ════ -->
+  <template x-if="confirmExit && phase === 'quiz'">
+    <div class="exit-veil" @click.self="confirmExit = false">
+      <div class="exit-card">
+        <div class="exit-emoji">🤔</div>
+        <p class="exit-title">Quitter le quiz ?</p>
+        <p class="exit-msg">Ta progression sur cette série ne sera pas gardée. Tu pourras recommencer depuis le parcours.</p>
+        <button type="button" class="exit-stay" @click="confirmExit = false">Continuer le quiz</button>
+        <a class="exit-leave" :href="parcoursUrl">Quitter</a>
+      </div>
+    </div>
+  </template>
+
 </div><!-- /quizShell -->
 
 <script>
@@ -742,8 +760,12 @@ async function postAnswer(quizId, answer) {
 document.addEventListener('alpine:init', () => {
 
   // ── Shell : séquence + écran final ──
+  // Typographie française : espace INSÉCABLE avant : ; ! ? — sinon la ponctuation
+  // se retrouve seule en début de ligne (« … plus grand \n : »).
+  window.frTypo = (s) => String(s || '').replace(/ ([:;!?»])/g, ' $1').replace(/(«) /g, '$1 ');
+
   Alpine.data('quizShell', () => ({
-    idx: 0, results: [], phase: 'quiz',
+    idx: 0, results: [], phase: 'quiz', confirmExit: false,
     questions: _RQ,
     parcoursUrl: RUNNER_CFG.parcoursUrl,
     get q()        { return this.questions[this.idx]; },
