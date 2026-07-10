@@ -20,7 +20,7 @@ from apps.schools.models import (
 from apps.students.models import Student
 
 from . import srs, cahier
-from .models import ConceptProgress, ConceptReview, CahierAttempt
+from .models import CahierAttempt, ConceptProgress, ConceptReview, QuizAttempt
 
 User = get_user_model()
 
@@ -869,3 +869,107 @@ class CahierViewTests(SRSBase):
         self.assertEqual(cah['status'], 'available')
         # ...et pourtant l'histoire APRÈS lui est jouable (current), pas verrouillée.
         self.assertEqual(story['status'], 'current')
+
+
+class RhythmTests(SRSBase):
+    """Usage sain — rhythm.py (objectif du jour, semaine, nuit, résumé parent)."""
+
+    def _quiz_attempt(self, when=None):
+        from . import rhythm
+        a = QuizAttempt.objects.create(
+            student=self.student, lesson=self.lesson, content_version=self.cv,
+            quiz_id='q1', question_type='mcq_single',
+            student_answer=0, is_correct=True,
+        )
+        if when:
+            QuizAttempt.objects.filter(pk=a.pk).update(attempted_at=when)
+        return a
+
+    def test_objectif_todo_puis_done(self):
+        from . import rhythm
+        today = timezone.localdate()
+        r1 = self._review('c1', due=today)
+        r2 = self._review('c2', due=today)
+        g = rhythm.daily_goal(self.student)
+        self.assertEqual(g['state'], 'todo')
+        self.assertEqual((g['done'], g['total']), (0, 2))
+
+        srs.apply_result(r1, success=True)   # une révision faite
+        g = rhythm.daily_goal(self.student)
+        self.assertEqual(g['state'], 'todo')
+        self.assertEqual((g['done'], g['total'], g['remaining']), (1, 2, 1))
+
+        srs.apply_result(r2, success=False)  # même ratée = travaillée → file finie
+        g = rhythm.daily_goal(self.student)
+        self.assertEqual(g['state'], 'done')
+        self.assertEqual(g['done'], 2)
+
+    def test_objectif_fresh_si_rien_de_mur(self):
+        from . import rhythm
+        g = rhythm.daily_goal(self.student)
+        self.assertEqual(g['state'], 'fresh')
+        self.assertEqual(g['total'], 0)
+
+    def test_total_borne_au_cap(self):
+        from . import rhythm
+        today = timezone.localdate()
+        for c in [f'x{i}' for i in range(9)]:
+            ConceptReview.objects.create(
+                student=self.student, lesson=self.lesson, content_version=self.cv,
+                concept_id=c, box=1, due_date=today)
+        g = rhythm.daily_goal(self.student)
+        self.assertEqual(g['total'], srs.QUEUE_CAP)       # la file est FINIE
+        self.assertEqual(g['remaining'], srs.QUEUE_CAP)
+
+    def test_week_strip_jours_actifs_et_labels(self):
+        from . import rhythm
+        self._quiz_attempt()   # activité aujourd'hui
+        strip = rhythm.week_strip(self.student)
+        self.assertEqual(len(strip), 7)
+        self.assertEqual([d['label'] for d in strip], ['L','M','M','J','V','S','D'])
+        today_cell = next(d for d in strip if d['is_today'])
+        self.assertTrue(today_cell['active'])
+        # aucun champ « punition » : un jour vide est juste inactive
+        empty = [d for d in strip if not d['active'] and not d['future']]
+        for d in empty:
+            self.assertFalse(d['active'])
+
+    def test_is_night_borne(self):
+        from . import rhythm
+        from datetime import datetime
+        tz = timezone.get_current_timezone()
+        mk = lambda h, m: timezone.make_aware(datetime(2026, 7, 10, h, m), tz)
+        self.assertTrue(rhythm.is_night(mk(22, 0)))
+        self.assertTrue(rhythm.is_night(mk(23, 45)))
+        self.assertTrue(rhythm.is_night(mk(4, 30)))
+        self.assertFalse(rhythm.is_night(mk(21, 0)))
+        self.assertFalse(rhythm.is_night(mk(8, 0)))
+
+    def test_week_summary_parent(self):
+        from . import rhythm
+        today = timezone.localdate()
+        # 2 concepts révisés cette semaine, dont 1 consolidé (boîte 3)
+        r1 = self._review('c1', box=2, due=today)
+        r2 = self._review('c2', box=3, due=today)
+        ConceptReview.objects.filter(pk=r1.pk).update(last_reviewed_at=timezone.now())
+        ConceptReview.objects.filter(pk=r2.pk).update(last_reviewed_at=timezone.now())
+        CahierAttempt.objects.create(
+            student=self.student, lesson=self.lesson, content_version=self.cv,
+            results=[{'task_id': 'dictee', 'self': 'good'}])
+        self._quiz_attempt()
+
+        s = rhythm.week_summary(self.student)
+        self.assertEqual(s['concepts_reviewed'], 2)
+        self.assertEqual(s['consolidated'], 1)
+        self.assertEqual(s['cahier_count'], 1)
+        self.assertGreaterEqual(s['active_days'], 1)
+
+    def test_week_summary_isolation_autre_eleve(self):
+        from . import rhythm
+        autre = Student.objects.create(
+            school=self.school, school_class=self.klass,
+            full_name='Autre', tuition_fee=Decimal('0'))
+        CahierAttempt.objects.create(
+            student=autre, lesson=self.lesson, content_version=self.cv, results=[])
+        s = rhythm.week_summary(self.student)
+        self.assertEqual(s['cahier_count'], 0)
