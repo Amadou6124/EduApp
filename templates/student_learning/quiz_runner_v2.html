@@ -836,8 +836,9 @@ document.addEventListener('alpine:init', () => {
       this.results.push(detail.correct);
       // Flamme : chaque bonne réponse la nourrit ; la PREMIÈRE erreur l'éteint.
       this.streak = detail.correct ? this.streak + 1 : 0;
+      if (this.streak === 2 && window.LearnSFX) LearnSFX.play('combo');   // elle s'allume !
       setTimeout(() => {
-        if (this.idx + 1 >= this.questions.length) { this.phase = 'done'; if (window.LearnSFX) LearnSFX.play('win'); }
+        if (this.idx + 1 >= this.questions.length) { this.phase = 'done'; if (window.LearnSFX) LearnSFX.play(this.stars === 3 ? 'perfect' : 'win'); }
         else { this.idx++; this.$nextTick(() => this.refreshIcons()); }
       }, 170);
     },

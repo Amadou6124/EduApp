@@ -6,12 +6,14 @@ même sans fichiers (bips de secours).
 
 ## Fichiers livrés (générés, présents ICI)
 
-| Fichier         | Quand il joue                      | Son                                   |
-|-----------------|------------------------------------|---------------------------------------|
-| `correct.wav`   | Bonne réponse                      | deux notes montantes (carillon doux)  |
-| `wrong.wav`     | Mauvaise réponse                   | deux notes descendantes **douces**    |
-| `complete.wav`  | Fin d'histoire / examen (récompense)| petite fanfare arpège majeur          |
-| `tap.wav`       | Envoi d'une réponse / interaction  | clic court                            |
+| Fichier         | Quand il joue                                | Son                                   |
+|-----------------|----------------------------------------------|---------------------------------------|
+| `correct.wav`   | Bonne réponse                                | carillon 2 notes montantes            |
+| `wrong.wav`     | Mauvaise réponse                             | descente **douce** (jamais punitif)   |
+| `combo.wav`     | La flamme s'allume (2 bonnes d'affilée)      | arpège rapide + étincelle             |
+| `complete.wav`  | Fin de série / histoire / examen             | petit jingle majeur                   |
+| `perfect.wav`   | Série **parfaite** (3 étoiles)               | fanfare + accord tenu vibré           |
+| `tap.wav`       | Envoi d'une réponse / interaction            | pop court                             |
 
 - Format : **wav** (lu nativement par tous les navigateurs). Mono 44.1 kHz,
   léger (≈ 8–75 Ko). Volume baissé côté code (0.5), sons doux façon Duolingo.

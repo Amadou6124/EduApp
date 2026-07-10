@@ -9,9 +9,10 @@
  *   LearnSFX.toggleMute();                    // -> nouveau bool muted
  */
 (function () {
-  var NAMES = ['correct', 'wrong', 'complete', 'tap'];
+  var NAMES = ['correct', 'wrong', 'complete', 'tap', 'combo', 'perfect'];
   var ALIAS = { success: 'correct', error: 'wrong', win: 'complete', complete: 'complete',
-                correct: 'correct', wrong: 'wrong', tap: 'tap' };
+                correct: 'correct', wrong: 'wrong', tap: 'tap',
+                combo: 'combo', streak: 'combo', perfect: 'perfect' };
 
   var SFX = {
     base: '', _cache: {}, _ac: null, _loaded: false,
@@ -61,6 +62,8 @@
         else if (name === 'correct') { beep(660, 0, 0.1, 'sine', 0.06); beep(880, 0.08, 0.16, 'sine', 0.06); }
         else if (name === 'wrong') beep(160, 0, 0.16, 'sawtooth', 0.04);
         else if (name === 'complete') { beep(660, 0, 0.12, 'sine', 0.06); beep(880, 0.1, 0.12, 'sine', 0.06); beep(1046, 0.2, 0.22, 'sine', 0.07); }
+        else if (name === 'combo') { beep(880, 0, 0.08, 'sine', 0.06); beep(1109, 0.06, 0.08, 'sine', 0.06); beep(1319, 0.12, 0.1, 'sine', 0.07); beep(1760, 0.2, 0.16, 'sine', 0.05); }
+        else if (name === 'perfect') { beep(523, 0, 0.1, 'sine', 0.06); beep(784, 0.09, 0.1, 'sine', 0.06); beep(1046, 0.18, 0.1, 'sine', 0.07); beep(1319, 0.27, 0.12, 'sine', 0.07); beep(1568, 0.38, 0.3, 'sine', 0.08); }
       } catch (e) {}
     },
 
