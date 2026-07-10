@@ -549,3 +549,90 @@ class ProgressContextTests(SRSBase):
         )
         ctx = student_progress_context(self.student)
         self.assertIsNone(ctx['bulletin'])   # le bulletin de l'autre n'apparaît pas
+
+
+class ProgresViewTests(ProgressContextTests):
+    """Vue /learn/progres/ — rendu des 3 états + sécurité."""
+
+    def _login(self, student=None):
+        s = self.client.session
+        s['student_id'] = (student or self.student).pk
+        s.save()
+
+    def test_anonyme_redirige_vers_login(self):
+        resp = self.client.get('/learn/progres/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/learn/login', resp.url)
+
+    def test_ecole_silencieuse_app_d_abord(self):
+        # de la maîtrise mais aucune note école
+        self._year_period()
+        self._review('c1', box=1)
+        self._login()
+        resp = self.client.get('/learn/progres/')
+        self.assertContains(resp, 'Dans l\'app')
+        self.assertContains(resp, "Tes notes d'école apparaîtront ici")
+        self.assertNotContains(resp, 'Moyenne provisoire')
+
+    def test_bulletin_publie_rendu_avec_pdf(self):
+        year, period = self._year_period()
+        cs = self._class_subject('Français', Decimal('20'))
+        bul = Bulletin.objects.create(
+            student=self.student, period=period, school_class=self.klass,
+            is_published=True, general_average=Decimal('14.50'),
+            rank=5, class_size=42, appreciation='Bon trimestre',
+            generated_by=self.teacher,
+        )
+        BulletinLine.objects.create(
+            bulletin=bul, class_subject=cs, final_average=Decimal('15.50'),
+            rank_in_subject=2,
+        )
+        self._login()
+        resp = self.client.get('/learn/progres/')
+        self.assertContains(resp, 'Voir mon bulletin (PDF)')
+        self.assertContains(resp, '14,50')                 # localize off → virgule FR
+        self.assertContains(resp, '/learn/grades/bulletin/')
+        self.assertNotContains(resp, 'Moyenne provisoire')
+
+    def test_provisoire_rendu_avec_etiquette(self):
+        year, period = self._year_period()
+        cs = self._class_subject('Mathématiques', Decimal('20'))
+        Note.objects.create(
+            student=self.student, class_subject=cs, period=period,
+            note_type=NoteType.DEVOIR, position=1, value=Decimal('12'),
+            entered_by=self.teacher,
+        )
+        self._login()
+        resp = self.client.get('/learn/progres/')
+        self.assertContains(resp, 'Provisoire')
+        self.assertContains(resp, 'Moyenne provisoire')
+        self.assertNotContains(resp, 'Voir mon bulletin (PDF)')
+
+    def test_page_tout_vide_invite_a_commencer(self):
+        self._year_period()
+        self._login()   # ni notes ni révision
+        resp = self.client.get('/learn/progres/')
+        self.assertContains(resp, 'Ta page de progrès est prête')
+
+    def test_cta_reviser_montre_le_vrai_compte(self):
+        self._year_period()
+        self._review('c1', box=1)
+        self._review('c2', box=1)
+        self._login()
+        resp = self.client.get('/learn/progres/')
+        self.assertContains(resp, 'Réviser mes 2 concepts fragiles')
+
+    def test_pdf_d_un_autre_eleve_404(self):
+        year, period = self._year_period()
+        autre = Student.objects.create(
+            school=self.school, school_class=self.klass,
+            full_name='Autre Élève', tuition_fee=Decimal('0'),
+        )
+        bul = Bulletin.objects.create(
+            student=autre, period=period, school_class=self.klass,
+            is_published=True, general_average=Decimal('18'),
+            generated_by=self.teacher,
+        )
+        self._login()   # connecté en self.student
+        resp = self.client.get(f'/learn/grades/bulletin/{bul.pk}/pdf/')
+        self.assertEqual(resp.status_code, 404)
