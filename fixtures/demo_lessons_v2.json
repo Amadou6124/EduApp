@@ -1,0 +1,2978 @@
+{
+ "version": 1,
+ "note": "Contenu IA payé — exporté avant purge, rechargé par seed_demo_ecole",
+ "lessons": [
+  {
+   "ref": "lesson-10",
+   "title": "Les parties de mon corps et leurs rôles",
+   "summary": "Découverte des principales parties du corps (yeux, oreilles, nez, bouche, mains, jambes) et de la fonction de chacune.",
+   "slug": "les-parties-de-mon-corps",
+   "order": 0,
+   "subject": "Français",
+   "subject_type": "literary",
+   "level": "fondamental_1",
+   "level_detail": "",
+   "language": "fr",
+   "unit_title": "Mon corps et mes actions",
+   "content": {
+    "concepts_data": [
+     {
+      "id": "parties_corps",
+      "name": "Identifier les parties du corps",
+      "quiz": [
+       {
+        "id": "pc_q1",
+        "type": "mcq_single",
+        "options": [
+         "Les mains",
+         "Les jambes",
+         "Les oreilles",
+         "Le nez"
+        ],
+        "pass_index": 0,
+        "explanation": "On marche avec les jambes. Elles nous permettent aussi de courir et de sauter.",
+        "instruction": "Quelle partie du corps utilises-tu pour marcher jusqu'au marché de Bamako ?",
+        "answer_index": 1
+       },
+       {
+        "id": "pc_q2",
+        "type": "odd_one_out",
+        "items": [
+         "Les yeux",
+         "Les oreilles",
+         "Un caillou",
+         "Les mains"
+        ],
+        "odd_index": 2,
+        "pass_index": 0,
+        "explanation": "Un caillou est un objet du sol, pas une partie du corps. Les yeux, les oreilles et les mains font partie de notre corps.",
+        "instruction": "Quel élément de la liste n'est PAS une partie du corps humain ?"
+       },
+       {
+        "id": "pc_q3",
+        "type": "true_false",
+        "answer": false,
+        "pass_index": 0,
+        "explanation": "Non ! Les mains servent à toucher et à attraper. Ce sont les jambes qui servent à marcher.",
+        "instruction": "Les mains servent à marcher."
+       },
+       {
+        "id": "pc_q4",
+        "type": "k_prime",
+        "pass_index": 0,
+        "statements": [
+         {
+          "text": "Le nez est une partie du corps.",
+          "answer": true
+         },
+         {
+          "text": "La bouche est une partie du corps.",
+          "answer": true
+         },
+         {
+          "text": "Les jambes sont des organes inventés.",
+          "answer": false
+         },
+         {
+          "text": "Les oreilles font partie du corps humain.",
+          "answer": true
+         }
+        ],
+        "explanation": "Le nez, la bouche, les jambes et les oreilles sont toutes de vraies parties du corps humain.",
+        "instruction": "Pour chaque affirmation, dis si elle est vraie ou fausse :"
+       },
+       {
+        "id": "pc_q5",
+        "type": "matching",
+        "pairs": [
+         {
+          "left": "La partie qui se trouve sur le visage et qui sert à respirer les odeurs",
+          "right": "Le nez"
+         },
+         {
+          "left": "Les deux membres qui se trouvent en bas du corps",
+          "right": "Les jambes"
+         },
+         {
+          "left": "Les deux membres au bout des bras pour toucher",
+          "right": "Les mains"
+         },
+         {
+          "left": "La partie du visage qui sert à parler",
+          "right": "La bouche"
+         }
+        ],
+        "pass_index": 0,
+        "instruction": "Associe chaque description à la bonne partie du corps :"
+       }
+      ],
+      "order": 1,
+      "passes": 1
+     },
+     {
+      "id": "sens_perception",
+      "name": "Les organes des sens",
+      "quiz": [
+       {
+        "id": "sp_q1",
+        "type": "mcq_single",
+        "options": [
+         "Les oreilles",
+         "Le nez",
+         "Les yeux",
+         "La bouche"
+        ],
+        "pass_index": 0,
+        "explanation": "On voit les couleurs et les formes avec les yeux.",
+        "instruction": "Djigui regarde les belles couleurs des boubous au marché de Bamako. Quel organe utilise-t-il ?",
+        "answer_index": 2
+       },
+       {
+        "id": "sp_q2",
+        "type": "true_false",
+        "answer": true,
+        "pass_index": 0,
+        "explanation": "Oui, les oreilles nous permettent d'entendre tous les sons autour de nous, comme le son du balafon ou la voix de notre maman.",
+        "instruction": "Les oreilles servent à écouter les sons et la musique."
+       },
+       {
+        "id": "sp_q3",
+        "text": "Je vois avec mes {{0}} et j'écoute avec mes {{1}}.",
+        "type": "cloze_test",
+        "answers": [
+         "yeux",
+         "oreilles"
+        ],
+        "pass_index": 0,
+        "explanation": "Les yeux sont les organes de la vue, les oreilles sont les organes de l'ouïe.",
+        "instruction": "Complète la phrase avec les bons mots :"
+       },
+       {
+        "id": "sp_q4",
+        "type": "mcq_single",
+        "options": [
+         "Les yeux",
+         "Le nez",
+         "Les mains",
+         "Les jambes"
+        ],
+        "pass_index": 1,
+        "explanation": "On sent les odeurs avec le nez. Les mangues de Bamako ont une odeur très agréable !",
+        "instruction": "Fatoumata sent l'odeur des mangues mûres. Quel organe utilise-t-elle ?",
+        "answer_index": 1
+       },
+       {
+        "id": "sp_q5",
+        "type": "mcq_multiple",
+        "options": [
+         "Parler",
+         "Voir",
+         "Manger",
+         "Goûter"
+        ],
+        "pass_index": 1,
+        "explanation": "La bouche sert à parler, à manger et à goûter. Pour voir, on utilise les yeux.",
+        "instruction": "La bouche sert à faire plusieurs choses. Lesquelles ? (Coche toutes les bonnes réponses.)",
+        "answer_indices": [
+         0,
+         2,
+         3
+        ]
+       },
+       {
+        "id": "sp_q6",
+        "type": "matching",
+        "pairs": [
+         {
+          "left": "Les yeux",
+          "right": "Voir les couleurs et les formes"
+         },
+         {
+          "left": "Les oreilles",
+          "right": "Écouter les sons"
+         },
+         {
+          "left": "Le nez",
+          "right": "Sentir les odeurs"
+         },
+         {
+          "left": "La bouche",
+          "right": "Parler, manger et goûter"
+         }
+        ],
+        "pass_index": 1,
+        "explanation": "Chaque organe des sens a une mission bien précise sur notre visage.",
+        "instruction": "Associe chaque organe à son rôle :"
+       }
+      ],
+      "order": 2,
+      "passes": 2
+     },
+     {
+      "id": "membres_actions",
+      "name": "Les mains et les jambes en action",
+      "quiz": [
+       {
+        "id": "ma_q1",
+        "type": "mcq_single",
+        "options": [
+         "Les jambes",
+         "Le nez",
+         "Les mains",
+         "Les oreilles"
+        ],
+        "pass_index": 0,
+        "explanation": "On utilise les mains pour toucher et attraper les objets.",
+        "instruction": "Moussa veut attraper une mangue tombée par terre. Quelle partie de son corps va-t-il utiliser ?",
+        "answer_index": 2
+       },
+       {
+        "id": "ma_q2",
+        "type": "matching",
+        "pairs": [
+         {
+          "left": "Les mains",
+          "right": "Toucher et attraper"
+         },
+         {
+          "left": "Les jambes",
+          "right": "Marcher, courir et sauter"
+         }
+        ],
+        "pass_index": 0,
+        "explanation": "Les mains et les jambes sont nos membres : ils nous aident à agir sur le monde.",
+        "instruction": "Associe chaque partie du corps à ce qu'elle permet de faire :"
+       },
+       {
+        "id": "ma_q3",
+        "type": "true_false",
+        "answer": true,
+        "pass_index": 0,
+        "explanation": "Oui ! Les jambes servent à marcher, courir et sauter. Grâce à elles, on peut aller vite au champ ou à l'école.",
+        "instruction": "Les jambes servent à courir."
+       },
+       {
+        "id": "ma_q4",
+        "text": "Je touche avec mes {{0}} et je marche avec mes {{1}}.",
+        "type": "cloze_test",
+        "answers": [
+         "mains",
+         "jambes"
+        ],
+        "pass_index": 0,
+        "explanation": "Les mains touchent et attrapent. Les jambes marchent et courent.",
+        "instruction": "Complète ces phrases :"
+       },
+       {
+        "id": "ma_q5",
+        "type": "odd_one_out",
+        "items": [
+         "Marcher",
+         "Courir",
+         "Sauter",
+         "Écouter"
+        ],
+        "odd_index": 3,
+        "pass_index": 0,
+        "explanation": "Écouter se fait avec les oreilles, pas avec les jambes ! On marche, court et saute avec les jambes.",
+        "instruction": "Voici des actions que l'on peut faire. Laquelle ne peut PAS être faite avec les jambes ?"
+       }
+      ],
+      "order": 3,
+      "passes": 1
+     }
+    ],
+    "reading_data": {
+     "terms": {
+      "son": "Ce que les oreilles entendent, comme la voix d'un ami ou la musique.",
+      "sens": "La capacité du corps à percevoir le monde : voir, entendre, sentir, goûter, toucher.",
+      "odeur": "Ce que le nez perçoit dans l'air, comme le parfum des mangues ou le pain chaud.",
+      "mission": "Le rôle précis que quelque chose doit accomplir."
+     },
+     "title": "Les parties de mon corps et leurs rôles",
+     "sections": [
+      {
+       "id": "s1",
+       "title": "Ton corps, une machine incroyable",
+       "blocks": [
+        {
+         "text": "Chaque matin, tu te lèves, tu regardes autour de toi, tu entends les bruits du quartier, tu sens le riz qui cuit, et tu cours rejoindre tes amis. Tout cela, c'est grâce à ton corps. Ton corps est une machine incroyable qui travaille sans arrêt pour toi.",
+         "type": "p",
+         "simple": "Ton corps t'aide à faire toutes tes activités du matin jusqu'au soir."
+        },
+        {
+         "icon": "spark",
+         "text": "Ton corps possède plusieurs parties, et chacune a une mission bien précise. Elles travaillent ensemble comme une équipe !",
+         "type": "callout",
+         "label": "Le saviez-vous"
+        },
+        {
+         "type": "reflect",
+         "prompt": "Pense à ce que tu as fait ce matin. Quelles parties de ton corps as-tu déjà utilisées ?"
+        }
+       ]
+      },
+      {
+       "id": "s2",
+       "title": "Les yeux et les oreilles",
+       "blocks": [
+        {
+         "term": "sens",
+         "text": "La capacité du corps à percevoir le monde : voir, entendre, sentir, goûter, toucher.",
+         "type": "def"
+        },
+        {
+         "text": "Tes yeux te servent à voir. Grâce à eux, tu reconnais les couleurs et les formes. Au marché de Bamako, c'est avec tes yeux que tu distingues les mangues jaunes des oranges, ou que tu lis le prix écrit sur un étal.",
+         "type": "p"
+        },
+        {
+         "text": "Exemple : Quand ta maman t'envoie acheter du mil à la boutique, tu utilises tes yeux pour lire le panneau et choisir le bon sac.",
+         "type": "example"
+        },
+        {
+         "text": "Tes oreilles te servent à écouter les sons et la musique. Elles captent les voix des gens autour de toi, l'appel à la prière de la mosquée, ou le bruit d'un car rapide qui passe dans la rue.",
+         "type": "p"
+        },
+        {
+         "type": "check",
+         "answer": 1,
+         "options": [
+          "À entendre les sons",
+          "À voir les couleurs et les formes",
+          "À sentir les odeurs"
+         ],
+         "variant": "qcm",
+         "question": "À quoi servent tes yeux ?",
+         "explanation": "Les yeux servent à voir : ils reconnaissent les couleurs et les formes autour de toi."
+        }
+       ]
+      },
+      {
+       "id": "s3",
+       "title": "Le nez et la bouche",
+       "blocks": [
+        {
+         "term": "odeur",
+         "text": "Ce que le nez perçoit dans l'air, comme le parfum des mangues ou le pain chaud.",
+         "type": "def"
+        },
+        {
+         "text": "Ton nez sert à sentir les odeurs. Il te permet de reconnaître le bon plat qui cuit, une fleur dans la cour, ou même de détecter quelque chose qui a brûlé dans la cuisine.",
+         "type": "p"
+        },
+        {
+         "text": "Exemple : En passant près d'un étal au marché, ton nez sent tout de suite les épices, les poissons séchés ou les mangues bien mûres.",
+         "type": "example"
+        },
+        {
+         "text": "Ta bouche, elle, a trois missions à la fois : parler, manger et goûter. C'est grâce à elle que tu peux expliquer quelque chose à un ami, mâcher ton tô du soir, et sentir si la sauce est bien salée.",
+         "type": "p"
+        },
+        {
+         "type": "key",
+         "items": [
+          "Le nez → sentir les odeurs.",
+          "La bouche → parler, manger et goûter.",
+          "Ces deux parties nous aident à profiter de la nourriture et à communiquer."
+         ]
+        },
+        {
+         "type": "check",
+         "answer": false,
+         "variant": "tf",
+         "question": "La bouche sert uniquement à manger.",
+         "explanation": "La bouche a trois rôles : parler, manger ET goûter. Elle fait bien plus que manger !"
+        }
+       ]
+      },
+      {
+       "id": "s4",
+       "title": "Les mains et les jambes",
+       "blocks": [
+        {
+         "text": "Tes mains sont très utiles chaque jour. Elles te servent à toucher et à attraper les objets. Tu t'en sers pour écrire dans ton cahier, porter un seau d'eau, aider aux champs, ou saluer quelqu'un.",
+         "type": "p"
+        },
+        {
+         "text": "Exemple : Au champ, les mains arrachent les mauvaises herbes et ramassent les légumes. Dans la boutique, elles comptent les francs CFA et remettent la monnaie.",
+         "type": "example"
+        },
+        {
+         "text": "Tes jambes, elles, te permettent de te déplacer. Grâce à elles, tu marches, tu cours et tu sautes. Ce sont elles qui te portent chaque jour jusqu'à l'école, au marché ou à la mosquée.",
+         "type": "p"
+        },
+        {
+         "icon": "star",
+         "text": "Prends soin de tes jambes ! Porter des chaussures protège tes pieds et t'aide à marcher plus loin sans te blesser.",
+         "type": "callout",
+         "label": "Astuce"
+        },
+        {
+         "type": "check",
+         "answer": 2,
+         "options": [
+          "Les mains",
+          "Les oreilles",
+          "Les jambes"
+         ],
+         "variant": "qcm",
+         "question": "Quelle partie du corps utilises-tu pour aller à l'école à pied ?",
+         "explanation": "Les jambes servent à marcher, courir et sauter. Ce sont elles qui te transportent d'un endroit à un autre."
+        }
+       ]
+      },
+      {
+       "id": "s5",
+       "title": "Résumé : chaque partie a son rôle",
+       "blocks": [
+        {
+         "text": "Toutes les parties de ton corps travaillent ensemble. Aucune n'est inutile. Quand tu joues, quand tu apprends, quand tu aides ta famille, tu utilises plusieurs parties en même temps.",
+         "type": "p"
+        },
+        {
+         "type": "key",
+         "items": [
+          "Je vois avec mes yeux.",
+          "J'écoute avec mes oreilles.",
+          "Je sens les odeurs avec mon nez.",
+          "Je parle, mange et goûte avec ma bouche.",
+          "Je touche et j'attrape avec mes mains.",
+          "Je marche, cours et saute avec mes jambes."
+         ]
+        },
+        {
+         "text": "Ne confonds pas le rôle du nez et celui de la bouche : le nez sent les odeurs, mais c'est la bouche qui goûte les saveurs.",
+         "type": "warn"
+        },
+        {
+         "type": "reflect",
+         "prompt": "Si tu devais passer une journée sans utiliser tes mains, qu'est-ce qui serait le plus difficile à faire ?"
+        }
+       ]
+      }
+     ],
+     "direction": "ltr"
+    },
+    "exam_data": {
+     "duration": 360,
+     "pass_mark": 0.6,
+     "questions": [
+      {
+       "id": "ex_q1",
+       "type": "mcq_single",
+       "options": [
+        "Les yeux",
+        "Les oreilles",
+        "Le nez",
+        "Les mains"
+       ],
+       "concept_id": "sens_perception",
+       "explanation": "L'odeur est perçue par le nez. C'est l'organe de l'odorat.",
+       "instruction": "Au marché de Bamako, Amadou sent l'odeur du pain chaud. Quel organe lui permet de sentir cette odeur ?",
+       "answer_index": 2
+      },
+      {
+       "id": "ex_q2",
+       "type": "true_false",
+       "answer": false,
+       "concept_id": "parties_corps",
+       "explanation": "Non, on goûte avec la bouche. Le nez sert à sentir les odeurs.",
+       "instruction": "On goûte les aliments avec le nez."
+      },
+      {
+       "id": "ex_q3",
+       "text": "Au marché, Kadidia entend la musique avec ses {{0}} et voit les couleurs des pagnes avec ses {{1}}.",
+       "type": "cloze_test",
+       "answers": [
+        "oreilles",
+        "yeux"
+       ],
+       "concept_id": "sens_perception",
+       "explanation": "Les oreilles captent les sons, les yeux perçoivent les couleurs et les formes.",
+       "instruction": "Complète : Au marché, Kadidia entend la musique avec ses {{0}} et voit les couleurs des pagnes avec ses {{1}}."
+      },
+      {
+       "id": "ex_q4",
+       "type": "mcq_single",
+       "options": [
+        "Attraper un objet",
+        "Goûter un aliment",
+        "Sauter par-dessus une flaque d'eau",
+        "Sentir une fleur"
+       ],
+       "concept_id": "membres_actions",
+       "explanation": "On saute avec les jambes. Elles servent à marcher, courir et sauter.",
+       "instruction": "Laquelle de ces actions fait-on avec les jambes ?",
+       "answer_index": 2
+      },
+      {
+       "id": "ex_q5",
+       "type": "matching",
+       "pairs": [
+        {
+         "left": "Les oreilles",
+         "right": "Le son du balafon"
+        },
+        {
+         "left": "Les yeux",
+         "right": "La couleur d'une mangue"
+        },
+        {
+         "left": "Le nez",
+         "right": "L'odeur d'un plat de riz"
+        },
+        {
+         "left": "La bouche",
+         "right": "Le goût sucré d'un fruit"
+        }
+       ],
+       "concept_id": "sens_perception",
+       "explanation": "Chaque organe est spécialisé pour capter un type de perception différent.",
+       "instruction": "Relie chaque organe à la chose qu'il perçoit :"
+      },
+      {
+       "id": "ex_q6",
+       "type": "k_prime",
+       "concept_id": "membres_actions",
+       "statements": [
+        {
+         "text": "Les mains servent à attraper les objets.",
+         "answer": true
+        },
+        {
+         "text": "Les jambes servent à écouter la musique.",
+         "answer": false
+        },
+        {
+         "text": "On peut toucher avec les mains.",
+         "answer": true
+        },
+        {
+         "text": "Les jambes permettent de courir.",
+         "answer": true
+        }
+       ],
+       "explanation": "Les mains touchent et attrapent. Les jambes marchent, courent et sautent. On écoute avec les oreilles, pas avec les jambes.",
+       "instruction": "Pour chaque phrase, dis si elle est vraie ou fausse :"
+      }
+     ]
+    },
+    "story_data": {
+     "scene": {
+      "c1": "#F59E0B",
+      "c2": "#10B981",
+      "name": "Chez Djigui, matin de marché"
+     },
+     "steps": [
+      {
+       "text": "C'est le matin à Bamako. Le soleil commence à chauffer les toits en tôle. Djigui se réveille dans la cour familiale et entend sa petite sœur Néné qui l'appelle depuis la cuisine.",
+       "type": "narration"
+      },
+      {
+       "who": "nene",
+       "text": "Djigui ! Djigui ! Viens vite, on va au marché avec Maman acheter des mangues et du poisson !",
+       "type": "npc"
+      },
+      {
+       "who": "djigui",
+       "text": "J'arrive, Néné ! Laisse-moi d'abord regarder si mes sandales sont là... Ah, je les vois !",
+       "type": "npc"
+      },
+      {
+       "text": "Djigui cherche ses sandales sous le lit. Il les repère grâce à ses yeux. Il se lève, prend son sac et rejoint Néné dans la cour.",
+       "type": "narration"
+      },
+      {
+       "type": "choice",
+       "prompt": "Djigui a VU ses sandales sous le lit. Quel organe lui a permis de faire cela ?",
+       "options": [
+        {
+         "label": "Ses yeux",
+         "reply": "Exact ! Les yeux servent à voir les formes et les couleurs. Djigui a vu ses sandales grâce à ses yeux !",
+         "correct": true
+        },
+        {
+         "label": "Ses oreilles",
+         "reply": "Non, les oreilles servent à écouter les sons. Ce sont les yeux qui permettent de voir !",
+         "correct": false
+        },
+        {
+         "label": "Son nez",
+         "reply": "Non, le nez sert à sentir les odeurs. Pour voir, on utilise les yeux !",
+         "correct": false
+        }
+       ],
+       "concept_ref": "sens_perception"
+      },
+      {
+       "text": "En chemin vers le marché, Djigui et Néné entendent de loin le son du balafon. Un griot joue de la musique sous un grand arbre. Néné s'arrête, les yeux grands ouverts.",
+       "type": "narration"
+      },
+      {
+       "who": "nene",
+       "text": "Djigui, tu entends cette belle musique ? C'est trop joli ! Avec quoi est-ce qu'on écoute la musique ?",
+       "type": "npc"
+      },
+      {
+       "ok": "Bravo ! On écoute avec les oreilles. Les oreilles servent à entendre les sons et la musique !",
+       "hint": "C'est sur les côtés de ta tête...",
+       "type": "input",
+       "prompt": "Néné demande avec quelle partie du corps on écoute la musique. Quelle est ta réponse ?",
+       "answers": [
+        "les oreilles",
+        "oreilles",
+        "l'oreille",
+        "oreille"
+       ],
+       "concept_ref": "sens_perception"
+      },
+      {
+       "who": "djigui",
+       "text": "Tu as raison Néné ! Et regarde, on arrive au marché. Humm… je sens une bonne odeur de beignets !",
+       "type": "npc"
+      },
+      {
+       "text": "Au marché de Bamako, les couleurs et les odeurs se mélangent. Une vieille dame fait frire des beignets tout près de l'entrée. Djigui hume l'air et sourit.",
+       "type": "narration"
+      },
+      {
+       "type": "choice",
+       "prompt": "Djigui sent l'odeur des beignets. Quelle partie du corps utilise-t-il pour sentir les odeurs ?",
+       "options": [
+        {
+         "label": "La bouche",
+         "reply": "Non, la bouche sert à parler, manger et goûter. Pour sentir les odeurs, on utilise autre chose !",
+         "correct": false
+        },
+        {
+         "label": "Le nez",
+         "reply": "Oui, parfait ! Le nez sert à sentir les odeurs. Djigui a senti les beignets grâce à son nez !",
+         "correct": true
+        },
+        {
+         "label": "Les yeux",
+         "reply": "Non, les yeux servent à voir. Pour sentir les odeurs, c'est le nez qu'on utilise !",
+         "correct": false
+        }
+       ],
+       "concept_ref": "sens_perception"
+      },
+      {
+       "text": "Les deux enfants trouvent Maman devant un étalage de mangues bien mûres et dorées. Maman leur donne un panier à chacun et leur dit d'aller chercher du poisson de l'autre côté du marché.",
+       "type": "narration"
+      },
+      {
+       "who": "nene",
+       "text": "Djigui, comment on va faire pour attraper les mangues et les mettre dans le panier ?",
+       "type": "npc"
+      },
+      {
+       "ok": "Très bien ! Les mains servent à toucher et attraper les objets. Djigui peut maintenant remplir son panier !",
+       "type": "tokens",
+       "prompt": "Aide Djigui à expliquer à Néné. Remets les mots dans le bon ordre pour former la bonne phrase.",
+       "tokens": [
+        "attraper",
+        "les mains",
+        "servent à",
+        "les objets",
+        "Les mains",
+        "toucher et"
+       ],
+       "solution": [
+        "Les mains",
+        "servent à",
+        "toucher et",
+        "attraper",
+        "les objets"
+       ],
+       "concept_ref": "membres_actions"
+      },
+      {
+       "who": "djigui",
+       "text": "Voilà ! Avec nos mains, on attrape les mangues. Et maintenant, courons chercher le poisson !",
+       "type": "npc"
+      },
+      {
+       "text": "Djigui et Néné traversent le marché en courant entre les étals colorés, en faisant attention de ne pas renverser les calebasses posées par terre. Leurs jambes les portent vite jusqu'au coin des pêcheurs.",
+       "type": "narration"
+      },
+      {
+       "ok": "Excellent ! Les jambes servent à marcher, courir et sauter. Djigui a couru jusqu'au pêcheur grâce à ses jambes !",
+       "type": "blank",
+       "parts": [
+        "Pour marcher, courir et sauter, Djigui utilise ses",
+        "."
+       ],
+       "answer": "jambes",
+       "prompt": "Complète la phrase : Pour marcher, courir et sauter, Djigui utilise ses ___.",
+       "options": [
+        "mains",
+        "yeux",
+        "jambes",
+        "oreilles"
+       ],
+       "concept_ref": "membres_actions"
+      },
+      {
+       "text": "Une fois le poisson acheté, les deux enfants s'assoient à l'ombre d'un grand fromager pour se reposer. Djigui sort un morceau de mangue et le goûte. Mmm !",
+       "type": "narration"
+      },
+      {
+       "who": "djigui",
+       "text": "Dis-moi Néné, tu sais avec quelle partie du corps on goûte ce qu'on mange ?",
+       "type": "npc"
+      },
+      {
+       "type": "choice",
+       "prompt": "Avec quelle partie du corps est-ce qu'on goûte les aliments ?",
+       "options": [
+        {
+         "label": "Le nez",
+         "reply": "Non, le nez sert à sentir les odeurs. Pour goûter, on utilise une autre partie du corps !",
+         "correct": false
+        },
+        {
+         "label": "Les mains",
+         "reply": "Non, les mains servent à toucher et attraper. Pour goûter, c'est une autre partie du visage !",
+         "correct": false
+        },
+        {
+         "label": "La bouche",
+         "reply": "Oui ! La bouche sert à parler, manger et goûter. Cette mangue est délicieuse !",
+         "correct": true
+        }
+       ],
+       "concept_ref": "parties_corps"
+      },
+      {
+       "text": "Djigui sourit fièrement. Néné a tout compris. Ensemble, ils rassemblent leurs courses : des mangues bien dorées, du poisson frais, et plein de bons souvenirs de marché.",
+       "type": "narration"
+      },
+      {
+       "ok": "Parfait ! Tu as bien retenu les rôles de chaque partie du corps. Djigui est fier de toi !",
+       "type": "tokens",
+       "prompt": "Avant de rentrer, Djigui veut résumer ce qu'ils ont appris. Remets chaque organe avec son rôle dans le bon ordre.",
+       "tokens": [
+        "Je marche avec",
+        "Je vois avec",
+        "mes jambes.",
+        "mes yeux.",
+        "J'écoute avec",
+        "mes oreilles."
+       ],
+       "solution": [
+        "Je vois avec",
+        "mes yeux.",
+        "J'écoute avec",
+        "mes oreilles.",
+        "Je marche avec",
+        "mes jambes."
+       ],
+       "concept_ref": "parties_corps"
+      },
+      {
+       "who": "nene",
+       "text": "Maintenant je sais tout ! Mes yeux voient, mes oreilles écoutent, mon nez sent, ma bouche goûte, mes mains touchent et mes jambes marchent. Mon corps est vraiment une machine incroyable !",
+       "type": "npc"
+      },
+      {
+       "who": "djigui",
+       "text": "Exactement Néné ! Et chaque partie a sa mission. Rentrons vite maintenant, Maman nous attend pour manger !",
+       "type": "npc"
+      },
+      {
+       "text": "Djigui et Néné reprennent le chemin de la maison, leurs paniers pleins et leurs têtes remplies de nouvelles connaissances. Le soleil de Bamako brille fort, et leurs jambes les ramènent en chantant jusqu'à la cour familiale.",
+       "type": "narration"
+      }
+     ],
+     "characters": [
+      {
+       "id": "djigui",
+       "name": "Djigui",
+       "role": "Guide",
+       "side": "left",
+       "color": "#F59E0B"
+      },
+      {
+       "id": "nene",
+       "name": "Néné",
+       "role": "Petite sœur",
+       "side": "right",
+       "color": "#EC4899"
+      }
+     ]
+    },
+    "color": "#F59E0B",
+    "guide": "Djigui"
+   }
+  },
+  {
+   "ref": "lesson-9",
+   "title": "Les chiffres de 1 à 10 et les premières opérations",
+   "summary": "Reconnaître et écrire les chiffres de 1 à 10, compter des objets, comparer des quantités, et effectuer de petites additions et soustractions.",
+   "slug": "chiffres-et-premieres-operations",
+   "order": 0,
+   "subject": "Mathématiques",
+   "subject_type": "other",
+   "level": "fondamental_1",
+   "level_detail": "",
+   "language": "fr",
+   "unit_title": "Les chiffres et les premières opérations",
+   "content": {
+    "concepts_data": [
+     {
+      "id": "les_chiffres_1_a_10",
+      "name": "Les chiffres de 1 à 10",
+      "quiz": [
+       {
+        "id": "c1q1",
+        "type": "mcq_single",
+        "options": [
+         "6",
+         "8",
+         "9",
+         "10"
+        ],
+        "pass_index": 0,
+        "explanation": "On compte : …6, 7, 8. Le chiffre qui vient après 7 est 8.",
+        "instruction": "Quel chiffre vient juste après le 7 ?",
+        "answer_index": 1
+       },
+       {
+        "id": "c1q2",
+        "type": "chrono_order",
+        "items": [
+         "5",
+         "2",
+         "8",
+         "1",
+         "4"
+        ],
+        "pass_index": 0,
+        "explanation": "L'ordre correct est : 1, 2, 4, 5, 8.",
+        "instruction": "Remets ces chiffres dans le bon ordre, du plus petit au plus grand :",
+        "correct_order": [
+         3,
+         1,
+         4,
+         0,
+         2
+        ]
+       },
+       {
+        "id": "c1q3",
+        "text": "1, 2, {{0}}, 4, {{1}}, 6, 7, {{2}}, 9, 10",
+        "type": "cloze_test",
+        "answers": [
+         "3",
+         "5",
+         "8"
+        ],
+        "pass_index": 0,
+        "explanation": "On compte un par un : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10.",
+        "instruction": "Complète la suite de chiffres :"
+       },
+       {
+        "id": "c1q4",
+        "type": "odd_one_out",
+        "items": [
+         "3",
+         "7",
+         "12",
+         "5"
+        ],
+        "odd_index": 2,
+        "pass_index": 0,
+        "explanation": "12 est plus grand que 10. Les chiffres de 1 à 10 sont : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10.",
+        "instruction": "Quel élément n'est PAS un chiffre entre 1 et 10 ?"
+       },
+       {
+        "id": "c1q5",
+        "type": "true_false",
+        "answer": true,
+        "pass_index": 0,
+        "explanation": "Oui ! On finit de compter à 10 dans cette suite.",
+        "instruction": "Le chiffre 10 est le plus grand chiffre de la suite 1 à 10."
+       }
+      ],
+      "order": 1,
+      "passes": 1
+     },
+     {
+      "id": "compter_des_objets",
+      "name": "Compter des objets",
+      "quiz": [
+       {
+        "id": "c2q1",
+        "type": "mcq_single",
+        "options": [
+         "4",
+         "5",
+         "6",
+         "7"
+        ],
+        "pass_index": 0,
+        "explanation": "Il y a 6 points noirs, donc Moussa a 6 billes.",
+        "instruction": "Moussa compte ses billes : ⚫ ⚫ ⚫ ⚫ ⚫ ⚫. Combien a-t-il de billes ?",
+        "answer_index": 2
+       },
+       {
+        "id": "c2q2",
+        "type": "number_input",
+        "answer": 5,
+        "tolerance": 0,
+        "pass_index": 0,
+        "explanation": "Une main a 5 doigts : pouce, index, majeur, annulaire, auriculaire.",
+        "instruction": "Compte les doigts d'une main. Combien y en a-t-il ?"
+       },
+       {
+        "id": "c2q3",
+        "type": "matching",
+        "pairs": [
+         {
+          "left": "2",
+          "right": "★ ★"
+         },
+         {
+          "left": "4",
+          "right": "★ ★ ★ ★"
+         },
+         {
+          "left": "6",
+          "right": "★ ★ ★ ★ ★ ★"
+         }
+        ],
+        "pass_index": 0,
+        "explanation": "On compte les étoiles une par une pour trouver le bon chiffre.",
+        "instruction": "Associe chaque chiffre au bon groupe d'étoiles :"
+       },
+       {
+        "id": "c2q4",
+        "type": "k_prime",
+        "pass_index": 0,
+        "statements": [
+         {
+          "text": "● ● ● représente le chiffre 3.",
+          "answer": true
+         },
+         {
+          "text": "● ● ● ● ● ● ● représente le chiffre 6.",
+          "answer": false
+         },
+         {
+          "text": "● ● ● ● ● ● ● ● représente le chiffre 8.",
+          "answer": true
+         }
+        ],
+        "explanation": "● ● ● = 3, ● ● ● ● ● ● ● = 7 (pas 6), ● ● ● ● ● ● ● ● = 8.",
+        "instruction": "Pour chaque phrase, dis si c'est Vrai ou Faux :"
+       },
+       {
+        "id": "c2q5",
+        "type": "mcq_single",
+        "options": [
+         "7",
+         "8",
+         "9",
+         "10"
+        ],
+        "pass_index": 0,
+        "explanation": "En comptant bien une par une, on trouve 9 mangues.",
+        "instruction": "Aminata voit des mangues sur l'arbre : 🥭 🥭 🥭 🥭 🥭 🥭 🥭 🥭 🥭. Combien de mangues voit-elle ?",
+        "answer_index": 2
+       }
+      ],
+      "order": 2,
+      "passes": 1
+     },
+     {
+      "id": "comparer_des_quantites",
+      "name": "Comparer des quantités",
+      "quiz": [
+       {
+        "id": "c3q1",
+        "type": "mcq_single",
+        "options": [
+         "4",
+         "6",
+         "Les deux sont pareils"
+        ],
+        "pass_index": 0,
+        "explanation": "6 est plus grand que 4 parce que 6 vient après 4 quand on compte.",
+        "instruction": "Entre 6 et 4, lequel est le plus grand ?",
+        "answer_index": 1
+       },
+       {
+        "id": "c3q2",
+        "type": "true_false",
+        "answer": false,
+        "pass_index": 0,
+        "explanation": "Non ! 3 est plus PETIT que 5. On compte : 1, 2, 3, 4, 5 — 5 vient après 3.",
+        "instruction": "3 est plus grand que 5."
+       },
+       {
+        "id": "c3q3",
+        "type": "k_prime",
+        "pass_index": 0,
+        "statements": [
+         {
+          "text": "7 est plus grand que 4.",
+          "answer": true
+         },
+         {
+          "text": "2 est plus grand que 9.",
+          "answer": false
+         },
+         {
+          "text": "5 est plus petit que 8.",
+          "answer": true
+         },
+         {
+          "text": "6 est égal à 6.",
+          "answer": true
+         }
+        ],
+        "explanation": "On compare les chiffres en regardant leur place dans la suite 1 à 10.",
+        "instruction": "Pour chaque comparaison, dis si c'est Vrai ou Faux :"
+       },
+       {
+        "id": "c3q4",
+        "type": "mcq_single",
+        "options": [
+         "Kalifa",
+         "Sékou",
+         "Ils ont le même nombre"
+        ],
+        "pass_index": 0,
+        "explanation": "9 est plus grand que 7, donc Sékou a plus de beignets que Kalifa.",
+        "instruction": "Kalifa a 7 beignets et Sékou a 9 beignets. Qui en a le plus ?",
+        "answer_index": 1
+       },
+       {
+        "id": "c3q5",
+        "text": "8 est {{0}} que 5.  2 est {{1}} que 6.",
+        "type": "cloze_test",
+        "answers": [
+         "plus grand",
+         "plus petit"
+        ],
+        "pass_index": 0,
+        "explanation": "8 > 5 donc 8 est plus grand que 5. 2 < 6 donc 2 est plus petit que 6.",
+        "instruction": "Complète avec le bon mot (plus grand ou plus petit) :"
+       }
+      ],
+      "order": 3,
+      "passes": 1
+     },
+     {
+      "id": "addition",
+      "name": "L'addition",
+      "quiz": [
+       {
+        "id": "c4q1",
+        "type": "number_input",
+        "answer": 5,
+        "tolerance": 0,
+        "pass_index": 0,
+        "explanation": "2 + 3 = 5. On compte sur les doigts : 2 doigts puis 3 doigts de plus = 5 doigts en tout.",
+        "instruction": "Calcule : 2 + 3 = ?"
+       },
+       {
+        "id": "c4q2",
+        "type": "mcq_single",
+        "options": [
+         "5",
+         "6",
+         "7",
+         "8"
+        ],
+        "pass_index": 0,
+        "explanation": "4 + 3 = 7. Aminata a maintenant 7 mangues.",
+        "instruction": "Aminata a 4 mangues. Sa maman lui donne 3 mangues de plus. Combien de mangues a-t-elle maintenant ?",
+        "answer_index": 2
+       },
+       {
+        "id": "c4q3",
+        "text": "5 + {{0}} = 8",
+        "type": "cloze_test",
+        "answers": [
+         "3"
+        ],
+        "pass_index": 0,
+        "explanation": "5 + 3 = 8. Pour trouver 3, on compte : 5, 6, 7, 8 — on a ajouté 3.",
+        "instruction": "Trouve le nombre manquant :"
+       },
+       {
+        "id": "c4q4",
+        "type": "true_false",
+        "answer": true,
+        "pass_index": 0,
+        "explanation": "Oui ! 1 + 9 = 10. C'est le plus grand résultat possible avec les chiffres de 1 à 10.",
+        "instruction": "1 + 9 = 10."
+       },
+       {
+        "id": "c4q5",
+        "type": "dynamic_formula",
+        "variables": {
+         "a": {
+          "max": 5,
+          "min": 1,
+          "step": 1
+         },
+         "b": {
+          "max": 5,
+          "min": 1,
+          "step": 1
+         }
+        },
+        "pass_index": 0,
+        "instruction": "Au marché de Bamako, un vendeur a {a} oranges dans un panier et {b} oranges dans un autre panier. Combien d'oranges a-t-il en tout ?",
+        "correct_answer": 6,
+        "expected_input": "numeric",
+        "formula_template": "a + b",
+        "solution_formula": "a + b"
+       },
+       {
+        "id": "c4q6",
+        "type": "k_prime",
+        "pass_index": 0,
+        "statements": [
+         {
+          "text": "3 + 4 = 7",
+          "answer": true
+         },
+         {
+          "text": "2 + 6 = 9",
+          "answer": false
+         },
+         {
+          "text": "4 + 4 = 8",
+          "answer": true
+         }
+        ],
+        "explanation": "3+4=7 ✓ ; 2+6=8 (pas 9) ✗ ; 4+4=8 ✓.",
+        "instruction": "Ces additions sont-elles correctes ? Vrai ou Faux :"
+       }
+      ],
+      "order": 4,
+      "passes": 1
+     },
+     {
+      "id": "soustraction",
+      "name": "La soustraction",
+      "quiz": [
+       {
+        "id": "c5q1",
+        "type": "number_input",
+        "answer": 3,
+        "tolerance": 0,
+        "pass_index": 0,
+        "explanation": "5 − 2 = 3. On enlève 2 de 5 : il reste 3.",
+        "instruction": "Calcule : 5 − 2 = ?"
+       },
+       {
+        "id": "c5q2",
+        "type": "mcq_single",
+        "options": [
+         "3",
+         "4",
+         "5",
+         "6"
+        ],
+        "pass_index": 0,
+        "explanation": "6 − 2 = 4. Ibrahim a 4 beignets qui restent.",
+        "instruction": "Ibrahim a 6 beignets. Il en mange 2. Combien lui en reste-t-il ?",
+        "answer_index": 1
+       },
+       {
+        "id": "c5q3",
+        "text": "10 − {{0}} = 7",
+        "type": "cloze_test",
+        "answers": [
+         "3"
+        ],
+        "pass_index": 0,
+        "explanation": "10 − 3 = 7. On enlève 3 de 10 pour obtenir 7.",
+        "instruction": "Trouve le nombre manquant :"
+       },
+       {
+        "id": "c5q4",
+        "type": "true_false",
+        "answer": false,
+        "pass_index": 0,
+        "explanation": "Non ! 4 − 4 = 0. Quand on enlève tous les objets, il n'en reste aucun, c'est zéro.",
+        "instruction": "4 − 4 = 1."
+       },
+       {
+        "id": "c5q5",
+        "type": "dynamic_formula",
+        "variables": {
+         "a": {
+          "max": 9,
+          "min": 4,
+          "step": 1
+         },
+         "b": {
+          "max": 3,
+          "min": 1,
+          "step": 1
+         }
+        },
+        "pass_index": 0,
+        "instruction": "Fatoumata a {a} bonbons. Elle en donne {b} à son frère. Combien lui en reste-t-il ?",
+        "correct_answer": 5,
+        "expected_input": "numeric",
+        "formula_template": "a - b",
+        "solution_formula": "a - b"
+       }
+      ],
+      "order": 5,
+      "passes": 1
+     }
+    ],
+    "reading_data": {
+     "terms": {
+      "chiffre": "Un symbole écrit qui représente une quantité, comme 1, 2 ou 5.",
+      "compter": "Dire ou écrire les nombres dans l'ordre pour savoir combien il y a d'objets.",
+      "addition": "Une opération qui réunit deux quantités pour en faire une plus grande.",
+      "comparer": "Regarder deux quantités pour savoir laquelle est plus grande ou plus petite.",
+      "soustraction": "Une opération qui retire une quantité d'une autre pour en avoir moins."
+     },
+     "title": "Les chiffres de 1 à 10 et les premières opérations",
+     "sections": [
+      {
+       "id": "s1",
+       "title": "Les chiffres de 1 à 10",
+       "blocks": [
+        {
+         "text": "Les mathématiques commencent par les chiffres. Un chiffre, c'est un petit symbole écrit qui nous dit combien. Regarde autour de toi : la vendeuse au marché de Bamako compte ses mangues, ta maman compte les pièces en francs CFA, ton grand frère compte les moutons du champ. Tout cela commence par les chiffres de 1 à 10.",
+         "type": "p"
+        },
+        {
+         "type": "key",
+         "items": [
+          "Les dix premiers chiffres sont : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10.",
+          "Chaque chiffre a une forme précise à reconnaître et à écrire.",
+          "On compte toujours en partant de 1 et en avançant un par un."
+         ]
+        },
+        {
+         "icon": "spark",
+         "text": "Tes deux mains ont exactement 10 doigts. C'est pour cela que nos ancêtres ont commencé à compter avec les doigts ! Tu portes une calculatrice naturelle sur toi.",
+         "type": "callout",
+         "label": "Le saviez-vous"
+        },
+        {
+         "text": "Imagine que tu arrives à la boutique du quartier. Tu veux acheter des bonbons. Le vendeur t'en met dans la main, un par un : 1, 2, 3, 4, 5. Tu sais maintenant que tu as 5 bonbons. Voilà à quoi sert de compter !",
+         "type": "example"
+        },
+        {
+         "type": "reflect",
+         "prompt": "Ferme les yeux et essaie de réciter les chiffres de 1 à 10 dans ta tête. À quel chiffre tu trébuches ?"
+        }
+       ]
+      },
+      {
+       "id": "s2",
+       "title": "Compter des objets du quotidien",
+       "blocks": [
+        {
+         "text": "Compter, ce n'est pas seulement réciter des chiffres. C'est associer chaque chiffre à une vraie quantité d'objets. Quand tu comptes, tu pointes chaque objet une seule fois et tu avances d'un chiffre à chaque fois.",
+         "type": "p"
+        },
+        {
+         "text": "Ta maman a posé des mangues sur la natte : 🥭 🥭 🥭. Tu les pointes une à une — une… deux… trois. Il y a 3 mangues. Tu pourrais faire pareil avec des cailloux, des grains de mil ou des pièces de 5 francs CFA.",
+         "type": "example"
+        },
+        {
+         "term": "compter",
+         "text": "Pointer chaque objet une seule fois en disant un chiffre à chaque fois, pour savoir combien il y en a.",
+         "type": "def"
+        },
+        {
+         "text": "Attention : ne compte jamais le même objet deux fois ! Si tu pointes une mangue deux fois, tu trouveras un mauvais résultat. Sois méthodique, avance dans l'ordre.",
+         "type": "warn"
+        },
+        {
+         "type": "check",
+         "answer": 2,
+         "options": [
+          "3 billes",
+          "4 billes",
+          "5 billes",
+          "6 billes"
+         ],
+         "variant": "qcm",
+         "question": "Tu as 4 billes sur le sol. Tu en ajoutes 1. Combien as-tu de billes en tout ?",
+         "explanation": "4 billes + 1 bille = 5 billes. Tu avances d'un seul pas sur la suite des chiffres : après 4 vient 5."
+        }
+       ]
+      },
+      {
+       "id": "s3",
+       "title": "Comparer des quantités",
+       "blocks": [
+        {
+         "text": "Comparer, c'est regarder deux quantités et dire laquelle est plus grande ou plus petite. Pour comparer, on peut imaginer les deux quantités sur une même ligne de chiffres : le chiffre qui est le plus loin à droite est le plus grand.",
+         "type": "p"
+        },
+        {
+         "term": "comparer",
+         "text": "Regarder deux nombres côte à côte pour dire lequel est plus grand ou plus petit.",
+         "type": "def"
+        },
+        {
+         "text": "Aminata a 5 beignets et Moussa a 3 beignets. On compare : 5 est plus grand que 3. Aminata a plus de beignets. Moussa a moins. On peut aussi écrire : 5 > 3 (le côté ouvert du signe pointe vers le grand nombre).",
+         "type": "example"
+        },
+        {
+         "type": "key",
+         "items": [
+          "Le signe > veut dire « est plus grand que ». Exemple : 7 > 4.",
+          "Le signe < veut dire « est plus petit que ». Exemple : 2 < 6.",
+          "Le signe = veut dire « est égal à ». Exemple : 5 = 5.",
+          "Astuce : la bouche du signe mange toujours le plus grand nombre !"
+         ]
+        },
+        {
+         "type": "check",
+         "answer": false,
+         "variant": "tf",
+         "question": "2 est plus grand que 4.",
+         "explanation": "Non, 2 est plus petit que 4. Sur la ligne des chiffres, 4 est plus loin que 2, donc 4 est plus grand. On écrit 2 < 4."
+        }
+       ]
+      },
+      {
+       "id": "s4",
+       "title": "L'addition : réunir des quantités",
+       "blocks": [
+        {
+         "text": "L'addition sert à réunir deux groupes d'objets en un seul. On utilise le signe + entre les deux quantités, et le signe = pour indiquer le résultat. Ce résultat s'appelle la somme.",
+         "type": "p",
+         "simple": "Quand on additionne, on met deux groupes ensemble et on compte tout."
+        },
+        {
+         "term": "addition",
+         "text": "Opération qui réunit deux quantités. Le résultat est plus grand que chacune des deux parties.",
+         "type": "def"
+        },
+        {
+         "text": "Ibrahim a 2 cahiers dans son cartable. Son papa lui en achète 3 autres au marché. Combien a-t-il de cahiers maintenant ? 2 + 3 = 5 cahiers. On réunit les deux groupes : les 2 premiers et les 3 nouveaux font 5 en tout.",
+         "type": "example"
+        },
+        {
+         "icon": "💡",
+         "text": "Commence par le plus grand nombre, puis avance sur tes doigts autant de fois que le petit nombre. Par exemple pour 4 + 1 : commence à 4, avance 1 fois → tu arrives à 5. Résultat : 4 + 1 = 5.",
+         "type": "callout",
+         "label": "Astuce pour additionner"
+        },
+        {
+         "type": "key",
+         "items": [
+          "1 + 1 = 2",
+          "2 + 3 = 5",
+          "4 + 1 = 5",
+          "L'ordre ne change pas le résultat : 2 + 3 = 3 + 2 = 5."
+         ]
+        },
+        {
+         "type": "check",
+         "answer": 1,
+         "options": [
+          "4 pièces",
+          "5 pièces",
+          "6 pièces"
+         ],
+         "variant": "qcm",
+         "question": "Fatou a 3 pièces de 5 francs CFA. Sa tante lui en donne 2 de plus. Combien Fatou a-t-elle de pièces ?",
+         "explanation": "3 + 2 = 5. On réunit les 3 pièces et les 2 nouvelles : cela fait 5 pièces en tout."
+        }
+       ]
+      },
+      {
+       "id": "s5",
+       "title": "La soustraction : retirer des quantités",
+       "blocks": [
+        {
+         "text": "La soustraction sert à retirer une quantité d'une autre. On utilise le signe − entre les deux nombres. Le résultat s'appelle la différence. La différence est toujours plus petite que le nombre de départ.",
+         "type": "p",
+         "simple": "Quand on soustrait, on enlève une partie et on compte ce qui reste."
+        },
+        {
+         "term": "soustraction",
+         "text": "Opération qui retire une quantité d'une autre. Le résultat est plus petit que le nombre de départ.",
+         "type": "def"
+        },
+        {
+         "text": "Sory avait 5 oranges dans son panier. Il en mange 1. Combien lui en reste-t-il ? 5 − 1 = 4 oranges. On retire 1 des 5 : il reste 4.",
+         "type": "example"
+        },
+        {
+         "text": "La maîtresse avait 3 craies. Elle en a cassé 2. Combien en reste-t-il ? 3 − 2 = 1 craie. Il n'en reste qu'une seule !",
+         "type": "example"
+        },
+        {
+         "text": "Attention : dans une soustraction, l'ordre est important ! 5 − 1 n'est pas pareil que 1 − 5. On retire toujours le petit nombre du grand, sinon on n'a plus assez.",
+         "type": "warn"
+        },
+        {
+         "type": "key",
+         "items": [
+          "5 − 1 = 4",
+          "3 − 2 = 1",
+          "On ne peut pas retirer plus que ce qu'on a.",
+          "Astuce : pour vérifier, fais l'addition inverse. Si 5 − 1 = 4, alors 4 + 1 doit donner 5."
+         ]
+        },
+        {
+         "type": "check",
+         "answer": false,
+         "variant": "tf",
+         "question": "La soustraction donne toujours un résultat plus grand que le nombre de départ.",
+         "explanation": "Faux ! La soustraction retire une quantité, donc le résultat est toujours plus petit que le nombre de départ. Par exemple : 5 − 1 = 4, et 4 est plus petit que 5."
+        }
+       ]
+      },
+      {
+       "id": "s6",
+       "title": "Ce qu'il faut retenir",
+       "blocks": [
+        {
+         "type": "key",
+         "items": [
+          "Les chiffres de 1 à 10 sont la base de toutes les mathématiques.",
+          "Compter, c'est pointer chaque objet une seule fois en avançant d'un chiffre.",
+          "Comparer, c'est dire lequel de deux nombres est plus grand ou plus petit.",
+          "L'addition (+) réunit deux quantités : le résultat est plus grand.",
+          "La soustraction (−) retire une quantité : le résultat est plus petit.",
+          "Les mathématiques nous aident chaque jour : au marché, à la boutique, à la maison."
+         ]
+        },
+        {
+         "icon": "🌟",
+         "text": "Ce soir, aide ta famille à compter quelque chose à la maison : les tasses de thé, les bols de riz, les chaises. Dis à voix haute ce que tu fais : tu comptes, tu compares, tu additionnes. Les mathématiques sont partout autour de toi !",
+         "type": "callout",
+         "label": "Pour aller plus loin"
+        },
+        {
+         "type": "reflect",
+         "prompt": "Pense à une situation de ta vie où tu as utilisé les chiffres aujourd'hui, même sans t'en rendre compte. Qu'est-ce que tu comptais ?"
+        }
+       ]
+      }
+     ],
+     "direction": "ltr"
+    },
+    "exam_data": {
+     "duration": 420,
+     "pass_mark": 0.6,
+     "questions": [
+      {
+       "id": "eq1",
+       "type": "mcq_single",
+       "options": [
+        "4",
+        "5",
+        "7",
+        "8"
+       ],
+       "concept_id": "les_chiffres_1_a_10",
+       "explanation": "On compte : 1, 2, 3, 4, 5, 6. Le chiffre juste avant 6 est 5.",
+       "instruction": "Quel chiffre se trouve juste avant le 6 dans la suite de 1 à 10 ?",
+       "answer_index": 1
+      },
+      {
+       "id": "eq2",
+       "type": "number_input",
+       "answer": 7,
+       "tolerance": 0,
+       "concept_id": "compter_des_objets",
+       "explanation": "Il y a 7 étoiles. On compte une par une : 1, 2, 3, 4, 5, 6, 7.",
+       "instruction": "Compte les étoiles et écris le nombre : ★ ★ ★ ★ ★ ★ ★"
+      },
+      {
+       "id": "eq3",
+       "type": "true_false",
+       "answer": false,
+       "concept_id": "comparer_des_quantites",
+       "explanation": "Non ! 9 est plus GRAND que 7. Dans la suite 1 à 10, 9 vient après 7.",
+       "instruction": "9 est plus petit que 7."
+      },
+      {
+       "id": "eq4",
+       "type": "mcq_single",
+       "options": [
+        "5",
+        "6",
+        "7",
+        "8"
+       ],
+       "concept_id": "addition",
+       "explanation": "3 + 4 = 7. Souleymane a maintenant 7 pièces.",
+       "instruction": "Souleymane a 3 pièces de monnaie. Son ami Boubacar lui donne 4 pièces de plus. Combien de pièces Souleymane a-t-il maintenant ?",
+       "answer_index": 2
+      },
+      {
+       "id": "eq5",
+       "type": "number_input",
+       "answer": 5,
+       "tolerance": 0,
+       "concept_id": "soustraction",
+       "explanation": "8 − 3 = 5. Il reste 5 oiseaux sur l'arbre.",
+       "instruction": "Il y a 8 oiseaux sur un arbre. 3 s'envolent. Combien d'oiseaux restent sur l'arbre ?"
+      },
+      {
+       "id": "eq6",
+       "type": "k_prime",
+       "concept_id": "comparer_des_quantites",
+       "statements": [
+        {
+         "text": "10 est le plus grand chiffre de 1 à 10.",
+         "answer": true
+        },
+        {
+         "text": "3 est plus grand que 8.",
+         "answer": false
+        },
+        {
+         "text": "1 est plus petit que tous les autres chiffres de 1 à 10.",
+         "answer": true
+        }
+       ],
+       "explanation": "10 est bien le plus grand, 3 < 8 (pas l'inverse), et 1 est bien le plus petit.",
+       "instruction": "Vrai ou Faux pour chaque comparaison :"
+      },
+      {
+       "id": "eq7",
+       "text": "4 + {{0}} = 9    et    {{1}} + 2 = 8",
+       "type": "cloze_test",
+       "answers": [
+        "5",
+        "6"
+       ],
+       "concept_id": "addition",
+       "explanation": "4 + 5 = 9 et 6 + 2 = 8.",
+       "instruction": "Complète ces additions :"
+      }
+     ]
+    },
+    "story_data": {
+     "scene": {
+      "c1": "#F59E0B",
+      "c2": "#10B981",
+      "name": "Au marché de Médina Coura, Bamako"
+     },
+     "steps": [
+      {
+       "text": "C'est un matin frais à Bamako. Le soleil se lève doucement sur le marché de Médina Coura. Les vendeuses disposent leurs fruits en jolies rangées colorées. Binta arrive en tenant la main de son petit frère Mamadou, âgé de 6 ans. Leur maman leur a demandé d'acheter des mangues pour toute la famille.",
+       "type": "narration"
+      },
+      {
+       "who": "mamadou",
+       "text": "Binta, Binta ! Regarde toutes ces mangues ! Elles sont combien ? Je veux compter !",
+       "type": "npc"
+      },
+      {
+       "who": "binta",
+       "text": "Très bien, Mamadou ! On va compter ensemble. Tu vois les mangues sur le plateau de Djeneba ? Compte-les avec moi : une… deux… trois… quatre… cinq !",
+       "type": "npc"
+      },
+      {
+       "text": "Mamadou ouvre grands ses yeux et pointe son doigt sur chaque mangue, une par une. Binta lui sourit fièrement.",
+       "type": "narration"
+      },
+      {
+       "ok": "Bravo ! Il y a bien 5 mangues. Tu sais compter !",
+       "hint": "Compte les mangues une par une avec ton doigt : 1, 2, 3, 4, 5...",
+       "type": "input",
+       "prompt": "Mamadou voit des mangues sur le plateau. Il compte : 🥭🥭🥭🥭🥭. Combien y a-t-il de mangues ?",
+       "answers": [
+        "5",
+        "cinq"
+       ],
+       "concept_ref": "compter_des_objets"
+      },
+      {
+       "who": "djeneba",
+       "text": "Bonjour les enfants ! Bienvenue ! Regardez, j'ai aussi des oranges aujourd'hui. J'en ai 3 seulement. Et mes mangues, j'en ai 5. Vous savez me dire lesquelles sont plus nombreuses ?",
+       "type": "npc"
+      },
+      {
+       "who": "binta",
+       "text": "Mamadou, aide-moi ! Est-ce que 5 mangues, c'est plus ou moins que 3 oranges ?",
+       "type": "npc"
+      },
+      {
+       "type": "choice",
+       "prompt": "Djeneba a 5 mangues 🥭 et 3 oranges 🍊. Qu'est-ce qui est vrai ?",
+       "options": [
+        {
+         "label": "5 est plus grand que 3, donc il y a plus de mangues",
+         "reply": "Excellent ! 5 est plus grand que 3. Les mangues sont plus nombreuses que les oranges. Tu es très fort !",
+         "correct": true
+        },
+        {
+         "label": "3 est plus grand que 5, donc il y a plus d'oranges",
+         "reply": "Pas tout à fait. Compte sur tes doigts : 1, 2, 3, 4, 5. Le 5 vient après le 3, donc 5 est plus grand que 3 !",
+         "correct": false
+        },
+        {
+         "label": "5 et 3, c'est pareil",
+         "reply": "Non, 5 et 3 ne sont pas pareils. 5 est plus grand que 3. Il y a plus de mangues que d'oranges !",
+         "correct": false
+        }
+       ],
+       "concept_ref": "comparer_des_quantites"
+      },
+      {
+       "text": "Mamadou applaudit et saute de joie. Djeneba rit doucement et arrange ses fruits. Binta sort le petit porte-monnaie de leur maman.",
+       "type": "narration"
+      },
+      {
+       "who": "binta",
+       "text": "Djeneba, maman veut 3 mangues maintenant. Et tout à l'heure, ma tante passera en prendre 2 de plus. Combien de mangues faut-il prévoir en tout ?",
+       "type": "npc"
+      },
+      {
+       "who": "mamadou",
+       "text": "Moi je sais ! C'est comme ajouter des choses ensemble ! On met les 3 et les 2 ensemble !",
+       "type": "npc"
+      },
+      {
+       "ok": "Parfait ! 3 + 2 = 5. On a besoin de 5 mangues en tout pour maman et la tante !",
+       "type": "tokens",
+       "prompt": "Aide Mamadou à écrire le calcul dans le bon ordre pour trouver le total de mangues :",
+       "tokens": [
+        "=",
+        "3",
+        "5",
+        "2",
+        "+"
+       ],
+       "solution": [
+        "3",
+        "+",
+        "2",
+        "=",
+        "5"
+       ],
+       "concept_ref": "addition"
+      },
+      {
+       "who": "djeneba",
+       "text": "Très bien calculé ! Voilà vos 3 mangues. Elles font 300 francs en tout. Et pour vous remercier d'être si intelligents, je mets 1 mangue de plus dans votre sac !",
+       "type": "npc"
+      },
+      {
+       "who": "mamadou",
+       "text": "Ouiii ! On avait 3 mangues, et Djeneba en a ajouté 1. Binta, ça fait combien maintenant ?",
+       "type": "npc"
+      },
+      {
+       "ok": "Bravo ! 3 + 1 = 4. Il y a maintenant 4 mangues dans le sac !",
+       "type": "blank",
+       "parts": [
+        "3 + 1 = ",
+        ""
+       ],
+       "answer": "4",
+       "prompt": "Binta avait 3 mangues. Djeneba en ajoute 1. Complète : 3 + 1 = ___",
+       "options": [
+        "2",
+        "4",
+        "5",
+        "3"
+       ],
+       "concept_ref": "addition"
+      },
+      {
+       "text": "Binta et Mamadou remercient Djeneba et se dirigent vers la boutique de céréales. En chemin, Mamadou mange une des 4 mangues sans se faire remarquer… mais Binta a tout vu !",
+       "type": "narration"
+      },
+      {
+       "who": "binta",
+       "text": "Mamadou ! Tu as mangé une mangue ! On en avait 4, maintenant il en reste combien ?",
+       "type": "npc"
+      },
+      {
+       "who": "mamadou",
+       "text": "Euh… je… c'était trop bon ! Pardon Binta… 4 moins 1… c'est…",
+       "type": "npc"
+      },
+      {
+       "ok": "4 − 1 = 3. Il reste 3 mangues. Mamadou a eu chaud !",
+       "hint": "Enlève 1 de 4. Compte à rebours : 4... 3 !",
+       "type": "input",
+       "prompt": "Il y avait 4 mangues 🥭🥭🥭🥭. Mamadou en a mangé 1. Combien en reste-t-il ?",
+       "answers": [
+        "3",
+        "trois"
+       ],
+       "concept_ref": "soustraction"
+      },
+      {
+       "who": "binta",
+       "text": "Mamadou, maman voulait 3 mangues au départ. On en a encore 3. Ouf ! Mais ne recommence plus !",
+       "type": "npc"
+      },
+      {
+       "who": "mamadou",
+       "text": "Promis ! Binta, aujourd'hui j'ai appris à compter, à comparer, à additionner ET à soustraire. Je suis un grand mathématicien !",
+       "type": "npc"
+      },
+      {
+       "text": "Binta éclate de rire et ébouriffe les cheveux de son petit frère. Ils rentrent à la maison sous le soleil de Bamako, le sac de mangues bien serré. Les mathématiques, ce n'est pas si difficile quand on les apprend au marché !",
+       "type": "narration"
+      },
+      {
+       "type": "choice",
+       "prompt": "Avant de rentrer, Mamadou pose une devinette à Binta : 'Si j'ai 2 biscuits et que tu m'en donnes 3 de plus, combien j'en ai ?'",
+       "options": [
+        {
+         "label": "5 biscuits",
+         "reply": "Oui ! 2 + 3 = 5. Mamadou devient vraiment un champion des maths !",
+         "correct": true
+        },
+        {
+         "label": "4 biscuits",
+         "reply": "Pas tout à fait. Compte bien : 2 biscuits, puis 3 de plus : 3, 4, 5. Ça fait bien 5 !",
+         "correct": false
+        },
+        {
+         "label": "6 biscuits",
+         "reply": "Presque ! Recompte : 2 + 3. Pose 2 doigts, puis lève 3 autres : tu arrives à 5 !",
+         "correct": false
+        }
+       ],
+       "concept_ref": "addition"
+      },
+      {
+       "ok": "Magnifique ! Tu connais tous les chiffres de 1 à 10. Binta est très fière de toi !",
+       "type": "tokens",
+       "prompt": "Dernière mission avant la maison ! Remets les chiffres dans l'ordre de 1 à 10 :",
+       "tokens": [
+        "3",
+        "7",
+        "1",
+        "5",
+        "9",
+        "2",
+        "10",
+        "4",
+        "8",
+        "6"
+       ],
+       "solution": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10"
+       ],
+       "concept_ref": "les_chiffres_1_a_10"
+      },
+      {
+       "who": "binta",
+       "text": "Tu as tout compris, Mamadou ! Les chiffres de 1 à 10, compter des objets, comparer des quantités, additionner et soustraire. Maman va être tellement fière !",
+       "type": "npc"
+      },
+      {
+       "text": "Et voilà ! Grâce à une petite visite au marché de Médina Coura, Mamadou a appris toutes les bases des mathématiques. Les nombres sont partout autour de nous : dans les mangues, les biscuits, les pas qu'on fait chaque jour. À toi maintenant de les utiliser !",
+       "type": "narration"
+      }
+     ],
+     "characters": [
+      {
+       "id": "binta",
+       "name": "Binta",
+       "role": "Guide",
+       "side": "left",
+       "color": "#F59E0B"
+      },
+      {
+       "id": "mamadou",
+       "name": "Mamadou",
+       "role": "Petit frère de Binta",
+       "side": "right",
+       "color": "#10B981"
+      },
+      {
+       "id": "djeneba",
+       "name": "Djeneba",
+       "role": "Vendeuse de mangues",
+       "side": "right",
+       "color": "#BE123C"
+      }
+     ]
+    },
+    "color": "#F97316",
+    "guide": "Binta"
+   }
+  },
+  {
+   "ref": "lesson-6",
+   "title": "Les types de phrases en français",
+   "summary": "Présentation et caractéristiques des quatre types de phrases (déclarative, interrogative, exclamative, impérative) : définitions, structures, ponctuation et exemples contextualisés au Mali.",
+   "slug": "les-types-de-phrases",
+   "order": 0,
+   "subject": "Français",
+   "subject_type": "lang",
+   "level": "fondamental_1",
+   "level_detail": "",
+   "language": "fr",
+   "unit_title": "Les Types de Phrases en Français",
+   "content": {
+    "concepts_data": [
+     {
+      "id": "phrase_declarative",
+      "name": "La phrase déclarative",
+      "quiz": [
+       {
+        "id": "decl_q1",
+        "type": "mcq_single",
+        "options": [
+         "Poser une question",
+         "Donner une information ou affirmer quelque chose",
+         "Exprimer un sentiment fort",
+         "Donner un ordre"
+        ],
+        "pass_index": 0,
+        "explanation": "La phrase déclarative sert à donner une information, à affirmer ou à nier quelque chose, comme : « Le fleuve Niger traverse le Mali. »",
+        "instruction": "Quel est le rôle principal de la phrase déclarative ?",
+        "answer_index": 1
+       },
+       {
+        "id": "decl_q2",
+        "type": "true_false",
+        "answer": true,
+        "pass_index": 0,
+        "explanation": "Oui, la phrase déclarative se termine par un point simple (.), par exemple : « Aminata va à l'école tous les matins. »",
+        "instruction": "La phrase déclarative se termine toujours par un point (.)."
+       },
+       {
+        "id": "decl_q3",
+        "type": "odd_one_out",
+        "items": [
+         "Les mangues de Sikasso sont très sucrées.",
+         "Bamako est la capitale du Mali.",
+         "Est-ce que tu connais Tombouctou ?",
+         "Le marché de Bamako est très animé."
+        ],
+        "odd_index": 2,
+        "pass_index": 0,
+        "explanation": "« Est-ce que tu connais Tombouctou ? » est une phrase interrogative, pas déclarative.",
+        "instruction": "Laquelle de ces phrases N'EST PAS une phrase déclarative ?"
+       },
+       {
+        "id": "decl_q4",
+        "text": "La phrase déclarative suit la structure : {{0}} + {{1}} + {{2}}. Exemple : Moussa mange du tô.",
+        "type": "cloze_test",
+        "answers": [
+         "Sujet",
+         "Verbe",
+         "Complément"
+        ],
+        "pass_index": 1,
+        "explanation": "La structure de base est : Sujet + Verbe + Complément. Ici, « Moussa » est le sujet, « mange » est le verbe, et « du tô » est le complément.",
+        "instruction": "Complète la structure de la phrase déclarative :"
+       },
+       {
+        "id": "decl_q5",
+        "type": "true_false",
+        "answer": true,
+        "pass_index": 1,
+        "explanation": "Correct ! On encadre le verbe avec « ne...pas » pour former la négative.",
+        "instruction": "Pour transformer « Koné Seydou étudie ses leçons. » à la forme négative, on peut écrire : « Koné Seydou n'étudie pas ses leçons. »"
+       },
+       {
+        "id": "decl_q6",
+        "type": "k_prime",
+        "pass_index": 1,
+        "statements": [
+         {
+          "text": "La phrase déclarative peut être négative (ex. : « Je ne mange pas de viande. »).",
+          "answer": true
+         },
+         {
+          "text": "On utilise ne...jamais, ne...plus, ne...rien pour former la négative.",
+          "answer": true
+         },
+         {
+          "text": "La phrase déclarative se termine toujours par un point d'exclamation.",
+          "answer": false
+         },
+         {
+          "text": "« La mosquée de Djenné est classée au patrimoine mondial. » est une phrase déclarative.",
+          "answer": true
+         }
+        ],
+        "explanation": "La phrase déclarative se termine par un point simple (.), pas par un point d'exclamation.",
+        "instruction": "Indique si chaque affirmation sur la phrase déclarative est vraie ou fausse :"
+       }
+      ],
+      "order": 1,
+      "passes": 2
+     },
+     {
+      "id": "phrase_interrogative",
+      "name": "La phrase interrogative",
+      "quiz": [
+       {
+        "id": "inter_q1",
+        "type": "mcq_single",
+        "options": [
+         "Un point (.)",
+         "Un point d'exclamation (!)",
+         "Un point d'interrogation (?)",
+         "Des points de suspension (...)"
+        ],
+        "pass_index": 0,
+        "explanation": "La phrase interrogative se termine toujours par un point d'interrogation (?), par exemple : « Où vas-tu ? »",
+        "instruction": "Par quel signe de ponctuation se termine la phrase interrogative ?",
+        "answer_index": 2
+       },
+       {
+        "id": "inter_q2",
+        "type": "mcq_multiple",
+        "options": [
+         "L'intonation montante (à l'oral)",
+         "Répéter le mot deux fois",
+         "Utiliser « est-ce que »",
+         "L'inversion du sujet et du verbe",
+         "Commencer par « parce que »"
+        ],
+        "pass_index": 0,
+        "explanation": "Les trois façons sont : l'intonation montante (Tu viens au marché ?), est-ce que (Est-ce que tu viens ?), et l'inversion (Viens-tu ?).",
+        "instruction": "Quelles sont les trois façons correctes de poser une question en français ?",
+        "answer_indices": [
+         0,
+         2,
+         3
+        ]
+       },
+       {
+        "id": "inter_q3",
+        "type": "mcq_single",
+        "options": [
+         "L'intonation montante",
+         "L'utilisation de « est-ce que »",
+         "L'inversion du sujet et du verbe",
+         "Un mot interrogatif seul"
+        ],
+        "pass_index": 0,
+        "explanation": "« Fatou a-t-elle fini ses devoirs ? » utilise l'inversion — c'est la forme la plus soutenue, employée surtout à l'écrit.",
+        "instruction": "Quelle façon de poser une question est utilisée dans : « Fatou a-t-elle fini ses devoirs ? »",
+        "answer_index": 2
+       },
+       {
+        "id": "inter_q4",
+        "type": "true_false",
+        "answer": false,
+        "pass_index": 0,
+        "explanation": "Non, à l'oral on utilise surtout l'intonation montante (ex. : « Tu viens au marché ? »). L'inversion est réservée à l'écrit soutenu.",
+        "instruction": "L'inversion du sujet est la forme la plus courante à l'oral au Mali."
+       },
+       {
+        "id": "inter_q5",
+        "type": "matching",
+        "pairs": [
+         {
+          "left": "Qui",
+          "right": "Une personne"
+         },
+         {
+          "left": "Où",
+          "right": "Un lieu"
+         },
+         {
+          "left": "Quand",
+          "right": "Un moment dans le temps"
+         },
+         {
+          "left": "Combien",
+          "right": "Une quantité"
+         },
+         {
+          "left": "Pourquoi",
+          "right": "Une cause ou une raison"
+         }
+        ],
+        "pass_index": 1,
+        "explanation": "Exemple : « Qui a parlé ? » cherche une personne ; « Où habites-tu ? » cherche un lieu.",
+        "instruction": "Associe chaque mot interrogatif à ce qu'il cherche à connaître :"
+       },
+       {
+        "id": "inter_q6",
+        "text": "{{0}} pars-tu à Mopti ? — {{1}} voyages-tu, en bus ou en pirogue ? — {{2}} a préparé le repas ?",
+        "type": "cloze_test",
+        "answers": [
+         "Quand",
+         "Comment",
+         "Qui"
+        ],
+        "pass_index": 1,
+        "explanation": "Quand → temps ; Comment → manière ; Qui → personne.",
+        "instruction": "Complète les phrases avec le bon mot interrogatif (Qui / Comment / Quand) :"
+       },
+       {
+        "id": "inter_q7",
+        "type": "mcq_single",
+        "options": [
+         "Qui",
+         "Pourquoi",
+         "Combien",
+         "Quand"
+        ],
+        "pass_index": 1,
+        "explanation": "« Combien » s'utilise pour demander une quantité : « Combien de mangues as-tu achetées ? »",
+        "instruction": "Quel mot interrogatif complète le mieux cette phrase : « ___ de mangues as-tu achetées au marché de Bamako ? »",
+        "answer_index": 2
+       }
+      ],
+      "order": 2,
+      "passes": 2
+     },
+     {
+      "id": "phrase_exclamative",
+      "name": "La phrase exclamative",
+      "quiz": [
+       {
+        "id": "excl_q1",
+        "type": "mcq_single",
+        "options": [
+         "Donner un ordre",
+         "Poser une question",
+         "Exprimer un sentiment fort (joie, surprise, admiration…)",
+         "Donner une information neutre"
+        ],
+        "pass_index": 0,
+        "explanation": "La phrase exclamative exprime des sentiments forts : joie, surprise, colère, admiration, peur. Ex. : « Quelle belle fête du Tabaski ! »",
+        "instruction": "À quoi sert la phrase exclamative ?",
+        "answer_index": 2
+       },
+       {
+        "id": "excl_q2",
+        "type": "true_false",
+        "answer": true,
+        "pass_index": 0,
+        "explanation": "Oui ! Elle exprime l'admiration devant la taille du baobab et se termine par un point d'exclamation.",
+        "instruction": "« Comme le baobab est grand ! » est une phrase exclamative."
+       },
+       {
+        "id": "excl_q3",
+        "type": "mcq_multiple",
+        "options": [
+         "Comme",
+         "Est-ce que",
+         "Quel / Quelle",
+         "Que",
+         "Parce que"
+        ],
+        "pass_index": 0,
+        "explanation": "« Comme », « Quel/Quelle » et « Que » sont des mots exclamatifs. « Est-ce que » introduit une interrogative ; « parce que » introduit une cause.",
+        "instruction": "Lesquels de ces mots peuvent introduire une phrase exclamative ?",
+        "answer_indices": [
+         0,
+         2,
+         3
+        ]
+       },
+       {
+        "id": "excl_q4",
+        "type": "odd_one_out",
+        "items": [
+         "Comme",
+         "Quelle",
+         "Ah",
+         "Combien",
+         "Que"
+        ],
+        "odd_index": 3,
+        "pass_index": 0,
+        "explanation": "« Combien » est un mot interrogatif (il sert à demander une quantité), pas un mot exclamatif.",
+        "instruction": "Quel mot N'est PAS un mot exclamatif ?"
+       },
+       {
+        "id": "excl_q5",
+        "text": "{{0}}, tu as réussi ton examen du DEF ! — {{1}} belle journée au bord du fleuve Niger ! — {{2}} le griot chante bien ce soir !",
+        "type": "cloze_test",
+        "answers": [
+         "Bravo",
+         "Quelle",
+         "Comme"
+        ],
+        "pass_index": 0,
+        "explanation": "Bravo exprime la félicitation ; Quelle + nom (belle journée) ; Comme + sujet + verbe (le griot chante bien).",
+        "instruction": "Complète ces phrases exclamatives avec le bon mot (Quelle / Comme / Bravo) :"
+       }
+      ],
+      "order": 3,
+      "passes": 1
+     },
+     {
+      "id": "phrase_imperative",
+      "name": "La phrase impérative",
+      "quiz": [
+       {
+        "id": "imper_q1",
+        "type": "mcq_single",
+        "options": [
+         "Moussa est allé à la mosquée.",
+         "Est-ce que tu as rangé tes cahiers ?",
+         "Rangez vos cahiers !",
+         "Quelle belle mosquée !"
+        ],
+        "pass_index": 0,
+        "explanation": "« Rangez vos cahiers ! » donne un ordre. Le sujet (vous) est absent et le verbe est conjugué à l'impératif.",
+        "instruction": "Laquelle de ces phrases est une phrase impérative ?",
+        "answer_index": 2
+       },
+       {
+        "id": "imper_q2",
+        "type": "true_false",
+        "answer": true,
+        "pass_index": 0,
+        "explanation": "Oui ! À l'impératif, on ne dit pas « Tu ferme la porte » mais simplement « Ferme la porte ! » — le sujet « tu » est sous-entendu.",
+        "instruction": "Dans une phrase impérative, le sujet est absent (sous-entendu)."
+       },
+       {
+        "id": "imper_q3",
+        "type": "mcq_single",
+        "options": [
+         "Six personnes (toutes)",
+         "Deux personnes (tu et vous)",
+         "Trois personnes (tu, nous, vous)",
+         "Une seule personne (vous)"
+        ],
+        "pass_index": 0,
+        "explanation": "L'impératif ne se conjugue qu'à trois personnes : tu (Mange !), nous (Mangeons !), vous (Mangez !).",
+        "instruction": "À combien de personnes peut-on conjuguer le verbe à l'impératif ?",
+        "answer_index": 2
+       },
+       {
+        "id": "imper_q4",
+        "type": "mcq_multiple",
+        "options": [
+         "Un ordre",
+         "Une question",
+         "Un conseil",
+         "Une interdiction",
+         "Une information neutre"
+        ],
+        "pass_index": 1,
+        "explanation": "L'impérative sert à donner un ordre (Ferme la porte !), un conseil (Bois beaucoup d'eau.) ou une interdiction (Ne cours pas !). Elle ne sert pas à poser une question ni à donner une information neutre.",
+        "instruction": "La phrase impérative peut servir à exprimer… (plusieurs réponses possibles) :",
+        "answer_indices": [
+         0,
+         2,
+         3
+        ]
+       },
+       {
+        "id": "imper_q5",
+        "type": "k_prime",
+        "pass_index": 1,
+        "statements": [
+         {
+          "text": "« Ne gaspille pas l'eau ! » est une phrase impérative à la forme négative.",
+          "answer": true
+         },
+         {
+          "text": "La phrase impérative se termine toujours par un point d'exclamation.",
+          "answer": false
+         },
+         {
+          "text": "« Bois beaucoup d'eau pendant la saison chaude. » est un conseil à l'impératif.",
+          "answer": true
+         },
+         {
+          "text": "On peut utiliser toutes les six personnes du verbe à l'impératif.",
+          "answer": false
+         }
+        ],
+        "explanation": "L'impérative peut se terminer par un point (conseil) ou un point d'exclamation (ordre). Elle ne se conjugue qu'à 3 personnes : tu, nous, vous.",
+        "instruction": "Indique si chaque affirmation sur la phrase impérative est vraie ou fausse :"
+       },
+       {
+        "id": "imper_q6",
+        "type": "matching",
+        "pairs": [
+         {
+          "left": "Révisez vos leçons avant l'examen.",
+          "right": "Conseil"
+         },
+         {
+          "left": "Ferme la porte !",
+          "right": "Ordre"
+         },
+         {
+          "left": "Ne cours pas dans la cour !",
+          "right": "Interdiction"
+         }
+        ],
+        "pass_index": 1,
+        "explanation": "Un conseil est doux et utile, un ordre est direct, une interdiction utilise souvent la négation (ne...pas).",
+        "instruction": "Associe chaque phrase impérative à son rôle :"
+       }
+      ],
+      "order": 4,
+      "passes": 2
+     },
+     {
+      "id": "distinction_quatre_types",
+      "name": "Distinguer les quatre types de phrases",
+      "quiz": [
+       {
+        "id": "dist_q1",
+        "type": "matching",
+        "pairs": [
+         {
+          "left": "Déclarative",
+          "right": "Point (.) — donner une information"
+         },
+         {
+          "left": "Interrogative",
+          "right": "Point d'interrogation (?) — poser une question"
+         },
+         {
+          "left": "Exclamative",
+          "right": "Point d'exclamation (!) — exprimer un sentiment"
+         },
+         {
+          "left": "Impérative",
+          "right": "Point ou ! — donner un ordre ou un conseil"
+         }
+        ],
+        "pass_index": 0,
+        "explanation": "Retenir le tableau récapitulatif : chaque type a un rôle et une ponctuation qui lui sont propres.",
+        "instruction": "Associe chaque type de phrase à sa ponctuation et son rôle :"
+       },
+       {
+        "id": "dist_q2",
+        "type": "mcq_single",
+        "options": [
+         "Interrogative",
+         "Exclamative",
+         "Impérative",
+         "Déclarative"
+        ],
+        "pass_index": 0,
+        "explanation": "Cette phrase donne une information (Samba joue au football) et se termine par un point. C'est une phrase déclarative.",
+        "instruction": "Quel est le type de la phrase suivante : « Samba joue au football avec ses amis. »",
+        "answer_index": 3
+       },
+       {
+        "id": "dist_q3",
+        "type": "k_prime",
+        "pass_index": 0,
+        "statements": [
+         {
+          "text": "« Avez-vous mangé ce matin ? » est une phrase interrogative.",
+          "answer": true
+         },
+         {
+          "text": "« Apportez vos livres demain. » est une phrase déclarative.",
+          "answer": false
+         },
+         {
+          "text": "« Comme le ciel est étoilé cette nuit ! » est une phrase exclamative.",
+          "answer": true
+         },
+         {
+          "text": "« La saison des pluies commence en juin au Mali. » est une phrase impérative.",
+          "answer": false
+         }
+        ],
+        "explanation": "« Apportez vos livres demain. » est impérative (ordre) ; « La saison des pluies commence en juin. » est déclarative (information).",
+        "instruction": "Pour chaque phrase, indique si elle est bien du type annoncé :"
+       },
+       {
+        "id": "dist_q4",
+        "type": "odd_one_out",
+        "items": [
+         "Est-ce que tu connais la ville de Tombouctou ?",
+         "Quand pars-tu à Mopti ?",
+         "Où habites-tu ?",
+         "Quelle délicieuse sauce d'arachide !"
+        ],
+        "odd_index": 3,
+        "pass_index": 0,
+        "explanation": "« Quelle délicieuse sauce d'arachide ! » est une phrase exclamative (point d'exclamation, sentiment d'admiration), pas une interrogative.",
+        "instruction": "Laquelle de ces phrases N'est PAS une phrase interrogative ?"
+       },
+       {
+        "id": "dist_q5",
+        "type": "mcq_single",
+        "options": [
+         "Le marché de Bamako est très animé le dimanche.",
+         "Bois beaucoup d'eau pendant la saison chaude.",
+         "As-tu bu assez d'eau aujourd'hui ?",
+         "Oh, comme il fait chaud !"
+        ],
+        "pass_index": 0,
+        "explanation": "« Bois beaucoup d'eau pendant la saison chaude. » est une phrase impérative qui donne un conseil. Le sujet (tu) est absent et le verbe est à l'impératif.",
+        "instruction": "Parmi ces quatre phrases, laquelle donne un conseil ?",
+        "answer_index": 1
+       }
+      ],
+      "order": 5,
+      "passes": 1
+     }
+    ],
+    "reading_data": {
+     "terms": {
+      "inversion": "Façon de poser une question en plaçant le verbe avant le sujet : « Viens-tu ? »",
+      "négation": "Construction qui transforme une phrase affirmative en phrase négative, avec ne…pas, ne…plus, etc.",
+      "ponctuation": "Les signes écrits qui indiquent comment lire une phrase : point, point d'interrogation, point d'exclamation.",
+      "mot exclamatif": "Mot qui renforce un sentiment dans une phrase exclamative : comme, que, quel, quelle.",
+      "mot interrogatif": "Mot qui introduit une question : qui, où, quand, comment, pourquoi, combien.",
+      "phrase exclamative": "Une phrase qui exprime un sentiment fort. Elle se termine par un point d'exclamation (!).",
+      "phrase impérative": "Une phrase qui donne un ordre, un conseil ou une interdiction. Le sujet est absent.",
+      "phrase déclarative": "Une phrase qui donne une information. Elle se termine par un point (.).",
+      "phrase interrogative": "Une phrase qui pose une question. Elle se termine par un point d'interrogation (?)."
+     },
+     "title": "Les types de phrases en français",
+     "sections": [
+      {
+       "id": "s1",
+       "title": "Pourquoi apprendre les types de phrases ?",
+       "blocks": [
+        {
+         "text": "Chaque jour, au Mali, tu parles, tu poses des questions, tu exprimes ta joie ou tu donnes des consignes. Sans le savoir, tu utilises déjà les quatre types de phrases du français ! Au marché de Bamako, à la mosquée, dans les champs ou à l'école, chaque situation appelle un type de phrase particulier. Apprendre à les reconnaître, c'est apprendre à mieux communiquer à l'écrit comme à l'oral.",
+         "type": "p"
+        },
+        {
+         "type": "key",
+         "items": [
+          "Il existe 4 types de phrases en français.",
+          "Chaque type a un rôle précis et une ponctuation spécifique.",
+          "On les utilise tous les jours, même sans le savoir."
+         ]
+        },
+        {
+         "icon": "spark",
+         "text": "La ponctuation est comme un panneau de signalisation : le point (.) dit « j'informe », le (?) dit « je demande », le (!) dit « je ressens fort ».",
+         "type": "callout",
+         "label": "Le saviez-vous"
+        }
+       ]
+      },
+      {
+       "id": "s2",
+       "title": "La phrase déclarative : j'informe",
+       "blocks": [
+        {
+         "term": "phrase déclarative",
+         "text": "Une phrase qui donne une information ou affirme quelque chose. Elle se termine par un point (.).",
+         "type": "def"
+        },
+        {
+         "text": "La phrase déclarative est la plus courante. On l'utilise pour dire ce qui est vrai, ce qui se passe ou ce qu'on pense. Sa structure habituelle est simple : Sujet + Verbe + Complément. Elle peut être affirmative (on dit que quelque chose est vrai) ou négative (on dit que quelque chose n'est pas vrai).",
+         "type": "p"
+        },
+        {
+         "text": "Affirmative : « Moussa mange du tô. » — Sujet : Moussa / Verbe : mange / Complément : du tô.\nNégative : « Moussa ne mange pas de tô. » — Le verbe est encadré par ne…pas.",
+         "type": "example"
+        },
+        {
+         "text": "Pour construire la forme négative, on encadre le verbe avec des mots de négation : ne…pas, ne…plus, ne…jamais, ne…rien. Par exemple : « Koné Seydou étudie ses leçons » devient « Koné Seydou n'étudie pas ses leçons ».",
+         "type": "p",
+         "simple": "Pour dire le contraire, on met « ne » avant le verbe et « pas » (ou « jamais », « plus »…) après le verbe."
+        },
+        {
+         "type": "key",
+         "items": [
+          "Structure : Sujet + Verbe + Complément.",
+          "Ponctuation : un point simple (.) à la fin.",
+          "Négation : ne…pas / ne…plus / ne…jamais / ne…rien."
+         ]
+        },
+        {
+         "text": "Exemples maliens :\n• Bamako est la capitale du Mali.\n• Les mangues de Sikasso sont très sucrées.\n• Aminata va à l'école tous les matins.\n• La mosquée de Djenné est classée au patrimoine mondial.",
+         "type": "example"
+        },
+        {
+         "type": "check",
+         "answer": true,
+         "variant": "tf",
+         "question": "La phrase « Le fleuve Niger traverse notre pays » est une phrase déclarative.",
+         "explanation": "Oui ! Elle donne une information et se termine par un point. C'est bien une phrase déclarative."
+        }
+       ]
+      },
+      {
+       "id": "s3",
+       "title": "La phrase interrogative : je pose une question",
+       "blocks": [
+        {
+         "term": "phrase interrogative",
+         "text": "Une phrase qui pose une question. Elle se termine par un point d'interrogation (?).",
+         "type": "def"
+        },
+        {
+         "text": "Imagine que tu arrives au marché de Bamako et que tu demandes le prix des mangues. Tu utilises une phrase interrogative ! En français, il existe trois façons différentes de poser une question.",
+         "type": "p"
+        },
+        {
+         "type": "key",
+         "items": [
+          "Façon 1 — Intonation montante (à l'oral) : « Tu viens au marché ? »",
+          "Façon 2 — Est-ce que (à l'oral et à l'écrit) : « Est-ce que tu viens au marché ? »",
+          "Façon 3 — Inversion (à l'écrit, style soutenu) : « Viens-tu au marché ? »"
+         ]
+        },
+        {
+         "icon": "info",
+         "text": "L'inversion, c'est quand on met le verbe AVANT le sujet. On relie les deux avec un trait d'union : Viens-tu ? / Fatou a-t-elle fini ?",
+         "type": "callout",
+         "label": "Astuce"
+        },
+        {
+         "text": "On peut aussi commencer une question avec un mot interrogatif. Ce mot précise ce qu'on cherche à savoir : une personne, un lieu, un moment, une manière, une cause ou une quantité.",
+         "type": "p"
+        },
+        {
+         "text": "Les mots interrogatifs et leurs usages :\n• Qui → les personnes : « Qui a parlé ? »\n• Où → le lieu : « Où habites-tu ? »\n• Quand → le temps : « Quand pars-tu à Mopti ? »\n• Comment → la manière : « Comment voyages-tu ? »\n• Pourquoi → la cause : « Pourquoi pleures-tu ? »\n• Combien → la quantité : « Combien de frères as-tu ? »",
+         "type": "example"
+        },
+        {
+         "text": "Ne confonds pas la phrase déclarative et la phrase interrogative à l'oral ! « Tu viens au marché. » (déclarative, intonation plate) et « Tu viens au marché ? » (interrogative, voix qui monte) — seule la ponctuation et l'intonation changent.",
+         "type": "warn"
+        },
+        {
+         "type": "check",
+         "answer": 1,
+         "options": [
+          "Est-ce que Fatou a fini ses devoirs ?",
+          "Fatou a-t-elle fini ses devoirs ?",
+          "Fatou a fini ses devoirs ?"
+         ],
+         "variant": "qcm",
+         "question": "Quelle phrase est une phrase interrogative avec inversion ?",
+         "explanation": "L'inversion, c'est quand on met le verbe avant le sujet et qu'on les relie par un trait d'union : « a-t-elle ». C'est la deuxième option."
+        }
+       ]
+      },
+      {
+       "id": "s4",
+       "title": "La phrase exclamative : j'exprime un sentiment fort",
+       "blocks": [
+        {
+         "term": "phrase exclamative",
+         "text": "Une phrase qui exprime un sentiment fort : joie, surprise, colère, admiration, peur. Elle se termine par un point d'exclamation (!).",
+         "type": "def"
+        },
+        {
+         "text": "Tu as vu un beau coucher de soleil sur le fleuve Niger ? Tu as reçu une bonne note à ton examen ? Tu es surpris par quelque chose au marché ? Ce sont des moments où tu utilises naturellement la phrase exclamative !",
+         "type": "p"
+        },
+        {
+         "text": "Exemples maliens :\n• Comme le baobab est grand !\n• Quelle belle fête du Tabaski !\n• Bravo, tu as réussi ton examen !\n• Oh, comme le griot chante bien !",
+         "type": "example"
+        },
+        {
+         "text": "Certains mots servent spécialement à introduire ou à renforcer une phrase exclamative. Ce sont les mots exclamatifs.",
+         "type": "p"
+        },
+        {
+         "type": "key",
+         "items": [
+          "Comme : « Comme il fait chaud ! »",
+          "Que : « Que c'est beau ! »",
+          "Quel / Quelle : « Quelle surprise ! »",
+          "Oh, Ah, Hélas, Bravo : « Ah, quelle journée ! »"
+         ]
+        },
+        {
+         "type": "reflect",
+         "prompt": "Pense à un moment récent où tu as ressenti une forte émotion — à l'école, à la maison ou au marché. Quelle phrase exclamative aurais-tu pu dire ?"
+        },
+        {
+         "type": "check",
+         "answer": 1,
+         "options": [
+          "La joie",
+          "La tristesse ou la déception",
+          "La colère"
+         ],
+         "variant": "qcm",
+         "question": "Quel sentiment exprime la phrase : « Hélas, il n'y a plus de mangues au marché ! » ?",
+         "explanation": "Le mot « Hélas » exprime la déception ou la tristesse. La phrase est bien exclamative, car elle se termine par (!) et exprime un sentiment fort."
+        }
+       ]
+      },
+      {
+       "id": "s5",
+       "title": "La phrase impérative : je donne un ordre ou un conseil",
+       "blocks": [
+        {
+         "term": "phrase impérative",
+         "text": "Une phrase qui donne un ordre, un conseil, une interdiction ou une demande. Le sujet (tu, nous, vous) est absent.",
+         "type": "def"
+        },
+        {
+         "text": "Quand ta mère dit « Range ta chambre ! » ou que ton maître dit « Ouvrez vos cahiers ! », ils utilisent des phrases impératives. Ce type de phrase est reconnaissable car le sujet (tu, nous, vous) n'est pas écrit — il est sous-entendu. Le verbe se conjugue à l'impératif, seulement à trois personnes : tu, nous, vous.",
+         "type": "p",
+         "simple": "Dans une phrase impérative, on ne voit pas « tu », « nous » ou « vous » dans la phrase. Le verbe vient en premier."
+        },
+        {
+         "text": "Ordre : « Ferme la porte ! » / « Rangez vos cahiers ! »\nConseil : « Bois beaucoup d'eau pendant la saison chaude. » / « Révisez vos leçons avant l'examen. »\nInterdiction : « Ne cours pas dans la cour ! » / « Ne gaspille pas l'eau ! »",
+         "type": "example"
+        },
+        {
+         "icon": "warn",
+         "text": "Pour reconnaître une phrase impérative, cherche deux indices : (1) le sujet est absent, (2) le verbe est au début de la phrase. Exemple : « Apporte de l'eau. » — On ne voit pas « tu », et le verbe « Apporte » est en premier !",
+         "type": "callout",
+         "label": "Astuce clé"
+        },
+        {
+         "text": "La phrase impérative peut se terminer par un point (.) pour un conseil doux, ou par un point d'exclamation (!) pour un ordre fort. Les deux sont corrects selon le contexte.",
+         "type": "warn"
+        },
+        {
+         "type": "check",
+         "answer": true,
+         "variant": "tf",
+         "question": "Dans la phrase « Ne gaspille pas l'eau ! », le sujet est absent.",
+         "explanation": "Oui ! On ne voit pas « tu » dans la phrase. C'est le signe typique de la phrase impérative. Le sujet est sous-entendu."
+        }
+       ]
+      },
+      {
+       "id": "s6",
+       "title": "Les 4 types côte à côte : tableau récapitulatif",
+       "blocks": [
+        {
+         "text": "Voici comment distinguer les quatre types d'un seul coup d'œil. Retiens le rôle, la ponctuation et un exemple pour chacun.",
+         "type": "p"
+        },
+        {
+         "type": "key",
+         "items": [
+          "Déclarative → Donner une information → Point (.) → « Le Mali est un grand pays. »",
+          "Interrogative → Poser une question → Point d'interrogation (?) → « Où vas-tu ? »",
+          "Exclamative → Exprimer un sentiment → Point d'exclamation (!) → « Quelle belle journée ! »",
+          "Impérative → Donner un ordre ou un conseil → Point (.) ou (!) → « Travaillez bien ! »"
+         ]
+        },
+        {
+         "text": "Imagine une scène au marché de Bamako :\n• « Les tomates coûtent 500 francs CFA. » → déclarative (information).\n• « Combien coûtent les tomates ? » → interrogative (question).\n• « Comme ces tomates sont belles ! » → exclamative (admiration).\n• « Achetez vos tomates maintenant ! » → impérative (ordre).",
+         "type": "example"
+        },
+        {
+         "type": "reflect",
+         "prompt": "Peux-tu inventer toi-même une phrase de chaque type à partir d'une scène que tu connais — à l'école, dans ta famille ou au champ ?"
+        },
+        {
+         "type": "check",
+         "answer": 2,
+         "options": [
+          "Samba joue au football avec ses amis.",
+          "Est-ce que tu connais Tombouctou ?",
+          "Apportez vos livres demain."
+         ],
+         "variant": "qcm",
+         "question": "Quelle phrase est une phrase impérative ?",
+         "explanation": "« Apportez vos livres demain » est une phrase impérative : le sujet (vous) est absent et le verbe « Apportez » est en début de phrase. Elle donne un ordre."
+        }
+       ]
+      },
+      {
+       "id": "s7",
+       "title": "Ce qu'il faut retenir",
+       "blocks": [
+        {
+         "type": "key",
+         "items": [
+          "La phrase DÉCLARATIVE donne une information. Elle se termine par un point (.).",
+          "La phrase INTERROGATIVE pose une question. Elle se termine par un point d'interrogation (?).",
+          "La phrase EXCLAMATIVE exprime un sentiment fort. Elle se termine par un point d'exclamation (!).",
+          "La phrase IMPÉRATIVE donne un ordre ou un conseil. Le sujet est absent. Elle finit par (.) ou (!).",
+          "Pour reconnaître une impérative : le verbe est au début, pas de sujet visible.",
+          "Pour former une négative : on encadre le verbe avec ne…pas, ne…plus, ne…jamais, ne…rien."
+         ]
+        },
+        {
+         "icon": "spark",
+         "text": "Retiens cette phrase : « Dieu Interroge l'Éléphant Impérial. » — D pour Déclarative, I pour Interrogative, É pour Exclamative, I pour Impérative. Les quatre types dans l'ordre !",
+         "type": "callout",
+         "label": "Moyen de mémoriser"
+        },
+        {
+         "type": "check",
+         "answer": 2,
+         "options": [
+          "Le point d'exclamation (!)",
+          "Le point d'interrogation (?)",
+          "Le point simple (.)"
+         ],
+         "variant": "qcm",
+         "question": "Quelle est la ponctuation de la phrase déclarative ?",
+         "explanation": "La phrase déclarative se termine toujours par un point simple (.). Elle donne une information, sans émotion forte ni question."
+        }
+       ]
+      }
+     ],
+     "direction": "ltr"
+    },
+    "exam_data": {
+     "duration": 360,
+     "pass_mark": 0.6,
+     "questions": [
+      {
+       "id": "exam_q1",
+       "type": "matching",
+       "pairs": [
+        {
+         "left": "Ne traverse jamais la rue sans regarder !",
+         "right": "Impérative"
+        },
+        {
+         "left": "Le mali est un grand pays d'Afrique de l'Ouest.",
+         "right": "Déclarative"
+        },
+        {
+         "left": "Quelle belle fête du Tabaski !",
+         "right": "Exclamative"
+        },
+        {
+         "left": "Comment voyages-tu de Bamako à Ségou ?",
+         "right": "Interrogative"
+        }
+       ],
+       "concept_id": "distinction_quatre_types",
+       "explanation": "Impérative : ordre/interdiction sans sujet ; Déclarative : information + point ; Exclamative : sentiment + ! ; Interrogative : question + ?",
+       "instruction": "Relie chaque phrase à son type correct :"
+      },
+      {
+       "id": "exam_q2",
+       "type": "mcq_single",
+       "options": [
+        "Ibrahim ne mange pas du riz au poisson.",
+        "Ibrahim ne mange jamais pas du riz au poisson.",
+        "Ibrahim mange ne pas du riz au poisson.",
+        "N'Ibrahim mange pas du riz au poisson."
+       ],
+       "concept_id": "phrase_declarative",
+       "explanation": "On encadre le verbe avec « ne...pas » : « Ibrahim ne mange pas du riz au poisson. » Le ne se place avant le verbe, pas avant le sujet.",
+       "instruction": "Transforme « Ibrahim mange du riz au poisson. » à la forme négative. Quelle est la bonne réponse ?",
+       "answer_index": 0
+      },
+      {
+       "id": "exam_q3",
+       "text": "« {{0}} as-tu acheté ces bananes ? » (lieu) — « {{1}} coûtent-elles ? » (quantité/prix) — « {{2}} t'a donné l'argent ? » (personne)",
+       "type": "cloze_test",
+       "answers": [
+        "Où",
+        "Combien",
+        "Qui"
+       ],
+       "concept_id": "phrase_interrogative",
+       "explanation": "Où → lieu ; Combien → quantité/prix ; Qui → personne.",
+       "instruction": "Complète avec le bon mot interrogatif pour chaque question :"
+      },
+      {
+       "id": "exam_q4",
+       "type": "mcq_multiple",
+       "options": [
+        "Révisez vos leçons avant l'examen.",
+        "Les élèves révisent leurs leçons.",
+        "Ne gaspille pas l'eau !",
+        "Est-ce que tu as révisé tes leçons ?",
+        "Mangeons ensemble ce soir !"
+       ],
+       "concept_id": "phrase_imperative",
+       "explanation": "Les impératives n'ont pas de sujet exprimé et le verbe est à l'impératif. « Les élèves révisent leurs leçons. » est déclarative ; la question avec « Est-ce que » est interrogative.",
+       "instruction": "Lesquelles de ces phrases sont des phrases impératives ?",
+       "answer_indices": [
+        0,
+        2,
+        4
+       ]
+      },
+      {
+       "id": "exam_q5",
+       "type": "true_false",
+       "answer": true,
+       "concept_id": "phrase_exclamative",
+       "explanation": "Oui. Les mots « Oh » et « comme » sont des marqueurs exclamatifs. La phrase exprime l'admiration pour le chant du griot et se termine par un point d'exclamation.",
+       "instruction": "La phrase « Oh, comme le griot chante bien ce soir ! » exprime un sentiment d'admiration et est donc une phrase exclamative."
+      },
+      {
+       "id": "exam_q6",
+       "type": "mcq_single",
+       "options": [
+        "La phrase impérative",
+        "La phrase déclarative",
+        "La phrase exclamative",
+        "La phrase interrogative"
+       ],
+       "concept_id": "distinction_quatre_types",
+       "explanation": "« Viens chercher ton diplôme ? » utilise un point d'interrogation mais c'est en réalité une invitation ou un ordre (impérative). La phrase interrogative doit poser une vraie question, par exemple : « As-tu réussi ton examen ? »",
+       "instruction": "Un élève écrit : « Ferme ton cahier, tu as réussi ton examen, quelle surprise, viens chercher ton diplôme ? » Il veut utiliser les quatre types de phrases. Quel type de phrase a-t-il mal utilisé ?",
+       "answer_index": 3
+      }
+     ]
+    },
+    "story_data": {
+     "scene": {
+      "c1": "#F59E0B",
+      "c2": "#0EA5E9",
+      "name": "Au marché de Médina Coura, Bamako"
+     },
+     "steps": [
+      {
+       "text": "Samedi matin à Médina Coura. Le soleil se lève sur le grand marché de Bamako. Les odeurs de beignets et de bissap flottent dans l'air. Safi, une élève de 6ème année, aide sa tante Binta à tenir son étal de mangues de Sikasso. Aujourd'hui, Safi veut apprendre à bien parler et à bien écrire en français — et le marché va lui donner mille occasions !",
+       "type": "narration"
+      },
+      {
+       "who": "safi",
+       "text": "Binta, regarde ! J'ai écrit une phrase dans mon carnet : « Les mangues de Sikasso sont très sucrées. » C'est bien comme phrase ?",
+       "type": "npc"
+      },
+      {
+       "who": "binta",
+       "text": "Eh, petite ! Tu donnes une information, tu affirmes quelque chose. Quelle sorte de phrase penses-tu avoir écrite ?",
+       "type": "npc"
+      },
+      {
+       "type": "choice",
+       "prompt": "Safi a écrit : « Les mangues de Sikasso sont très sucrées. » Quel type de phrase est-ce ?",
+       "options": [
+        {
+         "label": "Une phrase déclarative",
+         "reply": "Exact ! Elle donne une information et se termine par un point. C'est bien une phrase déclarative. Bravo, Safi !",
+         "correct": true
+        },
+        {
+         "label": "Une phrase exclamative",
+         "reply": "Pas tout à fait. Une phrase exclamative exprime un sentiment fort et se termine par un point d'exclamation (!). Ici, Safi donne simplement une information.",
+         "correct": false
+        },
+        {
+         "label": "Une phrase interrogative",
+         "reply": "Non. Une phrase interrogative pose une question et se termine par un point d'interrogation (?). Ici, Safi affirme quelque chose.",
+         "correct": false
+        }
+       ],
+       "concept_ref": "phrase_declarative"
+      },
+      {
+       "text": "Safi sourit et note dans son carnet : « Phrase déclarative = information + point. » Soudain, une cliente s'approche de l'étal d'un air curieux.",
+       "type": "narration"
+      },
+      {
+       "who": "binta",
+       "text": "Safi, la cliente veut savoir le prix. Elle va poser une question. Écoute bien comment elle parle !",
+       "type": "npc"
+      },
+      {
+       "who": "safi",
+       "text": "Binta, j'ai vu trois façons de poser une question en classe. Laisse-moi montrer ! On peut dire : « Tu vends des mangues ? » avec la voix qui monte, ou « Est-ce que tu vends des mangues ? », ou encore « Vends-tu des mangues ? » avec l'inversion.",
+       "type": "npc"
+      },
+      {
+       "ok": "Parfait ! « Est-ce que les mangues sont sucrées ? » — belle phrase interrogative !",
+       "type": "tokens",
+       "prompt": "Remets les mots dans le bon ordre pour former une phrase interrogative avec « Est-ce que » :",
+       "tokens": [
+        "mangues",
+        "Est-ce",
+        "que",
+        "les",
+        "sucrées",
+        "sont",
+        "?"
+       ],
+       "solution": [
+        "Est-ce",
+        "que",
+        "les",
+        "mangues",
+        "sont",
+        "sucrées",
+        "?"
+       ],
+       "concept_ref": "phrase_interrogative"
+      },
+      {
+       "text": "Binta attrape une mangue bien mûre et dorée. Elle la coupe en deux et en tend la moitié à Safi. Le jus sucré dégouline sur les doigts de la jeune fille.",
+       "type": "narration"
+      },
+      {
+       "who": "safi",
+       "text": "Mmmh… Comme cette mangue est délicieuse !",
+       "type": "npc"
+      },
+      {
+       "who": "binta",
+       "text": "Hé hé ! Tu vois ce que tu viens de dire là, Safi ? Tu as exprimé un sentiment fort, de la joie, de l'admiration. Et tu as utilisé le mot « Comme » au début. Ça te rappelle quelque chose ?",
+       "type": "npc"
+      },
+      {
+       "type": "choice",
+       "prompt": "Safi a dit : « Comme cette mangue est délicieuse ! » Quel type de phrase est-ce ?",
+       "options": [
+        {
+         "label": "Une phrase exclamative",
+         "reply": "Oui ! Elle exprime un sentiment fort (l'admiration) et se termine par un point d'exclamation. Le mot « Comme » est un mot exclamatif. Bien joué !",
+         "correct": true
+        },
+        {
+         "label": "Une phrase déclarative",
+         "reply": "Non. Une phrase déclarative donne une information calmement et se termine par un point simple. Ici, Safi exprime une émotion très forte !",
+         "correct": false
+        },
+        {
+         "label": "Une phrase impérative",
+         "reply": "Non. La phrase impérative donne un ordre ou un conseil, et le sujet est absent. Ici, Safi exprime sa joie !",
+         "correct": false
+        }
+       ],
+       "concept_ref": "phrase_exclamative"
+      },
+      {
+       "text": "Un petit garçon s'approche de l'étal et tend la main vers les mangues sans demander. Binta le regarde avec des yeux grands ouverts.",
+       "type": "narration"
+      },
+      {
+       "who": "binta",
+       "text": "Ne touche pas les mangues sans payer ! Et toi, Safi — dis-lui d'aller chercher sa maman, avec une belle phrase !",
+       "type": "npc"
+      },
+      {
+       "ok": "Très bien ! Le verbe est au début, le sujet est absent. C'est une vraie phrase impérative !",
+       "hint": "Une phrase impérative commence directement par le verbe conjugué. Pas de « Tu » au début !",
+       "type": "input",
+       "prompt": "Safi veut dire au garçon d'aller chercher sa maman. Écris une phrase impérative courte pour lui donner cet ordre. (Le sujet doit être absent !)",
+       "answers": [
+        "va chercher ta maman",
+        "va chercher ta maman !",
+        "appelle ta maman",
+        "appelle ta maman !",
+        "va chercher ta mere",
+        "va chercher ta mère",
+        "va chercher ta mère !"
+       ],
+       "concept_ref": "phrase_imperative",
+       "check_punctuation": true
+      },
+      {
+       "who": "safi",
+       "text": "J'ai compris, Binta ! Dans une phrase impérative, on ne dit pas « Tu vas chercher ta maman » — on dit directement « Va chercher ta maman ! » Le sujet disparaît !",
+       "type": "npc"
+      },
+      {
+       "who": "binta",
+       "text": "Exactement, ma petite ! Tu apprends vite. Maintenant, voyons si tu sais reconnaître les quatre types d'un seul coup d'œil !",
+       "type": "npc"
+      },
+      {
+       "text": "Binta sort de sous son étal un vieux journal froissé. Elle montre quatre phrases à Safi, une par une. C'est le moment de tout récapituler !",
+       "type": "narration"
+      },
+      {
+       "ok": "Bravo ! Pas de sujet, verbe au début, ordre donné = phrase impérative. Tu maîtrises !",
+       "type": "blank",
+       "parts": [
+        "« Rangez vos cahiers ! » est une phrase ",
+        " car le sujet est absent et le verbe exprime un ordre."
+       ],
+       "answer": "impérative",
+       "prompt": "Complète : « Rangez vos cahiers ! » est une phrase ___ car le sujet est absent et le verbe exprime un ordre.",
+       "options": [
+        "déclarative",
+        "impérative",
+        "interrogative",
+        "exclamative"
+       ],
+       "concept_ref": "phrase_imperative"
+      },
+      {
+       "ok": "Excellent ! Tu reconnais les trois types à la perfection !",
+       "type": "tokens",
+       "prompt": "Associe chaque phrase à son type en remettant les paires dans le bon ordre :",
+       "tokens": [
+        "Quelle belle journée !",
+        "→ exclamative",
+        "Le fleuve Niger traverse le Mali.",
+        "→ déclarative",
+        "Où vas-tu ?",
+        "→ interrogative"
+       ],
+       "solution": [
+        "Le fleuve Niger traverse le Mali.",
+        "→ déclarative",
+        "Où vas-tu ?",
+        "→ interrogative",
+        "Quelle belle journée !",
+        "→ exclamative"
+       ],
+       "concept_ref": "distinction_quatre_types"
+      },
+      {
+       "type": "choice",
+       "prompt": "Une dernière question ! Quelle ponctuation termine UNE phrase impérative donnant un conseil tranquille, comme « Bois beaucoup d'eau » ?",
+       "options": [
+        {
+         "label": "Un point simple (.)",
+         "reply": "Oui ! Quand la phrase impérative est un conseil doux, elle peut se terminer par un simple point. Si c'est un ordre fort, on met un point d'exclamation (!).",
+         "correct": true
+        },
+        {
+         "label": "Un point d'interrogation (?)",
+         "reply": "Non, le point d'interrogation appartient aux phrases interrogatives qui posent une question.",
+         "correct": false
+        },
+        {
+         "label": "Un point d'exclamation (!)",
+         "reply": "Pas nécessairement. Le point d'exclamation convient pour un ordre fort, mais un conseil tranquille peut se terminer par un simple point.",
+         "correct": false
+        }
+       ],
+       "concept_ref": "phrase_imperative"
+      },
+      {
+       "text": "Le soleil monte haut dans le ciel de Bamako. Les mangues de Sikasso brillent comme de l'or sur l'étal de Binta. Safi referme son carnet avec fierté : elle a appris les quatre types de phrases… en vendant des mangues !",
+       "type": "narration"
+      },
+      {
+       "who": "binta",
+       "text": "Tu vois, Safi ? Chaque mot qu'on dit au marché, chaque question à un client, chaque ordre à un enfant — tout ça, c'est de la grammaire vivante ! Continue comme ça, et tu seras la meilleure de ta classe.",
+       "type": "npc"
+      },
+      {
+       "who": "safi",
+       "text": "Merci Binta ! Maintenant je sais : je déclare, j'interroge, j'exclame et j'ordonne — et je sais reconnaître chaque fois quel type de phrase j'utilise. À demain au marché !",
+       "type": "npc"
+      }
+     ],
+     "characters": [
+      {
+       "id": "safi",
+       "name": "Safi",
+       "role": "Guide",
+       "side": "left",
+       "color": "#F59E0B"
+      },
+      {
+       "id": "binta",
+       "name": "Binta",
+       "role": "Vendeuse de mangues",
+       "side": "right",
+       "color": "#EC4899"
+      }
+     ]
+    },
+    "color": "#F59E0B",
+    "guide": "Safi"
+   }
+  }
+ ]
+}

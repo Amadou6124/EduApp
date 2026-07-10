@@ -96,6 +96,22 @@ monter à Gemini 3.5 Flash. Bonus : **Batch API −50 %** (génération non temp
 Le coût IA n'est PAS le risque de survie (~10% du prix parent) → optimisation de marge à l'échelle,
 à faire après le développement des chantiers en cours. **Ne pas oublier.**
 
+### Histoire v3 — décision produit posée : CASTING FIXE « Missions » (modèle Duolingo)
+Verdict (recherche mondiale) : les personnages inventés par l'IA à chaque leçon = MORTS (qualité
+aléatoire, zéro attachement, colle mal aux maths/code). Le modèle prouvé = **casting fixe dessiné
+UNE fois** (Duolingo : continuité type série TV, attachement émotionnel, marche pour Duolingo
+Math aussi). Plan retenu, à attaquer APRÈS le chantier Usage sain :
+1. Créer 2 personnages maliens canoniques (garçon + fille) — brouillons SVG d'abord, puis
+   illustrateur/Figma (coût unique, plusieurs expressions). Ils deviennent l'identité de l'app
+   (missions, encouragements quiz/cahier, cartes de connexion).
+2. L'histoire devient « Mission » : le duo accompagne l'élève dans TOUTE matière (marché=maths,
+   labo=physique…). L'IA n'invente plus les personnages, elle écrit leurs dialogues (prompt
+   contraint = qualité stable). Player scène (maquette « La Scène » posée : décor plein écran,
+   bulles BD, question dans la scène — artifact 9ca5e7de).
+3. **Niveau 2 (étoile polaire)** : explorables interactifs générés par l'IA pour maths/physique/
+   code (modèle Brilliant — manipuler jusqu'à ce que ça clique) en remplacement/enrichissement
+   de la Mission sur les matières scientifiques. Quasi inexistant sur le marché = différenciateur.
+
 ### Cahier élève — niveau 2 : bloc IA dédié « B4 Cahier »
 Le Cahier v1 est livré en **Voie B** (dérivation du contenu déjà généré, sans IA : dictée depuis
 la lecture, copie du glossaire, composition depuis un concept). Niveau 2 = un **bloc de génération
