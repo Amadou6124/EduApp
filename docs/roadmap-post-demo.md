@@ -160,6 +160,12 @@ unique « ses cours, ses heures ». Et **3 écrans non reliés** : créer le pro
 ### Dette technique / polish
 > Audité juillet 2026 : **`brand-blue → primary` FAIT** (focus ring restauré, 4 fichiers) ;
 > **alerte émargement** et **`components.css` orphelin** = déjà faits/inexistants (retirés).
+- ⚠️ **Examen élève : incohérence génération ↔ affichage.** Le prompt de génération autorise les
+  **13 types** de quiz dans les examens (`services.py:640` « mêmes types ») mais `exam_runner_v2.html`
+  n'en REND que **5** (mcq_single/multiple, true_false, cloze_test, matching) → une question d'un
+  autre type dans un examen = **invisible/cassée** pour l'élève. Remèdes possibles : (a) rendre les
+  13 types dans le runner examen, ou (b) restreindre le prompt examen aux 5 rendus (1 ligne).
+  Constaté pendant le montage du banc de QA élève (matière « Test »).
 - Cosmétiques divers : carte dashboard demi-largeur, erreurs Alpine console, labels de groupe HTMX orphelins (notifications).
 
 *(Déjà faits, donc retirés du backlog : catalogue de frais + échéancier par tranches, liste rouge des impayés,
