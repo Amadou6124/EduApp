@@ -48,6 +48,9 @@ class QuizAttempt(models.Model):
     is_correct = models.BooleanField()
     time_spent_seconds = models.PositiveSmallIntegerField(default=0)
     attempted_at = models.DateTimeField(auto_now_add=True)
+    # Provenance de la réponse : 'parcours' (quiz d'un concept) ou 'revision'
+    # (session de répétition espacée). Additif — les rows historiques = 'parcours'.
+    source = models.CharField(max_length=12, default='parcours')
 
     # v2 (PORTAL_V2_SPEC) : rattachement au versioning. Null pour les rows v1.
     # content_version PROTECT → étend le verrou anti-orphelinage au log de réponses.
@@ -168,6 +171,47 @@ class ConceptProgress(models.Model):
         indexes = [
             models.Index(fields=['student', 'lesson'], name='cprog_student_lesson_idx'),
         ]
+
+
+class ConceptReview(models.Model):
+    """Agenda de mémoire (répétition espacée, boîtes de Leitner) — Chantier Révision.
+
+    Une ligne = « quand cet élève doit revoir ce concept ». Entrée : quand le
+    concept est terminé dans le parcours (passes_done >= passes). Révision
+    réussie → boîte +1 (intervalle qui s'allonge) ; ratée → boîte -1 (jamais de
+    retour brutal à zéro). La ligne suit la version de contenu ACTIVE : si le
+    prof régénère, sync_reviews() ré-ancre sur la nouvelle version quand le
+    concept_id existe encore, sinon supprime la ligne (défensif, jamais bloquant).
+    Source de vérité des réponses = QuizAttempt (source='revision')."""
+    BOX_MIN, BOX_MAX = 1, 4
+    BOX_INTERVALS = {1: 2, 2: 7, 3: 21, 4: 60}   # jours avant la prochaine révision
+
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE,
+        related_name='concept_reviews',
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE,
+        related_name='concept_reviews',
+    )
+    content_version = models.ForeignKey(
+        LessonContentVersion, on_delete=models.PROTECT,
+        related_name='concept_reviews',
+    )
+    concept_id = models.CharField(max_length=50)
+    box = models.PositiveSmallIntegerField(default=1)
+    due_date = models.DateField()
+    last_reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('student', 'content_version', 'concept_id')]
+        indexes = [
+            models.Index(fields=['student', 'due_date'], name='creview_student_due_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.student_id} · {self.concept_id} · boîte {self.box} · {self.due_date}'
 
 
 class QuestionDraw(models.Model):
