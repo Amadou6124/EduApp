@@ -200,3 +200,26 @@ class MultiTenantIsolationTests(TestCase):
         # …mais une école dont il n'est PAS membre reste interdite → 403.
         r_c = self.client.post(reverse('accounts:switch-school', args=[school_c.id]))
         self.assertEqual(r_c.status_code, 403)
+
+
+class TemplateCommentHygieneTests(TestCase):
+    """Garde-fou anti-récidive : un commentaire Django {# … #} DOIT tenir sur une
+    seule ligne. Un {# multi-ligne fait fuir la suite en texte visible à l'écran
+    (bug rencontré plusieurs fois). Pour du multi-ligne : {% comment %}…{% endcomment %}.
+    Ce test scanne TOUS les templates du projet et échoue si un {# est ouvert sans
+    son #} sur la même ligne."""
+
+    def test_aucun_commentaire_django_multiligne(self):
+        import os
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent.parent   # racine du repo
+        offenders = []
+        for base in [root / 'templates', root / 'apps']:
+            for path in base.rglob('*.html'):
+                for i, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+                    # un {# non refermé par #} sur la même ligne = fuite potentielle
+                    if '{#' in line and '#}' not in line.split('{#', 1)[1]:
+                        offenders.append(f'{path.relative_to(root)}:{i}')
+        self.assertEqual(offenders, [],
+                         'Commentaires {# #} multi-lignes (utilise {% comment %}) : '
+                         + ', '.join(offenders))

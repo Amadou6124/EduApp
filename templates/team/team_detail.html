@@ -112,8 +112,8 @@
       {% include "team/partials/staff_permissions.html" with member=member perm=perm perm_form=perm_form is_director=is_director active_count=stats.permissions %}
     {% endif %}
 
-    {# Connexion — régénérer le mot de passe (directeur). Débloque un membre qui a oublié
-       le sien (en attendant l'auth par e-mail). Nouveau mdp affiché une fois + forcé. #}
+    {% comment %}Connexion — régénérer le mot de passe (directeur). Débloque un membre qui a oublié
+       le sien (en attendant l'auth par e-mail). Nouveau mdp affiché une fois + forcé.{% endcomment %}
     {% if is_director and member.pk != request.user.pk %}
     <div class="card p-5">
       <h3 class="text-sm font-semibold text-gray-900 mb-1">Connexion</h3>
@@ -257,8 +257,8 @@
     </div>
   </template>
 
-  {# Modal identifiants après régénération — écoute staff-credentials (kebab émis
-     nativement par htmx depuis le HX-Trigger staffCredentials ; pas de bridge). #}
+  {% comment %}Modal identifiants après régénération — écoute staff-credentials (kebab émis
+     nativement par htmx depuis le HX-Trigger staffCredentials ; pas de bridge).{% endcomment %}
   <div x-data="{ show:false, sName:'', sPhone:'', sPwd:'', sCopied:false }"
        @staff-credentials.window="sName=$event.detail.name||''; sPhone=$event.detail.phone||''; sPwd=$event.detail.temp_pwd||''; sCopied=false; show=true; $nextTick(()=>window.lucide&&lucide.createIcons())">
     <template x-teleport="body">

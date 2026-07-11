@@ -163,10 +163,17 @@ class Command(BaseCommand):
                 u.set_password('demo1234')
                 u.save()
             profs.append(u)
-        for u in [director] + profs:                       # rejouable : recale le legacy
+        # rejouable : recale le legacy User.school ET désarme le changement de mot
+        # de passe forcé (sinon le staff démo serait bloqué sur /password/set/ et
+        # toutes les sections lazy de l'app se figeraient sur « Chargement… »).
+        for u in [director] + profs:
+            fields = []
             if u.school_id != school.id:
-                u.school = school
-                u.save(update_fields=['school'])
+                u.school = school; fields.append('school')
+            if getattr(u, 'must_change_password', False):
+                u.must_change_password = False; fields.append('must_change_password')
+            if fields:
+                u.save(update_fields=fields)
         for u, role in [(director, UserRole.DIRECTOR)] + [(p, UserRole.TEACHER) for p in profs]:
             Membership.objects.get_or_create(user=u, school=school,
                                              defaults=dict(role=role, is_default=True))

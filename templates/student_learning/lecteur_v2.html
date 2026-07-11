@@ -187,8 +187,8 @@
   <!-- ════ SHEET : SOMMAIRE ════ -->
   <template x-if="toc">
     <div>
-      {# Sommaire NON-bloquant : pas de voile → le contenu reste scrollable derrière.
-         Fermeture : le X, ou un clic sur une section (goTo referme). #}
+      {% comment %}Sommaire NON-bloquant : pas de voile → le contenu reste scrollable derrière.
+         Fermeture : le X, ou un clic sur une section (goTo referme).{% endcomment %}
       <div class="rsheet" style="background:var(--panel-bg);color:var(--text);max-height:66vh">
         <div class="rhandle"></div>
         <div class="flex items-center justify-between" style="margin-bottom:14px">

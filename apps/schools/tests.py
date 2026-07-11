@@ -335,3 +335,53 @@ class SchoolYearFormValidationTests(TestCase):
                         start_date=date(2026, 10, 1), end_date=date(2027, 6, 30))
         with self.assertRaises(ValidationError):
             y2.clean()                              # le vrai contrôle reste actif
+
+
+class ClassEditTests(TestCase):
+    """#4 — édition classe : erreurs visibles (retarget modal) + doublon non 500."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth import get_user_model
+        from apps.accounts.models import Membership, UserRole
+        U = get_user_model()
+        cls.school = School.objects.create(name='É', short_name='E', city='Bamako',
+                                           school_type='primary')
+        cls.director = U.objects.create_user(
+            phone_number='79990001', password='x', full_name='Dir', role=UserRole.DIRECTOR,
+            school=cls.school)
+        Membership.objects.create(user=cls.director, school=cls.school,
+                                  role=UserRole.DIRECTOR, is_default=True)
+        cls.c1 = SchoolClass.objects.create(school=cls.school, name='6ème A',
+                                            level='fondamental_2', annual_fee=0, max_capacity=40)
+        cls.c2 = SchoolClass.objects.create(school=cls.school, name='9ème A',
+                                            level='fondamental_1', annual_fee=0, max_capacity=40)
+
+    def setUp(self):
+        self.client.force_login(self.director)
+
+    def _post(self, cls, **over):
+        data = {'name': cls.name, 'level': cls.level, 'annual_fee': '0', 'max_capacity': '40'}
+        data.update(over)
+        return self.client.post(f'/classes/{cls.id}/update/', data,
+                                HTTP_HX_REQUEST='true', HTTP_HOST='localhost')
+
+    def test_edition_niveau_reussie(self):
+        resp = self._post(self.c2, level='fondamental_2')   # corrige la 9ème
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('close-edit-modal', resp.headers.get('HX-Trigger', ''))
+        self.c2.refresh_from_db()
+        self.assertEqual(self.c2.level, 'fondamental_2')
+
+    def test_renommage_vers_nom_existant_ne_500_pas(self):
+        resp = self._post(self.c2, name='6ème A')           # nom déjà pris (actif)
+        self.assertEqual(resp.status_code, 200)             # PAS de 500
+        self.assertEqual(resp.headers.get('HX-Retarget'), '#modal-edit-content')
+        self.assertContains(resp, 'porte déjà ce nom')      # erreur VISIBLE
+        self.c2.refresh_from_db()
+        self.assertEqual(self.c2.name, '9ème A')            # inchangé
+
+    def test_form_invalide_recible_le_modal(self):
+        resp = self._post(self.c2, name='')                 # nom vide
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.headers.get('HX-Retarget'), '#modal-edit-content')

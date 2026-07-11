@@ -120,7 +120,7 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
           x-data="{ newSubj: false }"
           class="rounded-xl border border-dashed border-gray-200 p-3">
       {% csrf_token %}
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
         <div class="col-span-2 sm:col-span-2">
           <label class="block text-[10px] font-semibold text-gray-500 mb-1">Matière <span class="text-red-400">*</span></label>
           <select name="subject" required class="input-field h-9 text-sm w-full"
@@ -138,6 +138,10 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
           <input name="coefficient" type="number" step="0.1" min="0.1" value="1" class="input-field h-9 text-sm w-full">
         </div>
         <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Note max</label>
+          <input name="max_grade" type="number" step="0.01" min="1" value="20" class="input-field h-9 text-sm w-full">
+        </div>
+        <div class="col-span-2 sm:col-span-1">
           <label class="block text-[10px] font-semibold text-gray-500 mb-1">Enseignant</label>
           <select name="teacher" class="input-field h-9 text-sm w-full">
             <option value="">— Aucun —</option>
@@ -145,7 +149,6 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
           </select>
         </div>
       </div>
-      <input type="hidden" name="max_grade"      value="20">
       <input type="hidden" name="duration_hours" value="2">
       <input type="hidden" name="order"          value="{{ class_subjects|length }}">
       <div class="flex justify-end mt-2">

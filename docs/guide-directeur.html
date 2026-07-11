@@ -1,0 +1,275 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EduApp · Guide du directeur — Configurer son école de A à Z</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   Guide du directeur — document de référence EduApp.
+   Identité admin (indigo, sobre, Linear) ; lisible téléphone ; imprimable.
+   ══════════════════════════════════════════════════════════════════════ */
+:root{
+  color-scheme:light;
+  --bg:#F7F7F8; --surface:#FFFFFF; --ink:#18181B; --muted:#71717A; --faint:#A1A1AA;
+  --border:#E4E4E7; --border-soft:#F0F0F2;
+  --indigo:#5B5BD6; --indigo-ink:#4646BE; --indigo-soft:#EDEDFB; --indigo-border:#D5D5F5;
+  --green:#0E8A62; --green-soft:#E7F6F0;
+  --amber:#B45309; --amber-soft:#FEF3E2;
+  --red:#B91C1C; --red-soft:#FDECEC;
+  --font:'Manrope', -apple-system, 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#131316; --surface:#1C1C21; --ink:#EDEDEF; --muted:#9B9BA3; --faint:#66666E;
+    --border:#2A2A31; --border-soft:#222228;
+    --indigo:#8E8EF0; --indigo-ink:#A5A5F5; --indigo-soft:rgba(91,91,214,.16); --indigo-border:rgba(91,91,214,.35);
+    --green:#4ADE9E; --green-soft:rgba(14,138,98,.15);
+    --amber:#F5A64B; --amber-soft:rgba(180,83,9,.15);
+    --red:#F08787; --red-soft:rgba(185,28,28,.14);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#131316; --surface:#1C1C21; --ink:#EDEDEF; --muted:#9B9BA3; --faint:#66666E;
+  --border:#2A2A31; --border-soft:#222228;
+  --indigo:#8E8EF0; --indigo-ink:#A5A5F5; --indigo-soft:rgba(91,91,214,.16); --indigo-border:rgba(91,91,214,.35);
+  --green:#4ADE9E; --green-soft:rgba(14,138,98,.15);
+  --amber:#F5A64B; --amber-soft:rgba(180,83,9,.15);
+  --red:#F08787; --red-soft:rgba(185,28,28,.14);
+}
+:root[data-theme="light"]{ color-scheme:light }
+
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font);background:var(--bg);color:var(--ink);
+     -webkit-font-smoothing:antialiased;line-height:1.55;font-size:15px}
+.wrap{max-width:860px;margin:0 auto;padding:28px 16px 80px}
+
+/* ── entête ── */
+.hero{background:linear-gradient(135deg,var(--indigo) 0%,#4646BE 100%);border-radius:20px;
+      padding:28px 24px;color:#fff;margin-bottom:14px}
+.hero .brand{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+.hero h1{margin:6px 0 8px;font-size:clamp(22px,4.5vw,30px);font-weight:800;line-height:1.15;text-wrap:balance}
+.hero p{margin:0;font-size:14px;opacity:.92;max-width:56ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 26px}
+.legend span{font-size:12px;font-weight:700;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--muted)}
+.legend b{color:var(--ink)}
+
+/* ── sommaire ── */
+.toc{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 18px;margin-bottom:30px}
+.toc h2{margin:0 0 10px;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.toc ol{margin:0;padding-left:20px;columns:2;column-gap:28px;font-size:13.5px;font-weight:600}
+.toc li{margin-bottom:6px;break-inside:avoid}
+.toc a{color:var(--indigo-ink);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+@media (max-width:560px){.toc ol{columns:1}}
+
+/* ── phases ── */
+.phase{margin-bottom:34px}
+.phaseHead{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.phaseNum{width:38px;height:38px;border-radius:12px;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0}
+.phase h2{margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em}
+.phaseMeta{margin:0 0 12px 50px;font-size:12.5px;color:var(--muted);font-weight:600}
+.phaseMeta b{color:var(--indigo-ink)}
+
+/* ── tableaux ── */
+.tblWrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+th{background:var(--indigo-soft);color:var(--indigo-ink);text-align:left;font-size:11px;font-weight:800;
+   letter-spacing:.06em;text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--indigo-border)}
+td{padding:11px 12px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.step{width:30px;font-weight:800;color:var(--faint);font-variant-numeric:tabular-nums}
+td.what{font-weight:700;min-width:150px}
+td.what small{display:block;font-weight:500;color:var(--muted);margin-top:2px;font-size:12px}
+td.where{color:var(--muted);font-size:12.5px;min-width:130px}
+td.where b{display:inline-block;color:var(--ink);font-size:12px;background:var(--bg);border:1px solid var(--border);
+           border-radius:7px;padding:1px 8px;margin:1px 0;font-weight:700;white-space:nowrap}
+td.tip{color:var(--muted);font-size:12.5px;min-width:190px}
+td.tip b{color:var(--amber)}
+td.tip .ok{color:var(--green);font-weight:700}
+
+/* ── encarts conseils ── */
+.callout{display:flex;gap:11px;margin-top:12px;padding:13px 15px;border-radius:13px;font-size:13px;line-height:1.55}
+.callout .ic{flex-shrink:0;font-size:16px}
+.callout.gold{background:var(--amber-soft);color:var(--ink)}
+.callout.gold b{color:var(--amber)}
+.callout.green{background:var(--green-soft);color:var(--ink)}
+.callout.green b{color:var(--green)}
+.callout.red{background:var(--red-soft);color:var(--ink)}
+.callout.red b{color:var(--red)}
+
+/* ── checklist finale ── */
+.finale{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px}
+.finale h2{margin:0 0 4px;font-size:17px;font-weight:800}
+.finale p{margin:0 0 12px;font-size:13px;color:var(--muted)}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin:0;padding:0;list-style:none}
+.checks li{display:flex;gap:9px;align-items:flex-start;font-size:13px;font-weight:600;padding:9px 11px;
+           border:1px solid var(--border);border-radius:11px;background:var(--bg)}
+.checks li::before{content:'☐';color:var(--indigo);font-size:15px;line-height:1.3}
+
+.foot{text-align:center;margin-top:36px;font-size:12px;color:var(--faint);font-weight:600}
+
+@media print{
+  body{background:#fff;font-size:12px}
+  .hero{border-radius:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .tblWrap{break-inside:avoid;overflow:visible}
+  table{min-width:0}
+  .phase{break-inside:avoid-page}
+}
+</style>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="brand">EduApp · Guide du directeur</div>
+    <h1>Configurer son école de A à Z</h1>
+    <p>Le chemin complet, dans l'ordre : des fondations jusqu'au quotidien. Chaque étape indique <b>où cliquer</b> dans l'app et le <b>conseil</b> qui évite les erreurs.</p>
+  </div>
+
+  <div class="legend">
+    <span>⏱️ <b>Temps estimé</b> par phase</span>
+    <span>📍 <b>Où</b> = le menu dans l'app</span>
+    <span>💡 <b>Conseil</b> = l'expérience qui évite les pièges</span>
+  </div>
+
+  <div class="toc">
+    <h2>Sommaire</h2>
+    <ol>
+      <li><a href="#p0">Avant de commencer — préparer ses papiers</a></li>
+      <li><a href="#p1">Les fondations (Réglages)</a></li>
+      <li><a href="#p2">Les classes et l'emploi du temps</a></li>
+      <li><a href="#p3">L'équipe (enseignants &amp; staff)</a></li>
+      <li><a href="#p4">Les élèves et leurs parents</a></li>
+      <li><a href="#p5">L'argent (frais, tranches, paiements)</a></li>
+      <li><a href="#p6">Le quotidien (notes, bulletins, annonces…)</a></li>
+      <li><a href="#p7">Checklist finale de démarrage</a></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════ PHASE 0 ═══════════ -->
+  <section class="phase" id="p0">
+    <div class="phaseHead"><div class="phaseNum">0</div><h2>Avant de commencer — préparer ses papiers</h2></div>
+    <p class="phaseMeta">⏱️ <b>30 min</b> · sans ordinateur — tout ira plus vite ensuite</p>
+    <div class="tblWrap"><table>
+      <tr><th></th><th>À préparer</th><th>Pourquoi</th></tr>
+      <tr><td class="step">1</td><td class="what">La liste des classes<small>avec le montant annuel de scolarité de chacune</small></td><td class="tip">Vous la saisirez en 5 minutes si elle est déjà écrite.</td></tr>
+      <tr><td class="step">2</td><td class="what">La liste des enseignants<small>nom complet + numéro de téléphone</small></td><td class="tip">Le téléphone sert d'identifiant de connexion.</td></tr>
+      <tr><td class="step">3</td><td class="what">La liste des élèves<small>idéalement en fichier Excel : nom, classe, contact du parent</small></td><td class="tip">L'app fournit un <b>modèle Excel</b> à remplir — l'import crée tout d'un coup.</td></tr>
+      <tr><td class="step">4</td><td class="what">Les frais de l'école<small>inscription, scolarité, tenue, cantine… et leurs montants</small></td><td class="tip">Y compris les différences par sexe (tenue) ou par classe.</td></tr>
+      <tr><td class="step">5</td><td class="what">L'emploi du temps papier<small>de chaque classe</small></td><td class="tip">Vous le recopierez créneau par créneau — prévoir les pauses.</td></tr>
+    </table></div>
+    <div class="callout gold"><span class="ic">💡</span><div><b>Conseil d'or :</b> ne configurez pas « au fur et à mesure ». Une heure de préparation papier = une configuration sans retour en arrière.</div></div>
+  </section>
+
+  <!-- ═══════════ PHASE 1 ═══════════ -->
+  <section class="phase" id="p1">
+    <div class="phaseHead"><div class="phaseNum">1</div><h2>Les fondations (Réglages)</h2></div>
+    <p class="phaseMeta">⏱️ <b>15 min</b> · menu <b>Réglages</b> — tout le reste s'appuie dessus (les périodes viennent en Phase 2, après les classes)</p>
+    <div class="tblWrap"><table>
+      <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
+      <tr><td class="step">1</td><td class="what">Compléter le profil de l'école<small>nom exact, adresse, téléphone, type d'école</small></td><td class="where"><b>Réglages → Général</b></td><td class="tip">Ce nom apparaîtra sur les <b>reçus et bulletins</b> — écrivez-le comme sur vos documents officiels.</td></tr>
+      <tr><td class="step">2</td><td class="what">Créer l'année scolaire<small>ex. 2026-2027, dates de début et fin</small></td><td class="where"><b>Réglages → Années scolaires</b></td><td class="tip"><b>Activez-la</b> après création : une seule année active à la fois — c'est elle qui porte tout.</td></tr>
+      <tr><td class="step">3</td><td class="what">Créer les matières<small>Français, Mathématiques, Sciences…</small></td><td class="where"><b>Réglages → Matières</b></td><td class="tip">Créez la liste <b>complète</b> une fois ici — vous les attribuerez ensuite classe par classe avec les coefficients.</td></tr>
+      <tr><td class="step">4</td><td class="what">Personnaliser reçus &amp; en-têtes<small>logo, mentions du reçu de paiement</small></td><td class="where"><b>Réglages → Reçus / En-têtes</b></td><td class="tip">Faites <span class="ok">un paiement test</span> plus tard et imprimez le reçu pour vérifier le rendu.</td></tr>
+      <tr><td class="step">5</td><td class="what">Barème d'appréciations<small>« Très bien », « Bien », « Insuffisant »…</small></td><td class="where"><b>Réglages → Appréciations</b></td><td class="tip">Un modèle prêt à l'emploi existe (« pré-remplir ») — ajustez-le à vos habitudes.</td></tr>
+    </table></div>
+    <div class="callout red"><span class="ic">⚠️</span><div><b>Piège classique :</b> oublier d'<b>activer</b> l'année scolaire. Sans année active, pas d'inscriptions, pas de fiches de paiement, pas d'emploi du temps.</div></div>
+    <div class="callout gold"><span class="ic">📅</span><div><b>Les périodes viennent APRÈS les classes</b> (Phase 2). C'est normal : les compositions/trimestres dépendent du cycle, et le cycle est défini par vos classes. Tant qu'aucune classe n'existe, la page Périodes affiche « Créez d'abord des classes ».</div></div>
+  </section>
+
+  <!-- ═══════════ PHASE 2 ═══════════ -->
+  <section class="phase" id="p2">
+    <div class="phaseHead"><div class="phaseNum">2</div><h2>Les classes et l'emploi du temps</h2></div>
+    <p class="phaseMeta">⏱️ <b>30–45 min</b> · menu <b>Classes</b></p>
+    <div class="tblWrap"><table>
+      <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
+      <tr><td class="step">1</td><td class="what">Créer les classes<small>nom, niveau, frais annuel, capacité</small></td><td class="where"><b>Classes → Nouvelle classe</b><br>ou <b>Importer</b> (Excel)</td><td class="tip">Nommez comme chez vous (« 1ère Année A », « 6ème B »). Le <b>niveau</b> choisi décide des périodes et du contenu adapté.</td></tr>
+      <tr><td class="step">2</td><td class="what">Générer les périodes<small>compositions (fondamental) ou trimestres (secondaire)</small></td><td class="where"><b>Réglages → Années scolaires → Périodes</b></td><td class="tip">Maintenant que les classes existent, chaque cycle affiche son <b>« Générer »</b>. Choisissez le rythme et le nombre, puis n'ouvrez la saisie des notes que pour la période <b>en cours</b>.</td></tr>
+      <tr><td class="step">3</td><td class="what">Attribuer les matières à chaque classe<small>coefficient, note maximale (/10 ou /20), enseignant</small></td><td class="where"><b>Classe → onglet Matières</b></td><td class="tip">Faites UNE classe complètement puis <b>« Copier vers »</b> les classes du même niveau — gain de temps énorme.</td></tr>
+      <tr><td class="step">4</td><td class="what">Saisir l'emploi du temps<small>créneaux par jour, heures précises, salle</small></td><td class="where"><b>Classe → onglet Emploi du temps</b></td><td class="tip">L'app <b>détecte les conflits</b> (prof à deux endroits, salle occupée). Le dimanche apparaît si vous l'utilisez (franco-arabe).</td></tr>
+      <tr><td class="step">5</td><td class="what">Ajouter les pauses<small>récréation, pause déjeuner…</small></td><td class="where"><b>Emploi du temps → Pauses</b></td><td class="tip">Une pause « tous les jours » se crée en une fois — informative, jamais bloquante.</td></tr>
+      <tr><td class="step">6</td><td class="what">Imprimer l'emploi du temps<small>affichage A4 par classe ou par enseignant</small></td><td class="where"><b>Emploi du temps → Imprimer</b></td><td class="tip">Affichez-le en salle des profs : la version app et la version murale seront toujours d'accord.</td></tr>
+    </table></div>
+  </section>
+
+  <!-- ═══════════ PHASE 3 ═══════════ -->
+  <section class="phase" id="p3">
+    <div class="phaseHead"><div class="phaseNum">3</div><h2>L'équipe (enseignants &amp; staff)</h2></div>
+    <p class="phaseMeta">⏱️ <b>15 min</b> · menu <b>Équipe</b></p>
+    <div class="tblWrap"><table>
+      <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
+      <tr><td class="step">1</td><td class="what">Créer les comptes enseignants<small>nom + téléphone → mot de passe généré</small></td><td class="where"><b>Équipe → Ajouter</b></td><td class="tip"><b>Imprimez/notez le mot de passe généré</b> et remettez-le en main propre. L'enseignant le changera à sa 1ʳᵉ connexion.</td></tr>
+      <tr><td class="step">2</td><td class="what">Assigner classes et matières<small>chaque prof voit SES classes</small></td><td class="where"><b>Équipe → fiche du prof</b></td><td class="tip">Si déjà fait en Phase 2 (matières par classe), vérifiez juste ici que tout est cohérent.</td></tr>
+      <tr><td class="step">3</td><td class="what">Régler les permissions du staff<small>secrétaire, comptable…</small></td><td class="where"><b>Équipe → Permissions</b></td><td class="tip">Donnez le <b>minimum nécessaire</b> : un caissier encaisse, il ne modifie pas les notes.</td></tr>
+    </table></div>
+    <div class="callout green"><span class="ic">🔐</span><div><b>Sécurité :</b> mot de passe oublié ? <b>« Régénérer »</b> depuis la fiche — jamais de mot de passe partagé entre deux personnes.</div></div>
+  </section>
+
+  <!-- ═══════════ PHASE 4 ═══════════ -->
+  <section class="phase" id="p4">
+    <div class="phaseHead"><div class="phaseNum">4</div><h2>Les élèves et leurs parents</h2></div>
+    <p class="phaseMeta">⏱️ <b>45–90 min</b> selon l'effectif · menu <b>Élèves</b></p>
+    <div class="tblWrap"><table>
+      <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
+      <tr><td class="step">1</td><td class="what">Inscrire les élèves<small>en masse (Excel) ou un par un</small></td><td class="where"><b>Élèves → Importer</b> (modèle fourni)<br>ou <b>Nouvel élève</b></td><td class="tip">L'import montre un <b>aperçu avant validation</b> — corrigez les lignes rouges dans Excel plutôt qu'après. Matricule et inscription à l'année active : automatiques.</td></tr>
+      <tr><td class="step">2</td><td class="what">Ajouter les responsables<small>parent/tuteur : nom, téléphone, lien</small></td><td class="where"><b>Fiche élève → Responsables</b></td><td class="tip">Le téléphone du parent = son <b>accès au portail parent</b> (suivi notes, paiements, absences). Marquez le contact principal.</td></tr>
+      <tr><td class="step">3</td><td class="what">Imprimer les cartes d'accès parents<small>identifiant + mot de passe à usage unique</small></td><td class="where"><b>Fiche élève → carte</b><br>ou impression en masse</td><td class="tip">À distribuer à la <b>réunion de rentrée</b> — le parent change son mot de passe à la 1ʳᵉ connexion.</td></tr>
+      <tr><td class="step">4</td><td class="what">Imprimer les cartes élèves<small>code d'accès au portail d'apprentissage</small></td><td class="where"><b>Élèves → Cartes (planche A4)</b></td><td class="tip">Une planche A4 par classe, à découper. Code perdu ? <b>« Réinitialiser le code »</b> sur la fiche.</td></tr>
+    </table></div>
+    <div class="callout gold"><span class="ic">💡</span><div><b>Conseil :</b> commencez par UNE classe pilote (la plus motivée), distribuez ses cartes, observez une semaine — puis généralisez. Meilleur que tout distribuer d'un coup.</div></div>
+  </section>
+
+  <!-- ═══════════ PHASE 5 ═══════════ -->
+  <section class="phase" id="p5">
+    <div class="phaseHead"><div class="phaseNum">5</div><h2>L'argent — frais, tranches, paiements</h2></div>
+    <p class="phaseMeta">⏱️ <b>30 min</b> · menus <b>Réglages</b> puis <b>Paiements</b></p>
+    <div class="tblWrap"><table>
+      <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
+      <tr><td class="step">1</td><td class="what">Créer le catalogue des frais<small>inscription, scolarité, tenue, cantine…</small></td><td class="where"><b>Réglages → Frais</b></td><td class="tip">Les <b>variantes</b> gèrent les cas réels : tenue fille/garçon, montant différent par classe. Marquez « obligatoire » ce qui l'est.</td></tr>
+      <tr><td class="step">2</td><td class="what">Définir les gabarits de tranches<small>annuel, trimestriel, mensuel… avec dates</small></td><td class="where"><b>Réglages → Tranches</b></td><td class="tip">1, 3 et 6 tranches existent par défaut ; créez les vôtres si besoin et marquez le gabarit <b>par défaut</b> de l'école.</td></tr>
+      <tr><td class="step">3</td><td class="what">Ouvrir les fiches financières<small>une fiche par élève inscrit</small></td><td class="where"><b>Paiements</b> (création guidée)</td><td class="tip">La fiche fige le montant dû de l'élève : <b>vérifiez les montants AVANT</b> d'encaisser le premier franc.</td></tr>
+      <tr><td class="step">4</td><td class="what">Encaisser les paiements<small>reçu imprimable à chaque encaissement</small></td><td class="where"><b>Paiements → Encaisser</b></td><td class="tip">Toujours <b>remettre le reçu</b> — c'est lui qui protège l'école ET le parent en cas de litige.</td></tr>
+      <tr><td class="step">5</td><td class="what">Accorder les remises (cas sociaux)<small>réduction tracée sur la fiche</small></td><td class="where"><b>Fiche élève → Finances → Remise</b></td><td class="tip">La remise est <b>tracée</b> (qui, quand, pourquoi) — plus aucun arrangement oral oublié.</td></tr>
+      <tr><td class="step">6</td><td class="what">Suivre la comptabilité<small>dépenses, salaires, émargement vacataires, bilan</small></td><td class="where"><b>Comptabilité</b></td><td class="tip">L'<b>émargement</b> des vacataires calcule leur paie automatiquement — faites-le remplir chaque jour, pas en fin de mois.</td></tr>
+    </table></div>
+    <div class="callout red"><span class="ic">⚠️</span><div><b>Règle d'or :</b> aucun encaissement hors de l'app. Un paiement non enregistré = un impayé fantôme et un parent fâché en fin d'année.</div></div>
+  </section>
+
+  <!-- ═══════════ PHASE 6 ═══════════ -->
+  <section class="phase" id="p6">
+    <div class="phaseHead"><div class="phaseNum">6</div><h2>Le quotidien — faire vivre l'école</h2></div>
+    <p class="phaseMeta">⏱️ rythme de croisière · toute l'année</p>
+    <div class="tblWrap"><table>
+      <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
+      <tr><td class="step">1</td><td class="what">Publier des annonces<small>réunions, congés, événements</small></td><td class="where"><b>Annonces</b></td><td class="tip">Visibles par les parents dans leur portail — remplacent les mots froissés au fond des sacs.</td></tr>
+      <tr><td class="step">2</td><td class="what">Pointer les absences<small>par les enseignants, chaque matin</small></td><td class="where"><b>Portail enseignant → Appel</b></td><td class="tip">On ne pointe que <b>absents et retards</b> (rapide). Le parent le voit ; 3 absences = signal au cockpit directeur.</td></tr>
+      <tr><td class="step">3</td><td class="what">Saisir les notes<small>devoirs et compositions de la période</small></td><td class="where"><b>Notes</b> (directeur)<br><b>Portail enseignant</b> (profs)</td><td class="tip">Ouvrez la saisie de la période (Réglages → Périodes) puis <b>fermez-la</b> après les conseils — plus de modifications sauvages.</td></tr>
+      <tr><td class="step">4</td><td class="what">Publier les évaluations aux parents<small>interros, points d'étape hors bulletin</small></td><td class="where"><b>Notes → Évaluations</b></td><td class="tip">La note n'est visible qu'après <b>votre</b> publication — vous gardez la main sur ce que voient les familles.</td></tr>
+      <tr><td class="step">5</td><td class="what">Générer et publier les bulletins<small>moyennes, rangs, PDF officiels</small></td><td class="where"><b>Bulletins</b></td><td class="tip">Générez en brouillon → <b>relisez</b> 2-3 bulletins au hasard → publiez. Publier = visible parents + élèves, PDF téléchargeable.</td></tr>
+      <tr><td class="step">6</td><td class="what">Créer les leçons interactives (IA)<small>photo/PDF du cours → quiz, lecture, histoire, examen</small></td><td class="where"><b>Leçons</b> (portail enseignant)</td><td class="tip">L'enseignant photographie son cours, l'IA construit la leçon, <b>il valide</b>, puis déploie vers sa classe. Les élèves révisent avec leur carte d'accès.</td></tr>
+      <tr><td class="step">7</td><td class="what">Consulter le cockpit chaque matin<small>signaux : impayés, absences, alertes</small></td><td class="where"><b>Tableau de bord</b></td><td class="tip">5 minutes par jour : les urgences remontent seules (« À votre attention ») — inutile de fouiller les menus.</td></tr>
+    </table></div>
+  </section>
+
+  <!-- ═══════════ PHASE 7 ═══════════ -->
+  <section class="phase" id="p7">
+    <div class="finale">
+      <h2>✅ Checklist finale — prêt pour la rentrée ?</h2>
+      <p>Si vous pouvez cocher ces 10 cases, votre école est opérationnelle.</p>
+      <ul class="checks">
+        <li>Année scolaire créée et <b>activée</b></li>
+        <li>Toutes les classes créées avec leurs frais</li>
+        <li>Périodes générées (après les classes), saisie ouverte sur la 1ʳᵉ</li>
+        <li>Matières + coefficients attribués par classe</li>
+        <li>Emploi du temps saisi et affiché</li>
+        <li>Chaque enseignant a son compte et ses classes</li>
+        <li>Élèves importés, responsables renseignés</li>
+        <li>Cartes parents et élèves imprimées</li>
+        <li>Catalogue de frais + fiches financières vérifiés</li>
+        <li>Un paiement test encaissé, reçu imprimé et relu</li>
+      </ul>
+      <div class="callout gold" style="margin-top:14px"><span class="ic">🎯</span><div><b>Ordre conseillé pour la 1ʳᵉ semaine :</b> Jour 1 = Phases 1-2 (fondations + classes). Jour 2 = Phases 3-4 (équipe + élèves). Jour 3 = Phase 5 (argent) + paiement test. Jours 4-5 = distribution des cartes à la classe pilote et premiers pas du quotidien.</div></div>
+    </div>
+  </section>
+
+  <div class="foot">EduApp — Guide du directeur · version 1 · Bamako</div>
+</div>

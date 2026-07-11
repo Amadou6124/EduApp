@@ -108,13 +108,15 @@ def _vacataire_course_rates(school, member, profile):
 @login_required
 @director_or_accounting_required
 def employee_remuneration_panel(request, user_id):
-    """Panneau rémunération (GET, lazy-load HTMX). 403 si module désactivé."""
+    """Panneau rémunération (GET, lazy-load HTMX). Module désactivé → état clair
+    en 200 (jamais un 403 nu : HTMX ne remplacerait rien → « Chargement… » figé)."""
     from apps.accounts.models import User, Membership
     from .models import EmployeeProfile, EmploymentType
 
     school = get_school(request)
     if not school.accounting_enabled:
-        return HttpResponse(status=403)
+        return render(request, 'accounting/partials/remuneration_disabled.html',
+                      {'school': school})
 
     member = get_object_or_404(User, pk=user_id, school=school)
     membership = get_object_or_404(Membership, user=member, school=school)
