@@ -270,7 +270,9 @@ def emargement_dashboard(request):
     from apps.schools.models import CourseSlot
     from apps.schools.periods import active_year_for
     year = active_year_for(school)
-    planned_map, edt_in_use = {}, False
+    # planned_map = horaires affichés ; planned_hours = durée dérivée (somme des créneaux
+    # du jour) → SOURCE de la durée pré-remplie, alignée sur le calcul de paie.
+    planned_map, planned_hours, edt_in_use = {}, {}, False
     if year:
         slot_qs = CourseSlot.objects.filter(
             school_year=year, class_subject__school_class__school=school,
@@ -280,6 +282,11 @@ def emargement_dashboard(request):
             planned_map.setdefault(s.class_subject_id, []).append(
                 f'{s.start_time:%H:%M}–{s.end_time:%H:%M}'
             )
+            dmin = (s.end_time.hour * 60 + s.end_time.minute) - (s.start_time.hour * 60 + s.start_time.minute)
+            if dmin > 0:
+                planned_hours[s.class_subject_id] = (
+                    planned_hours.get(s.class_subject_id, Decimal('0')) + Decimal(dmin) / Decimal('60')
+                )
 
     att_map = {
         a.class_subject_id: a
@@ -307,15 +314,17 @@ def emargement_dashboard(request):
 
         if cs.teacher_id in vac_user_ids:
             rate = rates.get(cs.id)
-            eff = actual if actual is not None else cs.duration_hours
+            # Durée = créneaux EDT du jour (source) ; repli sur duration_hours si aucun.
+            dur = planned_hours.get(cs.id) or cs.duration_hours
+            eff = actual if actual is not None else dur
             if status in ('present', 'replaced'):
                 sessions_done += 1
             if status == 'present' and rate:
                 day_amount += rate * eff
             g = vac_groups.setdefault(cs.teacher_id, {'teacher': cs.teacher, 'courses': []})
             g['courses'].append({
-                'cs': cs, 'rate': rate, 'duration': cs.duration_hours,
-                'presets': _hour_presets(cs.duration_hours),
+                'cs': cs, 'rate': rate, 'duration': dur,
+                'presets': _hour_presets(dur),
                 'planned': planned_map.get(cs.id),   # horaires prévus aujourd'hui (ou None)
             })
         else:
@@ -419,6 +428,10 @@ def emargement_save(request):
         hours = _parse_money(request.POST.get('hours'))  # accepte décimaux via parse
         if hours is not None and hours <= 0:
             hours = None
+        elif hours is not None:
+            # Bornes de sécurité serveur : 0,5h–8h. Bloque la faute de frappe
+            # (« 20h ») qui ferait s'emballer la paie. Le client borne déjà l'input.
+            hours = max(Decimal('0.5'), min(hours, Decimal('8')))
 
     TeacherAttendance.objects.update_or_create(
         class_subject=cs, date=d, session=session,

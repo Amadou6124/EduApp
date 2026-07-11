@@ -113,7 +113,7 @@
                     :class="cur('{{ id }}').hours==='{{ p.v }}' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300'"
                     class="px-2.5 py-1 rounded-lg border text-xs font-medium transition">{{ p.label }}</button>
             {% endfor %}
-            <input type="number" min="0.5" step="0.5" placeholder="autre"
+            <input type="number" min="0.5" max="8" step="0.25" placeholder="autre"
                    @change="setHoursFree('{{ id }}', $event)"
                    class="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-primary-400">
           </div>
