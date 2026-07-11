@@ -38,6 +38,7 @@ urlpatterns = [
     path('class-subjects/search/',                  settings_views.class_subjects_search, name='class-subjects-search'),
     path('classes/<int:class_id>/subjects/',        settings_views.class_subjects_panel, name='class-subjects'),
     path('classes/<int:class_id>/subjects/add/',    settings_views.class_subject_add,    name='class-subject-add'),
+    path('classes/<int:class_id>/subjects/apply-catalog/', settings_views.class_subject_apply_catalog, name='class-subject-apply-catalog'),
     path('classes/<int:class_id>/subjects/copy/',   settings_views.class_subject_copy,   name='class-subject-copy'),
     path('class-subjects/bulk/',                    settings_views.class_subject_bulk,   name='class-subject-bulk'),
     path('class-subjects/<int:cs_id>/update/',      settings_views.class_subject_update, name='class-subject-update'),

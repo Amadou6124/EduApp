@@ -33,6 +33,55 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
     {% endif %}
   </div>
 
+  {% comment %}Suggestion catalogue malien — matières standard du niveau, pré-cochées.
+  Suggéré, jamais forcé : décochable, et le « + » manuel plus bas couvre les cas particuliers.{% endcomment %}
+  {% if catalog_pending %}
+  <div class="px-3 pt-3">
+    <div class="rounded-xl border border-primary-100 bg-primary-50 p-3"
+         x-data="{
+           count: {{ catalog_pending|length }},
+           allOn: true,
+           recount(){ this.count = this.$root.querySelectorAll('input[name=subject]:checked').length;
+                      this.allOn = this.count === this.$root.querySelectorAll('input[name=subject]').length; },
+           toggleAll(){ const t = !this.allOn;
+                        this.$root.querySelectorAll('input[name=subject]').forEach(b => b.checked = t);
+                        this.recount(); }
+         }">
+      <div class="flex items-start gap-2.5 mb-2.5">
+        <span class="w-7 h-7 rounded-lg bg-primary-600 text-white flex items-center justify-center shrink-0">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-semibold text-primary-800">{{ catalog_pending|length }} matière{{ catalog_pending|length|pluralize }} standard pour ce niveau</p>
+          <p class="text-[11px] text-primary-600">Décochez ce qui ne s'applique pas, puis appliquez.</p>
+        </div>
+        <button type="button" class="text-[11px] font-semibold text-primary-700 hover:underline shrink-0"
+                @click="toggleAll()" x-text="allOn ? 'Tout décocher' : 'Tout cocher'"></button>
+      </div>
+      <form hx-post="{% url 'settings:class-subject-apply-catalog' school_class.id %}"
+            hx-target="#class-subjects-panel" hx-swap="innerHTML">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+          {% for s in catalog_pending %}
+          <label class="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-primary-200 bg-white cursor-pointer">
+            <input type="checkbox" name="subject" value="{{ s.name }}" checked
+                   class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" @change="recount()">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{ s.color }};"></span>
+            <span class="text-sm text-gray-800 truncate">{{ s.name }}{% if s.optional %} <span class="text-[10px] text-gray-400">· option</span>{% endif %}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="flex items-center justify-between mt-2.5">
+          <span class="text-[11px] text-primary-700"><b x-text="count"></b> sélectionnée(s)</span>
+          <button type="submit" class="btn-primary text-xs" :disabled="count === 0">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i> Appliquer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
   {# Liste des matières de la classe #}
   {% if class_subjects %}
   <div class="p-3 space-y-2">

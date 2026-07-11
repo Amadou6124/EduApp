@@ -129,6 +129,52 @@ class SubjectColorTests(TestCase):
         self.assertEqual(s.short_name, 'SVT')   # acronyme, « de / la / et » ignorés
 
 
+class SubjectCatalogTests(TestCase):
+    """Catalogue de référence malien : matières par niveau + couleurs/abréviations
+    canoniques (« Mathématiques » → MATH/vert partout). Voir subject_catalog.py."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.school = School.objects.create(
+            name='École C', short_name='EC', city='Bamako', school_type='secondary',
+        )
+
+    def test_suggestions_fondamental_2_couvre_les_matieres_du_def(self):
+        from apps.schools.subject_catalog import suggested_subjects_for_level
+        names = [m['name'] for m in suggested_subjects_for_level('fondamental_2')]
+        for attendu in ['Français', 'Mathématiques', 'Physique-Chimie', 'SVT (Biologie)',
+                        'Histoire-Géographie', 'Éducation Civique et Morale', 'Anglais',
+                        'Éducation Physique et Sportive']:
+            self.assertIn(attendu, names)
+
+    def test_niveau_inconnu_renvoie_liste_vide(self):
+        from apps.schools.subject_catalog import suggested_subjects_for_level, has_catalog
+        self.assertEqual(suggested_subjects_for_level('inconnu'), [])
+        self.assertFalse(has_catalog('inconnu'))
+
+    def test_couleur_canonique_insensible_casse_accents(self):
+        from apps.schools.subject_catalog import canonical_color
+        self.assertNotEqual(canonical_color('Mathématiques'), '')
+        self.assertEqual(canonical_color('mathematiques'), canonical_color('Mathématiques'))
+
+    def test_matiere_du_catalogue_recoit_couleur_et_abrev_canoniques(self):
+        from apps.schools.models import Subject
+        from apps.schools.subject_catalog import canonical_color
+        s = Subject.objects.create(school=self.school, name='Mathématiques')
+        self.assertEqual(s.color, canonical_color('Mathématiques'))
+        self.assertEqual(s.short_name, 'MATH')
+
+    def test_couleur_canonique_cede_si_deja_prise(self):
+        # Une 1ʳᵉ matière occupe le vert des maths ; « Mathématiques » créée ensuite
+        # ne peut PAS reprendre ce vert → couleur distincte (règle anti-collision).
+        from apps.schools.models import Subject
+        from apps.schools.subject_catalog import canonical_color
+        vert = canonical_color('Mathématiques')
+        Subject.objects.create(school=self.school, name='Truc maison', color=vert)
+        maths = Subject.objects.create(school=self.school, name='Mathématiques')
+        self.assertNotEqual(maths.color, vert)
+
+
 class CourseSlotTests(TestCase):
     """Emploi du temps : créneaux libres à la minute, conflits refusés, pauses.
     Contrat : le planning est un GUIDE (jamais de lien avec la paie)."""

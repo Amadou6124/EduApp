@@ -861,12 +861,21 @@ def _class_subjects_ctx(school, school_class):
         .filter(cs_count__gt=0)
         .order_by('level', 'name')
     )
+    # Suggestions du catalogue malien pour ce niveau, hors matières déjà présentes.
+    from apps.core.text import norm_name
+    from .subject_catalog import suggested_subjects_for_level
+    assigned_norm = {norm_name(cs.subject.name) for cs in class_subjects}
+    catalog_pending = [
+        m for m in suggested_subjects_for_level(school_class.level)
+        if norm_name(m['name']) not in assigned_norm
+    ]
     return {
         'school_class':       school_class,
         'class_subjects':     class_subjects,
         'available_subjects': available,
         'teachers':           teachers,
         'other_classes':      other_classes,
+        'catalog_pending':    catalog_pending,
     }
 
 
@@ -937,6 +946,45 @@ def class_subject_add(request, class_id):
         return resp
     return render(request, 'settings/partials/class_subjects.html',
                   _class_subjects_ctx(school, school_class))
+
+
+@login_required
+@director_or_staff_required
+@require_http_methods(['POST'])
+def class_subject_apply_catalog(request, class_id):
+    """Applique en un clic les matières standard du niveau de la classe (catalogue
+    malien). SUGGÉRÉ, jamais forcé : on ne crée que les matières COCHÉES, et seules
+    celles réellement au catalogue de ce niveau (garde-fou). L'école les possède
+    ensuite (couleur canonique, coefficients réglables)."""
+    from decimal import Decimal
+    from .models import resolve_or_create_subject
+    from .subject_catalog import suggested_subjects_for_level
+    school       = get_school(request)
+    school_class = get_object_or_404(school.classes.filter(is_active=True), id=class_id)
+
+    valid  = {m['name'] for m in suggested_subjects_for_level(school_class.level)}
+    chosen = [n for n in request.POST.getlist('subject') if n in valid]
+    if not chosen:
+        return _toast(HttpResponse(status=422), 'Cochez au moins une matière à ajouter.', 'error')
+
+    start = ClassSubject.objects.filter(school_class=school_class).count()
+    added = 0
+    for i, name in enumerate(chosen):
+        subject, _ = resolve_or_create_subject(school, name)
+        _, created = ClassSubject.objects.get_or_create(
+            school_class=school_class, subject=subject,
+            defaults={'coefficient': Decimal('1'), 'max_grade': Decimal('20'),
+                      'duration_hours': Decimal('2'), 'order': start + i},
+        )
+        added += 1 if created else 0
+
+    resp = render(request, 'settings/partials/class_subjects.html',
+                  _class_subjects_ctx(school, school_class))
+    msg  = (f'{added} matière{"s" if added > 1 else ""} ajoutée{"s" if added > 1 else ""}.'
+            if added else 'Ces matières étaient déjà dans la classe.')
+    resp['HX-Trigger'] = json.dumps({'showToast': {
+        'message': msg, 'type': 'success' if added else 'info'}})
+    return resp
 
 
 @login_required

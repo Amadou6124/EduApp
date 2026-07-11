@@ -387,6 +387,23 @@ def pick_subject_color(school, exclude_id=None):
     return min(_SUBJECT_PALETTE, key=lambda c: counts.get(c, 0))
 
 
+def resolve_subject_color(school, name, exclude_id=None):
+    """Couleur d'une matière : sa couleur CANONIQUE du catalogue malien si elle est
+    libre dans l'école (« Mathématiques » → vert partout), sinon une couleur de palette
+    sans collision. La cohérence cède toujours à la règle « pas deux mêmes couleurs »."""
+    from .subject_catalog import canonical_color
+    canon = canonical_color(name)
+    if canon:
+        used = set(
+            Subject.objects.filter(school=school, is_active=True)
+            .exclude(id=exclude_id).exclude(color='')
+            .values_list('color', flat=True)
+        )
+        if canon not in used:
+            return canon
+    return pick_subject_color(school, exclude_id=exclude_id)
+
+
 def resolve_or_create_subject(school, name):
     """Création de matière « à la volée » avec garde-fou anti-doublon.
 
@@ -433,10 +450,13 @@ class Subject(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        # Abréviation & couleur CANONIQUES si la matière figure au catalogue malien
+        # (« Mathématiques » → MATH/vert partout) ; sinon repli sur les autos.
+        from .subject_catalog import canonical_abbrev
         if not (self.short_name or '').strip():
-            self.short_name = auto_subject_abbrev(self.name)
+            self.short_name = canonical_abbrev(self.name) or auto_subject_abbrev(self.name)
         if not (self.color or '').strip() or self.color == '#4F46E5':
-            self.color = pick_subject_color(self.school, exclude_id=self.pk)
+            self.color = resolve_subject_color(self.school, self.name, exclude_id=self.pk)
         super().save(*args, **kwargs)
 
     def __str__(self):
