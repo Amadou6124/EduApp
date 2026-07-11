@@ -70,7 +70,7 @@
         <input type="tel" name="phone_number" required class="input-field" placeholder="Ex : 0700000000"
                inputmode="tel" value="{{ prefill_phone|default:'' }}">
       </div>
-      <div>
+      <div x-show="role === 'staff'" x-cloak>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Titre du poste</label>
         <input type="text" name="job_title" class="input-field" placeholder="Ex : Censeur, Comptable, Surveillant…">
       </div>

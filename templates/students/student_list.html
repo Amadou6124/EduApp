@@ -612,6 +612,7 @@
   {# ── Modal import Excel (téléportée → au-dessus du nav) ── #}
   <template x-teleport="body">
   <div x-show="showImportModal" x-cloak
+       x-init="$watch('showImportModal', open => { if(!open){ $el.querySelectorAll('input[type=file]').forEach(i => i.value=''); const z=$el.querySelector('#import-preview-area'); if(z) z.innerHTML='' } })"
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0"
        x-transition:enter-end="opacity-100"

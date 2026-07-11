@@ -127,7 +127,8 @@
             </div>
           </div>
 
-          <div x-data="{ fileName: '', dragging: false }">
+          <div x-data="{ fileName: '', dragging: false }"
+               x-init="$watch('showImportModal', open => { if(!open){ fileName=''; if($refs.fileInput) $refs.fileInput.value=''; const z=document.getElementById('import-preview-zone'); if(z) z.innerHTML='' } })">
             <p class="font-medium text-sm text-gray-700 mb-2">{% trans "Étape 2 — Choisir votre fichier (.xlsx ou .csv)" %}</p>
             <form id="import-form" hx-post="{% url 'schools:class-import-preview' %}" hx-target="#import-preview-zone" hx-swap="innerHTML"
                   hx-encoding="multipart/form-data" hx-indicator="#import-spinner">
