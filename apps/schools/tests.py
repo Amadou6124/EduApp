@@ -306,3 +306,32 @@ class ResolveSubjectTests(TestCase):
         Subject.objects.create(school=self.school, name='Math')
         s, created = resolve_or_create_subject(self.school, 'Maths')   # ≠ normalisé
         self.assertTrue(created)                    # « Math » vs « Maths » = 2 matières
+
+
+class SchoolYearFormValidationTests(TestCase):
+    """Régression : créer une année ACTIVE via le formulaire (school non encore
+    attachée) ne doit PAS lever un 500 (RelatedObjectDoesNotExist)."""
+
+    def test_form_is_valid_annee_active_sans_ecole_attachee(self):
+        from apps.schools.forms import SchoolYearForm
+        form = SchoolYearForm(data={
+            'name': '2026-2027', 'start_date': '2026-10-01',
+            'end_date': '2027-06-30', 'is_active': True,
+        })
+        # AVANT le fix : is_valid() plantait sur self.school → 500.
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_clean_modele_sans_ecole_ne_plante_pas(self):
+        y = SchoolYear(name='X', is_active=True)   # aucune école
+        y.clean()                                   # ne doit rien lever
+
+    def test_deuxieme_annee_active_toujours_refusee(self):
+        from django.core.exceptions import ValidationError
+        school = School.objects.create(name='É', short_name='E', city='Bamako',
+                                       school_type='primary')
+        SchoolYear.objects.create(school=school, name='A', is_active=True,
+                                  start_date=date(2025, 10, 1), end_date=date(2026, 6, 30))
+        y2 = SchoolYear(school=school, name='B', is_active=True,
+                        start_date=date(2026, 10, 1), end_date=date(2027, 6, 30))
+        with self.assertRaises(ValidationError):
+            y2.clean()                              # le vrai contrôle reste actif

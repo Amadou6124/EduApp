@@ -337,9 +337,12 @@ class PaymentScheduleTemplate(models.Model):
     def clean(self):
         # Cohérence applicative : interdit un 2e gabarit par défaut côté logique métier
         # (la contrainte DB le garantit aussi, mais on remonte un message clair).
-        if self.is_default:
+        # Garde `self.school_id` : full_clean() peut tourner via form.is_valid()
+        # AVANT que la vue n'attache l'école → accéder à `self.school` lèverait un
+        # 500. Le vrai contrôle a lieu au full_clean() suivant, école posée.
+        if self.is_default and self.school_id:
             qs = PaymentScheduleTemplate.objects.filter(
-                school=self.school, is_default=True,
+                school_id=self.school_id, is_default=True,
             )
             if self.pk:
                 qs = qs.exclude(pk=self.pk)

@@ -238,9 +238,14 @@ class SchoolYear(models.Model):
         ]
 
     def clean(self):
-        # Contrainte : une seule année active par école
-        if self.is_active:
-            qs = SchoolYear.objects.filter(school=self.school, is_active=True)
+        # Contrainte : une seule année active par école.
+        # Garde `self.school_id` : full_clean() peut tourner AVANT que la vue
+        # n'attache l'école (form.is_valid() sur une instance non liée) — dans ce
+        # cas on ne peut pas vérifier l'unicité, et accéder à `self.school`
+        # lèverait RelatedObjectDoesNotExist (→ 500). Le vrai contrôle a lieu au
+        # second full_clean(), une fois l'école posée.
+        if self.is_active and self.school_id:
+            qs = SchoolYear.objects.filter(school_id=self.school_id, is_active=True)
             if self.pk:
                 qs = qs.exclude(pk=self.pk)
             if qs.exists():
