@@ -49,6 +49,17 @@ Cette feuille de route liste ce qui reste à construire, priorisé, après la pr
 
 ## 🔴 Essentiel (le produit le réclame)
 
+### Périodes personnalisées par classe dans les bulletins — décision : cycle-based (test day #5)
+Constat : la page Bulletins fonctionne PAR CYCLE (Fondamental 1er = compositions, 2ème/Secondaire =
+trimestres — standard malien) et exclut volontairement les périodes propres à une classe
+(`school_class__isnull=False`, bulletins_views.py:82). Une classe en périodes « personnalisées »
+réapparaît donc sous les compositions de son cycle. **Décision user (test day) : on reste cycle-based**
+— une classe mal classée se corrige via son NIVEAU (édition classe, bug corrigé Lot A), pas via des
+périodes personnalisées. Câbler complètement les périodes par classe dans tout le flux bulletins =
+gros chantier pour un cas rare → **reporté**. Si un jour un besoin réel émerge (une classe qui diffère
+vraiment de son cycle), rouvrir ; sinon envisager de retirer l'option « personnaliser une classe »
+pour éviter la confusion.
+
 ### Passage d'année (Chantier 2)
 L'infra existe (`StudentEnrollment` est par année, statut `Passé/Diplômé`) mais **le flux de promotion
 N+1 n'est pas construit**. Sans lui, impossible d'« avancer » proprement d'une année à l'autre.
