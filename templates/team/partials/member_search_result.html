@@ -37,9 +37,9 @@
         <div class="min-w-0">
           <p class="text-sm font-semibold text-gray-900 truncate">{{ found.full_name }}</p>
           <p class="text-xs text-gray-500 font-mono">{{ found.phone_number }}</p>
-          <p class="text-xs text-primary-700 mt-0.5">
-            Compte existant · {{ found.get_role_display }}
-          </p>
+          {% comment %}Pas de rôle ici : il révélerait le rôle du compte dans une AUTRE
+             école (isolation multi-tenant). « Compte existant » suffit.{% endcomment %}
+          <p class="text-xs text-primary-700 mt-0.5">Compte existant</p>
         </div>
       </div>
     </div>

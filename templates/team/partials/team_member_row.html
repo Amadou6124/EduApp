@@ -9,7 +9,7 @@
       <span class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background-color:{{ colors.0 }};color:{{ colors.1 }}">{{ u.get_initials }}</span>
       <div class="min-w-0">
         <p class="font-medium text-gray-900 truncate">{{ u.full_name }}</p>
-        <p class="text-xs text-gray-400 truncate">{{ u.job_title|default:u.get_role_display }}</p>
+        <p class="text-xs text-gray-400 truncate">{% if u.job_title %}{{ u.job_title }}{% elif r.role == 'director' %}Directeur{% elif r.role == 'staff' %}Staff / Secrétaire{% else %}Professeur{% endif %}</p>
       </div>
     </div>
   </td>

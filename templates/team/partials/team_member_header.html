@@ -8,7 +8,12 @@ Rendu inline dans team_detail.html ET seule (swap in-place) par deactivate/react
          style="background-color:{{ colors.0 }};color:{{ colors.1 }}">{{ initials }}</div>
     <h2 class="text-lg font-bold text-gray-900 mt-3">{{ member.full_name }}</h2>
     <p class="text-sm text-gray-500 mt-0.5">
-      {% if member.job_title %}{{ member.job_title }}{% else %}{{ member.get_role_display }}{% endif %}
+      {% comment %}Rôle DANS CETTE école (member_role = Membership.role), jamais le
+         rôle global du compte : un enseignant chez nous peut être directeur ailleurs.{% endcomment %}
+      {% if member.job_title %}{{ member.job_title }}
+      {% elif member_role == 'director' %}Directeur
+      {% elif member_role == 'staff' %}Staff / Secrétaire
+      {% else %}Professeur{% endif %}
     </p>
     <div class="flex items-center gap-1.5 mt-2.5">
       {% if member_role == 'teacher' %}<span class="badge-info">Enseignant</span>
