@@ -153,3 +153,31 @@ class TeamPasswordLifecycleTests(TestCase):
         self.assertIn(r.status_code, (302, 403))               # refusé (jamais 200)
         self.director.refresh_from_db()
         self.assertFalse(self.director.must_change_password)   # mdp du directeur intact
+
+
+class TeamSubjectsLazyLoadTests(TestCase):
+    """#12 — la section « Matières » d'une fiche staff (lazy) ne doit PAS renvoyer
+    un 404 muet (→ « Chargement… » figé) pour un directeur qui enseigne aussi.
+    L'endpoint accepte tout membre de l'école, pas seulement User.role=TEACHER."""
+
+    def setUp(self):
+        from apps.schools.models import School
+        from apps.accounts.models import Membership
+        self.school = School.objects.create(
+            name='É', short_name='E', city='Bamako', school_type='primary')
+        self.director = User.objects.create_user(
+            phone_number='70002000', password='pw', full_name='Dir',
+            role=UserRole.DIRECTOR, school=self.school, must_change_password=False)
+        Membership.objects.create(user=self.director, school=self.school,
+                                  role=UserRole.DIRECTOR, is_active=True)
+        self.client.force_login(self.director)
+        s = self.client.session
+        s['active_school_id'] = self.school.id
+        s.save()
+
+    def test_subjects_directeur_enseignant_ne_404_pas(self):
+        from django.urls import reverse
+        # AVANT le fix : role=TEACHER strict → 404 sur un directeur → spinner figé.
+        resp = self.client.get(reverse('team:subjects', args=[self.director.id]),
+                               HTTP_HX_REQUEST='true')
+        self.assertEqual(resp.status_code, 200)

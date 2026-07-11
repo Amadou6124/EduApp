@@ -647,7 +647,11 @@ _ARABIC_KEYWORDS = ['arabe', 'fiqh', 'coran', 'hadith', 'tafsir', 'tarbiya']
 @director_required
 def teacher_subjects_update(request, user_id):
     school = get_school(request)
-    member = get_object_or_404(User, pk=user_id, school=school, role=UserRole.TEACHER)
+    # Tout membre de l'école (pas seulement User.role=TEACHER) : la fiche affiche
+    # la section « Matières » d'après le rôle d'APPARTENANCE (Membership), or un
+    # directeur qui enseigne a User.role='director' → le filtre strict renvoyait un
+    # 404 muet → « Chargement des matières… » figé pour toujours.
+    member = get_object_or_404(User, pk=user_id, school=school)
 
     if request.method == 'POST':
         assigned_ids = set(
