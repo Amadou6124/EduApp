@@ -138,10 +138,11 @@ td.tip .ok{color:var(--green);font-weight:700}
       <li><a href="#p1">Les fondations (Réglages)</a></li>
       <li><a href="#p2">Les classes et l'emploi du temps</a></li>
       <li><a href="#p3">L'équipe (enseignants &amp; staff)</a></li>
-      <li><a href="#p4">Les élèves et leurs parents</a></li>
-      <li><a href="#p5">L'argent (frais, tranches, paiements)</a></li>
-      <li><a href="#p6">Le quotidien (notes, bulletins, annonces…)</a></li>
-      <li><a href="#p7">Checklist finale de démarrage</a></li>
+      <li><a href="#p4">Les frais et les tranches (le catalogue)</a></li>
+      <li><a href="#p5">Les élèves et leurs parents</a></li>
+      <li><a href="#p6">Encaisser et suivre l'argent</a></li>
+      <li><a href="#p7">Le quotidien (notes, bulletins, annonces…)</a></li>
+      <li><a href="#p8">Checklist finale de démarrage</a></li>
     </ol>
   </div>
 
@@ -206,11 +207,23 @@ td.tip .ok{color:var(--green);font-weight:700}
 
   <!-- ═══════════ PHASE 4 ═══════════ -->
   <section class="phase" id="p4">
-    <div class="phaseHead"><div class="phaseNum">4</div><h2>Les élèves et leurs parents</h2></div>
+    <div class="phaseHead"><div class="phaseNum">4</div><h2>Les frais et les tranches (le catalogue)</h2></div>
+    <p class="phaseMeta">⏱️ <b>20 min</b> · menu <b>Réglages</b> — <b>AVANT</b> d'inscrire les élèves</p>
+    <div class="tblWrap"><table>
+      <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
+      <tr><td class="step">1</td><td class="what">Créer le catalogue des frais<small>inscription, scolarité, tenue, cantine…</small></td><td class="where"><b>Réglages → Frais</b></td><td class="tip">Les <b>variantes</b> gèrent les cas réels : tenue fille/garçon, montant différent par classe. Marquez « obligatoire » ce qui l'est.</td></tr>
+      <tr><td class="step">2</td><td class="what">Définir les gabarits de tranches<small>annuel, trimestriel, mensuel… avec dates</small></td><td class="where"><b>Réglages → Tranches</b></td><td class="tip">1, 3 et 6 tranches existent par défaut ; créez les vôtres si besoin et marquez le gabarit <b>par défaut</b> de l'école.</td></tr>
+    </table></div>
+    <div class="callout red"><span class="ic">⚠️</span><div><b>Pourquoi avant les élèves :</b> à l'inscription, l'app propose d'attacher les frais + l'échéancier directement. Si le catalogue n'existe pas encore, l'élève est créé <b>sans fiche financière</b> et il faudra la refaire à la main plus tard.</div></div>
+  </section>
+
+  <!-- ═══════════ PHASE 5 ═══════════ -->
+  <section class="phase" id="p5">
+    <div class="phaseHead"><div class="phaseNum">5</div><h2>Les élèves et leurs parents</h2></div>
     <p class="phaseMeta">⏱️ <b>45–90 min</b> selon l'effectif · menu <b>Élèves</b></p>
     <div class="tblWrap"><table>
       <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
-      <tr><td class="step">1</td><td class="what">Inscrire les élèves<small>en masse (Excel) ou un par un</small></td><td class="where"><b>Élèves → Importer</b> (modèle fourni)<br>ou <b>Nouvel élève</b></td><td class="tip">L'import montre un <b>aperçu avant validation</b> — corrigez les lignes rouges dans Excel plutôt qu'après. Matricule et inscription à l'année active : automatiques.</td></tr>
+      <tr><td class="step">1</td><td class="what">Inscrire les élèves<small>en masse (Excel) ou un par un</small></td><td class="where"><b>Élèves → Importer</b> (modèle fourni)<br>ou <b>Nouvel élève</b></td><td class="tip">À l'inscription, tu <b>attaches ses frais + son échéancier</b> (grâce à la Phase 4). L'import montre un <b>aperçu avant validation</b> — corrige les lignes rouges dans Excel. Matricule + inscription à l'année active : automatiques.</td></tr>
       <tr><td class="step">2</td><td class="what">Ajouter les responsables<small>parent/tuteur : nom, téléphone, lien</small></td><td class="where"><b>Fiche élève → Responsables</b></td><td class="tip">Le téléphone du parent = son <b>accès au portail parent</b> (suivi notes, paiements, absences). Marquez le contact principal.</td></tr>
       <tr><td class="step">3</td><td class="what">Imprimer les cartes d'accès parents<small>identifiant + mot de passe à usage unique</small></td><td class="where"><b>Fiche élève → carte</b><br>ou impression en masse</td><td class="tip">À distribuer à la <b>réunion de rentrée</b> — le parent change son mot de passe à la 1ʳᵉ connexion.</td></tr>
       <tr><td class="step">4</td><td class="what">Imprimer les cartes élèves<small>code d'accès au portail d'apprentissage</small></td><td class="where"><b>Élèves → Cartes (planche A4)</b></td><td class="tip">Une planche A4 par classe, à découper. Code perdu ? <b>« Réinitialiser le code »</b> sur la fiche.</td></tr>
@@ -218,25 +231,23 @@ td.tip .ok{color:var(--green);font-weight:700}
     <div class="callout gold"><span class="ic">💡</span><div><b>Conseil :</b> commencez par UNE classe pilote (la plus motivée), distribuez ses cartes, observez une semaine — puis généralisez. Meilleur que tout distribuer d'un coup.</div></div>
   </section>
 
-  <!-- ═══════════ PHASE 5 ═══════════ -->
-  <section class="phase" id="p5">
-    <div class="phaseHead"><div class="phaseNum">5</div><h2>L'argent — frais, tranches, paiements</h2></div>
-    <p class="phaseMeta">⏱️ <b>30 min</b> · menus <b>Réglages</b> puis <b>Paiements</b></p>
+  <!-- ═══════════ PHASE 6 ═══════════ -->
+  <section class="phase" id="p6">
+    <div class="phaseHead"><div class="phaseNum">6</div><h2>Encaisser et suivre l'argent</h2></div>
+    <p class="phaseMeta">⏱️ <b>20 min</b> · menus <b>Paiements</b> &amp; <b>Comptabilité</b> — une fois les élèves inscrits</p>
     <div class="tblWrap"><table>
       <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
-      <tr><td class="step">1</td><td class="what">Créer le catalogue des frais<small>inscription, scolarité, tenue, cantine…</small></td><td class="where"><b>Réglages → Frais</b></td><td class="tip">Les <b>variantes</b> gèrent les cas réels : tenue fille/garçon, montant différent par classe. Marquez « obligatoire » ce qui l'est.</td></tr>
-      <tr><td class="step">2</td><td class="what">Définir les gabarits de tranches<small>annuel, trimestriel, mensuel… avec dates</small></td><td class="where"><b>Réglages → Tranches</b></td><td class="tip">1, 3 et 6 tranches existent par défaut ; créez les vôtres si besoin et marquez le gabarit <b>par défaut</b> de l'école.</td></tr>
-      <tr><td class="step">3</td><td class="what">Ouvrir les fiches financières<small>une fiche par élève inscrit</small></td><td class="where"><b>Paiements</b> (création guidée)</td><td class="tip">La fiche fige le montant dû de l'élève : <b>vérifiez les montants AVANT</b> d'encaisser le premier franc.</td></tr>
-      <tr><td class="step">4</td><td class="what">Encaisser les paiements<small>reçu imprimable à chaque encaissement</small></td><td class="where"><b>Paiements → Encaisser</b></td><td class="tip">Toujours <b>remettre le reçu</b> — c'est lui qui protège l'école ET le parent en cas de litige.</td></tr>
-      <tr><td class="step">5</td><td class="what">Accorder les remises (cas sociaux)<small>réduction tracée sur la fiche</small></td><td class="where"><b>Fiche élève → Finances → Remise</b></td><td class="tip">La remise est <b>tracée</b> (qui, quand, pourquoi) — plus aucun arrangement oral oublié.</td></tr>
-      <tr><td class="step">6</td><td class="what">Suivre la comptabilité<small>dépenses, salaires, émargement vacataires, bilan</small></td><td class="where"><b>Comptabilité</b></td><td class="tip">L'<b>émargement</b> des vacataires calcule leur paie automatiquement — faites-le remplir chaque jour, pas en fin de mois.</td></tr>
+      <tr><td class="step">1</td><td class="what">Vérifier / ouvrir les fiches financières<small>une fiche par élève inscrit</small></td><td class="where"><b>Paiements</b> (création guidée)</td><td class="tip">Souvent déjà créées à l'inscription (Phase 5). La fiche fige le montant dû : <b>vérifiez les montants AVANT</b> d'encaisser le premier franc.</td></tr>
+      <tr><td class="step">2</td><td class="what">Encaisser les paiements<small>reçu imprimable à chaque encaissement</small></td><td class="where"><b>Paiements → Encaisser</b></td><td class="tip">Toujours <b>remettre le reçu</b> — c'est lui qui protège l'école ET le parent en cas de litige.</td></tr>
+      <tr><td class="step">3</td><td class="what">Accorder les remises (cas sociaux)<small>réduction tracée sur la fiche</small></td><td class="where"><b>Fiche élève → Finances → Remise</b></td><td class="tip">La remise est <b>tracée</b> (qui, quand, pourquoi) — plus aucun arrangement oral oublié.</td></tr>
+      <tr><td class="step">4</td><td class="what">Suivre la comptabilité<small>dépenses, salaires, émargement vacataires, bilan</small></td><td class="where"><b>Comptabilité</b></td><td class="tip">L'<b>émargement</b> des vacataires calcule leur paie automatiquement — faites-le remplir chaque jour, pas en fin de mois.</td></tr>
     </table></div>
     <div class="callout red"><span class="ic">⚠️</span><div><b>Règle d'or :</b> aucun encaissement hors de l'app. Un paiement non enregistré = un impayé fantôme et un parent fâché en fin d'année.</div></div>
   </section>
 
-  <!-- ═══════════ PHASE 6 ═══════════ -->
-  <section class="phase" id="p6">
-    <div class="phaseHead"><div class="phaseNum">6</div><h2>Le quotidien — faire vivre l'école</h2></div>
+  <!-- ═══════════ PHASE 7 ═══════════ -->
+  <section class="phase" id="p7">
+    <div class="phaseHead"><div class="phaseNum">7</div><h2>Le quotidien — faire vivre l'école</h2></div>
     <p class="phaseMeta">⏱️ rythme de croisière · toute l'année</p>
     <div class="tblWrap"><table>
       <tr><th></th><th>Quoi faire</th><th>📍 Où</th><th>💡 Conseil</th></tr>
@@ -250,8 +261,8 @@ td.tip .ok{color:var(--green);font-weight:700}
     </table></div>
   </section>
 
-  <!-- ═══════════ PHASE 7 ═══════════ -->
-  <section class="phase" id="p7">
+  <!-- ═══════════ PHASE 8 ═══════════ -->
+  <section class="phase" id="p8">
     <div class="finale">
       <h2>✅ Checklist finale — prêt pour la rentrée ?</h2>
       <p>Si vous pouvez cocher ces 10 cases, votre école est opérationnelle.</p>
@@ -262,12 +273,12 @@ td.tip .ok{color:var(--green);font-weight:700}
         <li>Matières + coefficients attribués par classe</li>
         <li>Emploi du temps saisi et affiché</li>
         <li>Chaque enseignant a son compte et ses classes</li>
-        <li>Élèves importés, responsables renseignés</li>
+        <li>Catalogue de frais + tranches défini (<b>avant</b> les élèves)</li>
+        <li>Élèves importés (avec frais attachés), responsables renseignés</li>
         <li>Cartes parents et élèves imprimées</li>
-        <li>Catalogue de frais + fiches financières vérifiés</li>
         <li>Un paiement test encaissé, reçu imprimé et relu</li>
       </ul>
-      <div class="callout gold" style="margin-top:14px"><span class="ic">🎯</span><div><b>Ordre conseillé pour la 1ʳᵉ semaine :</b> Jour 1 = Phases 1-2 (fondations + classes). Jour 2 = Phases 3-4 (équipe + élèves). Jour 3 = Phase 5 (argent) + paiement test. Jours 4-5 = distribution des cartes à la classe pilote et premiers pas du quotidien.</div></div>
+      <div class="callout gold" style="margin-top:14px"><span class="ic">🎯</span><div><b>Ordre conseillé pour la 1ʳᵉ semaine :</b> Jour 1 = Phases 1-2 (fondations + classes). Jour 2 = Phase 3 (équipe) + Phase 4 (frais &amp; tranches). Jour 3 = Phase 5 (élèves, avec frais attachés). Jour 4 = Phase 6 (paiement test). Jour 5 = cartes de la classe pilote et premiers pas du quotidien.</div></div>
     </div>
   </section>
 
