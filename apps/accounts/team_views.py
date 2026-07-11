@@ -651,7 +651,9 @@ def teacher_subjects_update(request, user_id):
     # la section « Matières » d'après le rôle d'APPARTENANCE (Membership), or un
     # directeur qui enseigne a User.role='director' → le filtre strict renvoyait un
     # 404 muet → « Chargement des matières… » figé pour toujours.
-    member = get_object_or_404(User, pk=user_id, school=school)
+    # Appartenance à CETTE école (memberships__school), pas User.school (école
+    # principale du compte) : un membre multi-école a User.school ailleurs → 404.
+    member = get_object_or_404(User, pk=user_id, memberships__school=school)
 
     if request.method == 'POST':
         assigned_ids = set(
@@ -692,7 +694,7 @@ def teacher_subjects_update(request, user_id):
 @require_POST
 def teacher_assign_class(request, user_id):
     school = get_school(request)
-    member = get_object_or_404(User, pk=user_id, school=school, role=UserRole.TEACHER)
+    member = get_object_or_404(User, pk=user_id, memberships__school=school)
 
     class_id     = request.POST.get('class_id', '').strip()
     filter_mode  = request.POST.get('filter', 'all')

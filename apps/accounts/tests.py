@@ -163,21 +163,36 @@ class TeamSubjectsLazyLoadTests(TestCase):
     def setUp(self):
         from apps.schools.models import School
         from apps.accounts.models import Membership
+        # École A = l'école PRINCIPALE (User.school) de la personne
+        self.autre_ecole = School.objects.create(
+            name='A', short_name='A', city='Bamako', school_type='primary')
+        # École B = celle qu'on regarde, où la personne est ENSEIGNANTE
         self.school = School.objects.create(
-            name='É', short_name='E', city='Bamako', school_type='primary')
+            name='B', short_name='B', city='Bamako', school_type='primary',
+            accounting_enabled=True)
         self.director = User.objects.create_user(
-            phone_number='70002000', password='pw', full_name='Dir',
+            phone_number='70002000', password='pw', full_name='Dir B',
             role=UserRole.DIRECTOR, school=self.school, must_change_password=False)
         Membership.objects.create(user=self.director, school=self.school,
                                   role=UserRole.DIRECTOR, is_active=True)
+        # Sory : directeur GLOBAL (User.school = école A), mais ENSEIGNANT dans B
+        self.multi = User.objects.create_user(
+            phone_number='70002001', password='pw', full_name='Multi',
+            role=UserRole.DIRECTOR, school=self.autre_ecole, must_change_password=False)
+        Membership.objects.create(user=self.multi, school=self.autre_ecole,
+                                  role=UserRole.DIRECTOR, is_active=True)
+        Membership.objects.create(user=self.multi, school=self.school,
+                                  role=UserRole.TEACHER, is_active=True)
         self.client.force_login(self.director)
         s = self.client.session
         s['active_school_id'] = self.school.id
         s.save()
 
-    def test_subjects_directeur_enseignant_ne_404_pas(self):
+    def test_sections_lazy_membre_multi_ecole_ne_404_pas(self):
         from django.urls import reverse
-        # AVANT le fix : role=TEACHER strict → 404 sur un directeur → spinner figé.
-        resp = self.client.get(reverse('team:subjects', args=[self.director.id]),
-                               HTTP_HX_REQUEST='true')
-        self.assertEqual(resp.status_code, 200)
+        # AVANT le fix : filtre User.school → l'école principale (A) ≠ B → 404 →
+        # « Chargement… » figé pour les matières ET la rémunération.
+        for url in [reverse('team:subjects', args=[self.multi.id]),
+                    reverse('accounting:staff-remuneration', args=[self.multi.id])]:
+            resp = self.client.get(url, HTTP_HX_REQUEST='true')
+            self.assertEqual(resp.status_code, 200, url)

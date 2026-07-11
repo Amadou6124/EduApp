@@ -118,7 +118,7 @@ def employee_remuneration_panel(request, user_id):
         return render(request, 'accounting/partials/remuneration_disabled.html',
                       {'school': school})
 
-    member = get_object_or_404(User, pk=user_id, school=school)
+    member = get_object_or_404(User, pk=user_id, memberships__school=school)
     membership = get_object_or_404(Membership, user=member, school=school)
     profile, _ = EmployeeProfile.objects.get_or_create(
         membership=membership,
@@ -142,7 +142,7 @@ def employee_remuneration_save(request, user_id):
     if not school.accounting_enabled:
         return HttpResponse(status=403)
 
-    member = get_object_or_404(User, pk=user_id, school=school)
+    member = get_object_or_404(User, pk=user_id, memberships__school=school)
     membership = get_object_or_404(Membership, user=member, school=school)
     profile, _ = EmployeeProfile.objects.get_or_create(membership=membership)
 
