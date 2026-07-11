@@ -939,25 +939,42 @@ def break_save(request, class_id):
     label = (request.POST.get('label') or '').strip()
     if not label:
         return _edt_toast('Donnez un nom à la pause (ex. Récréation).')
-    day_raw = request.POST.get('day', '')
+
+    # « Tous les jours » (all_days) → une seule pause day=None ; sinon une pause
+    # par jour coché (lun+mer sans mardi = 2 pauses en une fois).
+    if request.POST.get('all_days'):
+        days = [None]
+    else:
+        try:
+            days = [int(d) for d in request.POST.getlist('day')]
+        except (TypeError, ValueError):
+            return _edt_toast('Jours invalides.')
+        if not days:
+            return _edt_toast('Choisissez au moins un jour (ou « Tous les jours »).')
+
     try:
         from datetime import time as _time
         sh, sm = (request.POST.get('start_time') or '').split(':')
         eh, em = (request.POST.get('end_time') or '').split(':')
-        brk = SchoolBreak(
-            school=school, label=label,
-            day=int(day_raw) if day_raw != '' else None,
-            start_time=_time(int(sh), int(sm)), end_time=_time(int(eh), int(em)),
-        )
-        brk.full_clean()
+        start = _time(int(sh), int(sm))
+        end = _time(int(eh), int(em))
     except (ValueError, AttributeError):
         return _edt_toast('Heures invalides.')
+
+    created = 0
+    try:
+        for day in days:
+            brk = SchoolBreak(school=school, label=label, day=day,
+                              start_time=start, end_time=end)
+            brk.full_clean()
+            brk.save()
+            created += 1
     except DjValidationError as e:
         return _edt_toast(' '.join(e.messages))
-    brk.save()
 
+    msg = 'Pause ajoutée.' if created == 1 else f'{created} pauses ajoutées.'
     resp = HttpResponse(_render_timetable(request, school, school_class))
-    resp['HX-Trigger'] = json.dumps({'showToast': {'message': 'Pause ajoutée.', 'type': 'success'}})
+    resp['HX-Trigger'] = json.dumps({'showToast': {'message': msg, 'type': 'success'}})
     return resp
 
 

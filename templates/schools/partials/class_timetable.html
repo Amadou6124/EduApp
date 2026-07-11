@@ -62,11 +62,21 @@ Cible du swap HTMX : #class-timetable (les vues renvoient ce partial complet).
       {% csrf_token %}
       <div><label class="block text-[11px] text-gray-400 mb-0.5">Nom</label>
         <input type="text" name="label" placeholder="Récréation" required class="input-field h-8 text-xs w-32"></div>
-      <div><label class="block text-[11px] text-gray-400 mb-0.5">Jour</label>
-        <select name="day" class="input-field h-8 text-xs w-32">
-          <option value="">Tous les jours</option>
-          {% for val, label in weekday_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
-        </select></div>
+      <div x-data="{ all: true }">
+        <label class="block text-[11px] text-gray-400 mb-0.5">Jours</label>
+        <div class="flex items-center gap-1">
+          <label class="cursor-pointer">
+            <input type="checkbox" name="all_days" value="1" class="peer sr-only" x-model="all">
+            <span class="px-2 h-8 flex items-center rounded-lg border border-gray-200 text-xs font-medium peer-checked:bg-primary-600 peer-checked:text-white peer-checked:border-primary-600">Tous</span>
+          </label>
+          {% for val, label in weekday_choices %}
+          <label class="cursor-pointer">
+            <input type="checkbox" name="day" value="{{ val }}" class="peer sr-only" @change="if($event.target.checked) all=false">
+            <span class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-xs font-semibold peer-checked:bg-primary-600 peer-checked:text-white peer-checked:border-primary-600" :class="all ? 'opacity-40' : ''">{{ label|slice:":1" }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
       <div><label class="block text-[11px] text-gray-400 mb-0.5">Début</label>
         <input type="time" name="start_time" required class="input-field h-8 text-xs"></div>
       <div><label class="block text-[11px] text-gray-400 mb-0.5">Fin</label>

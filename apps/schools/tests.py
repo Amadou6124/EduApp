@@ -387,3 +387,54 @@ class ClassEditTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Modifier')               # le modal (avec erreurs) est re-rendu
         self.assertNotIn('close-edit-modal', resp.headers.get('HX-Trigger', ''))
+
+
+class SchoolBreakMultiDayTests(TestCase):
+    """#9 — créer une pause sur plusieurs jours précis (lun+mer) en une fois."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth import get_user_model
+        from apps.accounts.models import Membership, UserRole
+        U = get_user_model()
+        cls.school = School.objects.create(name='É', short_name='E', city='Bamako',
+                                           school_type='primary')
+        cls.director = U.objects.create_user(
+            phone_number='79993001', password='x', full_name='Dir',
+            role=UserRole.DIRECTOR, school=cls.school, must_change_password=False)
+        Membership.objects.create(user=cls.director, school=cls.school,
+                                  role=UserRole.DIRECTOR, is_default=True)
+        cls.klass = SchoolClass.objects.create(school=cls.school, name='1A',
+                                               level='fondamental_1', annual_fee=0, max_capacity=40)
+
+    def setUp(self):
+        self.client.force_login(self.director)
+        s = self.client.session
+        s['active_school_id'] = self.school.id
+        s.save()
+
+    def _post(self, **data):
+        base = {'label': 'Récré', 'start_time': '10:00', 'end_time': '10:15'}
+        base.update(data)
+        return self.client.post(f'/classes/{self.klass.id}/edt/break/save/', base,
+                                HTTP_HX_REQUEST='true', HTTP_HOST='localhost')
+
+    def test_plusieurs_jours_creent_plusieurs_pauses(self):
+        from apps.schools.models import SchoolBreak
+        self._post(day=['0', '2'])                    # lundi + mercredi, pas mardi
+        days = sorted(SchoolBreak.objects.filter(school=self.school).values_list('day', flat=True))
+        self.assertEqual(days, [0, 2])
+
+    def test_tous_les_jours_une_seule_pause_null(self):
+        from apps.schools.models import SchoolBreak
+        self._post(all_days='1')
+        brks = SchoolBreak.objects.filter(school=self.school)
+        self.assertEqual(brks.count(), 1)
+        self.assertIsNone(brks.first().day)
+
+    def test_aucun_jour_message_clair(self):
+        import json
+        resp = self._post()                            # ni all_days ni day
+        self.assertEqual(resp.status_code, 422)
+        self.assertIn('au moins un jour',
+                      json.loads(resp.headers['HX-Trigger'])['showToast']['message'])

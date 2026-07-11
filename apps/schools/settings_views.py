@@ -548,7 +548,11 @@ def period_generate(request, year_id):
         count = 0
 
     if rythme not in _RYTHME_MAP or not (1 <= count <= 12):
-        return HttpResponse(status=400)
+        resp = HttpResponse(status=422)
+        resp['HX-Trigger'] = json.dumps({'showToast': {
+            'message': 'Choix invalide : vérifiez le rythme et le nombre de périodes (1 à 12).',
+            'type': 'error'}})
+        return resp
     ptype, prefix = _RYTHME_MAP[rythme]
 
     # Cible : une CLASSE précise (surcharge) OU un cycle OU toute l'école.
