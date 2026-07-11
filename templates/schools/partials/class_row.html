@@ -1,6 +1,6 @@
 {% load i18n humanize %}
 {# Ligne classe — cliquable → roster (liste élèves filtrée). Édition/suppression dans le menu ⋯. #}
-<tr id="class-row-{{ school_class.id }}"
+<tr id="class-row-{{ school_class.id }}"{% if oob %} hx-swap-oob="true"{% endif %}
     class="cursor-pointer {% if success %}bg-green-50{% endif %}"
     onclick="window.location.href='{% url 'schools:class-detail' school_class.id %}'">
 

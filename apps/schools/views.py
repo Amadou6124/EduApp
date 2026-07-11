@@ -234,9 +234,14 @@ def class_update(request, class_id):
             # partielle unique_active_class_per_school, non vue par le ModelForm).
             form.add_error('name', "Une classe active porte déjà ce nom.")
         else:
+            # Le modal cible #modal-edit-content (toujours présent) ; la ligne du
+            # tableau se met à jour en OOB (mise à jour sur la LISTE, inoffensif sur
+            # la page DÉTAIL où elle n'existe pas). close-edit-modal ferme le modal
+            # (et recharge la page détail) → la modif est TOUJOURS visible.
             resp = render(request, 'schools/partials/class_row.html', {
                 'school_class': school_class,
                 'success': True,
+                'oob': True,
             })
             resp['HX-Trigger'] = json.dumps({
                 'close-edit-modal': True,
@@ -244,17 +249,12 @@ def class_update(request, class_id):
             })
             return resp
 
-    # Erreur (form invalide OU doublon) → réafficher le MODAL avec les erreurs.
-    # Le formulaire modal cible la LIGNE du tableau ; or sur la page détail cette
-    # ligne n'existe pas → sans reciblage l'erreur partirait dans le vide (le « * »
-    # figé signalé). On recible le contenu du modal, valable sur les deux pages.
-    resp = render(request, 'schools/partials/class_edit_modal.html', {
+    # Erreur (form invalide OU doublon) → réafficher le MODAL avec les erreurs
+    # (swap dans #modal-edit-content, la cible du formulaire).
+    return render(request, 'schools/partials/class_edit_modal.html', {
         'form': form,
         'school_class': school_class,
     })
-    resp['HX-Retarget'] = '#modal-edit-content'
-    resp['HX-Reswap'] = 'innerHTML'
-    return resp
 
 
 @login_required

@@ -11,9 +11,11 @@
   </button>
 </div>
 
+{% comment %}Cible = le conteneur du modal (présent sur la liste ET la page détail).
+   La ligne du tableau, elle, se met à jour en OOB au succès (voir class_update).{% endcomment %}
 <form hx-post="{% url 'schools:class-update' school_class.id %}"
-      hx-target="#class-row-{{ school_class.id }}"
-      hx-swap="outerHTML"
+      hx-target="#modal-edit-content"
+      hx-swap="innerHTML"
       class="px-6 py-6 space-y-4">
   {% csrf_token %}
   {% include "schools/partials/class_form_fields.html" %}

@@ -370,18 +370,20 @@ class ClassEditTests(TestCase):
         resp = self._post(self.c2, level='fondamental_2')   # corrige la 9ème
         self.assertEqual(resp.status_code, 200)
         self.assertIn('close-edit-modal', resp.headers.get('HX-Trigger', ''))
+        self.assertContains(resp, 'hx-swap-oob')            # ligne mise à jour en OOB
         self.c2.refresh_from_db()
         self.assertEqual(self.c2.level, 'fondamental_2')
 
     def test_renommage_vers_nom_existant_ne_500_pas(self):
         resp = self._post(self.c2, name='6ème A')           # nom déjà pris (actif)
         self.assertEqual(resp.status_code, 200)             # PAS de 500
-        self.assertEqual(resp.headers.get('HX-Retarget'), '#modal-edit-content')
-        self.assertContains(resp, 'porte déjà ce nom')      # erreur VISIBLE
+        self.assertContains(resp, 'porte déjà ce nom')      # erreur VISIBLE dans le modal
+        self.assertNotIn('close-edit-modal', resp.headers.get('HX-Trigger', ''))
         self.c2.refresh_from_db()
         self.assertEqual(self.c2.name, '9ème A')            # inchangé
 
-    def test_form_invalide_recible_le_modal(self):
+    def test_form_invalide_reaffiche_le_modal(self):
         resp = self._post(self.c2, name='')                 # nom vide
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.headers.get('HX-Retarget'), '#modal-edit-content')
+        self.assertContains(resp, 'Modifier')               # le modal (avec erreurs) est re-rendu
+        self.assertNotIn('close-edit-modal', resp.headers.get('HX-Trigger', ''))
