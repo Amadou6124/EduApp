@@ -89,7 +89,7 @@ _COMPO_FORMS = {
     'scientific': "Explique et décris sur ta feuille : {c}.",
     'geography':  "Rédige un paragraphe organisé : {c}.",
     'accounting': "Pose et résous l'écriture comptable : {c}.",
-    'code':       "Écris l'algorithme à la main : {c}.",
+    'code':       "Code-le dans ton éditeur, teste-le, puis reviens valider : {c}.",
     'letters':    "Rédige un court texte bien construit : {c}.",
     'generic':    "Rédige sur ta feuille ce que tu as retenu : {c}.",
 }
