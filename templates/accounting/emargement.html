@@ -252,7 +252,7 @@
       persist(id, prev){
         const c = this.state[id];
         const body = new URLSearchParams({
-          class_subject_id: id, date: this.date, session: 'morning',
+          class_subject_id: id, date: this.date,
           status: c.status, substitute_id: c.sub_id || '', hours: c.hours || '',
         });
         fetch("{% url 'accounting:emargement-save' %}", {

@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.schools.models import School, ClassSubject, SchoolAnnouncement
 from apps.accounting.models import (
-    TeacherAttendance, TeacherAttendanceStatus, SessionType,
+    TeacherAttendance, TeacherAttendanceStatus,
 )
 from apps.teachers.models import StudentObservation
 
@@ -116,7 +116,7 @@ class Command(BaseCommand):
                     sub = random.choice(others) if others else None
                 objs.append(TeacherAttendance(
                     teacher=cs.teacher, school=school, class_subject=cs,
-                    date=day, session=SessionType.MORNING, status=status,
+                    date=day, status=status,
                     substitute=sub, recorded_by=recorder,
                 ))
         TeacherAttendance.objects.bulk_create(objs)

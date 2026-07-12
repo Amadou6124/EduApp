@@ -1,7 +1,7 @@
 """
 Tests assiduité / paie vacataire.
 
-Couvre : la contrainte « un seul émargement par (cours, date, session) », et le
+Couvre : la contrainte « un seul émargement par (cours, date) », et le
 calcul de la paie vacataire = Σ (heures émargées « présent » × tarif du cours).
 
 Lancer : venv/bin/python manage.py test apps.accounting
@@ -53,15 +53,15 @@ class EmargementPaieTests(TestCase):
     def _emarge(self, day, hours):
         return TeacherAttendance.objects.create(
             school=self.school, teacher=self.teacher, class_subject=self.cs,
-            date=date(2026, 1, day), session='full', status='present',
+            date=date(2026, 1, day), status='present',
             hours=Decimal(str(hours)), recorded_by=self.director,
         )
 
-    def test_un_seul_emargement_par_cours_date_session(self):
+    def test_un_seul_emargement_par_cours_date(self):
         self._emarge(10, 3)
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                self._emarge(10, 2)   # même (cours, date, session) → refusé
+                self._emarge(10, 2)   # même (cours, date) → refusé
 
     def test_paie_vacataire_heures_x_taux(self):
         # 3h le 10, 2h le 11 = 5h × 2000 = 10 000 FCFA.
@@ -120,10 +120,10 @@ class EdtDerivedHoursTests(TestCase):
             start_time=self.time(*start), end_time=self.time(*end),
         )
 
-    def _emarge(self, d, hours=None, session='morning', status='present'):
+    def _emarge(self, d, hours=None, status='present'):
         return TeacherAttendance.objects.create(
             school=self.school, teacher=self.teacher, class_subject=self.cs,
-            date=date(2026, 1, d), session=session, status=status,
+            date=date(2026, 1, d), status=status,
             hours=(Decimal(str(hours)) if hours is not None else None),
             recorded_by=self.director,
         )
@@ -164,7 +164,8 @@ class EdtDerivedHoursTests(TestCase):
         self.assertEqual(self._hours(), DEFAULT_SESSION_HOURS)
 
     def test_plus_de_x2_journee(self):
-        # Ancien hack : session='full' × 2. Désormais = somme des créneaux (2h), pas 4h.
+        # Ancien hack « journée entière = ×2 » supprimé : la durée = somme des
+        # créneaux du jour (2h), jamais doublée.
         self._slot((8, 0), (10, 0))
-        self._emarge(12, session='full')
+        self._emarge(12)
         self.assertEqual(self._hours(), Decimal('2'))

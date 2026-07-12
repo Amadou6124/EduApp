@@ -205,9 +205,6 @@ _LEVEL_BADGE = {
     'secondaire_pro': 'bg-teal-100 text-teal-700',
     'superieur':      'bg-orange-100 text-orange-700',
 }
-_SESSIONS = ['morning', 'afternoon', 'full']
-
-
 def _hour_presets(duration):
     """4 raccourcis d'heures se terminant sur la durée prévue (ex. 2h → 0,5/1/1,5/2 ;
     3h → 1,5/2/2,5/3). Le « partiel » exact reste possible en saisie libre."""
@@ -291,7 +288,7 @@ def emargement_dashboard(request):
     att_map = {
         a.class_subject_id: a
         for a in TeacherAttendance.objects
-        .filter(school=school, date=selected_date, session='morning')
+        .filter(school=school, date=selected_date)
         .select_related('substitute')
     }
 
@@ -378,7 +375,7 @@ def emargement_save(request):
     from datetime import datetime as _dt
     from apps.schools.models import ClassSubject
     from apps.accounts.models import User
-    from .models import TeacherAttendance, SessionType, TeacherAttendanceStatus
+    from .models import TeacherAttendance, TeacherAttendanceStatus
 
     school = get_school(request)
     if not school.accounting_enabled:
@@ -401,15 +398,11 @@ def emargement_save(request):
     except (ValueError, TypeError):
         return HttpResponse(status=400)
 
-    session = request.POST.get('session', 'morning')
-    if session not in {c[0] for c in SessionType.choices}:
-        session = 'morning'
-
     status = request.POST.get('status', '')
     # Statut vide → dé-marquage : on supprime l'émargement éventuel.
     if status == '':
         TeacherAttendance.objects.filter(
-            class_subject=cs, date=d, session=session,
+            class_subject=cs, date=d,
         ).delete()
         return HttpResponse(status=204)
     if status not in {c[0] for c in TeacherAttendanceStatus.choices}:
@@ -435,7 +428,7 @@ def emargement_save(request):
             hours = max(Decimal('0.5'), min(hours, Decimal('8')))
 
     TeacherAttendance.objects.update_or_create(
-        class_subject=cs, date=d, session=session,
+        class_subject=cs, date=d,
         defaults={
             'teacher': cs.teacher, 'school': school, 'status': status,
             'hours': hours, 'substitute': substitute, 'recorded_by': request.user,

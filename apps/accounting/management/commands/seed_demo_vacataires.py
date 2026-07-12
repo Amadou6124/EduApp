@@ -95,7 +95,7 @@ class Command(BaseCommand):
             # Quelques émargements du jour (présents + 1 partiel 1,5 h).
             for i, cs in enumerate(courses[:4]):
                 TeacherAttendance.objects.update_or_create(
-                    class_subject=cs, date=date.today(), session='morning',
+                    class_subject=cs, date=date.today(),
                     defaults={
                         'teacher': m.user, 'school': school, 'status': 'present',
                         'recorded_by': recorder, 'substitute': None,
