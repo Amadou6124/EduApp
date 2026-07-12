@@ -267,77 +267,86 @@ def emargement_dashboard(request):
     from apps.schools.models import CourseSlot
     from apps.schools.periods import active_year_for
     year = active_year_for(school)
-    # planned_map = horaires affichés ; planned_hours = durée dérivée (somme des créneaux
-    # du jour) → SOURCE de la durée pré-remplie, alignée sur le calcul de paie.
-    planned_map, planned_hours, edt_in_use = {}, {}, False
+    # Version pure : les VACATAIRES émargent par CRÉNEAU (une ligne par créneau du jour) ;
+    # sans créneau (école sans EDT) → une ligne par cours. Les permanents restent par cours.
+    from .services import DEFAULT_SESSION_HOURS
+    slots_by_cs, edt_in_use = {}, False
     if year:
         slot_qs = CourseSlot.objects.filter(
             school_year=year, class_subject__school_class__school=school,
         )
         edt_in_use = slot_qs.exists()
         for s in slot_qs.filter(day=selected_date.weekday()).order_by('start_time'):
-            planned_map.setdefault(s.class_subject_id, []).append(
-                f'{s.start_time:%H:%M}–{s.end_time:%H:%M}'
-            )
-            dmin = (s.end_time.hour * 60 + s.end_time.minute) - (s.start_time.hour * 60 + s.start_time.minute)
-            if dmin > 0:
-                planned_hours[s.class_subject_id] = (
-                    planned_hours.get(s.class_subject_id, Decimal('0')) + Decimal(dmin) / Decimal('60')
-                )
+            slots_by_cs.setdefault(s.class_subject_id, []).append(s)
 
+    # Émargements du jour, indexés par (cours, créneau) — créneau None = niveau cours.
     att_map = {
-        a.class_subject_id: a
+        (a.class_subject_id, a.slot_id): a
         for a in TeacherAttendance.objects
         .filter(school=school, date=selected_date)
         .select_related('substitute')
     }
+
+    def _slot_dur(s):
+        m = (s.end_time.hour * 60 + s.end_time.minute) - (s.start_time.hour * 60 + s.start_time.minute)
+        return (Decimal(m) / Decimal('60')) if m > 0 else DEFAULT_SESSION_HOURS
+
+    def _occ_key(cs_id, slot_id):
+        return f'{cs_id}_{slot_id or "x"}'
+
+    def _state(a, cs_id, slot_id, hours=''):
+        return {
+            'status':   a.status if a else '',
+            'hours':    hours,
+            'sub_id':   str(a.substitute_id) if a and a.substitute_id else '',
+            'sub_name': a.substitute.full_name if a and a.substitute else '',
+            'cs':       cs_id,
+            'slot':     (slot_id or ''),
+        }
 
     init_state, vac_groups, perm_by_class = {}, OrderedDict(), OrderedDict()
     sessions_done, day_amount, absences = 0, 0, 0
     perm_teacher_ids = set()
 
     for cs in cs_list:
-        a = att_map.get(cs.id)
-        status = a.status if a else ''
-        actual = a.hours if (a and a.hours is not None) else None
-        init_state[str(cs.id)] = {
-            'status':   status,
-            'hours':    (str(actual) if actual is not None else ''),
-            'sub_id':   str(a.substitute_id) if a and a.substitute_id else '',
-            'sub_name': a.substitute.full_name if a and a.substitute else '',
-        }
-        if status == 'absent':
-            absences += 1
-
         if cs.teacher_id in vac_user_ids:
             rate = rates.get(cs.id)
-            # Durée = créneaux EDT du jour (source) ; repli sur la constante si aucun.
-            from .services import DEFAULT_SESSION_HOURS
-            dur = planned_hours.get(cs.id) or DEFAULT_SESSION_HOURS
-            eff = actual if actual is not None else dur
-            if status in ('present', 'replaced'):
-                sessions_done += 1
-            if status == 'present' and rate:
-                day_amount += rate * eff
             g = vac_groups.setdefault(cs.teacher_id, {'teacher': cs.teacher, 'courses': []})
-            g['courses'].append({
-                'cs': cs, 'rate': rate, 'duration': dur,
-                'presets': _hour_presets(dur),
-                'planned': planned_map.get(cs.id),   # horaires prévus aujourd'hui (ou None)
-            })
+            for slot in (slots_by_cs.get(cs.id) or [None]):   # 1 occurrence / créneau, sinon 1 sans
+                sid = slot.id if slot else None
+                key = _occ_key(cs.id, sid)
+                a = att_map.get((cs.id, sid))
+                actual = a.hours if (a and a.hours is not None) else None
+                init_state[key] = _state(a, cs.id, sid, str(actual) if actual is not None else '')
+                if a and a.status == 'absent':
+                    absences += 1
+                dur = _slot_dur(slot) if slot else DEFAULT_SESSION_HOURS
+                eff = actual if actual is not None else dur
+                if a and a.status in ('present', 'replaced'):
+                    sessions_done += 1
+                if a and a.status == 'present' and rate:
+                    day_amount += rate * eff
+                g['courses'].append({
+                    'key': key, 'cs': cs, 'rate': rate, 'duration': dur,
+                    'presets': _hour_presets(dur),
+                    'planned': (f'{slot.start_time:%H:%M}–{slot.end_time:%H:%M}' if slot else None),
+                })
         else:
+            a = att_map.get((cs.id, None))
+            key = _occ_key(cs.id, None)
+            init_state[key] = _state(a, cs.id, None)
+            if a and a.status == 'absent':
+                absences += 1
             perm_teacher_ids.add(cs.teacher_id)
             g = perm_by_class.setdefault(cs.school_class_id, {'sc': cs.school_class, 'courses': []})
-            g['courses'].append({'cs': cs})
+            g['courses'].append({'key': key, 'cs': cs})
 
-    # Tri « prévus d'abord » : dans chaque groupe, les cours planifiés du jour en tête
-    # (par heure de début) ; puis les groupes ayant ≥1 cours prévu avant les autres.
+    # Tri « prévus d'abord » : occurrences planifiées en tête (par heure), puis groupes.
     for g in vac_groups.values():
-        g['courses'].sort(key=lambda c: (c['planned'] is None,
-                                         c['planned'][0] if c['planned'] else ''))
+        g['courses'].sort(key=lambda c: (c['planned'] is None, c['planned'] or ''))
     vac_groups = [{
         'teacher': g['teacher'], 'courses': g['courses'],
-        'course_ids': [c['cs'].id for c in g['courses']],
+        'occ_keys': [c['key'] for c in g['courses']],
         'planned_count': sum(1 for c in g['courses'] if c['planned']),
     } for g in vac_groups.values()]
     vac_groups.sort(key=lambda g: g['planned_count'] == 0)
@@ -398,12 +407,19 @@ def emargement_save(request):
     except (ValueError, TypeError):
         return HttpResponse(status=400)
 
+    # Créneau précis (version pure) — optionnel. Sécurité : il doit appartenir au cours.
+    # Absent/invalide → émargement « au niveau du cours » (école sans EDT).
+    slot = None
+    slot_raw = request.POST.get('slot_id')
+    if slot_raw:
+        from apps.schools.models import CourseSlot
+        slot = CourseSlot.objects.filter(pk=slot_raw, class_subject=cs).first()
+    lookup = {'slot': slot, 'date': d} if slot else {'class_subject': cs, 'date': d, 'slot': None}
+
     status = request.POST.get('status', '')
     # Statut vide → dé-marquage : on supprime l'émargement éventuel.
     if status == '':
-        TeacherAttendance.objects.filter(
-            class_subject=cs, date=d,
-        ).delete()
+        TeacherAttendance.objects.filter(**lookup).delete()
         return HttpResponse(status=204)
     if status not in {c[0] for c in TeacherAttendanceStatus.choices}:
         return HttpResponse(status=400)
@@ -427,14 +443,14 @@ def emargement_save(request):
             # (« 20h ») qui ferait s'emballer la paie. Le client borne déjà l'input.
             hours = max(Decimal('0.5'), min(hours, Decimal('8')))
 
-    TeacherAttendance.objects.update_or_create(
-        class_subject=cs, date=d,
-        defaults={
-            'teacher': cs.teacher, 'school': school, 'status': status,
-            'hours': hours, 'substitute': substitute, 'recorded_by': request.user,
-            'note': request.POST.get('note', '').strip()[:200],
-        },
-    )
+    defaults = {
+        'teacher': cs.teacher, 'school': school, 'status': status,
+        'hours': hours, 'substitute': substitute, 'recorded_by': request.user,
+        'note': request.POST.get('note', '').strip()[:200],
+    }
+    if slot:
+        defaults['class_subject'] = cs   # (slot, date) est la clé ; on renseigne le cours
+    TeacherAttendance.objects.update_or_create(**lookup, defaults=defaults)
     return HttpResponse(status=204)
 
 

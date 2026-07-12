@@ -95,8 +95,12 @@ class TeacherAttendanceStatus(models.TextChoices):
 
 class TeacherAttendance(models.Model):
     """
-    Émargement d'un cours. Anti-fraude : recorded_by ≠ teacher (vérifié en vue).
-    Un seul émargement par (class_subject, date).
+    Émargement d'une séance. Anti-fraude : recorded_by ≠ teacher (vérifié en vue).
+
+    Rattachement (le créneau ENRICHIT, il ne GATE jamais) :
+      - École AVEC emploi du temps → `slot` renseigné : un émargement par (créneau, date).
+        Finesse par séance (Maths 8h et Maths 15h le même jour = 2 émargements distincts).
+      - École SANS EDT → `slot` vide : un émargement par (cours, date), comme toujours.
     Paie : 'present' → heures au teacher ; 'replaced' → heures au substitute ; 'absent' → personne.
     """
     teacher = models.ForeignKey(
@@ -110,6 +114,12 @@ class TeacherAttendance(models.Model):
     class_subject = models.ForeignKey(
         'schools.ClassSubject', on_delete=models.PROTECT,
         related_name='teacher_attendances', verbose_name=_('cours'),
+    )
+    # Créneau EDT précis (optionnel). SET_NULL : supprimer un créneau ne détruit pas
+    # l'émargement — il redevient « au niveau du cours » (le planning reste un guide).
+    slot = models.ForeignKey(
+        'schools.CourseSlot', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='attendances', verbose_name=_('créneau'),
     )
     date    = models.DateField(_('date'))
     status = models.CharField(
@@ -138,9 +148,17 @@ class TeacherAttendance(models.Model):
         verbose_name_plural = _('émargements enseignants')
         ordering = ['-date', 'class_subject']
         constraints = [
+            # Avec créneau : un émargement par (créneau, date).
+            models.UniqueConstraint(
+                fields=['slot', 'date'],
+                condition=models.Q(slot__isnull=False),
+                name='uniq_tatt_slot_date',
+            ),
+            # Sans créneau (école sans EDT) : un émargement par (cours, date) — règle historique.
             models.UniqueConstraint(
                 fields=['class_subject', 'date'],
-                name='uniq_tatt_course_date',
+                condition=models.Q(slot__isnull=True),
+                name='uniq_tatt_course_date_noslot',
             ),
         ]
         indexes = [

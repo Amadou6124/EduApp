@@ -135,8 +135,8 @@ class EdtDerivedHoursTests(TestCase):
         from apps.accounting.services import _slot_hours_map
         self._slot((8, 0), (10, 0))     # 2h
         self._slot((14, 0), (15, 0))    # 1h le même lundi
-        m = _slot_hours_map(self.school, 2026, 1)
-        self.assertEqual(m[(self.cs.id, 0)], Decimal('3'))
+        day_map, slot_map = _slot_hours_map(self.school, 2026, 1)
+        self.assertEqual(day_map[(self.cs.id, 0)], Decimal('3'))
 
     def test_duree_vient_du_creneau(self):
         self._slot((8, 0), (10, 0))     # 2h
@@ -169,3 +169,43 @@ class EdtDerivedHoursTests(TestCase):
         self._slot((8, 0), (10, 0))
         self._emarge(12)
         self.assertEqual(self._hours(), Decimal('2'))
+
+    # ── Version pure : émargement rattaché au créneau (optionnel) ──────────────
+    def _emarge_slot(self, slot, d=12, hours=None, status='present'):
+        return TeacherAttendance.objects.create(
+            school=self.school, teacher=self.teacher, class_subject=self.cs,
+            slot=slot, date=date(2026, 1, d), status=status,
+            hours=(Decimal(str(hours)) if hours is not None else None),
+            recorded_by=self.director,
+        )
+
+    def test_meme_cours_deux_creneaux_deux_emargements(self):
+        # Maths 8h ET Maths 15h le même lundi = 2 séances distinctes, émargeables séparément.
+        s1 = self._slot((8, 0), (10, 0))
+        s2 = self._slot((15, 0), (16, 0))
+        self._emarge_slot(s1)
+        self._emarge_slot(s2, status='absent')   # présent le matin, absent l'après-midi
+        self.assertEqual(
+            TeacherAttendance.objects.filter(class_subject=self.cs, date=self.lundi).count(), 2)
+
+    def test_creneau_lie_donne_sa_propre_duree(self):
+        # Maths 8h-10h (2h) ET 14h-15h (1h) le lundi. Émargé SUR le créneau de 1h
+        # → paie = 1h (sa durée exacte), pas la somme du jour (3h).
+        self._slot((8, 0), (10, 0))
+        s2 = self._slot((14, 0), (15, 0))
+        self._emarge_slot(s2)
+        self.assertEqual(self._hours(), Decimal('1'))
+
+    def test_doublon_meme_creneau_refuse(self):
+        s1 = self._slot((8, 0), (10, 0))
+        self._emarge_slot(s1)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                self._emarge_slot(s1)   # même (créneau, date) → refusé
+
+    def test_sans_creneau_un_seul_par_cours_date(self):
+        # École SANS EDT : la règle historique tient — un émargement par (cours, date).
+        self._emarge(12)                # slot = null
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                self._emarge(12)

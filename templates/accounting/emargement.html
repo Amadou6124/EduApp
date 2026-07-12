@@ -61,23 +61,23 @@
         </span>
         <span class="flex items-center gap-2 shrink-0">
           <span class="text-xs font-medium px-2 py-0.5 rounded-full"
-                :class="teacherDone({{ g.course_ids }}) > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
-            <span x-text="teacherDone({{ g.course_ids }})"></span>/{{ g.courses|length }}
+                :class="teacherDone({{ g.occ_keys }}) > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
+            <span x-text="teacherDone({{ g.occ_keys }})"></span>/{{ g.courses|length }}
           </span>
           <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="openTeacher[{{ g.teacher.id }}] ? 'rotate-180' : ''"></i>
         </span>
       </button>
       <div x-show="openTeacher[{{ g.teacher.id }}]" x-cloak class="divide-y divide-gray-50 border-t border-gray-100">
-        {% for c in g.courses %}{% with cs=c.cs id=c.cs.id|stringformat:'s' %}
+        {% for c in g.courses %}{% with cs=c.cs id=c.key %}
         <div class="px-4 py-3">
           <div class="flex items-center gap-2 mb-2 flex-wrap">
             <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ cs.subject.color|default:'#94a3b8' }}"></span>
             <span class="text-sm font-medium text-gray-900">{{ cs.subject.name }}</span>
             <span class="text-xs text-gray-400">· {{ cs.school_class.name }} · prévu {{ c.duration|floatformat:'-1' }}h{% if c.rate %} · {{ c.rate|floatformat:0|intcomma }}/h{% endif %}</span>
-            {# Guide emploi du temps : horaire du jour si planifié, mention discrète sinon. Jamais bloquant. #}
+            {# Guide emploi du temps : horaire du CRÉNEAU si planifié, mention discrète sinon. Jamais bloquant. #}
             {% if c.planned %}
               <span class="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-700 text-[11px] font-medium px-2 py-0.5">
-                <i data-lucide="clock" class="w-3 h-3"></i>{% for h in c.planned %}{{ h }}{% if not forloop.last %} & {% endif %}{% endfor %}
+                <i data-lucide="clock" class="w-3 h-3"></i>{{ c.planned }}
               </span>
             {% elif edt_in_use %}
               <span class="text-[11px] text-gray-300">hors planning du jour</span>
@@ -161,7 +161,7 @@
           <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="openClass[{{ g.school_class.id }}] ? 'rotate-180' : ''"></i>
         </button>
         <div x-show="openClass[{{ g.school_class.id }}]" x-cloak class="divide-y divide-gray-50 border-t border-gray-100">
-          {% for c in g.courses %}{% with cs=c.cs id=c.cs.id|stringformat:'s' %}
+          {% for c in g.courses %}{% with cs=c.cs id=c.key %}
           <div class="px-4 py-2.5 flex items-center gap-2 flex-wrap">
             <span class="w-2 h-2 rounded-full shrink-0" style="background:{{ cs.subject.color|default:'#94a3b8' }}"></span>
             <span class="text-sm text-gray-800">{{ cs.subject.name }}</span>
@@ -252,7 +252,7 @@
       persist(id, prev){
         const c = this.state[id];
         const body = new URLSearchParams({
-          class_subject_id: id, date: this.date,
+          class_subject_id: c.cs, slot_id: c.slot || '', date: this.date,
           status: c.status, substitute_id: c.sub_id || '', hours: c.hours || '',
         });
         fetch("{% url 'accounting:emargement-save' %}", {

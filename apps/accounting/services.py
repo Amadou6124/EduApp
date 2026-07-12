@@ -11,13 +11,14 @@ DEFAULT_SESSION_HOURS = Decimal('2')
 
 
 def _slot_hours_map(school, year, month):
-    """{(class_subject_id, weekday): Decimal(heures)} = somme des créneaux EDT d'un
-    cours ce jour-là, pour l'année scolaire qui couvre ce mois. Un mois calendaire
-    tombe dans UNE seule année scolaire. Vide si aucune année ne couvre le mois.
+    """Renvoie (day_map, slot_map) pour l'année scolaire qui couvre ce mois (un mois
+    calendaire tombe dans UNE seule année) :
+      - day_map[(class_subject_id, weekday)] = somme des créneaux du cours ce jour
+        (repli quand l'émargement n'est pas rattaché à un créneau précis) ;
+      - slot_map[slot_id] = durée du créneau exact (émargement de la « version pure »).
 
-    C'est la SOURCE des durées : peu importe la forme de la journée (continue jusqu'à
-    15h, cours du soir…), le créneau porte ses vraies heures. Plus de « matin/après-midi »
-    ni de ×2 : on additionne ce qui est réellement au planning ce jour."""
+    Le créneau porte ses vraies heures — journée continue, cours du soir… Ni matin/
+    après-midi, ni ×2. Tuple ({}, {}) si aucune année ne couvre le mois."""
     import datetime
     from apps.schools.models import SchoolYear, CourseSlot
     mid = datetime.date(year, month, 15)
@@ -25,27 +26,34 @@ def _slot_hours_map(school, year, month):
           .filter(school=school, start_date__lte=mid, end_date__gte=mid)
           .order_by('-start_date').first())
     if sy is None:
-        return {}
-    mins = {}
-    for cs_id, day, st, et in (
+        return {}, {}
+    day_mins, slot_map = {}, {}
+    for sid, cs_id, day, st, et in (
         CourseSlot.objects.filter(school_year=sy)
-        .values_list('class_subject_id', 'day', 'start_time', 'end_time')
+        .values_list('id', 'class_subject_id', 'day', 'start_time', 'end_time')
     ):
         d = (et.hour * 60 + et.minute) - (st.hour * 60 + st.minute)
         if d > 0:
-            mins[(cs_id, day)] = mins.get((cs_id, day), 0) + d
-    return {k: (Decimal(v) / Decimal('60')) for k, v in mins.items()}
+            day_mins[(cs_id, day)] = day_mins.get((cs_id, day), 0) + d
+            slot_map[sid] = Decimal(d) / Decimal('60')
+    day_map = {k: (Decimal(v) / Decimal('60')) for k, v in day_mins.items()}
+    return day_map, slot_map
 
 
-def _effective_hours(row, slot_map):
+def _effective_hours(row, day_map, slot_map):
     """Heures d'une séance émargée, dans l'ordre :
-      1. heures RÉELLES tapées (« partiel » / cours hors EDT) ;
-      2. somme des créneaux EDT du cours ce jour (la norme) ;
-      3. dernier filet DEFAULT_SESSION_HOURS (aucun créneau, aucune saisie).
-    `row` expose hours, class_subject_id, date."""
+      1. heures RÉELLES tapées (« partiel ») ;
+      2. durée du CRÉNEAU précis si l'émargement y est rattaché (version pure) ;
+      3. somme des créneaux du cours ce jour (émargement au niveau du cours) ;
+      4. dernier filet DEFAULT_SESSION_HOURS.
+    `row` expose hours, slot_id, class_subject_id, date."""
     if row['hours'] is not None:
         return row['hours']
-    planned = slot_map.get((row['class_subject_id'], row['date'].weekday()))
+    if row.get('slot_id') is not None:
+        d = slot_map.get(row['slot_id'])
+        if d is not None:
+            return d
+    planned = day_map.get((row['class_subject_id'], row['date'].weekday()))
     if planned is not None:
         return planned
     return DEFAULT_SESSION_HOURS
@@ -58,7 +66,7 @@ def compute_teacher_hours(school, year, month):
     Cumule (titulaire 'present') + (remplaçant 'replaced'). {user_id: Decimal}.
     """
     from .models import TeacherAttendance
-    slot_map = _slot_hours_map(school, year, month)
+    day_map, slot_map = _slot_hours_map(school, year, month)
     hours = {}
 
     def _add(uid, h):
@@ -67,17 +75,17 @@ def compute_teacher_hours(school, year, month):
     for r in (
         TeacherAttendance.objects
         .filter(school=school, date__year=year, date__month=month, status='present')
-        .values('teacher_id', 'class_subject_id', 'hours', 'date')
+        .values('teacher_id', 'class_subject_id', 'slot_id', 'hours', 'date')
     ):
-        _add(r['teacher_id'], _effective_hours(r, slot_map))
+        _add(r['teacher_id'], _effective_hours(r, day_map, slot_map))
 
     for r in (
         TeacherAttendance.objects
         .filter(school=school, date__year=year, date__month=month,
                 status='replaced', substitute__isnull=False)
-        .values('substitute_id', 'class_subject_id', 'hours', 'date')
+        .values('substitute_id', 'class_subject_id', 'slot_id', 'hours', 'date')
     ):
-        _add(r['substitute_id'], _effective_hours(r, slot_map))
+        _add(r['substitute_id'], _effective_hours(r, day_map, slot_map))
 
     return hours
 
@@ -99,16 +107,16 @@ def compute_vacataire_pay(school, year, month):
             profile__employment_type=EmploymentType.VACATAIRE,
         )
     }
-    slot_map = _slot_hours_map(school, year, month)
+    day_map, slot_map = _slot_hours_map(school, year, month)
     acc = defaultdict(lambda: {'amount': Decimal('0'), 'hours': Decimal('0'),
                                'courses': set(), 'unrated_hours': Decimal('0')})
     rows = (
         TeacherAttendance.objects
         .filter(school=school, date__year=year, date__month=month, status='present')
-        .values('teacher_id', 'class_subject_id', 'hours', 'date')
+        .values('teacher_id', 'class_subject_id', 'slot_id', 'hours', 'date')
     )
     for r in rows:
-        eff = _effective_hours(r, slot_map)
+        eff = _effective_hours(r, day_map, slot_map)
         d = acc[r['teacher_id']]
         d['hours'] += eff
         d['courses'].add(r['class_subject_id'])
