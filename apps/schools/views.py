@@ -806,8 +806,8 @@ def _timetable_ctx(school, school_class):
         ClassSubject.objects.filter(school_class=school_class, is_active=True)
         .select_related('subject', 'teacher').order_by('order', 'subject__name')
     )
-    # Durée par défaut (minutes) par cours → pré-remplissage de l'heure de fin côté JS.
-    durations = {cs.id: int((cs.duration_hours or 2) * 60) for cs in class_subjects}
+    # Pré-remplissage de l'heure de fin côté JS : +2h par défaut (le prof ajuste).
+    durations = {cs.id: 120 for cs in class_subjects}
 
     hour_marks = []   # repères 8h → 17h (positions en px depuis 7h30)
     for h in range(8, 18):

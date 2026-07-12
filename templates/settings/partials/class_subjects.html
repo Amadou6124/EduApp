@@ -125,7 +125,7 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
           <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ cs.subject.color }};"></span>
           <span class="text-sm font-medium text-gray-800">{{ cs.subject.name }}</span>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 items-end">
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 mb-1">Coeff.</label>
             <input name="coefficient" type="number" step="0.1" min="0.1" value="{{ cs.coefficient|unlocalize }}" class="input-field h-9 text-sm w-full">
@@ -133,10 +133,6 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 mb-1">Note max</label>
             <input name="max_grade" type="number" step="0.01" min="1" value="{{ cs.max_grade|unlocalize }}" class="input-field h-9 text-sm w-full">
-          </div>
-          <div>
-            <label class="block text-[10px] font-semibold text-gray-500 mb-1">Durée (h)</label>
-            <input name="duration_hours" type="number" step="0.5" min="0.5" value="{{ cs.duration_hours|unlocalize }}" class="input-field h-9 text-sm w-full">
           </div>
           <div class="col-span-2 sm:col-span-1">
             <label class="block text-[10px] font-semibold text-gray-500 mb-1">Enseignant</label>
@@ -198,7 +194,6 @@ Contexte : school_class, class_subjects, available_subjects, teachers.
           </select>
         </div>
       </div>
-      <input type="hidden" name="duration_hours" value="2">
       <input type="hidden" name="order"          value="{{ class_subjects|length }}">
       <div class="flex justify-end mt-2">
         <button type="submit" class="btn-primary text-xs"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Ajouter</button>

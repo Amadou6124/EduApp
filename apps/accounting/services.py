@@ -5,6 +5,10 @@ from django.db.models import Sum
 
 from apps.accounts.models import UserRole
 
+# Dernier filet : durée d'une séance sans créneau EDT ni heures tapées. L'émargement
+# invite à saisir la vraie durée ; cette valeur n'évite qu'un « 0 » silencieux.
+DEFAULT_SESSION_HOURS = Decimal('2')
+
 
 def _slot_hours_map(school, year, month):
     """{(class_subject_id, weekday): Decimal(heures)} = somme des créneaux EDT d'un
@@ -37,14 +41,14 @@ def _effective_hours(row, slot_map):
     """Heures d'une séance émargée, dans l'ordre :
       1. heures RÉELLES tapées (« partiel » / cours hors EDT) ;
       2. somme des créneaux EDT du cours ce jour (la norme) ;
-      3. durée par défaut du cours (dernier filet, transitoire).
-    `row` expose hours, class_subject_id, class_subject__duration_hours, date."""
+      3. dernier filet DEFAULT_SESSION_HOURS (aucun créneau, aucune saisie).
+    `row` expose hours, class_subject_id, date."""
     if row['hours'] is not None:
         return row['hours']
     planned = slot_map.get((row['class_subject_id'], row['date'].weekday()))
     if planned is not None:
         return planned
-    return row['class_subject__duration_hours'] or Decimal('0')
+    return DEFAULT_SESSION_HOURS
 
 
 def compute_teacher_hours(school, year, month):
@@ -63,8 +67,7 @@ def compute_teacher_hours(school, year, month):
     for r in (
         TeacherAttendance.objects
         .filter(school=school, date__year=year, date__month=month, status='present')
-        .values('teacher_id', 'class_subject_id', 'hours',
-                'class_subject__duration_hours', 'date')
+        .values('teacher_id', 'class_subject_id', 'hours', 'date')
     ):
         _add(r['teacher_id'], _effective_hours(r, slot_map))
 
@@ -72,8 +75,7 @@ def compute_teacher_hours(school, year, month):
         TeacherAttendance.objects
         .filter(school=school, date__year=year, date__month=month,
                 status='replaced', substitute__isnull=False)
-        .values('substitute_id', 'class_subject_id', 'hours',
-                'class_subject__duration_hours', 'date')
+        .values('substitute_id', 'class_subject_id', 'hours', 'date')
     ):
         _add(r['substitute_id'], _effective_hours(r, slot_map))
 
@@ -103,8 +105,7 @@ def compute_vacataire_pay(school, year, month):
     rows = (
         TeacherAttendance.objects
         .filter(school=school, date__year=year, date__month=month, status='present')
-        .values('teacher_id', 'class_subject_id', 'hours',
-                'class_subject__duration_hours', 'date')
+        .values('teacher_id', 'class_subject_id', 'hours', 'date')
     )
     for r in rows:
         eff = _effective_hours(r, slot_map)

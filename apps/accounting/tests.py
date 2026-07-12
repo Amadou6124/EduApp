@@ -75,7 +75,7 @@ class EmargementPaieTests(TestCase):
 class EdtDerivedHoursTests(TestCase):
     """La durée d'une séance vient de l'EMPLOI DU TEMPS (somme des créneaux du jour),
     sauf heures tapées. Aucune coupure matin/après-midi, aucun ×2 : le créneau porte
-    ses vraies heures (journée continue, cours du soir…). Repli : duration_hours."""
+    ses vraies heures (journée continue, cours du soir…). Repli : DEFAULT_SESSION_HOURS."""
 
     @classmethod
     def setUpTestData(cls):
@@ -105,7 +105,7 @@ class EdtDerivedHoursTests(TestCase):
         subject = Subject.objects.create(school=cls.school, name='Maths')
         cls.cs = ClassSubject.objects.create(
             school_class=cls.klass, subject=subject, teacher=cls.teacher, is_active=True,
-        )  # duration_hours défaut = 2h (le dernier filet)
+        )  # aucune durée par matière : le repli est DEFAULT_SESSION_HOURS (2h)
         VacataireRate.objects.create(profile=cls.profile, class_subject=cls.cs, hourly_rate=Decimal('2000'))
         cls.year = SchoolYear.objects.create(
             school=cls.school, name='2025-2026',
@@ -158,9 +158,10 @@ class EdtDerivedHoursTests(TestCase):
         self._emarge(12, hours='1.5')   # partiel : seulement 1h30
         self.assertEqual(self._hours(), Decimal('1.5'))
 
-    def test_sans_creneau_repli_sur_duration_hours(self):
-        self._emarge(12)                # aucun créneau ce lundi → filet 2h
-        self.assertEqual(self._hours(), Decimal('2'))
+    def test_sans_creneau_repli_sur_constante(self):
+        from apps.accounting.services import DEFAULT_SESSION_HOURS
+        self._emarge(12)                # aucun créneau ce lundi → dernier filet
+        self.assertEqual(self._hours(), DEFAULT_SESSION_HOURS)
 
     def test_plus_de_x2_journee(self):
         # Ancien hack : session='full' × 2. Désormais = somme des créneaux (2h), pas 4h.

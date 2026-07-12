@@ -314,8 +314,9 @@ def emargement_dashboard(request):
 
         if cs.teacher_id in vac_user_ids:
             rate = rates.get(cs.id)
-            # Durée = créneaux EDT du jour (source) ; repli sur duration_hours si aucun.
-            dur = planned_hours.get(cs.id) or cs.duration_hours
+            # Durée = créneaux EDT du jour (source) ; repli sur la constante si aucun.
+            from .services import DEFAULT_SESSION_HOURS
+            dur = planned_hours.get(cs.id) or DEFAULT_SESSION_HOURS
             eff = actual if actual is not None else dur
             if status in ('present', 'replaced'):
                 sessions_done += 1

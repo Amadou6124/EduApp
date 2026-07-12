@@ -491,14 +491,6 @@ class ClassSubject(models.Model):
         default=Decimal('20.00'),
         validators=[MinValueValidator(Decimal('1.00'))],
     )
-    # Comptabilité : durée d'un cours (heures) pour le calcul de la paie vacataire
-    duration_hours = models.DecimalField(
-        _("durée d'un cours (heures)"),
-        max_digits=3,
-        decimal_places=1,
-        default=Decimal('2.0'),
-        validators=[MinValueValidator(Decimal('0.5'))],
-    )
     teacher = models.ForeignKey(
         'accounts.User',
         on_delete=models.SET_NULL,
@@ -542,11 +534,11 @@ class CourseSlot(models.Model):
 
     Contrats (décidés, ne pas rediscuter sans raison forte) :
       - 1 cours → N créneaux (Math lundi 8h-10h ET jeudi 10h-11h). Durées LIBRES par
-        créneau : implicite = end - start. ClassSubject.duration_hours n'est qu'une
-        durée par DÉFAUT pour pré-remplir la saisie.
-      - Le planning est un GUIDE ; l'émargement (TeacherAttendance) reste la VÉRITÉ
-        pour la paie. Un créneau ne paie personne, l'historique de paie ne référence
-        JAMAIS un créneau → modifier/supprimer un créneau ne casse rien.
+        créneau : implicite = end - start.
+      - Le créneau est la SOURCE de la durée d'une séance (somme des créneaux du jour) ;
+        l'émargement (TeacherAttendance.hours) la remplace en cas d'imprévu (partiel).
+        Un créneau ne paie personne, l'historique de paie ne référence JAMAIS un créneau
+        → modifier/supprimer un créneau ne casse rien.
       - Rattaché à l'ANNÉE scolaire (archivé avec elle, comme les inscriptions).
       - Heures EXACTES à la minute (8h / 11h15 / 13h30…), pas de demi-journées.
     """

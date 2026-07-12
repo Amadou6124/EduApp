@@ -974,7 +974,7 @@ def class_subject_apply_catalog(request, class_id):
         _, created = ClassSubject.objects.get_or_create(
             school_class=school_class, subject=subject,
             defaults={'coefficient': Decimal('1'), 'max_grade': Decimal('20'),
-                      'duration_hours': Decimal('2'), 'order': start + i},
+                      'order': start + i},
         )
         added += 1 if created else 0
 
@@ -1041,15 +1041,15 @@ def _copy_class_config(source_class, target_class):
     for s in ClassSubject.objects.filter(school_class=source_class, is_active=True):
         tgt = existing.get(s.subject_id)
         if tgt:
-            tgt.coefficient, tgt.max_grade, tgt.duration_hours, tgt.is_active = (
-                s.coefficient, s.max_grade, s.duration_hours, True)
-            tgt.save(update_fields=['coefficient', 'max_grade', 'duration_hours', 'is_active'])
+            tgt.coefficient, tgt.max_grade, tgt.is_active = (
+                s.coefficient, s.max_grade, True)
+            tgt.save(update_fields=['coefficient', 'max_grade', 'is_active'])
             updated += 1
         else:
             ClassSubject.objects.create(
                 school_class=target_class, subject_id=s.subject_id,
                 coefficient=s.coefficient, max_grade=s.max_grade,
-                duration_hours=s.duration_hours, order=s.order,
+                order=s.order,
             )
             created += 1
     return created, updated
@@ -1099,7 +1099,7 @@ def class_subject_bulk(request):
         for t in targets:
             _, created = ClassSubject.objects.get_or_create(
                 school_class=t, subject=subject,
-                defaults={'coefficient': coeff, 'max_grade': Decimal('20'), 'duration_hours': Decimal('2')},
+                defaults={'coefficient': coeff, 'max_grade': Decimal('20')},
             )
             if created:
                 n += 1

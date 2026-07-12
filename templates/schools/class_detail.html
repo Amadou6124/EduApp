@@ -207,14 +207,13 @@
     {% if cockpit.class_subjects %}
       <div class="table-card">
         <table class="data-table">
-          <thead><tr><th>{% trans "Matière" %}</th><th>{% trans "Enseignant" %}</th><th class="text-center">{% trans "Coef." %}</th><th class="text-right">{% trans "Volume" %}</th></tr></thead>
+          <thead><tr><th>{% trans "Matière" %}</th><th>{% trans "Enseignant" %}</th><th class="text-center">{% trans "Coef." %}</th></tr></thead>
           <tbody>
             {% for cs in cockpit.class_subjects %}
             <tr>
               <td class="font-medium text-gray-900">{{ cs.subject.name }}</td>
               <td class="text-gray-600">{% if cs.teacher %}{{ cs.teacher.full_name }}{% else %}<span class="text-amber-500 text-xs">{% trans "non assigné" %}</span>{% endif %}</td>
               <td class="text-center text-gray-600">{{ cs.coefficient|floatformat:"-2" }}</td>
-              <td class="text-right text-gray-500">{% if cs.duration_hours %}{{ cs.duration_hours|floatformat:"-1" }} h{% else %}—{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>
